@@ -68,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Text('Y', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 18),
-                Text('Connexion', style: Theme.of(context).textTheme.headlineSmall),
+                Text('Se connecter', style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 6),
                 Text(
                   widget.role == UserRole.client
