@@ -33,18 +33,18 @@ class MerchantDashboardScreen extends StatelessWidget {
         color: Color(0xFF8B5CF6)),
   ];
 
-  final List<_Activity> recentActivity = const [
-    _Activity(
+  final List<Activity> recentActivity = const [
+    Activity(
         customer: 'Mohammed A.',
         action: 'Scan QR',
         points: 10,
         time: 'Il y a 5 min'),
-    _Activity(
+    Activity(
         customer: 'Fatima Z.',
         action: 'Récompense utilisée',
         points: -50,
         time: 'Il y a 12 min'),
-    _Activity(
+    Activity(
         customer: 'Ahmed K.',
         action: 'Scan QR',
         points: 10,
@@ -67,9 +67,9 @@ class MerchantDashboardScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
+                    const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text('Mon commerce',
                             style: TextStyle(color: Colors.white70)),
                         SizedBox(height: 4),
@@ -88,8 +88,8 @@ class MerchantDashboardScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.circle, size: 10, color: Colors.greenAccent),
                     SizedBox(width: 6),
                     Text('Ouvert', style: TextStyle(color: Colors.white70)),
@@ -171,7 +171,7 @@ class MerchantDashboardScreen extends StatelessWidget {
                       title: 'Mon QR Code',
                       subtitle: 'Afficher le code',
                       icon: Icons.qr_code_2,
-                      background: YColors.secondary.withOpacity(0.1),
+                      background: YColors.secondary.withValues(alpha: 0.1),
                       iconColor: YColors.secondary,
                       onTap: () => onNavigate('qr-code'),
                     ),
@@ -335,13 +335,13 @@ class _StatCard {
   final Color color;
 }
 
-class _Activity {
+class Activity {
   final String customer;
   final String action;
   final int points;
   final String time;
 
-  const _Activity({
+  const Activity({
     required this.customer,
     required this.action,
     required this.points,

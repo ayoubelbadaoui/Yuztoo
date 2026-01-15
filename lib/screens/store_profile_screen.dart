@@ -97,8 +97,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
                 Text('Café Central',
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 6),
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.star, size: 16, color: YColors.secondary),
                     SizedBox(width: 4),
                     Text('4.5 (128 avis)',
@@ -138,10 +138,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
             ),
           ),
           const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
-              children: const [
+              children: [
                 _InfoRow(
                     icon: Icons.access_time,
                     title: 'Horaires',
@@ -189,7 +189,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: YColors.secondary.withOpacity(0.1),
+                                  color:
+                                      YColors.secondary.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.card_giftcard,
@@ -213,8 +214,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 10, vertical: 6),
                                       decoration: BoxDecoration(
-                                        color:
-                                            YColors.secondary.withOpacity(0.1),
+                                        color: YColors.secondary
+                                            .withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Text(

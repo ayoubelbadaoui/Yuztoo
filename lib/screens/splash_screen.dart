@@ -38,9 +38,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       child: Center(
         child: ScaleTransition(
           scale: CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-          child: Column(
+          child: const Column(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               _Logo(),
               SizedBox(height: 16),
               Text(

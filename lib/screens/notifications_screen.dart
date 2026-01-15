@@ -17,7 +17,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     notifications = [
-      _Notification(
+      const _Notification(
         id: 1,
         title: 'Nouvelle promotion !',
         message: '20% de réduction chez Café Central',
@@ -25,7 +25,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         type: NotificationType.promotion,
         isRead: false,
       ),
-      _Notification(
+      const _Notification(
         id: 2,
         title: 'Points gagnés',
         message: 'Vous avez gagné 10 points chez Pharmacie El Amane',
@@ -33,7 +33,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         type: NotificationType.points,
         isRead: false,
       ),
-      _Notification(
+      const _Notification(
         id: 3,
         title: 'Nouveau message',
         message: 'Café Central vous a envoyé un message',
@@ -41,7 +41,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         type: NotificationType.message,
         isRead: true,
       ),
-      _Notification(
+      const _Notification(
         id: 4,
         title: 'Rappel de réservation',
         message: 'Votre réservation pour demain à 19h',
@@ -54,7 +54,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   void _markAllRead() {
     setState(() {
-      notifications = notifications.map((n) => n.copyWith(isRead: true)).toList();
+      notifications =
+          notifications.map((n) => n.copyWith(isRead: true)).toList();
     });
   }
 
@@ -66,10 +67,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
           child: Row(
             children: [
-              IconButton(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
+              IconButton(
+                  onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
               const SizedBox(width: 8),
-              Expanded(child: Text('Notifications', style: Theme.of(context).textTheme.titleLarge)),
-              TextButton(onPressed: _markAllRead, child: const Text('Tout marquer lu')),
+              Expanded(
+                  child: Text('Notifications',
+                      style: Theme.of(context).textTheme.titleLarge)),
+              TextButton(
+                  onPressed: _markAllRead,
+                  child: const Text('Tout marquer lu')),
             ],
           ),
         ),
@@ -111,21 +117,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(item.title, style: Theme.of(context).textTheme.titleMedium),
+                                    Text(item.title,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium),
                                     if (!item.isRead)
                                       Container(
                                         width: 8,
                                         height: 8,
-                                        decoration: const BoxDecoration(color: YColors.secondary, shape: BoxShape.circle),
+                                        decoration: const BoxDecoration(
+                                            color: YColors.secondary,
+                                            shape: BoxShape.circle),
                                       ),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
-                                Text(item.message, style: const TextStyle(color: YColors.muted)),
+                                Text(item.message,
+                                    style:
+                                        const TextStyle(color: YColors.muted)),
                                 const SizedBox(height: 6),
-                                Text(item.time, style: const TextStyle(color: YColors.muted, fontSize: 12)),
+                                Text(item.time,
+                                    style: const TextStyle(
+                                        color: YColors.muted, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -145,13 +161,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   _NotificationColors _colorsFor(NotificationType type) {
     switch (type) {
       case NotificationType.promotion:
-        return const _NotificationColors(background: Color(0xFFFDF5E6), foreground: YColors.secondary, icon: Icons.card_giftcard);
+        return const _NotificationColors(
+            background: Color(0xFFFDF5E6),
+            foreground: YColors.secondary,
+            icon: Icons.card_giftcard);
       case NotificationType.points:
-        return const _NotificationColors(background: Color(0xFFFDF5E6), foreground: YColors.secondary, icon: Icons.star_border);
+        return const _NotificationColors(
+            background: Color(0xFFFDF5E6),
+            foreground: YColors.secondary,
+            icon: Icons.star_border);
       case NotificationType.message:
-        return const _NotificationColors(background: Color(0xFFE8F1FF), foreground: Color(0xFF1E64D0), icon: Icons.chat_bubble_outline);
+        return const _NotificationColors(
+            background: Color(0xFFE8F1FF),
+            foreground: Color(0xFF1E64D0),
+            icon: Icons.chat_bubble_outline);
       case NotificationType.reminder:
-        return const _NotificationColors(background: Color(0xFFE9F5EE), foreground: Color(0xFF1E9E5B), icon: Icons.calendar_today_outlined);
+        return const _NotificationColors(
+            background: Color(0xFFE9F5EE),
+            foreground: Color(0xFF1E9E5B),
+            icon: Icons.calendar_today_outlined);
     }
   }
 }
@@ -186,7 +214,8 @@ class _Notification {
 }
 
 class _NotificationColors {
-  const _NotificationColors({required this.background, required this.foreground, required this.icon});
+  const _NotificationColors(
+      {required this.background, required this.foreground, required this.icon});
   final Color background;
   final Color foreground;
   final IconData icon;

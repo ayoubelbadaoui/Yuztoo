@@ -49,7 +49,7 @@ class RoleSelectionScreen extends StatelessWidget {
               title: 'Commerçant',
               description: 'Gérez votre commerce, fidélisez vos clients et augmentez vos ventes',
               onTap: () => onSelectRole(UserRole.merchant),
-              badgeColor: YColors.secondary.withOpacity(0.1),
+              badgeColor: YColors.secondary.withValues(alpha: 0.1),
               iconColor: YColors.secondary,
             ),
           ],

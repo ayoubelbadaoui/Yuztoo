@@ -21,9 +21,11 @@ class MerchantQRCodeScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Row(
                 children: [
-                  IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back)),
+                  IconButton(
+                      onPressed: onBack, icon: const Icon(Icons.arrow_back)),
                   const SizedBox(width: 8),
-                  Text('Mon QR Code', style: Theme.of(context).textTheme.titleLarge),
+                  Text('Mon QR Code',
+                      style: Theme.of(context).textTheme.titleLarge),
                 ],
               ),
             ),
@@ -31,7 +33,8 @@ class MerchantQRCodeScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Text('Code de connexion', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Code de connexion',
+                      style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 6),
                   const Text(
                     'Les clients scannent ce code pour se connecter à votre commerce',
@@ -47,7 +50,8 @@ class MerchantQRCodeScreen extends StatelessWidget {
                         children: [
                           Container(
                             decoration: BoxDecoration(
-                              border: Border.all(color: YColors.primary, width: 8),
+                              border:
+                                  Border.all(color: YColors.primary, width: 8),
                               borderRadius: BorderRadius.circular(20),
                               color: Colors.white,
                             ),
@@ -59,10 +63,16 @@ class MerchantQRCodeScreen extends StatelessWidget {
                                 child: GridView.builder(
                                   padding: EdgeInsets.zero,
                                   physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8, mainAxisSpacing: 2, crossAxisSpacing: 2),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 8,
+                                          mainAxisSpacing: 2,
+                                          crossAxisSpacing: 2),
                                   itemCount: pattern.length,
                                   itemBuilder: (context, index) => Container(
-                                    color: pattern[index] ? YColors.primary : Colors.white,
+                                    color: pattern[index]
+                                        ? YColors.primary
+                                        : Colors.white,
                                   ),
                                 ),
                               ),
@@ -74,10 +84,19 @@ class MerchantQRCodeScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: YColors.secondary,
                               borderRadius: BorderRadius.circular(14),
-                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 6))],
+                              boxShadow: const [
+                                BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 12,
+                                    offset: Offset(0, 6))
+                              ],
                             ),
                             alignment: Alignment.center,
-                            child: const Text('Y', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700)),
+                            child: const Text('Y',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w700)),
                           ),
                         ],
                       ),
@@ -85,12 +104,16 @@ class MerchantQRCodeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: YColors.accent,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text('CAFE-CENTRAL-2024', style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w600)),
+                    child: const Text('CAFE-CENTRAL-2024',
+                        style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(height: 14),
                   Row(
@@ -113,13 +136,13 @@ class MerchantQRCodeScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  Card(
+                  const Card(
                     color: YColors.accent,
                     child: Padding(
-                      padding: const EdgeInsets.all(14),
+                      padding: EdgeInsets.all(14),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Icon(Icons.qr_code_2, color: YColors.secondary),
                           SizedBox(width: 12),
                           Expanded(

@@ -8,37 +8,37 @@ class ClientListScreen extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onClientSelect;
 
-  final List<_Client> clients = const [
-    _Client(
+  static const List<ClientData> _clients = [
+    ClientData(
         name: 'Mohammed A.',
         points: 245,
         visits: 38,
         lastVisit: '2 Jan 2026',
-        trend: _Trend.up),
-    _Client(
+        trend: Trend.up),
+    ClientData(
         name: 'Fatima Z.',
         points: 180,
         visits: 24,
         lastVisit: '2 Jan 2026',
-        trend: _Trend.up),
-    _Client(
+        trend: Trend.up),
+    ClientData(
         name: 'Ahmed K.',
         points: 156,
         visits: 31,
         lastVisit: '1 Jan 2026',
-        trend: _Trend.stable),
-    _Client(
+        trend: Trend.stable),
+    ClientData(
         name: 'Sarah M.',
         points: 142,
         visits: 19,
         lastVisit: '30 Dec 2025',
-        trend: _Trend.up),
-    _Client(
+        trend: Trend.up),
+    ClientData(
         name: 'Youssef B.',
         points: 98,
         visits: 12,
         lastVisit: '28 Dec 2025',
-        trend: _Trend.down),
+        trend: Trend.down),
   ];
 
   @override
@@ -60,9 +60,9 @@ class ClientListScreen extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           color: YColors.primary,
-          child: Row(
+          child: const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               _Stat(label: 'Total', value: '248'),
               _Stat(label: 'Actifs', value: '156'),
               _Stat(label: 'Nouveaux', value: '12'),
@@ -75,9 +75,9 @@ class ClientListScreen extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: TextField(
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Rechercher un client...',
                         prefixIcon: Icon(Icons.search, color: YColors.muted),
                       ),
@@ -98,9 +98,9 @@ class ClientListScreen extends StatelessWidget {
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: clients.length,
+                itemCount: _clients.length,
                 itemBuilder: (context, index) {
-                  final client = clients[index];
+                  final client = _clients[index];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Card(
@@ -145,11 +145,11 @@ class ClientListScreen extends StatelessWidget {
                                               Text('${client.visits} visites',
                                                   style: const TextStyle(
                                                       color: YColors.muted)),
-                                              if (client.trend == _Trend.up)
+                                              if (client.trend == Trend.up)
                                                 const Icon(Icons.trending_up,
                                                     size: 16,
                                                     color: Colors.green),
-                                              if (client.trend == _Trend.down)
+                                              if (client.trend == Trend.down)
                                                 const Icon(Icons.trending_down,
                                                     size: 16,
                                                     color: Colors.red),
@@ -230,16 +230,16 @@ class _Stat extends StatelessWidget {
   }
 }
 
-enum _Trend { up, down, stable }
+enum Trend { up, down, stable }
 
-class _Client {
+class ClientData {
   final String name;
   final int points;
   final int visits;
   final String lastVisit;
-  final _Trend trend;
+  final Trend trend;
 
-  const _Client({
+  const ClientData({
     required this.name,
     required this.points,
     required this.visits,

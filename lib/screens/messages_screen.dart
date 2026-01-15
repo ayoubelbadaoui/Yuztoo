@@ -3,7 +3,11 @@ import '../theme.dart';
 import '../types.dart';
 
 class MessagesScreen extends StatelessWidget {
-  const MessagesScreen({super.key, required this.role, required this.onBack, required this.onConversationSelect});
+  const MessagesScreen(
+      {super.key,
+      required this.role,
+      required this.onBack,
+      required this.onConversationSelect});
 
   final UserRole role;
   final VoidCallback onBack;
@@ -11,7 +15,8 @@ class MessagesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conversations = role == UserRole.client ? _clientConversations : _merchantConversations;
+    final conversations =
+        role == UserRole.client ? _clientConversations : _merchantConversations;
 
     return Column(
       children: [
@@ -25,10 +30,10 @@ class MessagesScreen extends StatelessWidget {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: TextField(
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Rechercher une conversation...',
               prefixIcon: Icon(Icons.search, color: YColors.muted),
             ),
@@ -63,9 +68,14 @@ class MessagesScreen extends StatelessWidget {
                               : Container(
                                   width: 48,
                                   height: 48,
-                                  decoration: const BoxDecoration(color: YColors.primary, shape: BoxShape.circle),
+                                  decoration: const BoxDecoration(
+                                      color: YColors.primary,
+                                      shape: BoxShape.circle),
                                   alignment: Alignment.center,
-                                  child: Text(conv.name[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                                  child: Text(conv.name[0],
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700)),
                                 ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -73,10 +83,17 @@ class MessagesScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(conv.name, style: Theme.of(context).textTheme.titleMedium),
-                                    Text(conv.time, style: const TextStyle(color: YColors.muted, fontSize: 12)),
+                                    Text(conv.name,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium),
+                                    Text(conv.time,
+                                        style: const TextStyle(
+                                            color: YColors.muted,
+                                            fontSize: 12)),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
@@ -85,19 +102,26 @@ class MessagesScreen extends StatelessWidget {
                                     Expanded(
                                       child: Text(
                                         conv.lastMessage,
-                                        style: const TextStyle(color: YColors.muted),
+                                        style: const TextStyle(
+                                            color: YColors.muted),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     if (conv.unread > 0)
                                       Container(
                                         margin: const EdgeInsets.only(left: 6),
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
                                           color: YColors.secondary,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
-                                        child: Text('${conv.unread}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                                        child: Text('${conv.unread}',
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700)),
                                       ),
                                   ],
                                 ),

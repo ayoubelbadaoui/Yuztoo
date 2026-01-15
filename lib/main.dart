@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'presentation/core/app_bootstrap.dart';
 import 'theme.dart';
 import 'types.dart';
 import 'widgets/bottom_nav.dart';
@@ -22,7 +25,14 @@ import 'screens/merchant_qr_screen.dart';
 import 'screens/merchant_stats_screen.dart';
 
 void main() {
-  runApp(const YuztooApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    const ProviderScope(
+      child: AppBootstrap(
+        child: YuztooApp(),
+      ),
+    ),
+  );
 }
 
 class YuztooApp extends StatelessWidget {

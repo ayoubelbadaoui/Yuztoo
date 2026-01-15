@@ -25,26 +25,41 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Mon profil', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white)),
+              Text('Mon profil',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(color: Colors.white)),
               const SizedBox(height: 14),
               Row(
                 children: [
                   Container(
                     width: 72,
                     height: 72,
-                    decoration: const BoxDecoration(color: YColors.secondary, shape: BoxShape.circle),
+                    decoration: const BoxDecoration(
+                        color: YColors.secondary, shape: BoxShape.circle),
                     alignment: Alignment.center,
-                    child: const Text('M', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700)),
+                    child: const Text('M',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700)),
                   ),
                   const SizedBox(width: 14),
-                  Column(
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text('Mohammed Ali', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+                    children: [
+                      Text('Mohammed Ali',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600)),
                       SizedBox(height: 4),
-                      Text('mohammed@email.com', style: TextStyle(color: Colors.white70)),
+                      Text('mohammed@email.com',
+                          style: TextStyle(color: Colors.white70)),
                       SizedBox(height: 2),
-                      Text('+212 6XX XXX XXX', style: TextStyle(color: Colors.white70)),
+                      Text('+212 6XX XXX XXX',
+                          style: TextStyle(color: Colors.white70)),
                     ],
                   ),
                 ],
@@ -53,10 +68,11 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        _Section(
+        const _Section(
           title: 'COMPTE',
           children: [
-            _NavRow(icon: Icons.person_outline, label: 'Informations personnelles'),
+            _NavRow(
+                icon: Icons.person_outline, label: 'Informations personnelles'),
             _NavRow(icon: Icons.credit_card, label: 'Moyens de paiement'),
           ],
         ),
@@ -75,14 +91,16 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
               value: emailEnabled,
               onChanged: (val) => setState(() => emailEnabled = val),
             ),
-            _NavRow(icon: Icons.settings_outlined, label: 'Paramètres'),
+            const _NavRow(icon: Icons.settings_outlined, label: 'Paramètres'),
           ],
         ),
-        _Section(
+        const _Section(
           title: 'SUPPORT',
-          children: const [
+          children: [
             _NavRow(icon: Icons.help_outline, label: "Centre d'aide"),
-            _NavRow(icon: Icons.description_outlined, label: "Conditions d'utilisation"),
+            _NavRow(
+                icon: Icons.description_outlined,
+                label: "Conditions d'utilisation"),
           ],
         ),
         Padding(
@@ -90,7 +108,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
           child: OutlinedButton.icon(
             onPressed: widget.onLogout,
             icon: const Icon(Icons.logout, color: Colors.red),
-            label: const Text('Se déconnecter', style: TextStyle(color: Colors.red)),
+            label: const Text('Se déconnecter',
+                style: TextStyle(color: Colors.red)),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Colors.red),
               minimumSize: const Size.fromHeight(48),
@@ -100,7 +119,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
         const Padding(
           padding: EdgeInsets.only(bottom: 24),
           child: Center(
-            child: Text('Version 1.0.0', style: TextStyle(color: YColors.muted)),
+            child:
+                Text('Version 1.0.0', style: TextStyle(color: YColors.muted)),
           ),
         ),
       ],
@@ -121,7 +141,9 @@ class _Section extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: YColors.muted, fontWeight: FontWeight.w600)),
+          Text(title,
+              style: const TextStyle(
+                  color: YColors.muted, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Card(
             child: Column(
@@ -155,7 +177,11 @@ class _NavRow extends StatelessWidget {
 }
 
 class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({required this.icon, required this.label, required this.value, required this.onChanged});
+  const _SwitchRow(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      required this.onChanged});
 
   final IconData icon;
   final String label;
@@ -170,7 +196,7 @@ class _SwitchRow extends StatelessWidget {
       title: Text(label),
       secondary: Icon(icon, color: YColors.muted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      activeColor: YColors.secondary,
+      activeThumbColor: YColors.secondary,
     );
   }
 }

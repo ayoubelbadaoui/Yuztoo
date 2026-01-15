@@ -44,7 +44,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                           height: 260,
                           child: Stack(
                             children: [
-                              Positioned.fill(
+                              const Positioned.fill(
                                 child: CustomPaint(
                                   painter: _CornerPainter(color: YColors.secondary),
                                 ),
@@ -60,7 +60,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                                     top: dy,
                                     left: 0,
                                     right: 0,
-                                    child: Container(height: 4, color: YColors.secondary.withOpacity(0.9)),
+                                    child: Container(
+                                      height: 4,
+                                      color: YColors.secondary.withValues(alpha: 0.9),
+                                    ),
                                   );
                                 },
                               ),
@@ -82,13 +85,13 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                     style: TextStyle(color: YColors.muted),
                   ),
                   const SizedBox(height: 18),
-                  Card(
+                  const Card(
                     color: YColors.accent,
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(16),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Icon(Icons.info_outline, color: YColors.secondary),
                           SizedBox(width: 12),
                           Expanded(
@@ -130,17 +133,20 @@ class _CornerPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6;
 
-    final radius = 18.0;
-    final length = 32.0;
+    const radius = 18.0;
+    const length = 32.0;
 
     // top-left
-    canvas.drawPath(_cornerPath(Offset(0, 0), radius, length, Corner.topLeft), paint);
+    canvas.drawPath(_cornerPath(const Offset(0, 0), radius, length, Corner.topLeft), paint);
     // top-right
-    canvas.drawPath(_cornerPath(Offset(size.width, 0), radius, length, Corner.topRight), paint);
+    canvas.drawPath(
+        _cornerPath(Offset(size.width, 0), radius, length, Corner.topRight), paint);
     // bottom-left
-    canvas.drawPath(_cornerPath(Offset(0, size.height), radius, length, Corner.bottomLeft), paint);
+    canvas.drawPath(
+        _cornerPath(Offset(0, size.height), radius, length, Corner.bottomLeft), paint);
     // bottom-right
-    canvas.drawPath(_cornerPath(Offset(size.width, size.height), radius, length, Corner.bottomRight), paint);
+    canvas.drawPath(
+        _cornerPath(Offset(size.width, size.height), radius, length, Corner.bottomRight), paint);
   }
 
   Path _cornerPath(Offset origin, double radius, double length, Corner corner) {

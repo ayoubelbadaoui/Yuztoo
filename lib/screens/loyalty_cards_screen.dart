@@ -21,7 +21,8 @@ class LoyaltyCardsScreen extends StatelessWidget {
       'nextReward': 100,
       'rewardText': '10% de réduction',
       'totalVisits': 16,
-      'image': 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400'
+      'image':
+          'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400'
     },
     {
       'store': 'Pâtisserie Délice',
@@ -29,7 +30,8 @@ class LoyaltyCardsScreen extends StatelessWidget {
       'nextReward': 50,
       'rewardText': 'Pâtisserie offerte',
       'totalVisits': 9,
-      'image': 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=400'
+      'image':
+          'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=400'
     },
   ];
 
@@ -43,9 +45,11 @@ class LoyaltyCardsScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: Row(
               children: [
-                IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back)),
+                IconButton(
+                    onPressed: onBack, icon: const Icon(Icons.arrow_back)),
                 const SizedBox(width: 8),
-                Text('Mes cartes de fidélité', style: Theme.of(context).textTheme.titleLarge),
+                Text('Mes cartes de fidélité',
+                    style: Theme.of(context).textTheme.titleLarge),
               ],
             ),
           ),
@@ -57,20 +61,32 @@ class LoyaltyCardsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Points totaux', style: TextStyle(color: Colors.white70)),
+                const Text('Points totaux',
+                    style: TextStyle(color: Colors.white70)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Text('245', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w700)),
+                    const Text('245',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w700)),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: YColors.secondary, borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.trending_up, size: 14, color: Colors.white),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: YColors.secondary,
+                          borderRadius: BorderRadius.circular(12)),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.trending_up,
+                              size: 14, color: Colors.white),
                           SizedBox(width: 4),
-                          Text('+15', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          Text('+15',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -118,7 +134,11 @@ class _Stat extends StatelessWidget {
         children: [
           Text(label, style: const TextStyle(color: Colors.white70)),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
+          Text(value,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -144,8 +164,8 @@ class _LoyaltyCard extends StatelessWidget {
           Container(
             height: 120,
             width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
                 colors: [YColors.primary, Color(0xFF2E3643)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -160,24 +180,34 @@ class _LoyaltyCard extends StatelessWidget {
                   child: Container(
                     width: 48,
                     height: 48,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: Colors.white24,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.star, color: YColors.secondary, size: 26),
+                    child: const Icon(Icons.star,
+                        color: YColors.secondary, size: 26),
                   ),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(card['store'] as String, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+                    Text(card['store'] as String,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('$current', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w700)),
+                        Text('$current',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.w700)),
                         const SizedBox(width: 6),
-                        const Text('points', style: TextStyle(color: Colors.white70)),
+                        const Text('points',
+                            style: TextStyle(color: Colors.white70)),
                       ],
                     ),
                   ],
@@ -192,8 +222,10 @@ class _LoyaltyCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Prochaine récompense', style: TextStyle(color: YColors.muted)),
-                    Text('${next - current} points', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const Text('Prochaine récompense',
+                        style: TextStyle(color: YColors.muted)),
+                    Text('${next - current} points',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -212,19 +244,23 @@ class _LoyaltyCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.card_giftcard, size: 18, color: YColors.secondary),
+                        const Icon(Icons.card_giftcard,
+                            size: 18, color: YColors.secondary),
                         const SizedBox(width: 6),
-                        Text(card['rewardText'] as String, style: const TextStyle(fontSize: 14)),
+                        Text(card['rewardText'] as String,
+                            style: const TextStyle(fontSize: 14)),
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
                         color: Colors.grey.shade100,
                         border: Border.all(color: YColors.border),
                       ),
-                      child: Text('${card['totalVisits']} visites', style: const TextStyle(fontSize: 12)),
+                      child: Text('${card['totalVisits']} visites',
+                          style: const TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),

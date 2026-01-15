@@ -47,11 +47,11 @@ class MerchantStatsScreen extends StatelessWidget {
               ],
             ),
           ),
-          SingleChildScrollView(
+          const SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
-              children: const [
+              children: [
                 _Chip(text: 'Cette semaine', isPrimary: true),
                 SizedBox(width: 8),
                 _Chip(text: 'Ce mois'),
@@ -128,7 +128,7 @@ class MerchantStatsScreen extends StatelessWidget {
                               alignment: BarChartAlignment.spaceAround,
                               barTouchData: BarTouchData(enabled: false),
                               titlesData: FlTitlesData(
-                                leftTitles: AxisTitles(
+                                leftTitles: const AxisTitles(
                                   sideTitles: SideTitles(
                                     showTitles: true,
                                     reservedSize: 32,
@@ -140,8 +140,9 @@ class MerchantStatsScreen extends StatelessWidget {
                                     getTitlesWidget: (value, meta) {
                                       final index = value.toInt();
                                       if (index < 0 ||
-                                          index >= weeklyVisits.length)
+                                          index >= weeklyVisits.length) {
                                         return const SizedBox();
+                                      }
                                       return Padding(
                                         padding: const EdgeInsets.only(top: 6),
                                         child: Text(
@@ -155,7 +156,7 @@ class MerchantStatsScreen extends StatelessWidget {
                                 topTitles: const AxisTitles(),
                                 rightTitles: const AxisTitles(),
                               ),
-                              gridData: FlGridData(
+                              gridData: const FlGridData(
                                 show: true,
                                 drawVerticalLine: false,
                                 horizontalInterval: 20,
@@ -176,10 +177,10 @@ class MerchantStatsScreen extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(6),
                                       backDrawRodData:
                                           BackgroundBarChartRodData(
-                                            show: true,
-                                            toY: 120,
-                                            color: YColors.accent,
-                                          ),
+                                        show: true,
+                                        toY: 120,
+                                        color: YColors.accent,
+                                      ),
                                     ),
                                   ],
                                 );
@@ -211,7 +212,7 @@ class MerchantStatsScreen extends StatelessWidget {
                           child: LineChart(
                             LineChartData(
                               borderData: FlBorderData(show: false),
-                              gridData: FlGridData(
+                              gridData: const FlGridData(
                                 show: true,
                                 horizontalInterval: 500,
                                 drawVerticalLine: false,
@@ -223,8 +224,9 @@ class MerchantStatsScreen extends StatelessWidget {
                                     getTitlesWidget: (value, meta) {
                                       final index = value.toInt();
                                       if (index < 0 ||
-                                          index >= monthlyPoints.length)
+                                          index >= monthlyPoints.length) {
                                         return const SizedBox();
+                                      }
                                       return Padding(
                                         padding: const EdgeInsets.only(top: 6),
                                         child: Text(
@@ -236,7 +238,7 @@ class MerchantStatsScreen extends StatelessWidget {
                                     },
                                   ),
                                 ),
-                                leftTitles: AxisTitles(
+                                leftTitles: const AxisTitles(
                                   sideTitles: SideTitles(
                                     showTitles: true,
                                     reservedSize: 42,
@@ -265,11 +267,11 @@ class MerchantStatsScreen extends StatelessWidget {
                                     getDotPainter:
                                         (spot, percent, barData, index) =>
                                             FlDotCirclePainter(
-                                              color: Colors.white,
-                                              radius: 4,
-                                              strokeWidth: 3,
-                                              strokeColor: YColors.secondary,
-                                            ),
+                                      color: Colors.white,
+                                      radius: 4,
+                                      strokeWidth: 3,
+                                      strokeColor: YColors.secondary,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -281,22 +283,22 @@ class MerchantStatsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Card(
+                const Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Meilleurs clients',
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         Column(
-                          children: const [
+                          children: [
                             _TopClient(
                               name: 'Mohammed A.',
                               points: 245,

@@ -2,25 +2,43 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 
 class PromotionsManagementScreen extends StatefulWidget {
-  const PromotionsManagementScreen({super.key, required this.onBack, required this.onCreatePromotion});
+  const PromotionsManagementScreen(
+      {super.key, required this.onBack, required this.onCreatePromotion});
 
   final VoidCallback onBack;
   final VoidCallback onCreatePromotion;
 
   @override
-  State<PromotionsManagementScreen> createState() => _PromotionsManagementScreenState();
+  State<PromotionsManagementScreen> createState() =>
+      _PromotionsManagementScreenState();
 }
 
-class _PromotionsManagementScreenState extends State<PromotionsManagementScreen> {
+class _PromotionsManagementScreenState
+    extends State<PromotionsManagementScreen> {
   late List<_Promotion> promotions;
 
   @override
   void initState() {
     super.initState();
-    promotions = [
-      _Promotion(title: '20% de réduction', description: 'Sur tous les plats', validUntil: '31 Jan 2026', usedBy: 45, isActive: true),
-      _Promotion(title: 'Café offert', description: 'Pour toute commande', validUntil: '15 Feb 2026', usedBy: 28, isActive: true),
-      _Promotion(title: 'Menu complet -10%', description: 'Déjeuner uniquement', validUntil: '10 Jan 2026', usedBy: 12, isActive: false),
+    promotions = const [
+      _Promotion(
+          title: '20% de réduction',
+          description: 'Sur tous les plats',
+          validUntil: '31 Jan 2026',
+          usedBy: 45,
+          isActive: true),
+      _Promotion(
+          title: 'Café offert',
+          description: 'Pour toute commande',
+          validUntil: '15 Feb 2026',
+          usedBy: 28,
+          isActive: true),
+      _Promotion(
+          title: 'Menu complet -10%',
+          description: 'Déjeuner uniquement',
+          validUntil: '10 Jan 2026',
+          usedBy: 12,
+          isActive: false),
     ];
   }
 
@@ -34,9 +52,12 @@ class _PromotionsManagementScreenState extends State<PromotionsManagementScreen>
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
           child: Row(
             children: [
-              IconButton(onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
+              IconButton(
+                  onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
               const SizedBox(width: 8),
-              Expanded(child: Text('Promotions', style: Theme.of(context).textTheme.titleLarge)),
+              Expanded(
+                  child: Text('Promotions',
+                      style: Theme.of(context).textTheme.titleLarge)),
               ElevatedButton.icon(
                 onPressed: widget.onCreatePromotion,
                 icon: const Icon(Icons.add, size: 18),
@@ -80,10 +101,11 @@ class _PromotionsManagementScreenState extends State<PromotionsManagementScreen>
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: YColors.secondary.withOpacity(0.1),
+                                color: YColors.secondary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(Icons.card_giftcard, color: YColors.secondary),
+                              child: const Icon(Icons.card_giftcard,
+                                  color: YColors.secondary),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -91,18 +113,26 @@ class _PromotionsManagementScreenState extends State<PromotionsManagementScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(promo.title, style: Theme.of(context).textTheme.titleMedium),
+                                      Text(promo.title,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium),
                                       Switch(
                                         value: promo.isActive,
-                                        activeColor: YColors.secondary,
-                                        onChanged: (val) => setState(() => promotions[index] = promo.copyWith(isActive: val)),
+                                        activeThumbColor: YColors.secondary,
+                                        onChanged: (val) => setState(() =>
+                                            promotions[index] =
+                                                promo.copyWith(isActive: val)),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(promo.description, style: const TextStyle(color: YColors.muted)),
+                                  Text(promo.description,
+                                      style: const TextStyle(
+                                          color: YColors.muted)),
                                 ],
                               ),
                             ),
@@ -113,17 +143,23 @@ class _PromotionsManagementScreenState extends State<PromotionsManagementScreen>
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.calendar_today_outlined, size: 16, color: YColors.muted),
+                                const Icon(Icons.calendar_today_outlined,
+                                    size: 16, color: YColors.muted),
                                 const SizedBox(width: 6),
-                                Text(promo.validUntil, style: const TextStyle(color: YColors.muted)),
+                                Text(promo.validUntil,
+                                    style:
+                                        const TextStyle(color: YColors.muted)),
                               ],
                             ),
                             const SizedBox(width: 16),
                             Row(
                               children: [
-                                const Icon(Icons.group_outlined, size: 16, color: YColors.muted),
+                                const Icon(Icons.group_outlined,
+                                    size: 16, color: YColors.muted),
                                 const SizedBox(width: 6),
-                                Text('${promo.usedBy} utilisations', style: const TextStyle(color: YColors.muted)),
+                                Text('${promo.usedBy} utilisations',
+                                    style:
+                                        const TextStyle(color: YColors.muted)),
                               ],
                             ),
                           ],
@@ -193,7 +229,8 @@ class _Stat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+        Text(value,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
         const SizedBox(height: 2),
         Text(label, style: const TextStyle(color: YColors.muted, fontSize: 12)),
       ],

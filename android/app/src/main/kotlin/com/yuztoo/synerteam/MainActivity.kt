@@ -1,4 +1,4 @@
-package com.example.flutter_yuztoo
+package com.yuztoo.synerteam
 
 import io.flutter.embedding.android.FlutterActivity
 
