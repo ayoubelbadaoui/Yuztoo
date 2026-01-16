@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'presentation/core/app_bootstrap.dart';
+import 'core/app_bootstrap.dart';
 import 'theme.dart';
 import 'types.dart';
-import 'widgets/bottom_nav.dart';
-import 'screens/splash_screen.dart';
-import 'screens/role_selection_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/signup_screen.dart';
-import 'screens/otp_screen.dart';
-import 'screens/client_home_screen.dart';
-import 'screens/discovery_screen.dart';
-import 'screens/qr_scanner_screen.dart';
-import 'screens/loyalty_cards_screen.dart';
-import 'screens/store_profile_screen.dart';
-import 'screens/notifications_screen.dart';
-import 'screens/messages_screen.dart';
-import 'screens/client_profile_screen.dart';
-import 'screens/merchant_dashboard_screen.dart';
-import 'screens/client_list_screen.dart';
-import 'screens/promotions_management_screen.dart';
-import 'screens/merchant_qr_screen.dart';
-import 'screens/merchant_stats_screen.dart';
+import 'core/shared/widgets/bottom_nav.dart';
+import 'feature/client_list/presentation/client_list_screen.dart';
+import 'feature/splash/presentation/splash_screen.dart';
+import 'feature/role_selection/presentation/role_selection_screen.dart';
+import 'feature/auth/presentation/login_screen.dart';
+import 'feature/auth/presentation/signup_screen.dart';
+import 'feature/auth/presentation/otp_screen.dart';
+import 'feature/client_home/presentation/client_home_screen.dart';
+import 'feature/discovery/presentation/discovery_screen.dart';
+import 'feature/qr_scanner/presentation/qr_scanner_screen.dart';
+import 'feature/loyalty/presentation/loyalty_cards_screen.dart';
+import 'feature/store_profile/presentation/store_profile_screen.dart';
+import 'feature/notifications/presentation/notifications_screen.dart';
+import 'feature/messages/presentation/messages_screen.dart';
+import 'feature/profile/presentation/client_profile_screen.dart';
+import 'feature/merchant_dashboard/presentation/merchant_dashboard_screen.dart';
+import 'feature/promotions/presentation/promotions_management_screen.dart';
+import 'feature/merchant_qr/presentation/merchant_qr_screen.dart';
+import 'feature/merchant_stats/presentation/merchant_stats_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
