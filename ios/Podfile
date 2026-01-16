@@ -1,5 +1,5 @@
 # Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+platform :ios, '13.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -37,7 +37,57 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # Clean per-file compiler flags that include the invalid '-GCC_WARN_INHIBIT_ALL_WARNINGS'
+  installer.pods_project.objects
+           .select { |obj| obj.respond_to?(:isa) && obj.isa == 'PBXBuildFile' }
+           .each do |obj|
+             settings = obj.settings
+             next unless settings && settings['COMPILER_FLAGS']
+
+             cleaned = settings['COMPILER_FLAGS']
+                         .gsub('-GCC_WARN_INHIBIT_ALL_WARNINGS', '')
+                         .squeeze(' ')
+                         .strip
+             settings['COMPILER_FLAGS'] = cleaned
+             settings.delete('COMPILER_FLAGS') if cleaned.empty?
+           end
+
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # Force all pods to build with iOS 13.0+ to avoid old simulator toolchains
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+    end
+
+    # Strip unsupported '-GCC_WARN_INHIBIT_ALL_WARNINGS' flags that trigger
+    # “unsupported option '-G'” on iOS simulator toolchains.
+    target.build_configurations.each do |config|
+      %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_SWIFT_FLAGS].each do |flag_key|
+        flags = config.build_settings[flag_key]
+        next unless flags
+
+        if flags.is_a?(Array)
+          config.build_settings[flag_key] =
+            flags.map { |f| f.gsub('-GCC_WARN_INHIBIT_ALL_WARNINGS', '').squeeze(' ').strip }.reject(&:empty?)
+        elsif flags.is_a?(String)
+          config.build_settings[flag_key] =
+            flags.gsub('-GCC_WARN_INHIBIT_ALL_WARNINGS', '').squeeze(' ').strip
+        end
+      end
+    end
+  end
+
+  # Patch gRPC template qualifiers that clang rejects on some iOS toolchains
+  grpc_basic_seq = File.join(installer.sandbox.root, 'gRPC-Core/src/core/lib/promise/detail/basic_seq.h')
+  if File.exist?(grpc_basic_seq)
+    File.chmod(0o644, grpc_basic_seq) unless File.writable?(grpc_basic_seq)
+    text = File.read(grpc_basic_seq)
+    replacements = {
+      'Traits::CheckResultAndRunNext' => 'Traits::template CheckResultAndRunNext',
+      'Traits::CallSeqFactory' => 'Traits::template CallSeqFactory'
+    }
+    patched = replacements.reduce(text) { |acc, (from, to)| acc.gsub(from, to) }
+    File.write(grpc_basic_seq, patched) if patched != text
   end
 end
