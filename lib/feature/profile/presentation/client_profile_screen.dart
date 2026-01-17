@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
+import '../../../core/shared/widgets/logout_confirm_dialog.dart';
 
 class ClientProfileScreen extends StatefulWidget {
   const ClientProfileScreen({super.key, required this.onLogout});
@@ -106,7 +107,12 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: OutlinedButton.icon(
-            onPressed: widget.onLogout,
+            onPressed: () async {
+              final confirm = await showLogoutConfirmationDialog(context);
+              if (confirm) {
+                widget.onLogout();
+              }
+            },
             icon: const Icon(Icons.logout, color: Colors.red),
             label: const Text('Se déconnecter',
                 style: TextStyle(color: Colors.red)),
