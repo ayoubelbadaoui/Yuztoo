@@ -11,7 +11,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -37,12 +38,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       color: YColors.primary,
       child: Center(
         child: ScaleTransition(
-          scale: CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+          scale:
+              CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
           child: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _Logo(),
-              SizedBox(height: 16),
+              SizedBox(height: 18),
               Text(
                 'Yuztoo',
                 style: TextStyle(
@@ -76,13 +78,15 @@ class _Logo extends StatelessWidget {
         color: YColors.secondary,
         borderRadius: BorderRadius.circular(24),
         boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 18, offset: Offset(0, 8)),
+          BoxShadow(
+              color: Colors.black26, blurRadius: 18, offset: Offset(0, 8)),
         ],
       ),
       alignment: Alignment.center,
       child: const Text(
         'Y',
-        style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
+        style: TextStyle(
+            color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
       ),
     );
   }
