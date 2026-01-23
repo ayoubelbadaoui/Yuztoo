@@ -1,0 +1,455 @@
+# SIGNUP FEATURE - DEVELOPMENT RULES
+
+## 1. NO UNNECESSARY DOCUMENTS
+- Only create files/widgets when genuinely needed
+- Reuse existing code and patterns
+- Ask before creating new files
+
+## 2. PRIORITIZE REUSABLE/FOUNDATIONAL WORK
+- If a task benefits other features (e.g., Firebase service setup, shared widgets, error handling)
+- Do it first, even if not directly needed for signup
+- Build once, use everywhere
+
+## 3. VISUAL TESTING CHECKLIST
+- After each task, list what to manually test on a real device
+- Include: normal flows, edge cases, error states, back navigation
+- Be specific: "tap X, verify Y appears"
+
+## 4. ATTENTION TO EDGE CASES & DETAIL
+- Always think: "What breaks if user goes back?"
+- Test navigation flows: signup → home, signup → error → retry → home
+- Check: loading states, disabled inputs, form clearing, error dismissal
+- Verify: all timestamps, all Firebase fields, all French messages
+
+## 5. CODE & UI BEST PRACTICES ONLY
+- No shortcuts, no rookie mistakes
+- Follow Flutter conventions (const widgets, proper state management, error handling)
+- Performance matters: avoid rebuilds, use FutureBuilder/StreamBuilder correctly
+- Code readability: clear variable names, proper comments where needed
+
+## 6. UI INTERACTION RULES (NON-NEGOTIABLE)
+✔ Disable ALL inputs + button during loading (not just button)
+✔ Replace button text with CircularProgressIndicator (not "Loading..." text)
+✔ Password field MUST have visibility toggle (eye icon, right side)
+✔ One loading pattern only (no button + dialog together)
+✔ Validate on submit/blur only (not keystroke)
+✔ Map Firebase errors → French SnackBar messages (never generic)
+✔ Use intl_phone_field (country code picker + auto-format)
+✔ Clear form after successful signup (prevent accidental resubmit)
+✔ SnackBar for errors (no AlertDialog)
+✔ Phone country flag updates on picker change
+✔ Check _formKey.currentState!.validate() before Firebase call
+✔ Show password requirements only on focus (not inline)
+
+---
+
+# SIGNUP FEATURE - IMPLEMENTATION PLAN
+
+## TASK 1: Signup Screen UI - Form Fields & Layout
+
+**Objective:** Build the signup screen UI with all required form fields.
+
+**Files to modify/create:**
+- `lib/feature/auth/presentation/signup_screen.dart` (currently empty)
+
+**Requirements:**
+1. Form fields:
+   - Email (TextFormField, email keyboard)
+   - Password (TextFormField with visibility toggle on right)
+   - Confirm Password (TextFormField with visibility toggle on right)
+   - Phone (use `intl_phone_field` with country picker + flag)
+   - City (DropdownButtonFormField using `frenchCities` from `lib/core/utils/cities.dart`)
+   - Role (client/merchant) - can be passed as prop or selected in form
+
+2. UI rules:
+   - Use light theme (YColors from `lib/theme.dart`), match `login_screen.dart` style
+   - Form validation on submit/blur only (not keystroke)
+   - Password requirements shown only on focus (not inline)
+   - All fields disabled during loading
+   - Button shows CircularProgressIndicator during loading (not "Loading..." text)
+
+3. Layout:
+   - Back button (top-left) to return to login
+   - Logo/branding section (match login screen)
+   - Form in SingleChildScrollView
+   - Submit button at bottom
+   - "Already have account? Login" link at bottom
+
+4. Props needed:
+   - `role: UserRole` (from parent)
+   - `onBack: VoidCallback` (navigate back to login)
+   - `onSignupSuccess: VoidCallback` (navigate after success)
+
+**Acceptance criteria:**
+- All fields render correctly
+- Password visibility toggles work
+- Phone field shows country picker with flags
+- City dropdown uses `frenchCities` list
+- Form validation triggers on submit/blur
+- UI matches login screen style (light theme)
+
+---
+
+## TASK 2: Form Validation Logic
+
+**Objective:** Implement validation for all signup form fields.
+
+**Files to modify:**
+- `lib/feature/auth/presentation/signup_screen.dart`
+
+**Requirements:**
+1. Validation rules:
+   - Email: required, valid email format
+   - Password: required, min 8 chars, 1 uppercase, 1 lowercase, 1 digit
+   - Confirm Password: required, must match password
+   - Phone: required, valid format (from intl_phone_field)
+   - City: required, non-empty selection
+   - Role: required (from props or selection)
+
+2. Validation behavior:
+   - Use `GlobalKey<FormState>` for form validation
+   - Validate on submit (call `_formKey.currentState!.validate()`)
+   - Validate on blur (set `autovalidateMode: AutovalidateMode.onUserInteraction`)
+   - Do NOT validate on keystroke
+
+3. Error messages:
+   - All in French
+   - Clear and specific
+
+**Acceptance criteria:**
+- All fields validate correctly
+- Error messages appear on blur/submit
+- Form cannot submit with invalid data
+- Password requirements validated correctly
+
+---
+
+## TASK 3: Loading State Management & Input Disabling
+
+**Objective:** Implement loading state that disables all inputs and shows loading indicator.
+
+**Files to modify:**
+- `lib/feature/auth/presentation/signup_screen.dart`
+
+**Requirements:**
+1. Loading state:
+   - `bool _isLoading = false` state variable
+   - Set to `true` when signup starts
+   - Set to `false` on success or error
+
+2. Disable during loading:
+   - All TextFormFields (`enabled: !_isLoading`)
+   - All DropdownButtonFormFields (`onChanged: _isLoading ? null : ...`)
+   - Submit button (`onPressed: _isLoading ? null : _handleSignup`)
+   - Back button (optional, but consider UX)
+
+3. Button loading indicator:
+   - Replace button text with `CircularProgressIndicator` when loading
+   - Use `SizedBox` with fixed width/height for indicator
+   - No "Loading..." text
+
+4. Prevent double submission:
+   - Check `_isLoading` before starting signup
+   - Early return if already loading
+
+**Acceptance criteria:**
+- All inputs disabled during loading
+- Button shows CircularProgressIndicator (not text)
+- No duplicate submissions possible
+- UI returns to normal after success/error
+
+---
+
+## TASK 4: Firebase Auth - Email/Password Signup
+
+**Objective:** Create Firebase Auth user with email and password.
+
+**Files to modify:**
+- `lib/feature/auth/presentation/signup_screen.dart`
+
+**Dependencies:**
+- `lib/core/services/auth_service.dart` (already exists with `createUserWithEmailAndPassword`)
+
+**Requirements:**
+1. Signup flow:
+   - Call `AuthService().createUserWithEmailAndPassword(email: email, password: password)`
+   - Handle `FirebaseAuthException` errors
+   - Map errors to French using `AuthService.getFrenchErrorMessage(errorCode)`
+   - Show error via `showErrorSnackbar` from `lib/core/shared/widgets/snackbar.dart`
+
+2. Error handling:
+   - Catch `FirebaseAuthException`
+   - Extract error code
+   - Get French message via `AuthService.getFrenchErrorMessage()`
+   - Show SnackBar (not AlertDialog)
+   - Set `_isLoading = false` on error
+
+3. Success handling:
+   - User created in Firebase Auth
+   - Proceed to phone verification (next task)
+
+**Acceptance criteria:**
+- User created in Firebase Auth on success
+- All Firebase errors mapped to French messages
+- Errors shown via SnackBar
+- Loading state managed correctly
+
+---
+
+## TASK 5: Phone Verification - OTP Flow
+
+**Objective:** Send OTP and link phone number to Firebase Auth user.
+
+**Files to modify:**
+- `lib/feature/auth/presentation/signup_screen.dart`
+
+**Dependencies:**
+- `lib/core/services/auth_service.dart` (has `sendPhoneVerification` and `linkPhoneCredential`)
+
+**Requirements:**
+1. OTP flow:
+   - After email/password signup, call `AuthService().sendPhoneVerification(phoneNumber)`
+   - Store `verificationId` returned
+   - Navigate to OTP screen (or show OTP input in current screen)
+   - On OTP code entry, verify and link phone
+
+2. Phone linking:
+   - After OTP verification, call `AuthService().linkPhoneCredential(verificationId: verificationId, smsCode: smsCode)`
+   - Handle linking errors (e.g., phone already exists)
+   - Show French error messages via SnackBar
+
+3. Error handling:
+   - Phone already exists → show French message, abort signup
+   - Invalid OTP → show French message, allow retry
+   - Network errors → show French message
+
+**Note:** If OTP screen is separate, coordinate navigation. If integrated, add OTP input UI.
+
+**Acceptance criteria:**
+- OTP sent successfully
+- Phone linked to Firebase Auth user
+- Errors handled with French messages
+- User can retry on error
+
+---
+
+## TASK 6: Firestore Profile Creation
+
+**Objective:** Create user document in Firestore after successful auth + phone verification.
+
+**Files to modify:**
+- `lib/feature/auth/presentation/signup_screen.dart`
+
+**Dependencies:**
+- `lib/core/services/user_service.dart` (has `createUserDocument`)
+
+**Requirements:**
+1. Firestore document creation:
+   - After successful auth + phone linking, call `UserService().createUserDocument(...)`
+   - Use `FirebaseAuth.instance.currentUser!.uid` for uid
+   - Use `FirebaseAuth.instance.currentUser!.email!` for email
+   - Use formatted phone number from intl_phone_field
+   - Use selected city (non-empty)
+   - Build roles map: `{"client": true/false, "merchant": true/false, "provider": false}`
+   - Timestamps handled by service (server timestamps)
+
+2. Roles mapping:
+   - If role is `UserRole.client` → `{"client": true, "merchant": false, "provider": false}`
+   - If role is `UserRole.merchant` → `{"client": false, "merchant": true, "provider": false}`
+   - Support multi-role in future (for now, single role)
+
+3. Error handling:
+   - Catch exceptions from `createUserDocument`
+   - Show French error message via SnackBar
+   - Consider cleanup (delete Firebase Auth user if Firestore fails?)
+
+**Acceptance criteria:**
+- Firestore document created at `/users/{uid}`
+- All fields correct (uid, email, phone, roles, city)
+- Timestamps are server timestamps
+- Roles map correct for selected role
+- Errors handled with French messages
+
+---
+
+## TASK 7: Form Clearing & Success Handling
+
+**Objective:** Clear form after successful signup and handle navigation.
+
+**Files to modify:**
+- `lib/feature/auth/presentation/signup_screen.dart`
+- `lib/main.dart` (update navigation)
+
+**Requirements:**
+1. Form clearing:
+   - After successful Firestore creation, clear all form fields
+   - Reset form state: `_formKey.currentState!.reset()`
+   - Clear all TextEditingControllers
+   - Reset dropdown selections
+   - Reset state variables
+
+2. Success handling:
+   - Show success SnackBar: "Inscription réussie!" (use `showSuccessSnackbar`)
+   - Clear form
+   - Navigate based on role:
+     - If `UserRole.client` → navigate to Client Home
+     - If `UserRole.merchant` → navigate to Merchant Dashboard (or onboarding if exists)
+
+3. Navigation:
+   - Update `main.dart` to handle signup success callback
+   - Pass `onSignupSuccess` callback that navigates to appropriate screen
+   - Ensure user is authenticated (Firebase Auth state)
+
+**Acceptance criteria:**
+- Form cleared after successful signup
+- Success message shown
+- Navigation works based on role
+- User lands on correct home screen
+
+---
+
+## TASK 8: Integration with Main Navigation & Auth State
+
+**Objective:** Integrate signup screen with main app navigation and ensure auth state persistence.
+
+**Files to modify:**
+- `lib/main.dart` (update SignupScreen instantiation)
+- `lib/feature/auth/presentation/signup_screen.dart` (ensure props match)
+
+**Requirements:**
+1. Navigation integration:
+   - Update `main.dart` to pass required props to `SignupScreen`:
+     - `role: _role ?? UserRole.client`
+     - `onBack: () => setState(() => _currentScreen = ScreenId.login)`
+     - `onSignupSuccess: () => _handleSignupSuccess()`
+   - Create `_handleSignupSuccess()` method that:
+     - Sets `_currentScreen` based on role
+     - Updates `_activeTab` appropriately
+
+2. Auth state persistence:
+   - After signup, Firebase Auth user is automatically persisted
+   - On app restart, check `FirebaseAuth.instance.currentUser`
+   - If user exists, navigate to appropriate home screen (skip role selection/login)
+   - This may require checking in `_RootShellState.initState()` or using auth state listener
+
+3. Back navigation:
+   - Signup screen back button returns to login
+   - Login screen shows correct role context
+
+**Acceptance criteria:**
+- Signup screen receives correct props
+- Navigation works after signup
+- Auth state persists across app restarts
+- User lands on correct screen after restart
+
+---
+
+## TASK 9: Error Message Mapping & SnackBar Integration
+
+**Objective:** Ensure all Firebase errors are mapped to French and displayed via SnackBar.
+
+**Files to modify:**
+- `lib/feature/auth/presentation/signup_screen.dart`
+
+**Dependencies:**
+- `lib/core/services/auth_service.dart` (has `getFrenchErrorMessage` and `handleAuthError`)
+- `lib/core/shared/widgets/snackbar.dart` (has `showErrorSnackbar` and `showSuccessSnackbar`)
+
+**Requirements:**
+1. Error mapping:
+   - Use `AuthService.handleAuthError(exception)` for Firebase Auth errors
+   - Use `AuthService.getFrenchErrorMessage(errorCode)` for specific codes
+   - For Firestore errors, create French messages manually or extend service
+
+2. SnackBar usage:
+   - Always use `showErrorSnackbar(context, message)` for errors
+   - Always use `showSuccessSnackbar(context, message)` for success
+   - Never use AlertDialog for errors
+   - Ensure SnackBar is shown after `setState` completes (use `WidgetsBinding.instance.addPostFrameCallback` if needed)
+
+3. Error scenarios to handle:
+   - Email already in use
+   - Weak password
+   - Invalid email
+   - Phone already exists
+   - Network errors
+   - Firebase not initialized
+   - Generic errors
+
+**Acceptance criteria:**
+- All errors show French messages
+- All errors use SnackBar (not AlertDialog)
+- Error messages are user-friendly
+- Success messages also in French
+
+---
+
+## TASK 10: Testing Checklist & Edge Cases
+
+**Objective:** Verify all edge cases and provide manual testing checklist.
+
+**Files to review:**
+- `lib/feature/auth/presentation/signup_screen.dart`
+
+**Testing checklist:**
+
+1. Normal flow:
+   - Fill all fields correctly → submit → verify OTP sent → enter OTP → verify Firestore document created → verify navigation
+
+2. Validation:
+   - Submit empty form → errors shown
+   - Invalid email → error shown
+   - Weak password → error shown
+   - Password mismatch → error shown
+   - No phone → error shown
+   - No city → error shown
+
+3. Loading states:
+   - All inputs disabled during loading
+   - Button shows CircularProgressIndicator
+   - Cannot submit twice
+
+4. Error handling:
+   - Email already exists → French error
+   - Phone already exists → French error
+   - Network error → French error
+   - Invalid OTP → French error, can retry
+
+5. Navigation:
+   - Back button returns to login
+   - Success navigates to correct home
+   - Auth persists after app restart
+
+6. Edge cases:
+   - User goes back during signup → form state preserved?
+   - User goes back after OTP sent → handle gracefully
+   - App killed during signup → handle on restart
+   - Multiple rapid taps → prevented
+
+**Acceptance criteria:**
+- All test cases pass
+- Edge cases handled gracefully
+- No crashes or unexpected behavior
+
+---
+
+## SUMMARY OF FILES TO MODIFY
+
+1. `lib/feature/auth/presentation/signup_screen.dart` - Main implementation
+2. `lib/main.dart` - Navigation integration
+3. No new files needed (reuse existing services and widgets)
+
+## DEPENDENCIES (Already Exist)
+
+- `lib/core/services/auth_service.dart` - Firebase Auth operations
+- `lib/core/services/user_service.dart` - Firestore user document creation
+- `lib/core/shared/widgets/snackbar.dart` - Error/success SnackBars
+- `lib/core/utils/cities.dart` - City list
+- `lib/theme.dart` - Theme colors
+- `lib/types.dart` - UserRole enum
+- `pubspec.yaml` - intl_phone_field already included
+
+---
+
+Each task is self-contained and can be assigned independently. Tasks should be completed in order (1→2→3→4→5→6→7→8→9→10) for proper dependencies.
+
