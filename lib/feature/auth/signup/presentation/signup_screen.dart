@@ -348,6 +348,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       _isConfirmPasswordVisible = false;
       _isPasswordFocused = false;
       _isLoading = false;
+      _hasAttemptedSubmit = false; // Reset validation attempt flag
     });
     
     // Unfocus all fields
