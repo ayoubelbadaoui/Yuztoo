@@ -70,6 +70,7 @@ class _RootShellState extends State<_RootShell> {
   String? _signupCity; // Store city for Firestore profile
   StreamSubscription<User?>? _authStateSubscription;
   bool _hasCheckedAuth = false; // Track if we've checked auth state
+  bool _isCheckingAuth = true; // Track if we're currently checking auth state
 
   @override
   void initState() {
@@ -112,6 +113,7 @@ class _RootShellState extends State<_RootShell> {
         
         if (mounted) {
           setState(() {
+            _isCheckingAuth = false; // Auth check complete
             _role = role ?? UserRole.client; // Default to client if role not found
             if (_role == UserRole.client) {
               _currentScreen = ScreenId.clientHome;
@@ -127,6 +129,7 @@ class _RootShellState extends State<_RootShell> {
         // Error getting role - default to client and show home
         if (mounted) {
           setState(() {
+            _isCheckingAuth = false; // Auth check complete
             _role = UserRole.client;
             _currentScreen = ScreenId.clientHome;
             _activeTab = 'home';
@@ -136,7 +139,12 @@ class _RootShellState extends State<_RootShell> {
     } else {
       // No user - show splash, will navigate to role selection when splash completes
       // (splash screen will handle navigation after 2 seconds)
-      // Keep current screen as splash
+      if (mounted) {
+        setState(() {
+          _isCheckingAuth = false; // Auth check complete - show splash
+          // Keep current screen as splash
+        });
+      }
     }
   }
 
@@ -286,6 +294,11 @@ class _RootShellState extends State<_RootShell> {
   }
 
   Widget _buildScreen() {
+    // Show splash/loading while checking auth state
+    if (_isCheckingAuth) {
+      return SplashScreen(onComplete: () {});
+    }
+    
     switch (_currentScreen) {
       case ScreenId.splash:
         return SplashScreen(onComplete: _goToRoleSelection);
