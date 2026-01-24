@@ -9,6 +9,7 @@ import '../domain/value_objects/email_address.dart';
 import '../domain/value_objects/password.dart';
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/infrastructure/logger_service.dart';
 import 'dto/auth_user_dto.dart';
 
 class FirebaseAuthRepository implements AuthRepository {
@@ -34,6 +35,11 @@ class FirebaseAuthRepository implements AuthRepository {
 
       final user = credential.user;
       if (user == null) {
+        LoggerService.logFailure(
+          'AuthFailure',
+          'User not found after sign-in',
+          context: {'email': email.value},
+        );
         return const Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(message: 'User not found after sign-in.'),
         );
@@ -42,10 +48,23 @@ class FirebaseAuthRepository implements AuthRepository {
       final profileDoc =
           await _firestore.collection('users').doc(user.uid).get();
       final dto = AuthUserDto.fromFirebase(user, profileDoc: profileDoc);
+      LoggerService.logInfo('Sign-in successful', context: {'uid': user.uid, 'email': email.value});
       return Right<AuthFailure, AuthUser>(dto.toDomain());
     } on firebase.FirebaseAuthException catch (e, st) {
+      LoggerService.logError(
+        'FirebaseAuthException during sign-in',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code, 'email': email.value},
+      );
       return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
     } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error during sign-in',
+        error: e,
+        stackTrace: st,
+        context: {'email': email.value},
+      );
       return Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
@@ -64,6 +83,11 @@ class FirebaseAuthRepository implements AuthRepository {
 
       final user = credential.user;
       if (user == null) {
+        LoggerService.logFailure(
+          'AuthFailure',
+          'User not found after signup',
+          context: {'email': email.value},
+        );
         return const Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(message: 'User not found after signup.'),
         );
@@ -71,10 +95,23 @@ class FirebaseAuthRepository implements AuthRepository {
 
       // Return AuthUser without Firestore profile (will be created later)
       final dto = AuthUserDto.fromFirebase(user);
+      LoggerService.logInfo('Signup successful', context: {'uid': user.uid, 'email': email.value});
       return Right<AuthFailure, AuthUser>(dto.toDomain());
     } on firebase.FirebaseAuthException catch (e, st) {
+      LoggerService.logError(
+        'FirebaseAuthException during signup',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code, 'email': email.value},
+      );
       return Left<AuthFailure, AuthUser>(_mapSignupException(e, st));
     } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error during signup',
+        error: e,
+        stackTrace: st,
+        context: {'email': email.value},
+      );
       return Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
@@ -96,6 +133,12 @@ class FirebaseAuthRepository implements AuthRepository {
           }
         },
         verificationFailed: (firebase.FirebaseAuthException e) {
+          LoggerService.logError(
+            'Phone verification failed',
+            error: e,
+            stackTrace: StackTrace.current,
+            context: {'code': e.code, 'phoneNumber': phoneNumber},
+          );
           if (!completer.isCompleted) {
             completer.complete(Left<AuthFailure, String>(
               _mapAuthException(e, StackTrace.current),
@@ -103,6 +146,7 @@ class FirebaseAuthRepository implements AuthRepository {
           }
         },
         codeSent: (String verificationId, int? resendToken) {
+          LoggerService.logInfo('Phone verification code sent', context: {'phoneNumber': phoneNumber});
           if (!completer.isCompleted) {
             completer.complete(Right<AuthFailure, String>(verificationId));
           }
@@ -116,6 +160,12 @@ class FirebaseAuthRepository implements AuthRepository {
 
       return completer.future;
     } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error during phone verification',
+        error: e,
+        stackTrace: st,
+        context: {'phoneNumber': phoneNumber},
+      );
       return Left<AuthFailure, String>(
         AuthUnexpectedFailure(cause: e, stackTrace: st),
       );
@@ -135,16 +185,34 @@ class FirebaseAuthRepository implements AuthRepository {
 
       final user = _auth.currentUser;
       if (user == null) {
+        LoggerService.logFailure(
+          'AuthFailure',
+          'No authenticated user when linking phone',
+          context: {'verificationId': verificationId},
+        );
         return const Left<AuthFailure, Unit>(
           AuthUnexpectedFailure(message: 'Aucun utilisateur connecté'),
         );
       }
 
       await user.linkWithCredential(credential);
+      LoggerService.logInfo('Phone linked successfully', context: {'uid': user.uid});
       return const Right<AuthFailure, Unit>(unit);
     } on firebase.FirebaseAuthException catch (e, st) {
+      LoggerService.logError(
+        'FirebaseAuthException during phone linking',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code, 'verificationId': verificationId},
+      );
       return Left<AuthFailure, Unit>(_mapAuthException(e, st));
     } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error during phone linking',
+        error: e,
+        stackTrace: st,
+        context: {'verificationId': verificationId},
+      );
       return Left<AuthFailure, Unit>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
@@ -154,10 +222,22 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<Result<Unit>> signOut() async {
     try {
       await _auth.signOut();
+      LoggerService.logInfo('Sign out successful');
       return const Right<AuthFailure, Unit>(unit);
     } on firebase.FirebaseAuthException catch (e, st) {
+      LoggerService.logError(
+        'FirebaseAuthException during sign out',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code},
+      );
       return Left<AuthFailure, Unit>(_mapAuthException(e, st));
     } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error during sign out',
+        error: e,
+        stackTrace: st,
+      );
       return Left<AuthFailure, Unit>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
@@ -177,8 +257,20 @@ class FirebaseAuthRepository implements AuthRepository {
         final dto = AuthUserDto.fromFirebase(user, profileDoc: profileDoc);
         yield Right<AuthFailure, AuthUser?>(dto.toDomain());
       } on firebase.FirebaseAuthException catch (e, st) {
+        LoggerService.logError(
+          'FirebaseAuthException in watchAuthState',
+          error: e,
+          stackTrace: st,
+          context: {'code': e.code, 'uid': user.uid},
+        );
         yield Left<AuthFailure, AuthUser?>(_mapAuthException(e, st));
       } catch (e, st) {
+        LoggerService.logError(
+          'Unexpected error in watchAuthState',
+          error: e,
+          stackTrace: st,
+          context: {'uid': user.uid},
+        );
         yield Left<AuthFailure, AuthUser?>(
             AuthUnexpectedFailure(cause: e, stackTrace: st));
       }
@@ -187,22 +279,78 @@ class FirebaseAuthRepository implements AuthRepository {
 
   AuthFailure _mapAuthException(
       firebase.FirebaseAuthException error, StackTrace stackTrace) {
+    final failure = _mapAuthExceptionInternal(error, stackTrace);
+    LoggerService.logFailure(
+      failure.runtimeType.toString(),
+      'Auth exception mapped',
+      cause: error,
+      stackTrace: stackTrace,
+      context: {'code': error.code, 'message': error.message},
+    );
+    return failure;
+  }
+
+  AuthFailure _mapAuthExceptionInternal(
+      firebase.FirebaseAuthException error, StackTrace stackTrace) {
     switch (error.code) {
+      // User account errors
       case 'user-disabled':
         return const AccountDisabledFailure();
       case 'user-not-found':
       case 'wrong-password':
         return const InvalidCredentialsFailure();
+      
+      // Email/credential errors
+      case 'invalid-email':
+        return const AuthUnexpectedFailure(
+          message: 'Adresse email invalide. Veuillez vérifier votre email.',
+        );
+      case 'invalid-credential':
+        return const InvalidCredentialsFailure();
+      
+      // Network errors
       case 'network-request-failed':
+      case 'network-error':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
+      
+      // Rate limiting
+      case 'too-many-requests':
+        return const AuthUnexpectedFailure(
+          message: 'Trop de tentatives. Veuillez réessayer plus tard.',
+        );
+      
+      // Operation errors
+      case 'operation-not-allowed':
+        return const AuthUnexpectedFailure(
+          message: 'Cette opération n\'est pas autorisée.',
+        );
       case 'user-cancelled':
         return const UserCancelledFailure();
+      
+      // Generic fallback
       default:
-        return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
+        return AuthUnexpectedFailure(
+          message: 'Une erreur s\'est produite lors de la connexion.',
+          cause: error,
+          stackTrace: stackTrace,
+        );
     }
   }
 
   AuthFailure _mapSignupException(
+      firebase.FirebaseAuthException error, StackTrace stackTrace) {
+    final failure = _mapSignupExceptionInternal(error, stackTrace);
+    LoggerService.logFailure(
+      failure.runtimeType.toString(),
+      'Signup exception mapped',
+      cause: error,
+      stackTrace: stackTrace,
+      context: {'code': error.code, 'message': error.message},
+    );
+    return failure;
+  }
+
+  AuthFailure _mapSignupExceptionInternal(
       firebase.FirebaseAuthException error, StackTrace stackTrace) {
     switch (error.code) {
       case 'email-already-in-use':
