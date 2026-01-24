@@ -51,6 +51,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   String _selectedCountryFlag = '🇫🇷';
   String _selectedRole = 'client';
   String? _phoneVerificationId;
+  bool _hasAttemptedSubmit = false; // Track if user has tried to submit
   
   // Real-time validation state
   String? _emailError;
@@ -233,6 +234,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Future<void> _handleSignup() async {
+    // Mark that user has attempted to submit - enable validation display
+    setState(() => _hasAttemptedSubmit = true);
+    
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -538,7 +542,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           keyboardType: keyboardType,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
+          autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
           onChanged: (value) {
@@ -616,7 +620,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           obscureText: !_isPasswordVisible,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
+          autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
           onChanged: (value) {
@@ -727,7 +731,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           obscureText: !_isConfirmPasswordVisible,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
+          autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
           onChanged: (value) {
@@ -860,7 +864,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   }
                   return null;
                 },
-                autovalidateMode: AutovalidateMode.onUserInteraction,
+                autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
                 cursorColor: const Color(0xFFBF8719),
                 onTap: () {
                   _unfocusAllFields();
@@ -1150,7 +1154,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         }
         return null;
       },
-      autovalidateMode: AutovalidateMode.onUnfocus,
+      autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
       builder: (FormFieldState<String> state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
