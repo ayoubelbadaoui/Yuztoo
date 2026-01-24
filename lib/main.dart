@@ -1,16 +1,20 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'core/app_bootstrap.dart';
+import 'feature/auth/core/infrastructure/firebase_user_repository.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'theme.dart';
 import 'types.dart';
 import 'core/shared/widgets/bottom_nav.dart';
 import 'feature/client_list/presentation/client_list_screen.dart';
 import 'feature/splash/presentation/splash_screen.dart';
 import 'feature/role_selection/presentation/role_selection_screen.dart';
-import 'feature/auth/presentation/login_screen.dart';
-import 'feature/auth/presentation/signup_screen.dart';
-import 'feature/auth/presentation/otp_screen.dart';
+import 'feature/auth/login/presentation/login_screen.dart';
+import 'feature/auth/signup/presentation/signup_screen.dart';
+import 'feature/auth/signup/presentation/otp_screen.dart';
 import 'feature/client_home/presentation/client_home_screen.dart';
 import 'feature/discovery/presentation/discovery_screen.dart';
 import 'feature/qr_scanner/presentation/qr_scanner_screen.dart';
@@ -60,6 +64,81 @@ class _RootShellState extends State<_RootShell> {
   ScreenId _currentScreen = ScreenId.splash;
   UserRole? _role;
   String _activeTab = 'home';
+  String? _phoneNumber; // Store phone number for OTP screen
+  String? _verificationId; // Store verificationId for OTP resend
+  String? _signupEmail; // Store email for Firestore profile
+  String? _signupCity; // Store city for Firestore profile
+  StreamSubscription<User?>? _authStateSubscription;
+  bool _hasCheckedAuth = false; // Track if we've checked auth state
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToAuthState();
+  }
+
+  @override
+  void dispose() {
+    _authStateSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Listen to Firebase Auth state changes
+  /// This ensures we catch auth state even if Firebase hasn't fully initialized yet
+  void _listenToAuthState() {
+    _authStateSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) async {
+      // Only handle the first auth state change (on app start)
+      // Subsequent changes (login/logout) will be handled by the app flow
+      if (!_hasCheckedAuth) {
+        _hasCheckedAuth = true;
+        await _handleAuthStateChange(user);
+      }
+    });
+  }
+
+  /// Handle auth state change on app start
+  /// If authenticated, navigate to appropriate home screen (skip splash)
+  /// If not authenticated, show splash then go to role selection
+  Future<void> _handleAuthStateChange(User? user) async {
+    if (user != null) {
+      // User is authenticated - get role from Firestore
+      try {
+        final userRepository = FirebaseUserRepository(firestore: FirebaseFirestore.instance);
+        final roleResult = await userRepository.getUserRole(user.uid);
+        final role = roleResult.fold(
+          (_) => null,
+          (r) => r,
+        );
+        
+        if (mounted) {
+          setState(() {
+            _role = role ?? UserRole.client; // Default to client if role not found
+            if (_role == UserRole.client) {
+              _currentScreen = ScreenId.clientHome;
+              _activeTab = 'home';
+            } else {
+              _currentScreen = ScreenId.merchantDashboard;
+              _activeTab = 'dashboard';
+            }
+          });
+          // Skip splash - user is authenticated, go directly to home
+        }
+      } catch (e) {
+        // Error getting role - default to client and show home
+        if (mounted) {
+          setState(() {
+            _role = UserRole.client;
+            _currentScreen = ScreenId.clientHome;
+            _activeTab = 'home';
+          });
+        }
+      }
+    } else {
+      // No user - show splash, will navigate to role selection when splash completes
+      // (splash screen will handle navigation after 2 seconds)
+      // Keep current screen as splash
+    }
+  }
 
   void _goToRoleSelection() {
     setState(() => _currentScreen = ScreenId.roleSelection);
@@ -83,10 +162,6 @@ class _RootShellState extends State<_RootShell> {
         _activeTab = 'dashboard';
       }
     });
-  }
-
-  void _handleSignup() {
-    setState(() => _currentScreen = ScreenId.otp);
   }
 
   void _handleBackToLogin() {
@@ -226,14 +301,31 @@ class _RootShellState extends State<_RootShell> {
       case ScreenId.signup:
         return SignupScreen(
           role: _role ?? UserRole.client,
-          onBack: _handleBackToLogin,
-          onSignup: _handleSignup,
+          onBack: () => setState(() => _currentScreen = ScreenId.login),
+          onSignupSuccess: (phoneNumber, verificationId, email, city) {
+            // Store all signup data, then navigate to OTP screen
+            setState(() {
+              _phoneNumber = phoneNumber;
+              _verificationId = verificationId;
+              _signupEmail = email;
+              _signupCity = city;
+              _currentScreen = ScreenId.otp;
+            });
+          },
         );
       case ScreenId.otp:
         return OTPScreen(
-          phone: '+212 6XX XXX XXX',
+          phone: _phoneNumber ?? '+33 XXX XXX XXX',
+          verificationId: _verificationId,
+          email: _signupEmail ?? '',
+          city: _signupCity ?? '',
+          role: _role ?? UserRole.client,
           onBack: _handleBackToLogin,
           onVerify: _handleLogin,
+          onResend: () {
+            // VerificationId will be updated by OTP screen if resend succeeds
+            // This callback can be used for any additional logic if needed
+          },
         );
       case ScreenId.clientHome:
         return ClientHomeScreen(onNavigate: _handleNavigate);
