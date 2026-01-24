@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   widget.role == UserRole.client
                       ? 'Connectez-vous pour découvrir les commerces'
                       : 'Accédez à votre espace professionnel',
-                  style: const TextStyle(color: YColors.muted),
+                  style: TextStyle(color: YColors.muted),
                 ),
                 const SizedBox(height: 24),
                 _InputField(
@@ -109,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Vous n'avez pas de compte ?", style: TextStyle(color: YColors.muted)),
+                    Text("Vous n'avez pas de compte ?", style: TextStyle(color: YColors.muted)),
                     TextButton(
                       onPressed: widget.onSignup,
                       style: TextButton.styleFrom(foregroundColor: YColors.secondary),
