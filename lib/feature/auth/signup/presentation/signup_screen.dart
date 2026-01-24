@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/cities.dart';
 import '../application/providers.dart';
@@ -50,6 +51,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   String _selectedCountryFlag = '🇫🇷';
   String _selectedRole = 'client';
   String? _phoneVerificationId;
+  
+  // Real-time validation state
+  String? _emailError;
+  String? _passwordError;
+  String? _confirmPasswordError;
 
   final List<Map<String, String>> countryCodes = [
     {'code': '+33', 'name': 'France', 'flag': '🇫🇷'},
@@ -188,6 +194,35 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _passwordFocusNode.unfocus();
     _confirmPasswordFocusNode.unfocus();
     _phoneFocusNode.unfocus();
+  }
+
+  // Real-time validation methods (trigger validation on typing)
+  void _validateEmailOnType(String value) {
+    if (_formKey.currentState != null) {
+      _formKey.currentState!.validate();
+    }
+  }
+
+  void _validatePasswordOnType(String value) {
+    if (_formKey.currentState != null) {
+      _formKey.currentState!.validate();
+      // Also validate confirm password if it has value
+      if (_confirmPasswordController.text.isNotEmpty) {
+        _formKey.currentState!.validate();
+      }
+    }
+  }
+
+  void _validateConfirmPasswordOnType(String value) {
+    if (_formKey.currentState != null) {
+      _formKey.currentState!.validate();
+    }
+  }
+
+  void _validatePhoneOnType(String value) {
+    if (_formKey.currentState != null) {
+      _formKey.currentState!.validate();
+    }
   }
 
   String? _validateCity(String? value) {
@@ -503,9 +538,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           keyboardType: keyboardType,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUnfocus,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
+          onChanged: (value) {
+            // Real-time validation for email field
+            if (label == 'Adresse email') {
+              _validateEmailOnType(value);
+            }
+          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
@@ -575,9 +616,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           obscureText: !_isPasswordVisible,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUnfocus,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
+          onChanged: (value) {
+            _validatePasswordOnType(value);
+          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
@@ -683,9 +727,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           obscureText: !_isConfirmPasswordVisible,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUnfocus,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
+          onChanged: (value) {
+            _validateConfirmPasswordOnType(value);
+          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
@@ -796,6 +843,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 focusNode: _phoneFocusNode,
                 enabled: !_isLoading,
                 keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  // Only allow numbers - reject any symbols
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                ],
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Le numéro est requis.';
@@ -803,9 +854,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   if (value.length < 8) {
                     return 'Numéro invalide.';
                   }
+                  // Additional regex check to ensure only numbers
+                  if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                    return 'Seuls les chiffres sont autorisés.';
+                  }
                   return null;
                 },
-                autovalidateMode: AutovalidateMode.onUnfocus,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 cursorColor: const Color(0xFFBF8719),
                 onTap: () {
                   _unfocusAllFields();
@@ -853,6 +908,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 ),
                 onChanged: (value) {
                   setState(() => _phoneNumber = _selectedCountryCode + value);
+                  _validatePhoneOnType(value);
                 },
               ),
             ),
