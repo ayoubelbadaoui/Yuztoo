@@ -197,6 +197,7 @@ class FirebaseAuthRepository implements AuthRepository {
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
       case 'user-cancelled':
         return const UserCancelledFailure();
+<<<<<<< HEAD:lib/feature/auth/core/infrastructure/firebase_auth_repository.dart
       default:
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
     }
@@ -223,6 +224,8 @@ class FirebaseAuthRepository implements AuthRepository {
             message: 'Code de vérification invalide');
       case 'network-request-failed':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
+=======
+>>>>>>> origin/develop:lib/feature/auth/infrastructure/firebase_auth_repository.dart
       default:
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
     }
