@@ -87,6 +87,23 @@ class _RootShellState extends State<_RootShell> {
   /// Listen to Firebase Auth state changes
   /// This ensures we catch auth state even if Firebase hasn't fully initialized yet
   void _listenToAuthState() {
+    // Add timeout to prevent getting stuck on splash screen
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && _isCheckingAuth) {
+        // If still checking after 3 seconds, check current user directly
+        final currentUser = FirebaseAuth.instance.currentUser;
+        setState(() {
+          _isCheckingAuth = false;
+        });
+        if (currentUser != null) {
+          _handleAuthStateChange(currentUser);
+        } else {
+          // No user - show splash
+          _currentScreen = ScreenId.splash;
+        }
+      }
+    });
+
     _authStateSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) async {
       // Only handle the first auth state change (on app start)
       // Subsequent changes (login/logout) will be handled by the app flow
