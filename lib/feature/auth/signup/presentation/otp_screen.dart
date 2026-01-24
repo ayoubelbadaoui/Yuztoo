@@ -221,9 +221,17 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: bgDark1,
-      body: SafeArea(
+    return PopScope(
+      canPop: !_isVerifying, // Prevent back navigation during verification
+      onPopInvoked: (didPop) {
+        if (!didPop && !_isVerifying) {
+          // Handle Android back button
+          widget.onBack();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgDark1,
+        body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
@@ -246,6 +254,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

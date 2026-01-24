@@ -360,9 +360,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: bgDark1,
-      body: SafeArea(
+    return PopScope(
+      canPop: !_isLoading, // Prevent back navigation during loading
+      onPopInvoked: (didPop) {
+        if (!didPop && !_isLoading) {
+          // Handle Android back button
+          widget.onBack();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgDark1,
+        body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
@@ -391,6 +399,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
