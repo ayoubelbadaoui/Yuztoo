@@ -128,16 +128,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       });
     });
     
-    // Ensure form is in clean state on init
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        // Reset form state without triggering validation
-        _formKey.currentState?.reset();
-        setState(() {
-          _hasAttemptedSubmit = false; // Ensure validation is disabled on initial load
-        });
-      }
-    });
+    // Ensure validation is disabled on initial load
+    // Don't call reset() as it may trigger validation
+    // Just ensure _hasAttemptedSubmit is false (already initialized)
   }
 
   @override
@@ -471,6 +464,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   Widget _buildSignupForm() {
     return Form(
       key: _formKey,
+      autovalidateMode: AutovalidateMode.disabled, // Disable form-level validation
       child: Column(
         children: [
           _buildTextField(
