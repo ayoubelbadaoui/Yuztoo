@@ -128,10 +128,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       });
     });
     
-    // Clear form on init (in case user navigates back after successful signup)
+    // Ensure form is in clean state on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _clearForm();
+        // Reset form state without triggering validation
+        _formKey.currentState?.reset();
+        setState(() {
+          _hasAttemptedSubmit = false; // Ensure validation is disabled on initial load
+        });
       }
     });
   }
