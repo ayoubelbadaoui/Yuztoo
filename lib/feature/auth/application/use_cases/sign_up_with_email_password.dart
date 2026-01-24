@@ -21,7 +21,7 @@ class SignUpWithEmailPassword {
       );
     }
 
-    return _repository.signUpWithEmailAndPassword(
+    return _repository.createUserWithEmailAndPassword(
       email: EmailAddress(email),
       password: Password(password),
     );

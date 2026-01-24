@@ -3,6 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 /// Service for handling Firebase Authentication
+/// 
+/// NOTE: This is a temporary service class. The logic should be integrated
+/// into FirebaseAuthRepository to follow Clean Architecture properly.
 class AuthService {
   /// Get FirebaseAuth instance - lazy loading to avoid errors if Firebase not initialized
   FirebaseAuth get _auth {

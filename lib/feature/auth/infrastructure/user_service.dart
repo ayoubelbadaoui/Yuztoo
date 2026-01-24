@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import '../../types.dart';
+import '../../../types.dart';
 
 /// Service for handling Firestore user document operations
+/// 
+/// NOTE: This is a temporary service class. The logic should be integrated
+/// into a UserRepository interface/implementation to follow Clean Architecture properly.
 class UserService {
   /// Get FirebaseFirestore instance - lazy loading to avoid errors if Firebase not initialized
   FirebaseFirestore get _firestore {
