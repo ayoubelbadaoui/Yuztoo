@@ -18,12 +18,13 @@ class SignupScreen extends ConsumerStatefulWidget {
   final UserRole role;
   final VoidCallback onBack;
   final Function(
+    String userId,
     String phoneNumber,
-    String verificationId,
+    String? verificationId,
     String email,
-    String city,
+    String city, {
     String? otpUnavailableMessage,
-  ) onSignupSuccess; // Pass signup data
+  }) onSignupSuccess; // Pass signup data
 
   @override
   ConsumerState<SignupScreen> createState() => _SignupScreenState();
@@ -338,11 +339,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               setState(() => _isLoading = false);
               // Navigate to OTP screen with empty verificationId and error message
               widget.onSignupSuccess(
+                authUser.id, // Pass user ID to avoid Firebase import in presentation
                 phoneNumber,
-                '', // Empty verificationId means OTP is unavailable
+                null, // OTP screen will send OTP automatically
                 email,
                 _selectedCity!,
-                frenchMessage, // Pass the error message to OTP screen
+                otpUnavailableMessage: frenchMessage, // Pass the error message to OTP screen
               );
             }
             
@@ -367,11 +369,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             showSuccessSnackbar(context, 'Code de vérification envoyé!');
             // Navigate to OTP screen with all signup data
             widget.onSignupSuccess(
+              authUser.id, // Pass user ID to avoid Firebase import in presentation
               phoneNumber,
               verificationId,
               email,
               _selectedCity!,
-              null,
             );
           }
         }

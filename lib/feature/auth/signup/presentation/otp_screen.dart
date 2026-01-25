@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/providers.dart';
 import '../../core/application/auth_error_mapper.dart';
-import '../../core/application/state/auth_state.dart';
-import '../../login/application/providers.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
 
@@ -13,6 +11,7 @@ class OTPScreen extends ConsumerStatefulWidget {
     super.key,
     required this.onBack,
     required this.onVerify,
+    required this.userId,
     required this.phone,
     required this.onResend,
     required this.email,
@@ -24,6 +23,7 @@ class OTPScreen extends ConsumerStatefulWidget {
 
   final VoidCallback onBack;
   final VoidCallback onVerify;
+  final String userId; // User ID from signup (passed to avoid Firebase import)
   final String phone;
   final VoidCallback onResend;
   final String email;
@@ -174,17 +174,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   }
 
   Future<void> _createFirestoreProfile() async {
-    // Get current authenticated user from auth state
-    final authState = ref.read(authStateProvider);
-    if (authState is! Authenticated) {
-      if (mounted) {
-        showErrorSnackbar(context, 'Erreur: Aucun utilisateur connecté');
-        setState(() => _isVerifying = false);
-      }
-      return;
-    }
-
-    final user = authState.user;
+    // Use user ID passed from signup screen (respects architecture - no Firebase import in presentation)
 
     // Build roles map based on widget.role
     final Map<String, bool> roles = {
@@ -195,7 +185,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
     final createUserDocUseCase = ref.read(createUserDocumentProvider);
     final createResult = await createUserDocUseCase.call(
-      uid: user.id,
+      uid: widget.userId,
       email: widget.email,
       phone: widget.phone,
       roles: roles,
