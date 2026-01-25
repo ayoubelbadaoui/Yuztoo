@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/infrastructure/auth_repository_provider.dart';
+import '../../core/domain/repositories/auth_repository.dart';
 import '../../core/infrastructure/user_repository_provider.dart';
 import 'signup_with_email_password.dart';
 import 'send_phone_verification.dart';
@@ -28,4 +29,19 @@ final createUserDocumentProvider = Provider<CreateUserDocument>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return CreateUserDocument(repository);
 });
+
+final deleteCurrentUserProvider = Provider<DeleteCurrentUser>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return DeleteCurrentUser(repository);
+});
+
+class DeleteCurrentUser {
+  const DeleteCurrentUser(this._repository);
+
+  final AuthRepository _repository;
+
+  Future<void> call() async {
+    await _repository.deleteCurrentUser();
+  }
+}
 

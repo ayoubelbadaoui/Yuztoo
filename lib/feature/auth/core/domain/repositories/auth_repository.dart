@@ -23,6 +23,8 @@ abstract class AuthRepository {
     required String smsCode,
   });
 
+  Future<Result<Unit>> deleteCurrentUser();
+
   Future<Result<Unit>> signOut();
 
   Stream<Result<AuthUser?>> watchAuthState();

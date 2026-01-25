@@ -259,6 +259,43 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<Result<Unit>> deleteCurrentUser() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        LoggerService.logFailure(
+          'AuthFailure',
+          'No authenticated user to delete',
+        );
+        return const Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(message: 'Aucun utilisateur connecté'),
+        );
+      }
+
+      await user.delete();
+      LoggerService.logInfo('User deleted successfully', context: {'uid': user.uid});
+      return const Right<AuthFailure, Unit>(unit);
+    } on firebase.FirebaseAuthException catch (e, st) {
+      LoggerService.logError(
+        'FirebaseAuthException during deleteCurrentUser',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code},
+      );
+      return Left<AuthFailure, Unit>(_mapAuthException(e, st));
+    } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error during deleteCurrentUser',
+        error: e,
+        stackTrace: st,
+      );
+      return Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(cause: e, stackTrace: st),
+      );
+    }
+  }
+
+  @override
   Future<Result<Unit>> signOut() async {
     try {
       await _auth.signOut();

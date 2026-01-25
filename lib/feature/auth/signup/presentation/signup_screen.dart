@@ -298,34 +298,36 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           final phoneNumber = formattedPhoneNumber; // E.164 formatted
           final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
           final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
+          final failure = otpResult.leftOrNull;
+          if (failure != null) {
+            if (mounted) {
+              final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
+              showErrorSnackbar(context, frenchMessage);
+              setState(() => _isLoading = false);
+            }
+            // Roll back created auth user if OTP couldn't be sent
+            final deleteUserUseCase = ref.read(deleteCurrentUserProvider);
+            await deleteUserUseCase.call();
+            return;
+          }
 
-          otpResult.fold(
-            (failure) {
-              if (mounted) {
-                final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-                showErrorSnackbar(context, frenchMessage);
-                setState(() => _isLoading = false);
-              }
-            },
-            (verificationId) {
-              // Store verificationId for later use
-              if (mounted) {
-                setState(() {
-                  _phoneVerificationId = verificationId;
-                  _isLoading = false;
-                });
+          final verificationId = otpResult.rightOrNull!;
+          // Store verificationId for later use
+          if (mounted) {
+            setState(() {
+              _phoneVerificationId = verificationId;
+              _isLoading = false;
+            });
 
-                showSuccessSnackbar(context, 'Code de vérification envoyé!');
-                // Navigate to OTP screen with all signup data
-                widget.onSignupSuccess(
-                  phoneNumber,
-                  verificationId,
-                  email,
-                  _selectedCity!,
-                );
-              }
-            },
-          );
+            showSuccessSnackbar(context, 'Code de vérification envoyé!');
+            // Navigate to OTP screen with all signup data
+            widget.onSignupSuccess(
+              phoneNumber,
+              verificationId,
+              email,
+              _selectedCity!,
+            );
+          }
         }
       },
     );
