@@ -18,6 +18,7 @@ class OTPScreen extends ConsumerStatefulWidget {
     required this.email,
     required this.city,
     required this.role,
+    this.otpUnavailableMessage,
     this.verificationId,
   });
 
@@ -28,6 +29,7 @@ class OTPScreen extends ConsumerStatefulWidget {
   final String email;
   final String city;
   final UserRole role;
+  final String? otpUnavailableMessage;
   final String? verificationId; // Optional, for resend functionality
 
   @override
@@ -43,6 +45,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   int _resendTimer = 60; // 60 seconds
   bool _canResend = false;
   bool _isVerifying = false;
+  bool _otpBlocked = false;
+  String? _otpUnavailableMessage;
   Timer? _timer;
 
   // Colors - Match signup screen dark theme
@@ -52,15 +56,32 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   static const Color textLight = Color(0xFFF5F5F5);
   static const Color textGrey = Color(0xFFB0B0B0);
   static const Color borderColor = Color(0xFF2A3F5F);
+  static const Color errorRed = Color(0xFFE74C3C);
 
   @override
   void initState() {
     super.initState();
+    _otpUnavailableMessage = widget.otpUnavailableMessage;
+
     if (widget.verificationId == _autoVerificationId) {
       // Auto-verification completed; create profile directly
       setState(() => _isVerifying = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _createFirestoreProfile();
+      });
+      return;
+    }
+
+    if (widget.verificationId == null || widget.verificationId!.isEmpty) {
+      _otpBlocked = true;
+      if (_otpUnavailableMessage == null || _otpUnavailableMessage!.isEmpty) {
+        _otpUnavailableMessage =
+            'SMS indisponible pour le moment. Veuillez réessayer plus tard.';
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _otpUnavailableMessage != null) {
+          showErrorSnackbar(context, _otpUnavailableMessage!);
+        }
       });
       return;
     }
@@ -103,6 +124,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   }
 
   void _onChanged(int index, String value) {
+    if (_otpBlocked) return;
     if (value.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
@@ -207,6 +229,12 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   }
 
   Future<void> _handleResend() async {
+    if (_otpBlocked) {
+      if (mounted && _otpUnavailableMessage != null) {
+        showErrorSnackbar(context, _otpUnavailableMessage!);
+      }
+      return;
+    }
     if (!_canResend) return;
 
     final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
@@ -333,6 +361,17 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             color: textGrey,
           ),
         ),
+        if (_otpUnavailableMessage != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _otpUnavailableMessage!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              color: errorRed,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -348,7 +387,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           child: TextField(
             controller: _controllers[index],
             focusNode: _focusNodes[index],
-            enabled: !_isVerifying,
+            enabled: !_isVerifying && !_otpBlocked,
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             maxLength: 1,

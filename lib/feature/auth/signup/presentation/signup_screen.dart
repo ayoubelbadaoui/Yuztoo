@@ -17,7 +17,13 @@ class SignupScreen extends ConsumerStatefulWidget {
 
   final UserRole role;
   final VoidCallback onBack;
-  final Function(String phoneNumber, String verificationId, String email, String city) onSignupSuccess; // Pass signup data
+  final Function(
+    String phoneNumber,
+    String verificationId,
+    String email,
+    String city,
+    String? otpUnavailableMessage,
+  ) onSignupSuccess; // Pass signup data
 
   @override
   ConsumerState<SignupScreen> createState() => _SignupScreenState();
@@ -321,10 +327,22 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
           final failure = otpResult.leftOrNull;
           if (failure != null) {
+            final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
+            final isBillingBlocked =
+                frenchMessage.toLowerCase().contains('facturation') ||
+                    frenchMessage.contains('BILLING_NOT_ENABLED');
             if (mounted) {
-              final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
               showErrorSnackbar(context, frenchMessage);
               setState(() => _isLoading = false);
+            }
+            if (isBillingBlocked) {
+              widget.onSignupSuccess(
+                phoneNumber,
+                '',
+                email,
+                _selectedCity!,
+                frenchMessage,
+              );
             }
             // Roll back created auth user if OTP couldn't be sent
             final deleteUserUseCase = ref.read(deleteCurrentUserProvider);
@@ -347,6 +365,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               verificationId,
               email,
               _selectedCity!,
+              null,
             );
           }
         }

@@ -82,7 +82,8 @@ void main() {
           home: SignupScreen(
             role: UserRole.client,
             onBack: () {},
-            onSignupSuccess: (phoneNumber, verificationId, email, city) {
+            onSignupSuccess:
+                (phoneNumber, verificationId, email, city, otpUnavailableMessage) {
               receivedPhone = phoneNumber;
               receivedVerificationId = verificationId;
               receivedEmail = email;

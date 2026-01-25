@@ -369,6 +369,12 @@ class FirebaseAuthRepository implements AuthRepository {
 
   AuthFailure _mapAuthExceptionInternal(
       firebase.FirebaseAuthException error, StackTrace stackTrace) {
+    if ((error.message ?? '').contains('BILLING_NOT_ENABLED')) {
+      return const AuthUnexpectedFailure(
+        message:
+            'La facturation Firebase n\'est pas activée. Activez-la pour recevoir le SMS.',
+      );
+    }
     switch (error.code) {
       // User account errors
       case 'user-disabled':

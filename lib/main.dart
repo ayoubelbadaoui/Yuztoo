@@ -68,6 +68,7 @@ class _RootShellState extends State<_RootShell> {
   String? _verificationId; // Store verificationId for OTP resend
   String? _signupEmail; // Store email for Firestore profile
   String? _signupCity; // Store city for Firestore profile
+  String? _otpUnavailableMessage; // Store OTP unavailable message
   StreamSubscription<User?>? _authStateSubscription;
   bool _hasCheckedAuth = false; // Track if we've checked auth state
   bool _isCheckingAuth = true; // Track if we're currently checking auth state
@@ -332,13 +333,15 @@ class _RootShellState extends State<_RootShell> {
         return SignupScreen(
           role: _role ?? UserRole.client,
           onBack: () => setState(() => _currentScreen = ScreenId.login),
-          onSignupSuccess: (phoneNumber, verificationId, email, city) {
+          onSignupSuccess:
+              (phoneNumber, verificationId, email, city, otpUnavailableMessage) {
             // Store all signup data, then navigate to OTP screen
             setState(() {
               _phoneNumber = phoneNumber;
               _verificationId = verificationId;
               _signupEmail = email;
               _signupCity = city;
+              _otpUnavailableMessage = otpUnavailableMessage;
               _currentScreen = ScreenId.otp;
             });
           },
@@ -350,6 +353,7 @@ class _RootShellState extends State<_RootShell> {
           email: _signupEmail ?? '',
           city: _signupCity ?? '',
           role: _role ?? UserRole.client,
+          otpUnavailableMessage: _otpUnavailableMessage,
           onBack: _handleBackToLogin,
           onVerify: _handleLogin,
           onResend: () {
