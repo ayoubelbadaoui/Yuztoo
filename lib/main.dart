@@ -77,12 +77,24 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
   @override
   Widget build(BuildContext context) {
-    // Handle auth state changes (stream now emits immediately - root fix in repository)
+    // Watch auth state - stream now emits immediately (root fix in repository)
+    final authState = ref.watch(authStateProvider);
+    
+    // Handle current state immediately (don't wait for changes)
+    if (_isCheckingAuth) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isCheckingAuth) {
+          _handleAuthStateFromProvider(authState);
+        }
+      });
+    }
+
+    // Listen to future changes (login/logout)
     ref.listen<AuthState>(
       authStateProvider,
       (previous, next) {
-        // Handle first state change and all subsequent changes
-        if (previous != next) {
+        // Handle state changes after initial check
+        if (!_isCheckingAuth && previous != next) {
           _handleAuthStateFromProvider(next);
         }
       },
