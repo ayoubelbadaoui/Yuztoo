@@ -213,35 +213,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _phoneFocusNode.unfocus();
   }
 
-  // Real-time validation methods (trigger validation on typing)
-  void _validateEmailOnType(String value) {
-    if (_formKey.currentState != null) {
-      _formKey.currentState!.validate();
-    }
-  }
-
-  void _validatePasswordOnType(String value) {
-    if (_formKey.currentState != null) {
-      _formKey.currentState!.validate();
-      // Also validate confirm password if it has value
-      if (_confirmPasswordController.text.isNotEmpty) {
-        _formKey.currentState!.validate();
-      }
-    }
-  }
-
-  void _validateConfirmPasswordOnType(String value) {
-    if (_formKey.currentState != null) {
-      _formKey.currentState!.validate();
-    }
-  }
-
-  void _validatePhoneOnType(String value) {
-    if (_formKey.currentState != null) {
-      _formKey.currentState!.validate();
-    }
-  }
-
   String? _validateCity(String? value) {
     if (value == null || value.isEmpty) {
       return 'La ville est requise.';
@@ -569,12 +540,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
-          onChanged: (value) {
-            // Real-time validation for email field
-            if (label == 'Adresse email') {
-              _validateEmailOnType(value);
-            }
-          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
@@ -647,9 +612,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
-          onChanged: (value) {
-            _validatePasswordOnType(value);
-          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
@@ -758,9 +720,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
-          onChanged: (value) {
-            _validateConfirmPasswordOnType(value);
-          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
@@ -936,7 +895,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 ),
                 onChanged: (value) {
                   setState(() => _phoneNumber = _selectedCountryCode + value);
-                  _validatePhoneOnType(value);
                 },
               ),
             ),
