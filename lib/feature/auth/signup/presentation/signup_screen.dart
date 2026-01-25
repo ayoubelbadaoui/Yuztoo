@@ -219,9 +219,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _phoneFocusNode.unfocus();
   }
 
-  String _formatPhoneNumber(String countryCode, String localNumber) {
-    var digits = localNumber.replaceAll(RegExp(r'\\D'), '');
-    // Remove trunk prefix (leading zeros) for E.164 format
+  String _formatPhoneNumber(String countryCode, String rawInput) {
+    final trimmed = rawInput.trim();
+    final countryDigits = countryCode.replaceAll(RegExp(r'\\D'), '');
+    var digits = trimmed.replaceAll(RegExp(r'\\D'), '');
+
+    // If user already typed an international number (starts with +)
+    if (trimmed.startsWith('+')) {
+      // Normalize to +<digits> without leading zeros after +
+      digits = digits.replaceFirst(RegExp(r'^0+'), '');
+      return '+$digits';
+    }
+
+    // If user typed full number including country code (without +), don't double it
+    if (countryDigits.isNotEmpty && digits.startsWith(countryDigits)) {
+      return '+$digits';
+    }
+
+    // Otherwise, treat as national number and strip trunk prefix
     digits = digits.replaceFirst(RegExp(r'^0+'), '');
     return '$countryCode$digits';
   }
