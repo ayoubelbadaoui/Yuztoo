@@ -122,14 +122,54 @@ class FirebaseAuthRepository implements AuthRepository {
     required String phoneNumber,
   }) async {
     final completer = Completer<Result<String>>();
+    const autoVerificationId = '__auto__';
 
     try {
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
-        verificationCompleted: (firebase.PhoneAuthCredential credential) {
+        verificationCompleted: (firebase.PhoneAuthCredential credential) async {
           // Auto-verification completed on some devices
-          if (!completer.isCompleted) {
-            completer.complete(const Right<AuthFailure, String>(''));
+          try {
+            final user = _auth.currentUser;
+            if (user == null) {
+              if (!completer.isCompleted) {
+                completer.complete(const Left<AuthFailure, String>(
+                  AuthUnexpectedFailure(message: 'Aucun utilisateur connecté'),
+                ));
+              }
+              return;
+            }
+
+            await user.linkWithCredential(credential);
+            LoggerService.logInfo(
+              'Phone auto-verified and linked',
+              context: {'uid': user.uid, 'phoneNumber': phoneNumber},
+            );
+            if (!completer.isCompleted) {
+              completer.complete(const Right<AuthFailure, String>(autoVerificationId));
+            }
+          } on firebase.FirebaseAuthException catch (e, st) {
+            LoggerService.logError(
+              'FirebaseAuthException during auto phone linking',
+              error: e,
+              stackTrace: st,
+              context: {'code': e.code, 'phoneNumber': phoneNumber},
+            );
+            if (!completer.isCompleted) {
+              completer.complete(Left<AuthFailure, String>(_mapAuthException(e, st)));
+            }
+          } catch (e, st) {
+            LoggerService.logError(
+              'Unexpected error during auto phone linking',
+              error: e,
+              stackTrace: st,
+              context: {'phoneNumber': phoneNumber},
+            );
+            if (!completer.isCompleted) {
+              completer.complete(Left<AuthFailure, String>(
+                AuthUnexpectedFailure(cause: e, stackTrace: st),
+              ));
+            }
           }
         },
         verificationFailed: (firebase.FirebaseAuthException e) {

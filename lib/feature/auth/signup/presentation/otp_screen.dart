@@ -35,6 +35,7 @@ class OTPScreen extends ConsumerStatefulWidget {
 }
 
 class _OTPScreenState extends ConsumerState<OTPScreen> {
+  static const String _autoVerificationId = '__auto__';
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
@@ -55,6 +56,15 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.verificationId == _autoVerificationId) {
+      // Auto-verification completed; create profile directly
+      setState(() => _isVerifying = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _createFirestoreProfile();
+      });
+      return;
+    }
+
     _startResendTimer();
     // Auto-focus first field
     WidgetsBinding.instance.addPostFrameCallback((_) {
