@@ -167,12 +167,12 @@ class _RootShellState extends ConsumerState<_RootShell> {
           }
         }
       case Unauthenticated():
-        // No user - show splash
+        // No user - go directly to role selection (skip splash)
         if (_isCheckingAuth) {
           if (mounted) {
             setState(() {
               _isCheckingAuth = false;
-              _currentScreen = ScreenId.splash;
+              _currentScreen = ScreenId.roleSelection;
             });
           }
         }

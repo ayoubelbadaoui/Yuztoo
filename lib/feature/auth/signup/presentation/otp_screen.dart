@@ -76,13 +76,9 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       _otpBlocked = true;
       if (_otpUnavailableMessage == null || _otpUnavailableMessage!.isEmpty) {
         _otpUnavailableMessage =
-            'SMS indisponible pour le moment. Veuillez réessayer plus tard.';
+            'SMS indisponible pour le moment. Veuillez contacter le support.';
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _otpUnavailableMessage != null) {
-          showErrorSnackbar(context, _otpUnavailableMessage!);
-        }
-      });
+      // Error message will be displayed in UI (red text in _buildLogoSection)
       return;
     }
 

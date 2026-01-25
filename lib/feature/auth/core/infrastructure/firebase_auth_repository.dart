@@ -409,7 +409,7 @@ class FirebaseAuthRepository implements AuthRepository {
     if ((error.message ?? '').contains('BILLING_NOT_ENABLED')) {
       return const AuthUnexpectedFailure(
         message:
-            'La facturation Firebase n\'est pas activée. Activez-la pour recevoir le SMS.',
+            'La vérification par SMS n\'est pas disponible pour le moment. Veuillez contacter le support.',
       );
     }
     switch (error.code) {
