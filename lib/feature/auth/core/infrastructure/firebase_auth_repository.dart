@@ -322,7 +322,44 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Stream<Result<AuthUser?>> watchAuthState() async* {
+    // Emit current user immediately (root fix - don't wait for stream)
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      try {
+        final profileDoc =
+            await _firestore.collection('users').doc(currentUser.uid).get();
+        final dto = AuthUserDto.fromFirebase(currentUser, profileDoc: profileDoc);
+        yield Right<AuthFailure, AuthUser?>(dto.toDomain());
+      } on firebase.FirebaseAuthException catch (e, st) {
+        LoggerService.logError(
+          'FirebaseAuthException in watchAuthState (current user)',
+          error: e,
+          stackTrace: st,
+          context: {'code': e.code, 'uid': currentUser.uid},
+        );
+        yield Left<AuthFailure, AuthUser?>(_mapAuthException(e, st));
+      } catch (e, st) {
+        LoggerService.logError(
+          'Unexpected error in watchAuthState (current user)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': currentUser.uid},
+        );
+        yield Left<AuthFailure, AuthUser?>(
+            AuthUnexpectedFailure(cause: e, stackTrace: st));
+      }
+    } else {
+      // No current user - emit null immediately
+      yield const Right<AuthFailure, AuthUser?>(null);
+    }
+
+    // Then listen to changes
     await for (final user in _auth.userChanges()) {
+      // Skip if it's the same as current user we already emitted
+      if (user?.uid == currentUser?.uid) {
+        continue;
+      }
+
       if (user == null) {
         yield const Right<AuthFailure, AuthUser?>(null);
         continue;

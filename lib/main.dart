@@ -68,7 +68,6 @@ class _RootShellState extends ConsumerState<_RootShell> {
   String? _signupEmail; // Store email for Firestore profile
   String? _signupCity; // Store city for Firestore profile
   String? _otpUnavailableMessage; // Store OTP unavailable message
-  bool _hasCheckedAuth = false; // Track if we've checked auth state
   bool _isCheckingAuth = true; // Track if we're currently checking auth state
 
   @override
@@ -78,27 +77,12 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to auth state changes from application layer
-    // This must be done in build method (ref.listen requirement)
-    final authState = ref.watch(authStateProvider);
-    
-    // Check auth state on first build
-    if (!_hasCheckedAuth) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_hasCheckedAuth) {
-          _hasCheckedAuth = true;
-          _handleAuthStateFromProvider(authState);
-        }
-      });
-    }
-
-    // Listen to future changes (login/logout)
+    // Handle auth state changes (stream now emits immediately - root fix in repository)
     ref.listen<AuthState>(
       authStateProvider,
       (previous, next) {
-        // Only handle subsequent auth state changes (login/logout)
-        // First change is handled above
-        if (_hasCheckedAuth && previous != next) {
+        // Handle first state change and all subsequent changes
+        if (previous != next) {
           _handleAuthStateFromProvider(next);
         }
       },
@@ -131,16 +115,12 @@ class _RootShellState extends ConsumerState<_RootShell> {
   void _handleAuthStateFromProvider(AuthState authState) async {
     switch (authState) {
       case AuthInitial():
-        // Initial state - wait for stream to emit, don't mark as checked yet
-        // The listener will handle the first real state change
-        return;
       case AuthLoading():
-        // Still loading - wait for actual state
+        // Wait for real state - do nothing
         return;
       case Authenticated(:final user):
         // User is authenticated - get role from Firestore using application layer
-        if (!_hasCheckedAuth) {
-          _hasCheckedAuth = true;
+        if (_isCheckingAuth) {
           try {
             final getUserRole = ref.read(getUserRoleProvider);
             final roleResult = await getUserRole.call(user.id);
@@ -176,8 +156,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
         }
       case Unauthenticated():
         // No user - show splash
-        if (!_hasCheckedAuth) {
-          _hasCheckedAuth = true;
+        if (_isCheckingAuth) {
           if (mounted) {
             setState(() {
               _isCheckingAuth = false;
@@ -187,8 +166,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
         }
       case AuthError():
         // Error - show splash anyway
-        if (!_hasCheckedAuth) {
-          _hasCheckedAuth = true;
+        if (_isCheckingAuth) {
           if (mounted) {
             setState(() {
               _isCheckingAuth = false;
