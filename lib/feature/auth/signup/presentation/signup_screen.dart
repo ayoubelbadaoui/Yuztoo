@@ -230,9 +230,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Future<void> _handleSignup() async {
-    // Mark that user has attempted to submit - enable validation display
-    setState(() => _hasAttemptedSubmit = true);
-    
+    // Validate form - errors will show for all invalid fields
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -344,7 +342,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       _isConfirmPasswordVisible = false;
       _isPasswordFocused = false;
       _isLoading = false;
-      _hasAttemptedSubmit = false; // Reset validation attempt flag
     });
     
     // Unfocus all fields
