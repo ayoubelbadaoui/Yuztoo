@@ -626,6 +626,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 _emailFieldKey.currentState?.hasError == true;
             
             return Container(
+              constraints: const BoxConstraints(),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
@@ -675,8 +676,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   fillColor: Colors.transparent, // Transparent so container color shows
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 14,
+                    vertical: 12, // Reduced from 14 to 12
                   ),
+                  isDense: true, // Reduce height
                   border: InputBorder.none, // Remove all default borders
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
