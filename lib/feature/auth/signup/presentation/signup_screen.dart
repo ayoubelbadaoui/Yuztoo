@@ -625,66 +625,83 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             // Get validation state for email field
             final hasError = isEmailField && 
                 _emailFieldKey.currentState?.hasError == true;
+            final errorText = isEmailField && hasError
+                ? _emailFieldKey.currentState?.errorText
+                : null;
             
-            return Material(
-              color: Colors.transparent,
-              child: Container(
-                constraints: const BoxConstraints(),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: hasError
-                        ? errorRed
-                        : focusNode.hasFocus
-                            ? primaryGold
-                            : borderColor,
-                    width: hasError
-                        ? 1.5
-                        : focusNode.hasFocus
-                            ? 2
-                            : 1,
-                  ),
-                  color: bgDark2,
-                ),
-                child: TextFormField(
-                  key: isEmailField ? _emailFieldKey : null,
-                  controller: controller,
-                  focusNode: focusNode,
-                  enabled: enabled,
-                  keyboardType: keyboardType,
-                  validator: validator,
-                  autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
-                  cursorColor: const Color(0xFFBF8719),
-                  onTap: onTap,
-                  style: const TextStyle(
-                    color: textLight,
-                    fontSize: 14,
-                    decoration: TextDecoration.none,
-                    decorationColor: Colors.transparent,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    hintStyle: const TextStyle(color: textGrey, fontSize: 13),
-                    prefixIcon: Icon(icon, color: primaryGold, size: 18),
-                    filled: true,
-                    fillColor: Colors.transparent, // Transparent so container color shows
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12, // Reduced from 14 to 12
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    constraints: const BoxConstraints(),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: hasError
+                            ? errorRed
+                            : focusNode.hasFocus
+                                ? primaryGold
+                                : borderColor,
+                        width: hasError
+                            ? 1.5
+                            : focusNode.hasFocus
+                                ? 2
+                                : 1,
+                      ),
+                      color: bgDark2,
                     ),
-                    isDense: true, // Reduce height
-                    border: InputBorder.none, // Remove all default borders
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    errorBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    errorStyle: const TextStyle(
+                    child: TextFormField(
+                      key: isEmailField ? _emailFieldKey : null,
+                      controller: controller,
+                      focusNode: focusNode,
+                      enabled: enabled,
+                      keyboardType: keyboardType,
+                      validator: validator,
+                      autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
+                      cursorColor: const Color(0xFFBF8719),
+                      onTap: onTap,
+                      style: const TextStyle(
+                        color: textLight,
+                        fontSize: 14,
+                        decoration: TextDecoration.none,
+                        decorationColor: Colors.transparent,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: hint,
+                        hintStyle: const TextStyle(color: textGrey, fontSize: 13),
+                        prefixIcon: Icon(icon, color: primaryGold, size: 18),
+                        filled: true,
+                        fillColor: Colors.transparent, // Transparent so container color shows
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12, // Reduced from 14 to 12
+                        ),
+                        isDense: true, // Reduce height
+                        border: InputBorder.none, // Remove all default borders
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorText: null, // Don't show error inside field
+                        errorStyle: const TextStyle(height: 0, fontSize: 0), // Hide error text
+                      ),
+                    ),
+                  ),
+                ),
+                // Show error text outside the field
+                if (errorText != null && errorText.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    errorText,
+                    style: const TextStyle(
                       color: errorRed,
                       fontSize: 11,
                     ),
                   ),
-                ),
-              ),
+                ],
+              ],
             );
           },
         ),
