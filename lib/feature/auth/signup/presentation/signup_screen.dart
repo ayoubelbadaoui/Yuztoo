@@ -219,6 +219,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _phoneFocusNode.unfocus();
   }
 
+  String _formatPhoneNumber(String countryCode, String localNumber) {
+    var digits = localNumber.replaceAll(RegExp(r'\\D'), '');
+    // Remove trunk prefix (leading zeros) for E.164 format
+    digits = digits.replaceFirst(RegExp(r'^0+'), '');
+    return '$countryCode$digits';
+  }
+
   String? _validateCity(String? value) {
     if (value == null || value.isEmpty) {
       return 'La ville est requise.';
@@ -239,6 +246,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
       return;
     }
+    final formattedPhoneNumber =
+        _formatPhoneNumber(_selectedCountryCode, _phoneController.text);
 
     // Check if city is selected
     if (_selectedCity == null || _selectedCity!.isEmpty) {
@@ -271,7 +280,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         // User created successfully - proceed to phone verification
         if (mounted) {
           // 2. Send OTP for phone verification
-          final phoneNumber = _phoneNumber!; // Already validated above
+          final phoneNumber = formattedPhoneNumber; // E.164 formatted
           final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
           final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
 
@@ -293,7 +302,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
                 showSuccessSnackbar(context, 'Code de vérification envoyé!');
                 // Navigate to OTP screen with all signup data
-                widget.onSignupSuccess(phoneNumber, verificationId, email, _selectedCity!);
+                widget.onSignupSuccess(
+                  phoneNumber,
+                  verificationId,
+                  email,
+                  _selectedCity!,
+                );
               }
             },
           );
@@ -904,7 +918,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   errorMaxLines: 1,
                 ),
                 onChanged: (value) {
-                  setState(() => _phoneNumber = _selectedCountryCode + value);
+                  setState(() {
+                    _phoneNumber =
+                        _formatPhoneNumber(_selectedCountryCode, value);
+                  });
                 },
               ),
             ),
@@ -1044,7 +1061,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                   _selectedCountryFlag = country['flag']!;
                                   // Update phone number with new country code
                                   if (_phoneController.text.isNotEmpty) {
-                                    _phoneNumber = country['code']! + _phoneController.text;
+                                    _phoneNumber = _formatPhoneNumber(
+                                      country['code']!,
+                                      _phoneController.text,
+                                    );
                                   }
                                 });
                               },
