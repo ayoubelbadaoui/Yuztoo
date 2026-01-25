@@ -84,7 +84,16 @@ class _RootShellState extends ConsumerState<_RootShell> {
   /// Listen to auth state changes from application layer
   /// This ensures we catch auth state even if Firebase hasn't fully initialized yet
   void _listenToAuthState() {
-    // Use authResultStreamProvider from application layer (respects architecture)
+    // Check current auth state immediately (don't wait for stream)
+    final currentAuthState = ref.read(authResultStreamProvider);
+    currentAuthState.whenData((result) async {
+      if (!_hasCheckedAuth) {
+        _hasCheckedAuth = true;
+        await _handleAuthStateChange(result);
+      }
+    });
+
+    // Also listen to stream for future changes (login/logout)
     ref.listen<AsyncValue<Result<AuthUser?>>>(
       authResultStreamProvider,
       (previous, next) {
