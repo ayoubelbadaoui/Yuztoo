@@ -384,6 +384,36 @@ class FirebaseAuthRepository implements AuthRepository {
         );
       case 'invalid-credential':
         return const InvalidCredentialsFailure();
+
+      // Phone auth errors
+      case 'invalid-phone-number':
+        return const AuthUnexpectedFailure(
+          message: 'Numéro de téléphone invalide. Vérifiez le format.',
+        );
+      case 'missing-phone-number':
+        return const AuthUnexpectedFailure(
+          message: 'Le numéro de téléphone est requis.',
+        );
+      case 'quota-exceeded':
+        return const AuthUnexpectedFailure(
+          message:
+              'Quota SMS dépassé. Veuillez réessayer plus tard.',
+        );
+      case 'app-not-authorized':
+        return const AuthUnexpectedFailure(
+          message:
+              'Application non autorisée pour la vérification SMS.',
+        );
+      case 'captcha-check-failed':
+        return const AuthUnexpectedFailure(
+          message:
+              'Vérification reCAPTCHA échouée. Réessayez.',
+        );
+      case 'internal-error':
+        return const AuthUnexpectedFailure(
+          message:
+              'Erreur interne lors de la vérification du téléphone.',
+        );
       
       // Network errors
       case 'network-request-failed':
