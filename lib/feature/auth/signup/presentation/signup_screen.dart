@@ -231,6 +231,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       return '+$digits';
     }
 
+    // If user typed an international number with 00 prefix
+    if (digits.startsWith('00')) {
+      digits = digits.substring(2).replaceFirst(RegExp(r'^0+'), '');
+      return '+$digits';
+    }
+
     // If user typed full number including country code (without +), don't double it
     if (countryDigits.isNotEmpty && digits.startsWith(countryDigits)) {
       return '+$digits';
