@@ -604,9 +604,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     bool enabled = true,
     VoidCallback? onTap,
   }) {
-    // Determine if this is the email field for real-time validation
-    final isEmailField = controller == _emailController;
-    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -620,94 +617,52 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Builder(
-          builder: (context) {
-            // Get validation state for email field
-            final hasError = isEmailField && 
-                _emailFieldKey.currentState?.hasError == true;
-            final errorText = isEmailField && hasError
-                ? _emailFieldKey.currentState?.errorText
-                : null;
-            
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // Prevent extra height
-              children: [
-                Material(
-                  color: Colors.transparent,
-                  child: Container(
-                    height: 48, // Fixed height to match other fields
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: hasError
-                            ? errorRed
-                            : focusNode.hasFocus
-                                ? primaryGold
-                                : borderColor,
-                        width: hasError
-                            ? 1.5
-                            : focusNode.hasFocus
-                                ? 2
-                                : 1,
-                      ),
-                      color: bgDark2,
-                    ),
-                    child: TextFormField(
-                      key: isEmailField ? _emailFieldKey : null,
-                      controller: controller,
-                      focusNode: focusNode,
-                      enabled: enabled,
-                      keyboardType: keyboardType,
-                      validator: validator,
-                      autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
-                      cursorColor: const Color(0xFFBF8719),
-                      onTap: onTap,
-                      style: const TextStyle(
-                        color: textLight,
-                        fontSize: 14,
-                        decoration: TextDecoration.none,
-                        decorationColor: Colors.transparent,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: hint,
-                        hintStyle: const TextStyle(color: textGrey, fontSize: 13),
-                        prefixIcon: Icon(icon, color: primaryGold, size: 18),
-                        filled: true,
-                        fillColor: Colors.transparent,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        isDense: true,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        errorText: null,
-                        errorStyle: const TextStyle(height: 0, fontSize: 0),
-                      ),
-                    ),
-                  ),
-                ),
-                // Show error text outside the field (below, not inside)
-                if (errorText != null && errorText.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: Text(
-                      errorText,
-                      style: const TextStyle(
-                        color: errorRed,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            );
-          },
+        TextFormField(
+          key: _emailFieldKey,
+          controller: controller,
+          focusNode: focusNode,
+          enabled: enabled,
+          keyboardType: keyboardType,
+          validator: validator,
+          autovalidateMode: AutovalidateMode.disabled,
+          cursorColor: const Color(0xFFBF8719),
+          onTap: onTap,
+          style: const TextStyle(color: textLight, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: textGrey, fontSize: 13),
+            prefixIcon: Icon(icon, color: primaryGold, size: 18),
+            filled: true,
+            fillColor: bgDark2,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: borderColor, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: borderColor, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: primaryGold, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: errorRed, width: 1.5),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: borderColor, width: 1),
+            ),
+            errorStyle: const TextStyle(
+              color: errorRed,
+              fontSize: 11,
+            ),
+          ),
         ),
       ],
     );
