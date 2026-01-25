@@ -247,6 +247,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     return '$countryCode$digits';
   }
 
+  bool _isValidE164(String phoneNumber) {
+    final digits = phoneNumber.replaceAll(RegExp(r'\D'), '');
+    // E.164 allows up to 15 digits (country code + national number)
+    return digits.length >= 8 && digits.length <= 15;
+  }
+
   String? _validateCity(String? value) {
     if (value == null || value.isEmpty) {
       return 'La ville est requise.';
@@ -269,6 +275,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     }
     final formattedPhoneNumber =
         _formatPhoneNumber(_selectedCountryCode, _phoneController.text);
+    if (!_isValidE164(formattedPhoneNumber)) {
+      if (mounted) {
+        showErrorSnackbar(
+          context,
+          'Numéro de téléphone invalide. Vérifiez le format.',
+        );
+      }
+      return;
+    }
 
     // Check if city is selected
     if (_selectedCity == null || _selectedCity!.isEmpty) {
