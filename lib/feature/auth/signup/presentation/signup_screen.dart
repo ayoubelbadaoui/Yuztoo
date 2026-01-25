@@ -25,6 +25,11 @@ class SignupScreen extends ConsumerStatefulWidget {
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _emailFieldKey = GlobalKey<FormFieldState>();
+  final _passwordFieldKey = GlobalKey<FormFieldState>();
+  final _confirmPasswordFieldKey = GlobalKey<FormFieldState>();
+  final _phoneFieldKey = GlobalKey<FormFieldState>();
+  final _cityFieldKey = GlobalKey<FormFieldState>();
   
   // Controllers
   late TextEditingController _emailController;
@@ -124,7 +129,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     // Add listeners to validate only when field loses focus (blur)
     _emailFocusNode.addListener(() {
       if (!_emailFocusNode.hasFocus && _emailController.text.isNotEmpty) {
-        _formKey.currentState?.validate();
+        _emailFieldKey.currentState?.validate();
       }
     });
     
@@ -133,19 +138,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         _isPasswordFocused = _passwordFocusNode.hasFocus;
       });
       if (!_passwordFocusNode.hasFocus && _passwordController.text.isNotEmpty) {
-        _formKey.currentState?.validate();
+        _passwordFieldKey.currentState?.validate();
       }
     });
     
     _confirmPasswordFocusNode.addListener(() {
-      if (!_confirmPasswordFocusNode.hasFocus && _confirmPasswordController.text.isNotEmpty) {
-        _formKey.currentState?.validate();
+      if (!_confirmPasswordFocusNode.hasFocus &&
+          _confirmPasswordController.text.isNotEmpty) {
+        _confirmPasswordFieldKey.currentState?.validate();
       }
     });
     
     _phoneFocusNode.addListener(() {
       if (!_phoneFocusNode.hasFocus && _phoneController.text.isNotEmpty) {
-        _formKey.currentState?.validate();
+        _phoneFieldKey.currentState?.validate();
       }
     });
     
@@ -532,6 +538,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         TextFormField(
+          key: _emailFieldKey,
           controller: controller,
           focusNode: focusNode,
           enabled: enabled,
@@ -604,6 +611,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         TextFormField(
+          key: _passwordFieldKey,
           controller: controller,
           focusNode: focusNode,
           enabled: enabled,
@@ -712,6 +720,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         TextFormField(
+          key: _confirmPasswordFieldKey,
           controller: controller,
           focusNode: focusNode,
           enabled: enabled,
@@ -826,6 +835,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             // Phone number field
             Expanded(
               child: TextFormField(
+                key: _phoneFieldKey,
                 controller: _phoneController,
                 focusNode: _phoneFocusNode,
                 enabled: !_isLoading,
@@ -1130,6 +1140,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   Widget _buildCityDropdown() {
     return FormField<String>(
+      key: _cityFieldKey,
       validator: (value) {
         if (_selectedCity == null || _selectedCity!.isEmpty) {
           return 'La ville est requise.';
@@ -1336,7 +1347,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                       _selectedCity = city;
                                     });
                                     // Validate city field after selection
-                                    _formKey.currentState?.validate();
+                                    _cityFieldKey.currentState?.validate();
                                   }
                                 });
                               },
