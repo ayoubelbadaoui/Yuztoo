@@ -331,22 +331,28 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             final isBillingBlocked =
                 frenchMessage.toLowerCase().contains('facturation') ||
                     frenchMessage.contains('BILLING_NOT_ENABLED');
+            
+            // Always navigate to OTP screen, even if billing is disabled
+            // This allows the user to see the error message and understand what happened
             if (mounted) {
-              showErrorSnackbar(context, frenchMessage);
               setState(() => _isLoading = false);
-            }
-            if (isBillingBlocked) {
+              // Navigate to OTP screen with empty verificationId and error message
               widget.onSignupSuccess(
                 phoneNumber,
-                '',
+                '', // Empty verificationId means OTP is unavailable
                 email,
                 _selectedCity!,
-                frenchMessage,
+                frenchMessage, // Pass the error message to OTP screen
               );
             }
-            // Roll back created auth user if OTP couldn't be sent
-            final deleteUserUseCase = ref.read(deleteCurrentUserProvider);
-            await deleteUserUseCase.call();
+            
+            // Only delete user if it's NOT a billing error
+            // For billing errors, keep the user so they can try again later when billing is enabled
+            if (!isBillingBlocked) {
+              // Roll back created auth user if OTP couldn't be sent (non-billing error)
+              final deleteUserUseCase = ref.read(deleteCurrentUserProvider);
+              await deleteUserUseCase.call();
+            }
             return;
           }
 
