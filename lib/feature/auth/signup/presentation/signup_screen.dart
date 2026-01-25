@@ -121,14 +121,35 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _confirmPasswordFocusNode = FocusNode();
     _phoneFocusNode = FocusNode();
     
+    // Add listeners to validate only when field loses focus (blur)
+    _emailFocusNode.addListener(() {
+      if (!_emailFocusNode.hasFocus && _emailController.text.isNotEmpty) {
+        _formKey.currentState?.validate();
+      }
+    });
+    
     _passwordFocusNode.addListener(() {
       setState(() {
         _isPasswordFocused = _passwordFocusNode.hasFocus;
       });
+      if (!_passwordFocusNode.hasFocus && _passwordController.text.isNotEmpty) {
+        _formKey.currentState?.validate();
+      }
     });
     
-    // Validation is handled by AutovalidateMode.onUserInteraction
-    // Errors will only show when user leaves a field (blur), not on initial load
+    _confirmPasswordFocusNode.addListener(() {
+      if (!_confirmPasswordFocusNode.hasFocus && _confirmPasswordController.text.isNotEmpty) {
+        _formKey.currentState?.validate();
+      }
+    });
+    
+    _phoneFocusNode.addListener(() {
+      if (!_phoneFocusNode.hasFocus && _phoneController.text.isNotEmpty) {
+        _formKey.currentState?.validate();
+      }
+    });
+    
+    // Validation only happens on blur (when leaving field), not while typing
   }
 
   @override
@@ -545,7 +566,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           keyboardType: keyboardType,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
+          autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
           onChanged: (value) {
@@ -623,7 +644,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           obscureText: !_isPasswordVisible,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
+          autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
           onChanged: (value) {
@@ -734,7 +755,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           obscureText: !_isConfirmPasswordVisible,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
+          autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
           onChanged: (value) {
@@ -867,7 +888,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   }
                   return null;
                 },
-                autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
+                autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
                 cursorColor: const Color(0xFFBF8719),
                 onTap: () {
                   _unfocusAllFields();
@@ -1157,7 +1178,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         }
         return null;
       },
-      autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
+      autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via manual validation
       builder: (FormFieldState<String> state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1350,7 +1371,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             return GestureDetector(
                               onTap: () {
                                 Navigator.pop(context);
-                                this.setState(() => _selectedCity = city);
+                                setState(() {
+                                  _selectedCity = city;
+                                  // Validate city field after selection
+                                  _formKey.currentState?.validate();
+                                });
                               },
                               child: Container(
                                 margin: const EdgeInsets.symmetric(
