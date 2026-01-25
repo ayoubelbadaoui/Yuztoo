@@ -51,7 +51,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   String _selectedCountryFlag = '🇫🇷';
   String _selectedRole = 'client';
   String? _phoneVerificationId;
-  bool _hasAttemptedSubmit = false; // Track if user has tried to submit
   
   // Real-time validation state
   String? _emailError;
@@ -550,7 +549,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           keyboardType: keyboardType,
           validator: validator,
-          autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
+          autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
           onChanged: (value) {
@@ -628,7 +627,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           obscureText: !_isPasswordVisible,
           validator: validator,
-          autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
+          autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
           onChanged: (value) {
@@ -739,7 +738,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           enabled: enabled,
           obscureText: !_isConfirmPasswordVisible,
           validator: validator,
-          autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
+          autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
           onChanged: (value) {
@@ -872,7 +871,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   }
                   return null;
                 },
-                autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
+                autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
                 cursorColor: const Color(0xFFBF8719),
                 onTap: () {
                   _unfocusAllFields();
@@ -1162,7 +1161,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         }
         return null;
       },
-      autovalidateMode: _hasAttemptedSubmit ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
+      autovalidateMode: AutovalidateMode.onUserInteraction, // Validate only on blur (when leaving field)
       builder: (FormFieldState<String> state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
