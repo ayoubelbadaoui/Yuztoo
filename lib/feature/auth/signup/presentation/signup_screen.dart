@@ -1371,10 +1371,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             return GestureDetector(
                               onTap: () {
                                 Navigator.pop(context);
-                                setState(() {
-                                  _selectedCity = city;
-                                  // Validate city field after selection
-                                  _formKey.currentState?.validate();
+                                // Update city and validate after modal closes
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted) {
+                                    setState(() {
+                                      _selectedCity = city;
+                                    });
+                                    // Validate city field after selection
+                                    _formKey.currentState?.validate();
+                                  }
                                 });
                               },
                               child: Container(
