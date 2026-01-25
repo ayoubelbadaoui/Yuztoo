@@ -129,70 +129,72 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
   /// Handle auth state from AuthState provider
   void _handleAuthStateFromProvider(AuthState authState) async {
-    if (_hasCheckedAuth) return;
-    _hasCheckedAuth = true;
-
     switch (authState) {
       case AuthInitial():
-        // Initial state - show splash, will check again when state changes
-        if (mounted) {
-          setState(() {
-            _isCheckingAuth = false;
-            _currentScreen = ScreenId.splash;
-          });
-        }
+        // Initial state - wait for stream to emit, don't mark as checked yet
+        // The listener will handle the first real state change
+        return;
       case AuthLoading():
-        // Still loading - reset flag to allow listener to handle it when ready
-        _hasCheckedAuth = false;
+        // Still loading - wait for actual state
+        return;
       case Authenticated(:final user):
         // User is authenticated - get role from Firestore using application layer
-        try {
-          final getUserRole = ref.read(getUserRoleProvider);
-          final roleResult = await getUserRole.call(user.id);
-          final role = roleResult.fold(
-            (_) => null,
-            (r) => r,
-          );
-          
-          if (mounted) {
-            setState(() {
-              _isCheckingAuth = false;
-              _role = role ?? UserRole.client;
-              if (_role == UserRole.client) {
+        if (!_hasCheckedAuth) {
+          _hasCheckedAuth = true;
+          try {
+            final getUserRole = ref.read(getUserRoleProvider);
+            final roleResult = await getUserRole.call(user.id);
+            final role = roleResult.fold(
+              (_) => null,
+              (r) => r,
+            );
+            
+            if (mounted) {
+              setState(() {
+                _isCheckingAuth = false;
+                _role = role ?? UserRole.client;
+                if (_role == UserRole.client) {
+                  _currentScreen = ScreenId.clientHome;
+                  _activeTab = 'home';
+                } else {
+                  _currentScreen = ScreenId.merchantDashboard;
+                  _activeTab = 'dashboard';
+                }
+              });
+            }
+          } catch (e) {
+            // Error getting role - default to client and show home
+            if (mounted) {
+              setState(() {
+                _isCheckingAuth = false;
+                _role = UserRole.client;
                 _currentScreen = ScreenId.clientHome;
                 _activeTab = 'home';
-              } else {
-                _currentScreen = ScreenId.merchantDashboard;
-                _activeTab = 'dashboard';
-              }
-            });
-          }
-        } catch (e) {
-          // Error getting role - default to client and show home
-          if (mounted) {
-            setState(() {
-              _isCheckingAuth = false;
-              _role = UserRole.client;
-              _currentScreen = ScreenId.clientHome;
-              _activeTab = 'home';
-            });
+              });
+            }
           }
         }
       case Unauthenticated():
         // No user - show splash
-        if (mounted) {
-          setState(() {
-            _isCheckingAuth = false;
-            _currentScreen = ScreenId.splash;
-          });
+        if (!_hasCheckedAuth) {
+          _hasCheckedAuth = true;
+          if (mounted) {
+            setState(() {
+              _isCheckingAuth = false;
+              _currentScreen = ScreenId.splash;
+            });
+          }
         }
       case AuthError():
         // Error - show splash anyway
-        if (mounted) {
-          setState(() {
-            _isCheckingAuth = false;
-            _currentScreen = ScreenId.splash;
-          });
+        if (!_hasCheckedAuth) {
+          _hasCheckedAuth = true;
+          if (mounted) {
+            setState(() {
+              _isCheckingAuth = false;
+              _currentScreen = ScreenId.splash;
+            });
+          }
         }
     }
   }
