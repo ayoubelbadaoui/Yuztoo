@@ -1,11 +1,9 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_bootstrap.dart';
-import 'core/domain/core/result.dart';
 import 'feature/auth/core/application/providers.dart';
-import 'feature/auth/core/domain/entities/auth_user.dart';
+import 'feature/auth/core/application/state/auth_state.dart';
 import 'theme.dart';
 import 'types.dart';
 import 'core/shared/widgets/bottom_nav.dart';
@@ -84,84 +82,92 @@ class _RootShellState extends ConsumerState<_RootShell> {
   /// Listen to auth state changes from application layer
   /// This ensures we catch auth state even if Firebase hasn't fully initialized yet
   void _listenToAuthState() {
-    // Check current auth state immediately (don't wait for stream)
-    final currentAuthState = ref.read(authResultStreamProvider);
-    currentAuthState.whenData((result) async {
-      if (!_hasCheckedAuth) {
-        _hasCheckedAuth = true;
-        await _handleAuthStateChange(result);
-      }
-    });
+    // Check current auth state immediately using authStateProvider
+    // This provider is already initialized in app_bootstrap.dart
+    final currentAuthState = ref.read(authStateProvider);
+    _handleAuthStateFromProvider(currentAuthState);
 
-    // Also listen to stream for future changes (login/logout)
-    ref.listen<AsyncValue<Result<AuthUser?>>>(
-      authResultStreamProvider,
+    // Also listen to future changes (login/logout)
+    ref.listen<AuthState>(
+      authStateProvider,
       (previous, next) {
         // Only handle the first auth state change (on app start)
         // Subsequent changes (login/logout) will be handled by the app flow
         if (!_hasCheckedAuth) {
           _hasCheckedAuth = true;
-          next.whenData((result) async {
-            await _handleAuthStateChange(result);
-          });
+          _handleAuthStateFromProvider(next);
         }
       },
     );
   }
 
-  /// Handle auth state change on app start
-  /// If authenticated, navigate to appropriate home screen (skip splash)
-  /// If not authenticated, show splash then go to role selection
-  Future<void> _handleAuthStateChange(Result<AuthUser?> result) async {
-    final user = result.fold(
-      (_) => null,
-      (u) => u,
-    );
+  /// Handle auth state from AuthState provider
+  void _handleAuthStateFromProvider(AuthState authState) async {
+    if (_hasCheckedAuth) return;
+    _hasCheckedAuth = true;
 
-    if (user != null) {
-      // User is authenticated - get role from Firestore using application layer
-      try {
-        final getUserRole = ref.read(getUserRoleProvider);
-        final roleResult = await getUserRole.call(user.id);
-        final role = roleResult.fold(
-          (_) => null,
-          (r) => r,
-        );
-        
+    switch (authState) {
+      case AuthInitial():
+        // Initial state - show splash, will check again when state changes
         if (mounted) {
           setState(() {
-            _isCheckingAuth = false; // Auth check complete
-            _role = role ?? UserRole.client; // Default to client if role not found
-            if (_role == UserRole.client) {
+            _isCheckingAuth = false;
+            _currentScreen = ScreenId.splash;
+          });
+        }
+      case AuthLoading():
+        // Still loading - reset flag to allow listener to handle it when ready
+        _hasCheckedAuth = false;
+      case Authenticated(:final user):
+        // User is authenticated - get role from Firestore using application layer
+        try {
+          final getUserRole = ref.read(getUserRoleProvider);
+          final roleResult = await getUserRole.call(user.id);
+          final role = roleResult.fold(
+            (_) => null,
+            (r) => r,
+          );
+          
+          if (mounted) {
+            setState(() {
+              _isCheckingAuth = false;
+              _role = role ?? UserRole.client;
+              if (_role == UserRole.client) {
+                _currentScreen = ScreenId.clientHome;
+                _activeTab = 'home';
+              } else {
+                _currentScreen = ScreenId.merchantDashboard;
+                _activeTab = 'dashboard';
+              }
+            });
+          }
+        } catch (e) {
+          // Error getting role - default to client and show home
+          if (mounted) {
+            setState(() {
+              _isCheckingAuth = false;
+              _role = UserRole.client;
               _currentScreen = ScreenId.clientHome;
               _activeTab = 'home';
-            } else {
-              _currentScreen = ScreenId.merchantDashboard;
-              _activeTab = 'dashboard';
-            }
-          });
-          // Skip splash - user is authenticated, go directly to home
+            });
+          }
         }
-      } catch (e) {
-        // Error getting role - default to client and show home
+      case Unauthenticated():
+        // No user - show splash
         if (mounted) {
           setState(() {
-            _isCheckingAuth = false; // Auth check complete
-            _role = UserRole.client;
-            _currentScreen = ScreenId.clientHome;
-            _activeTab = 'home';
+            _isCheckingAuth = false;
+            _currentScreen = ScreenId.splash;
           });
         }
-      }
-    } else {
-      // No user - show splash, will navigate to role selection when splash completes
-      // (splash screen will handle navigation after 2 seconds)
-      if (mounted) {
-        setState(() {
-          _isCheckingAuth = false; // Auth check complete - show splash
-          // Keep current screen as splash
-        });
-      }
+      case AuthError():
+        // Error - show splash anyway
+        if (mounted) {
+          setState(() {
+            _isCheckingAuth = false;
+            _currentScreen = ScreenId.splash;
+          });
+        }
     }
   }
 
