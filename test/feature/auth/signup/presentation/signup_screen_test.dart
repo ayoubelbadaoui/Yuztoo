@@ -110,7 +110,13 @@ void main() {
       '0612345678',
     );
 
-    await tester.tap(find.text('Sélectionnez votre ville'));
+    final cityField = find.text('Sélectionnez votre ville');
+    await tester.scrollUntilVisible(
+      cityField,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(cityField);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Paris'));
     await tester.pumpAndSettle();
