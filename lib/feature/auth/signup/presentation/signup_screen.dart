@@ -133,7 +133,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _confirmPasswordFocusNode = FocusNode();
     _phoneFocusNode = FocusNode();
     
-    // Add listeners to validate only when field loses focus (blur)
+    // Add listeners for email field - real-time validation when typing
+    _emailController.addListener(() {
+      // Real-time validation as user types
+      if (_emailController.text.isNotEmpty) {
+        _emailFieldKey.currentState?.validate();
+      }
+    });
+    
     _emailFocusNode.addListener(() {
       // Validate when field loses focus (after user changes/interacts with field)
       if (!_emailFocusNode.hasFocus) {
@@ -631,11 +638,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // Prevent extra height
               children: [
                 Material(
                   color: Colors.transparent,
                   child: Container(
-                    constraints: const BoxConstraints(),
+                    height: 48, // Fixed height to match other fields
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
@@ -659,9 +667,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       enabled: enabled,
                       keyboardType: keyboardType,
                       validator: validator,
-                      autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
+                      autovalidateMode: isEmailField
+                          ? AutovalidateMode.onUserInteraction // Real-time validation for email
+                          : AutovalidateMode.disabled,
                       cursorColor: const Color(0xFFBF8719),
                       onTap: onTap,
+                      onChanged: isEmailField
+                          ? (value) {
+                              // Real-time validation as user types
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) {
+                                  setState(() {
+                                    _emailFieldKey.currentState?.validate();
+                                  });
+                                }
+                              });
+                            }
+                          : null,
                       style: const TextStyle(
                         color: textLight,
                         fontSize: 14,
@@ -673,31 +695,34 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         hintStyle: const TextStyle(color: textGrey, fontSize: 13),
                         prefixIcon: Icon(icon, color: primaryGold, size: 18),
                         filled: true,
-                        fillColor: Colors.transparent, // Transparent so container color shows
+                        fillColor: Colors.transparent,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 12, // Reduced from 14 to 12
+                          vertical: 12,
                         ),
-                        isDense: true, // Reduce height
-                        border: InputBorder.none, // Remove all default borders
+                        isDense: true,
+                        border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         errorBorder: InputBorder.none,
                         disabledBorder: InputBorder.none,
-                        errorText: null, // Don't show error inside field
-                        errorStyle: const TextStyle(height: 0, fontSize: 0), // Hide error text
+                        errorText: null,
+                        errorStyle: const TextStyle(height: 0, fontSize: 0),
                       ),
                     ),
                   ),
                 ),
-                // Show error text outside the field
+                // Show error text outside the field (below, not inside)
                 if (errorText != null && errorText.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    errorText,
-                    style: const TextStyle(
-                      color: errorRed,
-                      fontSize: 11,
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      errorText,
+                      style: const TextStyle(
+                        color: errorRed,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
                 ],
