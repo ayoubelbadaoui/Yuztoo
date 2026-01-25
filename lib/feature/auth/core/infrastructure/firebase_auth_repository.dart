@@ -97,9 +97,20 @@ class FirebaseAuthRepository implements AuthRepository {
         },
         verificationFailed: (firebase.FirebaseAuthException e) {
           if (!completer.isCompleted) {
-            completer.complete(Left<AuthFailure, String>(
-              _mapAuthException(e, StackTrace.current),
-            ));
+            // Check for billing errors specifically
+            final errorMessage = e.message ?? '';
+            if (errorMessage.contains('BILLING_NOT_ENABLED') || 
+                errorMessage.toLowerCase().contains('billing')) {
+              completer.complete(Left<AuthFailure, String>(
+                const AuthUnexpectedFailure(
+                  message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+                ),
+              ));
+            } else {
+              completer.complete(Left<AuthFailure, String>(
+                _mapAuthException(e, StackTrace.current),
+              ));
+            }
           }
         },
         codeSent: (String verificationId, int? resendToken) {
@@ -197,7 +208,23 @@ class FirebaseAuthRepository implements AuthRepository {
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
       case 'user-cancelled':
         return const UserCancelledFailure();
+      case 'internal-error':
+        // Check if it's a billing error
+        if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
+            error.message?.toLowerCase().contains('billing') == true) {
+          return const AuthUnexpectedFailure(
+            message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+          );
+        }
+        return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
       default:
+        // Check error message for billing-related errors
+        if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
+            error.message?.toLowerCase().contains('billing') == true) {
+          return const AuthUnexpectedFailure(
+            message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+          );
+        }
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
     }
   }

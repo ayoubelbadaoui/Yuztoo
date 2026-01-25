@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/providers.dart';
 import '../../core/application/auth_error_mapper.dart';
-import '../../core/application/state/auth_state.dart';
-import '../../login/application/providers.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
 
@@ -13,22 +11,26 @@ class OTPScreen extends ConsumerStatefulWidget {
     super.key,
     required this.onBack,
     required this.onVerify,
+    required this.userId,
     required this.phone,
     required this.onResend,
     required this.email,
     required this.city,
     required this.role,
     this.verificationId,
+    this.otpUnavailableMessage,
   });
 
   final VoidCallback onBack;
   final VoidCallback onVerify;
+  final String userId; // User ID from signup (passed to avoid Firebase import)
   final String phone;
   final VoidCallback onResend;
   final String email;
   final String city;
   final UserRole role;
   final String? verificationId; // Optional, for resend functionality
+  final String? otpUnavailableMessage; // Message to show when OTP is unavailable (e.g., billing disabled)
 
   @override
   ConsumerState<OTPScreen> createState() => _OTPScreenState();
@@ -42,6 +44,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   int _resendTimer = 60; // 60 seconds
   bool _canResend = false;
   bool _isVerifying = false;
+  bool _otpBlocked = false; // Block OTP input when unavailable
+  bool _isSendingOtp = false; // Track if OTP is being sent
+  String? _currentVerificationId; // Store verificationId from state
+  String? _currentErrorMessage; // Store error message from state
   Timer? _timer;
 
   // Colors - Match signup screen dark theme
@@ -51,15 +57,74 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   static const Color textLight = Color(0xFFF5F5F5);
   static const Color textGrey = Color(0xFFB0B0B0);
   static const Color borderColor = Color(0xFF2A3F5F);
+  static const Color errorRed = Color(0xFFE74C3C);
 
   @override
   void initState() {
     super.initState();
-    _startResendTimer();
-    // Auto-focus first field
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNodes[0].requestFocus();
+    
+    // Initialize with widget values
+    _currentVerificationId = widget.verificationId;
+    _currentErrorMessage = widget.otpUnavailableMessage;
+    
+    // If verificationId is null and no error message, send OTP automatically
+    if (_currentVerificationId == null || _currentVerificationId!.isEmpty) {
+      if (_currentErrorMessage == null) {
+        // No error message means we should send OTP
+        _sendOtpOnInit();
+      } else {
+        // Error message provided, OTP is blocked
+        _otpBlocked = true;
+      }
+    } else {
+      // VerificationId provided, OTP is ready
+      _startResendTimer();
+      // Auto-focus first field only if OTP is available
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusNodes[0].requestFocus();
+      });
+    }
+  }
+
+  Future<void> _sendOtpOnInit() async {
+    setState(() {
+      _isSendingOtp = true;
+      _otpBlocked = true; // Block input while sending
     });
+
+    final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
+    final otpResult = await sendOtpUseCase.call(phoneNumber: widget.phone);
+
+    if (!mounted) return;
+
+    otpResult.fold(
+      (failure) {
+        final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
+        setState(() {
+          _isSendingOtp = false;
+          _otpBlocked = true;
+          _currentErrorMessage = frenchMessage;
+        });
+        // Show error message
+        showErrorSnackbar(context, frenchMessage);
+      },
+      (verificationId) {
+        setState(() {
+          _isSendingOtp = false;
+          _otpBlocked = false;
+          _currentVerificationId = verificationId;
+          _currentErrorMessage = null;
+          _startResendTimer();
+        });
+        showSuccessSnackbar(context, 'Code de vérification envoyé!');
+        // Auto-focus first field
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _focusNodes[0].requestFocus();
+          }
+        });
+      },
+    );
   }
 
   @override
@@ -93,6 +158,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   }
 
   void _onChanged(int index, String value) {
+    if (_otpBlocked) return; // Don't process input when OTP is blocked
+    
     if (value.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
@@ -104,7 +171,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   }
 
   Future<void> _verifyOTP(String smsCode) async {
-    if (widget.verificationId == null || widget.verificationId!.isEmpty) {
+    final verificationId = _currentVerificationId ?? widget.verificationId;
+    if (verificationId == null || verificationId.isEmpty) {
       if (mounted) {
         showErrorSnackbar(context, 'Erreur: ID de vérification manquant');
       }
@@ -115,7 +183,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
     final verifyPhoneUseCase = ref.read(verifyAndLinkPhoneProvider);
     final verifyResult = await verifyPhoneUseCase.call(
-      verificationId: widget.verificationId!,
+      verificationId: verificationId,
       smsCode: smsCode,
     );
 
@@ -142,17 +210,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   }
 
   Future<void> _createFirestoreProfile() async {
-    // Get current authenticated user from auth state
-    final authState = ref.read(authStateProvider);
-    if (authState is! Authenticated) {
-      if (mounted) {
-        showErrorSnackbar(context, 'Erreur: Aucun utilisateur connecté');
-        setState(() => _isVerifying = false);
-      }
-      return;
-    }
-
-    final user = authState.user;
+    // Use user ID passed from signup screen (respects architecture - no Firebase import in presentation)
 
     // Build roles map based on widget.role
     final Map<String, bool> roles = {
@@ -163,7 +221,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
     final createUserDocUseCase = ref.read(createUserDocumentProvider);
     final createResult = await createUserDocUseCase.call(
-      uid: user.id,
+      uid: widget.userId,
       email: widget.email,
       phone: widget.phone,
       roles: roles,
@@ -211,6 +269,11 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       },
       (verificationId) {
         if (mounted) {
+          setState(() {
+            _currentVerificationId = verificationId;
+            _currentErrorMessage = null;
+            _otpBlocked = false;
+          });
           showSuccessSnackbar(context, 'Code de vérification renvoyé!');
           _startResendTimer();
           widget.onResend();
@@ -314,6 +377,50 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             color: textGrey,
           ),
         ),
+        if (_isSendingOtp) ...[
+          const SizedBox(height: 16),
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(primaryGold),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Envoi du code en cours...',
+            style: TextStyle(
+              fontSize: 13,
+              color: textGrey,
+            ),
+          ),
+        ] else if (_otpBlocked && (_currentErrorMessage != null || widget.otpUnavailableMessage != null)) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: errorRed.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: errorRed.withOpacity(0.3), width: 1),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline, color: errorRed, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _currentErrorMessage ?? widget.otpUnavailableMessage ?? 'Erreur inconnue',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: errorRed,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -329,7 +436,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           child: TextField(
             controller: _controllers[index],
             focusNode: _focusNodes[index],
-            enabled: !_isVerifying,
+            enabled: !_isVerifying && !_otpBlocked,
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             maxLength: 1,
@@ -387,7 +494,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     return Column(
       children: [
         TextButton(
-          onPressed: (_canResend && !_isVerifying) ? _handleResend : null,
+          onPressed: (_canResend && !_isVerifying && !_otpBlocked) ? _handleResend : null,
           style: TextButton.styleFrom(
             foregroundColor: _canResend ? primaryGold : textGrey,
           ),

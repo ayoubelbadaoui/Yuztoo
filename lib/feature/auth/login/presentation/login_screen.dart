@@ -148,13 +148,21 @@ class _InputField extends StatelessWidget {
       children: [
         Text(label, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          obscureText: obscure,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, color: YColors.muted),
-          ),
+        Row(
+          children: [
+            Icon(icon, color: YColors.muted, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                obscureText: obscure,
+                decoration: InputDecoration.collapsed(
+                  hintText: hint,
+                  hintStyle: TextStyle(color: YColors.muted),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

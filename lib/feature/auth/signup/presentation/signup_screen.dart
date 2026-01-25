@@ -16,7 +16,7 @@ class SignupScreen extends ConsumerStatefulWidget {
 
   final UserRole role;
   final VoidCallback onBack;
-  final Function(String phoneNumber, String verificationId, String email, String city) onSignupSuccess; // Pass signup data
+  final Function(String userId, String phoneNumber, String? verificationId, String email, String city, {String? otpUnavailableMessage}) onSignupSuccess; // Pass signup data
 
   @override
   ConsumerState<SignupScreen> createState() => _SignupScreenState();
@@ -24,6 +24,7 @@ class SignupScreen extends ConsumerStatefulWidget {
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _passwordFieldKey = GlobalKey<FormFieldState<String>>();
   
   // Controllers
   late TextEditingController _emailController;
@@ -238,34 +239,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         }
       },
       (authUser) async {
-        // User created successfully - proceed to phone verification
+        // User created successfully - navigate to OTP screen immediately
+        // OTP screen will send OTP automatically in the background
         if (mounted) {
-          // 2. Send OTP for phone verification
           final phoneNumber = _phoneNumber!; // Already validated above
-          final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
-          final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
-
-          otpResult.fold(
-            (failure) {
-              if (mounted) {
-                final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-                showErrorSnackbar(context, frenchMessage);
-                setState(() => _isLoading = false);
-              }
-            },
-            (verificationId) {
-              // Store verificationId for later use
-              if (mounted) {
-                setState(() {
-                  _phoneVerificationId = verificationId;
-                  _isLoading = false;
-                });
-
-                showSuccessSnackbar(context, 'Code de vérification envoyé!');
-                // Navigate to OTP screen with all signup data
-                widget.onSignupSuccess(phoneNumber, verificationId, email, _selectedCity!);
-              }
-            },
+          setState(() => _isLoading = false);
+          
+          // Navigate to OTP screen immediately
+          // OTP screen will handle sending OTP if verificationId is null
+          widget.onSignupSuccess(
+            authUser.id, // Pass user ID to avoid Firebase import in presentation
+            phoneNumber,
+            null, // OTP screen will send OTP automatically
+            email,
+            _selectedCity!,
           );
         }
       },
@@ -497,49 +484,43 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          focusNode: focusNode,
-          enabled: enabled,
-          keyboardType: keyboardType,
-          validator: validator,
-          autovalidateMode: AutovalidateMode.onUnfocus,
-          cursorColor: const Color(0xFFBF8719),
-          onTap: onTap,
-          style: const TextStyle(color: textLight, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: textGrey, fontSize: 13),
-            prefixIcon: Icon(icon, color: primaryGold, size: 18),
-            filled: true,
-            fillColor: bgDark2,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: primaryGold, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: errorRed, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            errorStyle: const TextStyle(
-              color: errorRed,
-              fontSize: 11,
+        Container(
+          decoration: BoxDecoration(
+            color: bgDark2,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor, width: 1),
+          ),
+          child: TextFormField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: enabled,
+            keyboardType: keyboardType,
+            validator: validator,
+            autovalidateMode: AutovalidateMode.onUnfocus,
+            cursorColor: const Color(0xFFBF8719),
+            onTap: onTap,
+            style: const TextStyle(color: textLight, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: textGrey, fontSize: 13),
+              prefixIcon: Icon(icon, color: primaryGold, size: 18),
+              filled: true,
+              fillColor: Colors.transparent,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorStyle: const TextStyle(
+                color: errorRed,
+                fontSize: 11,
+              ),
             ),
           ),
         ),
@@ -570,14 +551,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         TextFormField(
+          key: _passwordFieldKey,
           controller: controller,
           focusNode: focusNode,
           enabled: enabled,
           obscureText: !_isPasswordVisible,
           validator: validator,
-          autovalidateMode: AutovalidateMode.onUnfocus,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
+          onChanged: (value) {
+            // Trigger validation in real-time as user types and corrects password
+            if (focusNode.hasFocus) {
+              _passwordFieldKey.currentState?.validate();
+            }
+          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,

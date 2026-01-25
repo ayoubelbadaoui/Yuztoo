@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import 'core/app_bootstrap.dart';
-import 'feature/auth/core/infrastructure/firebase_user_repository.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'core/domain/core/result.dart';
+import 'feature/auth/core/application/providers.dart';
+import 'feature/auth/core/domain/entities/auth_user.dart';
 import 'theme.dart';
 import 'types.dart';
 import 'core/shared/widgets/bottom_nav.dart';
@@ -53,58 +53,66 @@ class YuztooApp extends StatelessWidget {
   }
 }
 
-class _RootShell extends StatefulWidget {
+class _RootShell extends ConsumerStatefulWidget {
   const _RootShell();
 
   @override
-  State<_RootShell> createState() => _RootShellState();
+  ConsumerState<_RootShell> createState() => _RootShellState();
 }
 
-class _RootShellState extends State<_RootShell> {
+class _RootShellState extends ConsumerState<_RootShell> {
   ScreenId _currentScreen = ScreenId.splash;
   UserRole? _role;
   String _activeTab = 'home';
+  String? _signupUserId; // Store user ID from signup (passed to OTP screen)
   String? _phoneNumber; // Store phone number for OTP screen
   String? _verificationId; // Store verificationId for OTP resend
   String? _signupEmail; // Store email for Firestore profile
   String? _signupCity; // Store city for Firestore profile
-  StreamSubscription<User?>? _authStateSubscription;
+  String? _otpUnavailableMessage; // Store error message when OTP is unavailable
   bool _hasCheckedAuth = false; // Track if we've checked auth state
 
   @override
   void initState() {
     super.initState();
-    _listenToAuthState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _listenToAuthState();
+    });
   }
 
-  @override
-  void dispose() {
-    _authStateSubscription?.cancel();
-    super.dispose();
-  }
-
-  /// Listen to Firebase Auth state changes
+  /// Listen to auth state changes from application layer
   /// This ensures we catch auth state even if Firebase hasn't fully initialized yet
   void _listenToAuthState() {
-    _authStateSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) async {
-      // Only handle the first auth state change (on app start)
-      // Subsequent changes (login/logout) will be handled by the app flow
-      if (!_hasCheckedAuth) {
-        _hasCheckedAuth = true;
-        await _handleAuthStateChange(user);
-      }
-    });
+    // Use authResultStreamProvider from application layer (respects architecture)
+    ref.listen<AsyncValue<Result<AuthUser?>>>(
+      authResultStreamProvider,
+      (previous, next) {
+        // Only handle the first auth state change (on app start)
+        // Subsequent changes (login/logout) will be handled by the app flow
+        if (!_hasCheckedAuth) {
+          _hasCheckedAuth = true;
+          next.whenData((result) async {
+            await _handleAuthStateChange(result);
+          });
+        }
+      },
+    );
   }
 
   /// Handle auth state change on app start
   /// If authenticated, navigate to appropriate home screen (skip splash)
   /// If not authenticated, show splash then go to role selection
-  Future<void> _handleAuthStateChange(User? user) async {
+  Future<void> _handleAuthStateChange(Result<AuthUser?> result) async {
+    final user = result.fold(
+      (_) => null,
+      (u) => u,
+    );
+
     if (user != null) {
-      // User is authenticated - get role from Firestore
+      // User is authenticated - get role from Firestore using application layer
       try {
-        final userRepository = FirebaseUserRepository(firestore: FirebaseFirestore.instance);
-        final roleResult = await userRepository.getUserRole(user.uid);
+        final getUserRole = ref.read(getUserRoleProvider);
+        final roleResult = await getUserRole.call(user.id);
         final role = roleResult.fold(
           (_) => null,
           (r) => r,
@@ -302,24 +310,28 @@ class _RootShellState extends State<_RootShell> {
         return SignupScreen(
           role: _role ?? UserRole.client,
           onBack: () => setState(() => _currentScreen = ScreenId.login),
-          onSignupSuccess: (phoneNumber, verificationId, email, city) {
+          onSignupSuccess: (userId, phoneNumber, verificationId, email, city, {otpUnavailableMessage}) {
             // Store all signup data, then navigate to OTP screen
             setState(() {
+              _signupUserId = userId;
               _phoneNumber = phoneNumber;
               _verificationId = verificationId;
               _signupEmail = email;
               _signupCity = city;
+              _otpUnavailableMessage = otpUnavailableMessage;
               _currentScreen = ScreenId.otp;
             });
           },
         );
       case ScreenId.otp:
         return OTPScreen(
+          userId: _signupUserId ?? '',
           phone: _phoneNumber ?? '+33 XXX XXX XXX',
           verificationId: _verificationId,
           email: _signupEmail ?? '',
           city: _signupCity ?? '',
           role: _role ?? UserRole.client,
+          otpUnavailableMessage: _otpUnavailableMessage,
           onBack: _handleBackToLogin,
           onVerify: _handleLogin,
           onResend: () {
