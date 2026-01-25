@@ -133,16 +133,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _confirmPasswordFocusNode = FocusNode();
     _phoneFocusNode = FocusNode();
     
-    // Add listeners for email field - real-time validation when typing
-    _emailController.addListener(() {
-      // Real-time validation as user types
-      if (_emailController.text.isNotEmpty) {
-        _emailFieldKey.currentState?.validate();
-      }
-    });
-    
+    // Add listener to validate only when field loses focus (blur)
     _emailFocusNode.addListener(() {
-      // Validate when field loses focus (after user changes/interacts with field)
+      // Validate only when field loses focus (after user changes/interacts with field)
       if (!_emailFocusNode.hasFocus) {
         _emailFieldKey.currentState?.validate();
       }
@@ -667,23 +660,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       enabled: enabled,
                       keyboardType: keyboardType,
                       validator: validator,
-                      autovalidateMode: isEmailField
-                          ? AutovalidateMode.onUserInteraction // Real-time validation for email
-                          : AutovalidateMode.disabled,
+                      autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
                       cursorColor: const Color(0xFFBF8719),
                       onTap: onTap,
-                      onChanged: isEmailField
-                          ? (value) {
-                              // Real-time validation as user types
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) {
-                                  setState(() {
-                                    _emailFieldKey.currentState?.validate();
-                                  });
-                                }
-                              });
-                            }
-                          : null,
                       style: const TextStyle(
                         color: textLight,
                         fontSize: 14,
