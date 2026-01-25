@@ -74,30 +74,56 @@ class _RootShellState extends ConsumerState<_RootShell> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _listenToAuthState();
-    });
   }
 
-  /// Listen to auth state changes from application layer
-  /// This ensures we catch auth state even if Firebase hasn't fully initialized yet
-  void _listenToAuthState() {
-    // Check current auth state immediately using authStateProvider
-    // This provider is already initialized in app_bootstrap.dart
-    final currentAuthState = ref.read(authStateProvider);
-    _handleAuthStateFromProvider(currentAuthState);
+  @override
+  Widget build(BuildContext context) {
+    // Listen to auth state changes from application layer
+    // This must be done in build method (ref.listen requirement)
+    final authState = ref.watch(authStateProvider);
+    
+    // Check auth state on first build
+    if (!_hasCheckedAuth) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_hasCheckedAuth) {
+          _hasCheckedAuth = true;
+          _handleAuthStateFromProvider(authState);
+        }
+      });
+    }
 
-    // Also listen to future changes (login/logout)
+    // Listen to future changes (login/logout)
     ref.listen<AuthState>(
       authStateProvider,
       (previous, next) {
-        // Only handle the first auth state change (on app start)
-        // Subsequent changes (login/logout) will be handled by the app flow
-        if (!_hasCheckedAuth) {
-          _hasCheckedAuth = true;
+        // Only handle subsequent auth state changes (login/logout)
+        // First change is handled above
+        if (_hasCheckedAuth && previous != next) {
           _handleAuthStateFromProvider(next);
         }
       },
+    );
+
+    final body = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: _buildScreen(),
+    );
+
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: _showBottomNav ? 72 : 0),
+          child: body,
+        ),
+      ),
+      bottomNavigationBar: _showBottomNav && _role != null
+          ? YBottomNav(
+              role: _role!,
+              activeTab: _activeTab,
+              onTabChange: _handleTabChange,
+            )
+          : null,
     );
   }
 
@@ -289,31 +315,6 @@ class _RootShellState extends ConsumerState<_RootShell> {
       ScreenId.merchantProfile,
     };
     return _role != null && allowed.contains(_currentScreen);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final body = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
-      child: _buildScreen(),
-    );
-
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: _showBottomNav ? 72 : 0),
-          child: body,
-        ),
-      ),
-      bottomNavigationBar: _showBottomNav && _role != null
-          ? YBottomNav(
-              role: _role!,
-              activeTab: _activeTab,
-              onTabChange: _handleTabChange,
-            )
-          : null,
-    );
   }
 
   Widget _buildScreen() {
