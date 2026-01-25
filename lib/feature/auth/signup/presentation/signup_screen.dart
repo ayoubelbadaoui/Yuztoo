@@ -960,6 +960,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     _phoneNumber =
                         _formatPhoneNumber(_selectedCountryCode, value);
                   });
+                  // If phone field already shows an error, re-validate to clear it when corrected
+                  if (_phoneFieldKey.currentState?.hasError == true) {
+                    _phoneFieldKey.currentState?.validate();
+                  }
                 },
               ),
             ),
