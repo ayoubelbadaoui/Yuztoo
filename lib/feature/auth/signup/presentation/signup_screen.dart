@@ -141,6 +141,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
     });
     
+    // Add real-time validation for email field when user corrects it
+    _emailController.addListener(() {
+      // Validate in real-time only if field has been shown as error already
+      if (_emailFieldKey.currentState?.hasError == true && _emailController.text.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _emailFieldKey.currentState?.validate();
+            });
+          }
+        });
+      }
+    });
+    
     _passwordFocusNode.addListener(() {
       setState(() {
         _isPasswordFocused = _passwordFocusNode.hasFocus;
@@ -627,6 +641,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           autovalidateMode: AutovalidateMode.disabled,
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
+          onChanged: (value) {
+            // Real-time validation when correcting wrong email
+            if (_emailFieldKey.currentState?.hasError == true && controller == _emailController) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _emailFieldKey.currentState?.validate();
+                  });
+                }
+              });
+            }
+          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
