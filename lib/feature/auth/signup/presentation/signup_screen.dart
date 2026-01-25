@@ -626,54 +626,62 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             final hasError = isEmailField && 
                 _emailFieldKey.currentState?.hasError == true;
             
-            return Container(
-              constraints: const BoxConstraints(),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: hasError
-                      ? errorRed
-                      : focusNode.hasFocus
-                          ? primaryGold
-                          : borderColor,
-                  width: hasError
-                      ? 1.5
-                      : focusNode.hasFocus
-                          ? 2
-                          : 1,
-                ),
-                color: bgDark2,
-              ),
-              child: TextFormField(
-                key: isEmailField ? _emailFieldKey : null,
-                controller: controller,
-                focusNode: focusNode,
-                enabled: enabled,
-                keyboardType: keyboardType,
-                validator: validator,
-                autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
-                cursorColor: const Color(0xFFBF8719),
-                onTap: onTap,
-                style: const TextStyle(color: textLight, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: hint,
-                  hintStyle: const TextStyle(color: textGrey, fontSize: 13),
-                  prefixIcon: Icon(icon, color: primaryGold, size: 18),
-                  filled: true,
-                  fillColor: Colors.transparent, // Transparent so container color shows
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12, // Reduced from 14 to 12
+            return Material(
+              color: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: hasError
+                        ? errorRed
+                        : focusNode.hasFocus
+                            ? primaryGold
+                            : borderColor,
+                    width: hasError
+                        ? 1.5
+                        : focusNode.hasFocus
+                            ? 2
+                            : 1,
                   ),
-                  isDense: true, // Reduce height
-                  border: InputBorder.none, // Remove all default borders
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  errorBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                  errorStyle: const TextStyle(
-                    color: errorRed,
-                    fontSize: 11,
+                  color: bgDark2,
+                ),
+                child: TextFormField(
+                  key: isEmailField ? _emailFieldKey : null,
+                  controller: controller,
+                  focusNode: focusNode,
+                  enabled: enabled,
+                  keyboardType: keyboardType,
+                  validator: validator,
+                  autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
+                  cursorColor: const Color(0xFFBF8719),
+                  onTap: onTap,
+                  style: const TextStyle(
+                    color: textLight,
+                    fontSize: 14,
+                    decoration: TextDecoration.none,
+                    decorationColor: Colors.transparent,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: const TextStyle(color: textGrey, fontSize: 13),
+                    prefixIcon: Icon(icon, color: primaryGold, size: 18),
+                    filled: true,
+                    fillColor: Colors.transparent, // Transparent so container color shows
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12, // Reduced from 14 to 12
+                    ),
+                    isDense: true, // Reduce height
+                    border: InputBorder.none, // Remove all default borders
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    errorStyle: const TextStyle(
+                      color: errorRed,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               ),
