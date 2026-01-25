@@ -127,9 +127,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       });
     });
     
-    // Ensure validation is disabled on initial load
-    // Don't call reset() as it may trigger validation
-    // Just ensure _hasAttemptedSubmit is false (already initialized)
+    // Validation is handled by AutovalidateMode.onUserInteraction
+    // Errors will only show when user leaves a field (blur), not on initial load
   }
 
   @override
