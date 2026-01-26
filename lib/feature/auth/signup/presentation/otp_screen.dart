@@ -151,7 +151,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       (failure) {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          showErrorSnackbar(context, frenchMessage);
+          // Only show error if it's a specific Firebase error (not generic)
+          if (frenchMessage != null) {
+            showErrorSnackbar(context, frenchMessage);
+          }
           // Clear OTP fields on error so user can retry
           for (final controller in _controllers) {
             controller.clear();
@@ -192,7 +195,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       (failure) {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          showErrorSnackbar(context, frenchMessage);
+          // Only show error if it's a specific Firebase error (not generic)
+          if (frenchMessage != null) {
+            showErrorSnackbar(context, frenchMessage);
+          }
           setState(() => _isVerifying = false);
           // Don't navigate on error - user can retry or go back
         }
@@ -230,7 +236,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       (failure) {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          showErrorSnackbar(context, frenchMessage);
+          // Only show error if it's a specific Firebase error (not generic)
+          if (frenchMessage != null) {
+            showErrorSnackbar(context, frenchMessage);
+          }
         }
       },
       (verificationId) {

@@ -342,7 +342,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       (failure) {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          showErrorSnackbar(context, frenchMessage);
+          // Only show error if it's a specific Firebase error (not generic)
+          if (frenchMessage != null) {
+            showErrorSnackbar(context, frenchMessage);
+          }
           setState(() => _isLoading = false);
         }
       },
