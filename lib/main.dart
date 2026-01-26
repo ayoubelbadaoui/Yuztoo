@@ -182,7 +182,38 @@ class _RootShellState extends ConsumerState<_RootShell> {
             }
           }
         } else {
-          // User became authenticated after initial check (e.g., after login)
+          // User became authenticated after initial check (e.g., after login or signup)
+          // CRITICAL: Don't navigate if we're in the signup/OTP flow
+          // The signup flow will handle navigation to OTP screen
+          if (_currentScreen == ScreenId.signup || _currentScreen == ScreenId.otp) {
+            // User just signed up - don't navigate yet, let signup flow handle it
+            // Just update the role if we can get it, but don't change screen
+            try {
+              final getUserRole = ref.read(getUserRoleProvider);
+              final roleResult = await getUserRole.call(user.id);
+              final role = roleResult.fold(
+                (_) => null,
+                (r) => r,
+              );
+              
+              if (mounted) {
+                setState(() {
+                  _role = role ?? UserRole.client;
+                  // Don't change _currentScreen - let signup/OTP flow handle navigation
+                });
+              }
+            } catch (e) {
+              // Error getting role - just set default role, don't navigate
+              if (mounted) {
+                setState(() {
+                  _role = UserRole.client;
+                  // Don't change _currentScreen - let signup/OTP flow handle navigation
+                });
+              }
+            }
+            return; // Exit early - don't navigate
+          }
+          
           // Only navigate if we're not already on an authenticated screen
           if (!_isAuthenticatedScreen(_currentScreen)) {
             try {
