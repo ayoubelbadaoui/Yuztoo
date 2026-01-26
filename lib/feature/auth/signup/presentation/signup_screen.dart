@@ -700,10 +700,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               });
             }
           },
-          style: const TextStyle(color: textLight, fontSize: 14),
+          style: const TextStyle(
+            color: textLight,
+            fontSize: 14,
+            decoration: TextDecoration.none,
+            decorationColor: Colors.transparent,
+          ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: textGrey, fontSize: 13),
+            hintStyle: const TextStyle(
+              color: textGrey,
+              fontSize: 13,
+              decoration: TextDecoration.none,
+            ),
             prefixIcon: Icon(icon, color: primaryGold, size: 18),
             filled: true,
             fillColor: bgDark2,
@@ -711,6 +720,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               horizontal: 16,
               vertical: 14,
             ),
+            isDense: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: borderColor, width: 1),
@@ -734,6 +744,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             errorStyle: const TextStyle(
               color: errorRed,
               fontSize: 11,
+              decoration: TextDecoration.none,
             ),
           ),
         ),
