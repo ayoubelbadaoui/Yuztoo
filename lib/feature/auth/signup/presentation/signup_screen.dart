@@ -112,6 +112,84 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     {'code': '+56', 'name': 'Chili', 'flag': '🇨🇱'},
   ];
 
+  // Phone number length requirements by country code (national number length, excluding country code)
+  static final Map<String, int> countryPhoneLengths = {
+    '+33': 9,   // France: 9 digits
+    '+1': 10,   // US/Canada: 10 digits
+    '+44': 10,  // UK: 10 digits
+    '+34': 9,   // Spain: 9 digits
+    '+49': 10,  // Germany: 10-11 digits (using 10 as minimum)
+    '+39': 9,   // Italy: 9-10 digits (using 9 as minimum)
+    '+31': 9,   // Netherlands: 9 digits
+    '+32': 9,   // Belgium: 9 digits
+    '+41': 9,   // Switzerland: 9 digits
+    '+43': 10,  // Austria: 10-13 digits (using 10 as minimum)
+    '+351': 9,  // Portugal: 9 digits
+    '+30': 10,  // Greece: 10 digits
+    '+46': 9,   // Sweden: 9 digits
+    '+47': 8,   // Norway: 8 digits
+    '+45': 8,   // Denmark: 8 digits
+    '+358': 9,  // Finland: 9-10 digits (using 9 as minimum)
+    '+48': 9,   // Poland: 9 digits
+    '+420': 9,  // Czech Republic: 9 digits
+    '+36': 9,   // Hungary: 9 digits
+    '+40': 9,   // Romania: 9-10 digits (using 9 as minimum)
+    '+212': 9,  // Morocco: 9 digits
+    '+216': 8,  // Tunisia: 8 digits
+    '+213': 9,  // Algeria: 9 digits
+    '+20': 10,  // Egypt: 10 digits
+    '+27': 9,   // South Africa: 9 digits
+    '+81': 10,  // Japan: 10 digits
+    '+82': 9,   // South Korea: 9-10 digits (using 9 as minimum)
+    '+86': 11,  // China: 11 digits
+    '+91': 10,  // India: 10 digits
+    '+61': 9,   // Australia: 9 digits
+    '+64': 8,   // New Zealand: 8-9 digits (using 8 as minimum)
+    '+55': 10,  // Brazil: 10-11 digits (using 10 as minimum)
+    '+52': 10,  // Mexico: 10 digits
+    '+54': 10,  // Argentina: 10 digits
+    '+56': 9,   // Chile: 9 digits
+  };
+
+  // Phone number format hints by country code
+  static final Map<String, String> countryPhoneHints = {
+    '+33': '612345678',
+    '+1': '5551234567',
+    '+44': '7912345678',
+    '+34': '612345678',
+    '+49': '15123456789',
+    '+39': '3123456789',
+    '+31': '612345678',
+    '+32': '470123456',
+    '+41': '791234567',
+    '+43': '6641234567',
+    '+351': '912345678',
+    '+30': '6912345678',
+    '+46': '701234567',
+    '+47': '91234567',
+    '+45': '20123456',
+    '+358': '501234567',
+    '+48': '512345678',
+    '+420': '601123456',
+    '+36': '201234567',
+    '+40': '712345678',
+    '+212': '612345678',
+    '+216': '20123456',
+    '+213': '551234567',
+    '+20': '1001234567',
+    '+27': '821234567',
+    '+81': '9012345678',
+    '+82': '1012345678',
+    '+86': '13812345678',
+    '+91': '9876543210',
+    '+61': '412345678',
+    '+64': '211234567',
+    '+55': '11987654321',
+    '+52': '5512345678',
+    '+54': '9112345678',
+    '+56': '912345678',
+  };
+
   // Colors - Exact Yuztoo theme
   static const Color bgDark1 = Color(0xFF0F1A29);
   static const Color bgDark2 = Color(0xFF111A2A);
@@ -224,19 +302,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       // Don't reset when field gains focus - keep the flag so real-time validation works
     });
     
-    // Add real-time validation for phone field when user corrects it (only after error was shown)
-    _phoneController.addListener(() {
-      // Validate in real-time only if field has been validated (error shown) and user is correcting
-      if (_phoneFieldHasBeenValidated && _phoneController.text.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {
-              _phoneFieldKey.currentState?.validate();
-            });
-          }
-        });
-      }
-    });
+    // Real-time validation for phone is handled in the TextField's onChanged callback
+    // The FormField builder receives the state and handles validation
   }
 
   @override
@@ -326,6 +393,94 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     // Otherwise, treat as national number and strip trunk prefix
     digits = digits.replaceFirst(RegExp(r'^0+'), '');
     return '$countryCode$digits';
+  }
+
+  /// Format phone number for display (e.g., +33 6 12 34 56 78)
+  static String formatPhoneForDisplay(String phoneNumber) {
+    // Remove all non-digits except +
+    final cleaned = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+    
+    if (!cleaned.startsWith('+')) {
+      return phoneNumber; // Return as-is if not in international format
+    }
+
+    // Extract country code and number
+    final parts = cleaned.substring(1).split('');
+    if (parts.isEmpty) return phoneNumber;
+
+    // Common country code lengths
+    String countryCode = '';
+    String number = '';
+    
+    // Try to detect country code (1-3 digits)
+    if (parts.length >= 3 && parts[0] == '3' && parts[1] == '3') {
+      // France +33
+      countryCode = '+33';
+      number = parts.skip(2).join('');
+    } else if (parts.length >= 2 && parts[0] == '1') {
+      // US/Canada +1
+      countryCode = '+1';
+      number = parts.skip(1).join('');
+    } else if (parts.length >= 2 && parts[0] == '4' && parts[1] == '4') {
+      // UK +44
+      countryCode = '+44';
+      number = parts.skip(2).join('');
+    } else if (parts.length >= 2 && parts[0] == '3' && parts[1] == '4') {
+      // Spain +34
+      countryCode = '+34';
+      number = parts.skip(2).join('');
+    } else if (parts.length >= 2 && parts[0] == '4' && parts[1] == '9') {
+      // Germany +49
+      countryCode = '+49';
+      number = parts.skip(2).join('');
+    } else if (parts.length >= 3 && parts[0] == '3' && parts[1] == '5' && parts[2] == '1') {
+      // Portugal +351
+      countryCode = '+351';
+      number = parts.skip(3).join('');
+    } else if (parts.length >= 3 && parts[0] == '3' && parts[1] == '5' && parts[2] == '8') {
+      // Finland +358
+      countryCode = '+358';
+      number = parts.skip(3).join('');
+    } else if (parts.length >= 3 && parts[0] == '4' && parts[1] == '2' && parts[2] == '0') {
+      // Czech +420
+      countryCode = '+420';
+      number = parts.skip(3).join('');
+    } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '2') {
+      // Morocco +212
+      countryCode = '+212';
+      number = parts.skip(3).join('');
+    } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '3') {
+      // Algeria +213
+      countryCode = '+213';
+      number = parts.skip(3).join('');
+    } else if (parts.length >= 2 && parts[0] == '2' && parts[1] == '1' && parts[2] == '6') {
+      // Tunisia +216
+      countryCode = '+216';
+      number = parts.skip(3).join('');
+    } else {
+      // Default: assume first 1-3 digits are country code
+      if (parts.length >= 3) {
+        countryCode = '+${parts[0]}${parts[1]}${parts[2]}';
+        number = parts.skip(3).join('');
+      } else if (parts.length >= 2) {
+        countryCode = '+${parts[0]}${parts[1]}';
+        number = parts.skip(2).join('');
+      } else {
+        countryCode = '+${parts[0]}';
+        number = parts.skip(1).join('');
+      }
+    }
+
+    // Format the number part with spaces (group by 2 digits)
+    String formattedNumber = '';
+    for (int i = 0; i < number.length; i++) {
+      if (i > 0 && i % 2 == 0) {
+        formattedNumber += ' ';
+      }
+      formattedNumber += number[i];
+    }
+
+    return '$countryCode $formattedNumber'.trim();
   }
 
   bool _isValidE164(String phoneNumber) {
@@ -760,6 +915,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: errorRed, width: 1.5),
             ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: errorRed, width: 1.5),
+            ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: borderColor, width: 1),
@@ -995,132 +1154,185 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Country code button
-            GestureDetector(
-              onTap: _isLoading ? null : () => _showCountryCodeModal(context),
-              child: Container(
-                height: 50,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: borderColor, width: 1),
-                  color: bgDark2,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _selectedCountryCode,
-                      style: const TextStyle(
-                        color: textLight,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+        FormField<String>(
+          key: _phoneFieldKey,
+          autovalidateMode: AutovalidateMode.disabled,
+          validator: (value) {
+            final currentValue = value ?? _phoneController.text;
+            if (currentValue.isEmpty) {
+              return 'Le numéro est requis.';
+            }
+            // Additional regex check to ensure only numbers
+            if (!RegExp(r'^[0-9]+$').hasMatch(currentValue)) {
+              return 'Seuls les chiffres sont autorisés.';
+            }
+            // Country-specific length validation
+            final expectedLength = countryPhoneLengths[_selectedCountryCode];
+            if (expectedLength != null) {
+              if (currentValue.length < expectedLength) {
+                return 'Le numéro doit contenir $expectedLength chiffres.';
+              }
+              // Allow some flexibility (max 2 digits more than expected)
+              if (currentValue.length > expectedLength + 2) {
+                return 'Le numéro est trop long.';
+              }
+            } else {
+              // Fallback for countries not in the map
+              if (currentValue.length < 8) {
+                return 'Numéro invalide.';
+              }
+              if (currentValue.length > 15) {
+                return 'Le numéro est trop long.';
+              }
+            }
+            return null;
+          },
+          builder: (formFieldState) {
+            final hasError = formFieldState.hasError;
+            final borderColorValue = hasError
+                ? errorRed
+                : (_phoneFocusNode.hasFocus ? primaryGold : borderColor);
+            final borderWidth =
+                (hasError || _phoneFocusNode.hasFocus) ? 1.5 : 1.0;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: borderColorValue,
+                      width: borderWidth,
+                    ),
+                    color: bgDark2,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Country code button
+                      GestureDetector(
+                        onTap: _isLoading
+                            ? null
+                            : () => _showCountryCodeModal(context),
+                        child: Container(
+                          height: 50,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              right: BorderSide(
+                                color: borderColor.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _selectedCountryCode,
+                                style: const TextStyle(
+                                  color: textLight,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.expand_more,
+                                color: primaryGold,
+                                size: 18,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.expand_more,
-                      color: primaryGold,
-                      size: 18,
-                    ),
-                  ],
+                      // Visual separator
+                      Container(
+                        width: 1,
+                        height: 30,
+                        color: borderColor.withOpacity(0.3),
+                      ),
+                      const SizedBox(width: 8),
+                      // Phone number field
+                      Expanded(
+                        child: TextField(
+                          controller: _phoneController,
+                          focusNode: _phoneFocusNode,
+                          enabled: !_isLoading,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [
+                            // Only allow numbers - reject any symbols
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9]'),
+                            ),
+                          ],
+                          cursorColor: const Color(0xFFBF8719),
+                          onTap: () {
+                            _unfocusAllFields();
+                            _phoneFocusNode.requestFocus();
+                          },
+                          style: const TextStyle(color: textLight, fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText:
+                                countryPhoneHints[_selectedCountryCode] ??
+                                    '612345678',
+                            hintStyle:
+                                const TextStyle(color: textGrey, fontSize: 13),
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
+                          ),
+                          onChanged: (value) {
+                            // Update FormField state - this triggers validation if autovalidateMode allows
+                            formFieldState.didChange(value);
+                            // Update phone number formatting
+                            setState(() {
+                              _phoneNumber =
+                                  _formatPhoneNumber(_selectedCountryCode, value);
+                            });
+                            // Real-time validation when correcting wrong phone (only after error was shown)
+                            if (_phoneFieldHasBeenValidated && value.isNotEmpty) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) {
+                                  setState(() {
+                                    formFieldState.validate();
+                                  });
+                                }
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Phone number field
-            Expanded(
-              child: TextFormField(
-                key: _phoneFieldKey,
-                controller: _phoneController,
-                focusNode: _phoneFocusNode,
-                enabled: !_isLoading,
-                keyboardType: TextInputType.phone,
-                inputFormatters: [
-                  // Only allow numbers - reject any symbols
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                ],
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Le numéro est requis.';
-                  }
-                  if (value.length < 8) {
-                    return 'Numéro invalide.';
-                  }
-                  // Additional regex check to ensure only numbers
-                  if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-                    return 'Seuls les chiffres sont autorisés.';
-                  }
-                  return null;
-                },
-                autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
-                cursorColor: const Color(0xFFBF8719),
-                onTap: () {
-                  _unfocusAllFields();
-                  _phoneFocusNode.requestFocus();
-                },
-                style: const TextStyle(color: textLight, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: '612345678',
-                  hintStyle: const TextStyle(color: textGrey, fontSize: 13),
-                  filled: true,
-                  fillColor: bgDark2,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
+                // Error message display - same style as other fields
+                if (hasError && formFieldState.errorText != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, top: 4),
+                    child: Text(
+                      formFieldState.errorText!,
+                      style: const TextStyle(
+                        color: errorRed,
+                        fontSize: 11,
+                        height: 1.0,
+                      ),
+                      maxLines: 1,
+                    ),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: borderColor, width: 1),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: borderColor, width: 1),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: primaryGold, width: 2),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: errorRed, width: 1.5),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: errorRed, width: 1.5),
-                  ),
-                  disabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: borderColor, width: 1),
-                  ),
-                  errorStyle: const TextStyle(
-                    color: errorRed,
-                    fontSize: 11,
-                  ),
-                  errorMaxLines: 1,
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    _phoneNumber =
-                        _formatPhoneNumber(_selectedCountryCode, value);
-                  });
-                  // Real-time validation when correcting wrong phone (only after error was shown)
-                  if (_phoneFieldHasBeenValidated && value.isNotEmpty) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() {
-                          _phoneFieldKey.currentState?.validate();
-                        });
-                      }
-                    });
-                  }
-                },
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ],
     );
