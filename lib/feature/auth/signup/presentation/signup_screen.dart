@@ -175,15 +175,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       if (!_passwordFocusNode.hasFocus && _passwordController.text.isNotEmpty) {
         _passwordFieldKey.currentState?.validate();
         // Mark as validated so real-time validation can work when correcting
-        setState(() {
-          _passwordFieldHasBeenValidated = true;
-        });
-      } else if (_passwordFocusNode.hasFocus) {
-        // Reset when field gains focus again (user starts editing)
-        setState(() {
-          _passwordFieldHasBeenValidated = false;
-        });
+        // Only set to true if there's an error, otherwise keep current state
+        final hasError = _passwordFieldKey.currentState?.hasError ?? false;
+        if (hasError) {
+          setState(() {
+            _passwordFieldHasBeenValidated = true;
+          });
+        }
       }
+      // Don't reset when field gains focus - keep the flag so real-time validation works
     });
     
     // Add real-time validation for password field when user corrects it (only after error was shown)
