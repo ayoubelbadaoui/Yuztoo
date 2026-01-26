@@ -1469,6 +1469,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                       _phoneController.text,
                                     );
                                   }
+                                  // Re-validate phone field when country code changes
+                                  // This ensures validation updates in real-time for all country codes
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted && _phoneController.text.isNotEmpty) {
+                                      _phoneFieldKey.currentState?.validate();
+                                    }
+                                  });
                                 });
                               },
                               child: Container(
