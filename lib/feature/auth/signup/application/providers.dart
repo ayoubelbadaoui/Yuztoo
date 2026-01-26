@@ -6,6 +6,7 @@ import '../../core/infrastructure/user_repository_provider.dart';
 import 'signup_with_email_password.dart';
 import 'send_phone_verification.dart';
 import 'verify_and_link_phone.dart';
+import 'verify_phone_and_create_user.dart';
 import 'create_user_document.dart';
 
 final signupWithEmailPasswordProvider =
@@ -23,6 +24,11 @@ final sendPhoneVerificationProvider =
 final verifyAndLinkPhoneProvider = Provider<VerifyAndLinkPhone>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return VerifyAndLinkPhone(repository);
+});
+
+final verifyPhoneAndCreateUserProvider = Provider<VerifyPhoneAndCreateUser>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return VerifyPhoneAndCreateUser(repository);
 });
 
 final createUserDocumentProvider = Provider<CreateUserDocument>((ref) {

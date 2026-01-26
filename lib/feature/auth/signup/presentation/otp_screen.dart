@@ -15,6 +15,7 @@ class OTPScreen extends ConsumerStatefulWidget {
     required this.phone,
     required this.onResend,
     required this.email,
+    required this.password,
     required this.city,
     required this.role,
     this.otpUnavailableMessage,
@@ -23,10 +24,11 @@ class OTPScreen extends ConsumerStatefulWidget {
 
   final VoidCallback onBack;
   final VoidCallback onVerify;
-  final String userId; // User ID from signup (passed to avoid Firebase import)
+  final String userId; // User ID (empty until OTP verified and user created)
   final String phone;
   final VoidCallback onResend;
   final String email;
+  final String password; // Password for user creation after OTP verification
   final String city;
   final UserRole role;
   final String? otpUnavailableMessage;
@@ -222,10 +224,14 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
     setState(() => _isVerifying = true);
 
-    final verifyPhoneUseCase = ref.read(verifyAndLinkPhoneProvider);
-    final verifyResult = await verifyPhoneUseCase.call(
+    // Verify OTP and create user with phone + email/password
+    // This ensures user is only created after OTP verification
+    final verifyPhoneAndCreateUserUseCase = ref.read(verifyPhoneAndCreateUserProvider);
+    final verifyResult = await verifyPhoneAndCreateUserUseCase.call(
       verificationId: widget.verificationId!,
       smsCode: smsCode,
+      email: widget.email,
+      password: widget.password,
     );
 
     verifyResult.fold(
@@ -244,17 +250,17 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           setState(() => _isVerifying = false);
         }
       },
-      (_) async {
-        // Phone linked successfully - now create Firestore profile
+      (authUser) async {
+        // User created successfully with phone + email/password - now create Firestore profile
         if (mounted) {
-          await _createFirestoreProfile();
+          await _createFirestoreProfile(authUser.id);
         }
       },
     );
   }
 
-  Future<void> _createFirestoreProfile() async {
-    // Use user ID passed from signup screen (respects architecture - no Firebase import in presentation)
+  Future<void> _createFirestoreProfile(String userId) async {
+    // Use user ID from created user (after OTP verification)
 
     // Build roles map based on widget.role
     final Map<String, bool> roles = {
@@ -265,7 +271,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
     final createUserDocUseCase = ref.read(createUserDocumentProvider);
     final createResult = await createUserDocUseCase.call(
-      uid: widget.userId,
+      uid: userId, // Use userId from created user (after OTP verification)
       email: widget.email,
       phone: widget.phone,
       roles: roles,

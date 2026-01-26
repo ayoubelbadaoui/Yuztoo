@@ -62,10 +62,11 @@ class _RootShellState extends ConsumerState<_RootShell> {
   ScreenId _currentScreen = ScreenId.splash;
   UserRole? _role;
   String _activeTab = 'home';
-  String? _signupUserId; // Store user ID from signup (passed to OTP screen)
+  String? _signupUserId; // Store user ID from signup (passed to OTP screen) - now empty until OTP verified
   String? _phoneNumber; // Store phone number for OTP screen
   String? _verificationId; // Store verificationId for OTP resend
   String? _signupEmail; // Store email for Firestore profile
+  String? _signupPassword; // Store password for user creation after OTP verification
   String? _signupCity; // Store city for Firestore profile
   String? _otpUnavailableMessage; // Store OTP unavailable message
   bool _isCheckingAuth = true; // Track if we're currently checking auth state
@@ -497,13 +498,15 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return SignupScreen(
           role: _role ?? UserRole.client,
           onBack: () => setState(() => _currentScreen = ScreenId.login),
-          onSignupSuccess: (userId, phoneNumber, verificationId, email, city, {otpUnavailableMessage}) {
+          onSignupSuccess: (userId, phoneNumber, verificationId, email, password, city, {otpUnavailableMessage}) {
             // Store all signup data, then navigate to OTP screen
+            // Note: userId is empty until OTP is verified and user is created
             setState(() {
-              _signupUserId = userId;
+              _signupUserId = userId; // Empty string until OTP verified
               _phoneNumber = phoneNumber;
               _verificationId = verificationId;
               _signupEmail = email;
+              _signupPassword = password; // Store password for user creation after OTP verification
               _signupCity = city;
               _otpUnavailableMessage = otpUnavailableMessage;
               _currentScreen = ScreenId.otp;
@@ -512,10 +515,11 @@ class _RootShellState extends ConsumerState<_RootShell> {
         );
       case ScreenId.otp:
         return OTPScreen(
-          userId: _signupUserId ?? '',
+          userId: _signupUserId ?? '', // Empty until OTP verified and user created
           phone: _phoneNumber ?? '+33 XXX XXX XXX',
           verificationId: _verificationId,
           email: _signupEmail ?? '',
+          password: _signupPassword ?? '', // Password for user creation after OTP verification
           city: _signupCity ?? '',
           role: _role ?? UserRole.client,
           otpUnavailableMessage: _otpUnavailableMessage,

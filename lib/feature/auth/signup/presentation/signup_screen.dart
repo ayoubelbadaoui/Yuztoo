@@ -22,6 +22,7 @@ class SignupScreen extends ConsumerStatefulWidget {
     String phoneNumber,
     String? verificationId,
     String email,
+    String password,
     String city, {
     String? otpUnavailableMessage,
   }) onSignupSuccess; // Pass signup data
@@ -270,8 +271,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _passwordController.addListener(() {
       // Validate in real-time only if field has been validated (error shown) and user is correcting
       if (_passwordFieldHasBeenValidated && _passwordController.text.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
             setState(() {
               _passwordFieldKey.currentState?.validate();
             });
@@ -558,89 +559,47 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     setState(() => _isLoading = true);
 
-    // 1. Create user with email/password
+    // IMPORTANT: Don't create user yet - only send OTP
+    // User will be created in OTP screen after code verification
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final phoneNumber = formattedPhoneNumber; // E.164 formatted
     
-    final signupUseCase = ref.read(signupWithEmailPasswordProvider);
-    final signupResult = await signupUseCase.call(email: email, password: password);
-
-    signupResult.fold(
-      (failure) {
-        if (mounted) {
-          final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          // Only show error if it's a specific Firebase error (not generic)
-          if (frenchMessage != null) {
-            showErrorSnackbar(context, frenchMessage);
-          }
-          setState(() => _isLoading = false);
-        }
-      },
-      (authUser) async {
-        // User created successfully - proceed to phone verification
-        if (mounted) {
-          // 2. Send OTP for phone verification
-          final phoneNumber = formattedPhoneNumber; // E.164 formatted
+    // Send OTP for phone verification (no user created yet)
           final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
           final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
-          final failure = otpResult.leftOrNull;
-          if (failure != null) {
-            final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-            // Only proceed if we have a specific error message (Firebase error)
-            if (frenchMessage == null) {
-              // Generic error - don't show, just continue silently
+
+          otpResult.fold(
+            (failure) {
               if (mounted) {
+                final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
+          // Only show error if it's a specific Firebase error (not generic)
+          if (frenchMessage != null) {
+                showErrorSnackbar(context, frenchMessage);
+          }
                 setState(() => _isLoading = false);
               }
-              return;
-            }
-            final isBillingBlocked =
-                frenchMessage.toLowerCase().contains('facturation') ||
-                    frenchMessage.contains('BILLING_NOT_ENABLED');
-            
-            // Always navigate to OTP screen, even if billing is disabled
-            // This allows the user to see the error message and understand what happened
-            if (mounted) {
-              setState(() => _isLoading = false);
-              // Navigate to OTP screen with empty verificationId and error message
-              widget.onSignupSuccess(
-                authUser.id, // Pass user ID to avoid Firebase import in presentation
-                phoneNumber,
-                null, // OTP screen will send OTP automatically
-                email,
-                _selectedCity!,
-                otpUnavailableMessage: frenchMessage, // Pass the error message to OTP screen
-              );
-            }
-            
-            // Only delete user if it's NOT a billing error
-            // For billing errors, keep the user so they can try again later when billing is enabled
-            if (!isBillingBlocked) {
-              // Roll back created auth user if OTP couldn't be sent (non-billing error)
-              final deleteUserUseCase = ref.read(deleteCurrentUserProvider);
-              await deleteUserUseCase.call();
-            }
-            return;
-          }
+            },
+            (verificationId) {
+        // OTP sent successfully - navigate to OTP screen
+        // Pass email and password so OTP screen can create user after verification
+              if (mounted) {
+                setState(() {
+                  _phoneVerificationId = verificationId;
+                  _isLoading = false;
+                });
 
-          final verificationId = otpResult.rightOrNull!;
-          // Store verificationId for later use
-          if (mounted) {
-            setState(() {
-              _phoneVerificationId = verificationId;
-              _isLoading = false;
-            });
-
-            showSuccessSnackbar(context, 'Code de vérification envoyé!');
-            // Navigate to OTP screen with all signup data
-            widget.onSignupSuccess(
-              authUser.id, // Pass user ID to avoid Firebase import in presentation
-              phoneNumber,
-              verificationId,
-              email,
-              _selectedCity!,
-            );
-          }
+                showSuccessSnackbar(context, 'Code de vérification envoyé!');
+                // Navigate to OTP screen with all signup data
+          // Pass empty userId since user doesn't exist yet (will be created after OTP verification)
+          widget.onSignupSuccess(
+            '', // No user ID yet - will be created after OTP verification
+            phoneNumber,
+            verificationId,
+            email,
+            password, // Pass password for user creation after OTP verification
+            _selectedCity!,
+          );
         }
       },
     );
@@ -704,8 +663,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: bgDark1,
-        body: SafeArea(
+      backgroundColor: bgDark1,
+      body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
@@ -733,8 +692,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               _buildFooter(),
             ],
           ),
+          ),
         ),
-      ),
       ),
     );
   }
@@ -1233,7 +1192,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 (hasError || _phoneFocusNode.hasFocus) ? 1.5 : 1.0;
 
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   decoration: BoxDecoration(
@@ -1246,74 +1205,74 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Country code button
-                      GestureDetector(
+          children: [
+            // Country code button
+            GestureDetector(
                         onTap: _isLoading
                             ? null
                             : () => _showCountryCodeModal(context),
-                        child: Container(
-                          height: 50,
+              child: Container(
+                height: 50,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
                             vertical: 14,
                           ),
-                          decoration: BoxDecoration(
+                decoration: BoxDecoration(
                             border: Border(
                               right: BorderSide(
                                 color: borderColor.withOpacity(0.3),
                                 width: 1,
                               ),
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _selectedCountryCode,
-                                style: const TextStyle(
-                                  color: textLight,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _selectedCountryCode,
+                      style: const TextStyle(
+                        color: textLight,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Icon(
-                                Icons.expand_more,
-                                color: primaryGold,
-                                size: 18,
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
+                    ),
+                              const SizedBox(width: 6),
+                    Icon(
+                      Icons.expand_more,
+                      color: primaryGold,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
                       // Visual separator
                       Container(
                         width: 1,
                         height: 30,
                         color: borderColor.withOpacity(0.3),
                       ),
-                      const SizedBox(width: 8),
-                      // Phone number field
-                      Expanded(
+            const SizedBox(width: 8),
+            // Phone number field
+            Expanded(
                         child: TextField(
-                          controller: _phoneController,
-                          focusNode: _phoneFocusNode,
-                          enabled: !_isLoading,
-                          keyboardType: TextInputType.phone,
+                controller: _phoneController,
+                focusNode: _phoneFocusNode,
+                enabled: !_isLoading,
+                keyboardType: TextInputType.phone,
                           inputFormatters: [
                             // Only allow numbers - reject any symbols
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[0-9]'),
                             ),
                           ],
-                          cursorColor: const Color(0xFFBF8719),
-                          onTap: () {
-                            _unfocusAllFields();
-                            _phoneFocusNode.requestFocus();
-                          },
-                          style: const TextStyle(color: textLight, fontSize: 14),
-                          decoration: InputDecoration(
+                cursorColor: const Color(0xFFBF8719),
+                onTap: () {
+                  _unfocusAllFields();
+                  _phoneFocusNode.requestFocus();
+                },
+                style: const TextStyle(color: textLight, fontSize: 14),
+                decoration: InputDecoration(
                             hintText:
                                 countryPhoneHints[_selectedCountryCode] ??
                                     '612345678',
@@ -1324,10 +1283,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             disabledBorder: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
+                  contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 14,
-                            ),
+                    vertical: 14,
+                  ),
                           ),
                           onChanged: (value) {
                             // Update FormField state - this triggers validation if autovalidateMode allows
@@ -1360,14 +1319,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     child: Text(
                       formFieldState.errorText!,
                       style: const TextStyle(
-                        color: errorRed,
-                        fontSize: 11,
+                    color: errorRed,
+                    fontSize: 11,
                         height: 1.0,
                       ),
                       maxLines: 1,
-                    ),
-                  ),
-              ],
+              ),
+            ),
+          ],
             );
           },
         ),

@@ -259,6 +259,71 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<Result<AuthUser>> verifyPhoneAndCreateUser({
+    required String verificationId,
+    required String smsCode,
+    required EmailAddress email,
+    required Password password,
+  }) async {
+    try {
+      // 1. Verify phone OTP and create credential
+      final phoneCredential = firebase.PhoneAuthProvider.credential(
+        verificationId: verificationId,
+        smsCode: smsCode,
+      );
+
+      // 2. Sign in with phone credential (creates user if doesn't exist)
+      final userCredential = await _auth.signInWithCredential(phoneCredential);
+      final user = userCredential.user;
+      
+      if (user == null) {
+        LoggerService.logFailure(
+          'AuthFailure',
+          'User not found after phone sign in',
+          context: {'verificationId': verificationId},
+        );
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'User not found after phone verification'),
+        );
+      }
+
+      // 3. Update user with email (user is already authenticated with phone, so we can update email)
+      if (user.email == null || user.email!.isEmpty || user.email != email.value) {
+        await user.updateEmail(email.value);
+      }
+      
+      // 4. Update password (user is already authenticated with phone, so we can update password)
+      await user.updatePassword(password.value);
+
+      LoggerService.logInfo(
+        'User created with phone and email/password',
+        context: {'uid': user.uid, 'email': email.value},
+      );
+
+      final dto = AuthUserDto.fromFirebase(user);
+      return Right<AuthFailure, AuthUser>(dto.toDomain());
+    } on firebase.FirebaseAuthException catch (e, st) {
+      LoggerService.logError(
+        'FirebaseAuthException during phone verification and user creation',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code, 'verificationId': verificationId},
+      );
+      return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
+    } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error during phone verification and user creation',
+        error: e,
+        stackTrace: st,
+        context: {'verificationId': verificationId},
+      );
+      return Left<AuthFailure, AuthUser>(
+        AuthUnexpectedFailure(cause: e, stackTrace: st),
+      );
+    }
+  }
+
+  @override
   Future<Result<Unit>> deleteCurrentUser() async {
     try {
       final user = _auth.currentUser;
