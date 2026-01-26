@@ -35,24 +35,32 @@ class VerifyPhoneAndCreateUser {
       );
     }
 
+    // Validate email and password before proceeding
+    if (!EmailAddress.isValid(email)) {
+      return Future<Result<AuthUser>>.value(
+        const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Adresse email invalide.'),
+        ),
+      );
+    }
+
+    if (!Password.isValid(password)) {
+      return Future<Result<AuthUser>>.value(
+        const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Le mot de passe doit contenir au moins 8 caractères.'),
+        ),
+      );
+    }
+
+    // Create value objects (will throw assertion if invalid, but we already validated)
     final emailAddress = EmailAddress(email);
     final passwordObj = Password(password);
 
-    return emailAddress.fold(
-      (failure) => Future<Result<AuthUser>>.value(
-        Left<AuthFailure, AuthUser>(failure),
-      ),
-      (validEmail) => passwordObj.fold(
-        (failure) => Future<Result<AuthUser>>.value(
-          Left<AuthFailure, AuthUser>(failure),
-        ),
-        (validPassword) => _repository.verifyPhoneAndCreateUser(
-          verificationId: verificationId,
-          smsCode: smsCode,
-          email: validEmail,
-          password: validPassword,
-        ),
-      ),
+    return _repository.verifyPhoneAndCreateUser(
+      verificationId: verificationId,
+      smsCode: smsCode,
+      email: emailAddress,
+      password: passwordObj,
     );
   }
 }
