@@ -67,6 +67,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   // Track if fields have been validated (error shown)
   bool _emailFieldHasBeenValidated = false;
   bool _passwordFieldHasBeenValidated = false;
+  bool _phoneFieldHasBeenValidated = false;
   
   // Real-time validation state
   String? _emailError;
@@ -208,12 +209,34 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     });
     
     _phoneFocusNode.addListener(() {
+      // Validate only when field loses focus (after user changes/interacts with field)
       if (!_phoneFocusNode.hasFocus && _phoneController.text.isNotEmpty) {
         _phoneFieldKey.currentState?.validate();
+        // Mark as validated so real-time validation can work when correcting
+        // Only set to true if there's an error, otherwise keep current state
+        final hasError = _phoneFieldKey.currentState?.hasError ?? false;
+        if (hasError) {
+          setState(() {
+            _phoneFieldHasBeenValidated = true;
+          });
+        }
       }
+      // Don't reset when field gains focus - keep the flag so real-time validation works
     });
     
-    // Validation only happens on blur (when leaving field), not while typing
+    // Add real-time validation for phone field when user corrects it (only after error was shown)
+    _phoneController.addListener(() {
+      // Validate in real-time only if field has been validated (error shown) and user is correcting
+      if (_phoneFieldHasBeenValidated && _phoneController.text.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _phoneFieldKey.currentState?.validate();
+            });
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -1084,9 +1107,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     _phoneNumber =
                         _formatPhoneNumber(_selectedCountryCode, value);
                   });
-                  // If phone field already shows an error, re-validate to clear it when corrected
-                  if (_phoneFieldKey.currentState?.hasError == true) {
-                    _phoneFieldKey.currentState?.validate();
+                  // Real-time validation when correcting wrong phone (only after error was shown)
+                  if (_phoneFieldHasBeenValidated && value.isNotEmpty) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() {
+                          _phoneFieldKey.currentState?.validate();
+                        });
+                      }
+                    });
                   }
                 },
               ),
