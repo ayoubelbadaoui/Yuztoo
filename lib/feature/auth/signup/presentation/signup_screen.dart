@@ -67,6 +67,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   // Track if fields have been validated (error shown)
   bool _emailFieldHasBeenValidated = false;
   bool _passwordFieldHasBeenValidated = false;
+  bool _confirmPasswordFieldHasBeenValidated = false;
   bool _phoneFieldHasBeenValidated = false;
   
   // Real-time validation state
@@ -280,9 +281,33 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     });
     
     _confirmPasswordFocusNode.addListener(() {
+      // Validate only when field loses focus (after user changes/interacts with field)
       if (!_confirmPasswordFocusNode.hasFocus &&
           _confirmPasswordController.text.isNotEmpty) {
         _confirmPasswordFieldKey.currentState?.validate();
+        // Mark as validated so real-time validation can work when correcting
+        // Only set to true if there's an error, otherwise keep current state
+        final hasError = _confirmPasswordFieldKey.currentState?.hasError ?? false;
+        if (hasError) {
+          setState(() {
+            _confirmPasswordFieldHasBeenValidated = true;
+          });
+        }
+      }
+      // Don't reset when field gains focus - keep the flag so real-time validation works
+    });
+    
+    // Add real-time validation for confirm password field when user corrects it (only after error was shown)
+    _confirmPasswordController.addListener(() {
+      // Validate in real-time only if field has been validated (error shown) and user is correcting
+      if (_confirmPasswordFieldHasBeenValidated && _confirmPasswordController.text.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _confirmPasswordFieldKey.currentState?.validate();
+            });
+          }
+        });
       }
     });
     
@@ -1087,6 +1112,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
+          onChanged: (value) {
+            // Real-time validation when correcting wrong confirm password (only after error was shown)
+            if (_confirmPasswordFieldHasBeenValidated && controller == _confirmPasswordController && value.isNotEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _confirmPasswordFieldKey.currentState?.validate();
+                  });
+                }
+              });
+            }
+          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
