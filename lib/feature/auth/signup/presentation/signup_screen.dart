@@ -1251,7 +1251,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         width: 1,
                         height: 30,
                         color: borderColor.withOpacity(0.3),
-                      ),
+            ),
             const SizedBox(width: 8),
             // Phone number field
             Expanded(
@@ -1469,14 +1469,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                       _phoneController.text,
                                     );
                                   }
-                                  // Re-validate phone field when country code changes
-                                  // This ensures validation updates in real-time for all country codes
+                                });
+                                // Re-validate phone field when country code changes
+                                // This ensures validation updates in real-time for all country codes
+                                // Also enable real-time validation if field has been validated before
+                                if (_phoneController.text.isNotEmpty) {
                                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    if (mounted && _phoneController.text.isNotEmpty) {
-                                      _phoneFieldKey.currentState?.validate();
+                                    if (mounted) {
+                                      setState(() {
+                                        // Enable real-time validation if field was already validated
+                                        if (!_phoneFieldHasBeenValidated) {
+                                          _phoneFieldHasBeenValidated = true;
+                                        }
+                                        _phoneFieldKey.currentState?.validate();
+                                      });
                                     }
                                   });
-                                });
+                                }
                               },
                               child: Container(
                                 margin: const EdgeInsets.symmetric(
