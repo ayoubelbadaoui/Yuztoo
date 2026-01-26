@@ -64,8 +64,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   String _selectedRole = 'client';
   String? _phoneVerificationId;
   
-  // Track if email field has been validated (error shown)
+  // Track if fields have been validated (error shown)
   bool _emailFieldHasBeenValidated = false;
+  bool _passwordFieldHasBeenValidated = false;
   
   // Real-time validation state
   String? _emailError;
@@ -173,6 +174,29 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       });
       if (!_passwordFocusNode.hasFocus && _passwordController.text.isNotEmpty) {
         _passwordFieldKey.currentState?.validate();
+        // Mark as validated so real-time validation can work when correcting
+        setState(() {
+          _passwordFieldHasBeenValidated = true;
+        });
+      } else if (_passwordFocusNode.hasFocus) {
+        // Reset when field gains focus again (user starts editing)
+        setState(() {
+          _passwordFieldHasBeenValidated = false;
+        });
+      }
+    });
+    
+    // Add real-time validation for password field when user corrects it (only after error was shown)
+    _passwordController.addListener(() {
+      // Validate in real-time only if field has been validated (error shown) and user is correcting
+      if (_passwordFieldHasBeenValidated && _passwordController.text.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _passwordFieldKey.currentState?.validate();
+            });
+          }
+        });
       }
     });
     
@@ -749,6 +773,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
+          onChanged: (value) {
+            // Real-time validation when correcting wrong password (only after error was shown)
+            if (_passwordFieldHasBeenValidated && controller == _passwordController && value.isNotEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _passwordFieldKey.currentState?.validate();
+                  });
+                }
+              });
+            }
+          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
