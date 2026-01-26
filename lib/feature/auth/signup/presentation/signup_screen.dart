@@ -143,15 +143,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       if (!_emailFocusNode.hasFocus) {
         _emailFieldKey.currentState?.validate();
         // Mark as validated so real-time validation can work when correcting
-        setState(() {
-          _emailFieldHasBeenValidated = true;
-        });
-      } else {
-        // Reset when field gains focus again (user starts editing)
-        setState(() {
-          _emailFieldHasBeenValidated = false;
-        });
+        // Only set to true if there's an error, otherwise keep current state
+        final hasError = _emailFieldKey.currentState?.hasError ?? false;
+        if (hasError) {
+          setState(() {
+            _emailFieldHasBeenValidated = true;
+          });
+        }
       }
+      // Don't reset when field gains focus - keep the flag so real-time validation works
     });
     
     // Add real-time validation for email field when user corrects it (only after error was shown)
