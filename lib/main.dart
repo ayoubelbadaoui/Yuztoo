@@ -82,20 +82,34 @@ class _RootShellState extends ConsumerState<_RootShell> {
     
     // Handle current state immediately (don't wait for changes)
     if (_isCheckingAuth) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _isCheckingAuth) {
-          _handleAuthStateFromProvider(authState);
-        }
-      });
+      // Handle auth state synchronously if it's already determined
+      if (authState is! AuthInitial && authState is! AuthLoading) {
+        // Auth state is already determined - handle it immediately
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _isCheckingAuth) {
+            _handleAuthStateFromProvider(authState);
+          }
+        });
+      } else {
+        // Still loading - wait for the state to be determined
+        // The listener below will handle it when it changes
+      }
     }
 
-    // Listen to future changes (login/logout)
+    // Listen to future changes (login/logout) and initial state determination
     ref.listen<AuthState>(
       authStateProvider,
       (previous, next) {
-        // Handle state changes after initial check
-        if (!_isCheckingAuth && previous != next) {
-          _handleAuthStateFromProvider(next);
+        if (_isCheckingAuth) {
+          // Still checking auth - handle the state
+          if (next is! AuthInitial && next is! AuthLoading) {
+            _handleAuthStateFromProvider(next);
+          }
+        } else {
+          // Handle state changes after initial check
+          if (previous != next) {
+            _handleAuthStateFromProvider(next);
+          }
         }
       },
     );
@@ -128,7 +142,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
     switch (authState) {
       case AuthInitial():
       case AuthLoading():
-        // Wait for real state - do nothing
+        // Wait for real state - keep showing splash/loading
+        // Don't set _isCheckingAuth to false yet
         return;
       case Authenticated(:final user):
         // User is authenticated - get role from Firestore using application layer
@@ -155,7 +170,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
               });
             }
           } catch (e) {
-            // Error getting role - default to client and show home
+            // Error getting role - user is authenticated but we can't get their role
+            // Default to client and show home (user IS authenticated, just role fetch failed)
             if (mounted) {
               setState(() {
                 _isCheckingAuth = false;
@@ -165,16 +181,57 @@ class _RootShellState extends ConsumerState<_RootShell> {
               });
             }
           }
+        } else {
+          // User became authenticated after initial check (e.g., after login)
+          // Only navigate if we're not already on an authenticated screen
+          if (!_isAuthenticatedScreen(_currentScreen)) {
+            try {
+              final getUserRole = ref.read(getUserRoleProvider);
+              final roleResult = await getUserRole.call(user.id);
+              final role = roleResult.fold(
+                (_) => null,
+                (r) => r,
+              );
+              
+              if (mounted) {
+                setState(() {
+                  _role = role ?? UserRole.client;
+                  if (_role == UserRole.client) {
+                    _currentScreen = ScreenId.clientHome;
+                    _activeTab = 'home';
+                  } else {
+                    _currentScreen = ScreenId.merchantDashboard;
+                    _activeTab = 'dashboard';
+                  }
+                });
+              }
+            } catch (e) {
+              // Error getting role - default to client and show home
+              if (mounted) {
+                setState(() {
+                  _role = UserRole.client;
+                  _currentScreen = ScreenId.clientHome;
+                  _activeTab = 'home';
+                });
+              }
+            }
+          }
         }
       case Unauthenticated():
-        // No user - go directly to role selection (skip splash)
-        if (_isCheckingAuth) {
-          if (mounted) {
-            setState(() {
-              _isCheckingAuth = false;
+        // No user - ALWAYS go to role selection/login screen
+        // This handles both initial check and subsequent logout/session expiry
+        if (mounted) {
+          setState(() {
+            _isCheckingAuth = false;
+            _role = null;
+            // Always go to role selection when unauthenticated (especially on initial check)
+            if (_isCheckingAuth || _isAuthenticatedScreen(_currentScreen)) {
               _currentScreen = ScreenId.roleSelection;
-            });
-          }
+            } else if (_currentScreen == ScreenId.splash) {
+              // If still on splash, go to role selection
+              _currentScreen = ScreenId.roleSelection;
+            }
+          });
         }
       case AuthError():
         // Error - show splash anyway
@@ -182,11 +239,46 @@ class _RootShellState extends ConsumerState<_RootShell> {
           if (mounted) {
             setState(() {
               _isCheckingAuth = false;
-              _currentScreen = ScreenId.splash;
+              _role = null;
+              if (_isAuthenticatedScreen(_currentScreen)) {
+                _currentScreen = ScreenId.login;
+              }
+            });
+          }
+        } else {
+          // If error occurs after initial check, go to role selection
+          if (mounted) {
+            setState(() {
+              _role = null;
+              if (_isAuthenticatedScreen(_currentScreen)) {
+                _currentScreen = ScreenId.login;
+              }
             });
           }
         }
     }
+  }
+
+  /// Check if current screen requires authentication
+  bool _isAuthenticatedScreen(ScreenId screen) {
+    const authenticatedScreens = {
+      ScreenId.clientHome,
+      ScreenId.discovery,
+      ScreenId.qrScanner,
+      ScreenId.loyalty,
+      ScreenId.storeProfile,
+      ScreenId.notifications,
+      ScreenId.messages,
+      ScreenId.clientProfile,
+      ScreenId.merchantDashboard,
+      ScreenId.merchantClients,
+      ScreenId.merchantPromotions,
+      ScreenId.merchantQr,
+      ScreenId.merchantMessages,
+      ScreenId.merchantProfile,
+      ScreenId.merchantStats,
+    };
+    return authenticatedScreens.contains(screen);
   }
 
   void _goToRoleSelection() {
@@ -202,19 +294,35 @@ class _RootShellState extends ConsumerState<_RootShell> {
   }
 
   void _handleLogin() {
-    setState(() {
-      if (_role == UserRole.client) {
-        _currentScreen = ScreenId.clientHome;
-        _activeTab = 'home';
-      } else {
-        _currentScreen = ScreenId.merchantDashboard;
-        _activeTab = 'dashboard';
-      }
-    });
+    // Check auth state before navigating - only navigate if user is authenticated
+    final authState = ref.read(authStateProvider);
+    if (authState is Authenticated) {
+      setState(() {
+        _isCheckingAuth = false;
+        if (_role == UserRole.client) {
+          _currentScreen = ScreenId.clientHome;
+          _activeTab = 'home';
+        } else {
+          _currentScreen = ScreenId.merchantDashboard;
+          _activeTab = 'dashboard';
+        }
+      });
+    } else {
+      // User is not authenticated - go to role selection
+      setState(() {
+        _isCheckingAuth = false;
+        _currentScreen = ScreenId.roleSelection;
+        _role = null;
+      });
+    }
   }
 
   void _handleBackToLogin() {
     setState(() => _currentScreen = ScreenId.login);
+  }
+
+  void _handleBackToSignup() {
+    setState(() => _currentScreen = ScreenId.signup);
   }
 
   void _handleBackToRole() {
@@ -310,8 +418,35 @@ class _RootShellState extends ConsumerState<_RootShell> {
   }
 
   Widget _buildScreen() {
-    // Show splash/loading while checking auth state
-    if (_isCheckingAuth) {
+    // Get current auth state
+    final authState = ref.watch(authStateProvider);
+    
+    // CRITICAL SAFETY CHECK: Never show authenticated screens unless user is authenticated
+    // This prevents showing home page when user is not logged in
+    final isAuthenticated = authState is Authenticated;
+    final isAuthenticatedScreen = _isAuthenticatedScreen(_currentScreen);
+    
+    if (!isAuthenticated && isAuthenticatedScreen) {
+      // User is NOT authenticated but trying to access authenticated screen
+      // Force redirect to role selection immediately
+      if (mounted && (_isCheckingAuth || _currentScreen != ScreenId.roleSelection)) {
+        // Use synchronous setState if possible, or schedule it
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _isCheckingAuth = false;
+              _currentScreen = ScreenId.roleSelection;
+              _role = null;
+            });
+          }
+        });
+      }
+      // Return role selection screen immediately
+      return RoleSelectionScreen(onSelectRole: _handleRoleSelect);
+    }
+    
+    // Show splash/loading while checking auth state (only if we're still checking)
+    if (_isCheckingAuth && (authState is AuthInitial || authState is AuthLoading)) {
       return SplashScreen(onComplete: () {});
     }
     
@@ -353,7 +488,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
           city: _signupCity ?? '',
           role: _role ?? UserRole.client,
           otpUnavailableMessage: _otpUnavailableMessage,
-          onBack: _handleBackToLogin,
+          onBack: _handleBackToSignup,
           onVerify: _handleLogin,
           onResend: () {
             // VerificationId will be updated by OTP screen if resend succeeds
