@@ -64,6 +64,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   String _selectedRole = 'client';
   String? _phoneVerificationId;
   
+  // Track if email field has been validated (error shown)
+  bool _emailFieldHasBeenValidated = false;
+  
   // Real-time validation state
   String? _emailError;
   String? _passwordError;
