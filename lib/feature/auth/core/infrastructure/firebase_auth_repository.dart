@@ -452,6 +452,13 @@ class FirebaseAuthRepository implements AuthRepository {
           message:
               'Vérification reCAPTCHA échouée. Réessayez.',
         );
+      case 'missing-client-identifier':
+        return AuthUnexpectedFailure(
+          message:
+              'Erreur de configuration de l\'application. Veuillez contacter le support.',
+          cause: error,
+          stackTrace: stackTrace,
+        );
       case 'internal-error':
         return const AuthUnexpectedFailure(
           message:
