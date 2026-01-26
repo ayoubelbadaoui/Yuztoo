@@ -34,7 +34,21 @@ class AuthErrorMapper {
     if (failure is AuthUnexpectedFailure) {
       // Use the message from the failure if it's already in French and specific
       final message = failure.message;
-      // Only return message if it's specific (not generic)
+      
+      // Check if it's a real Firebase error (has cause/stackTrace)
+      if (failure.cause != null) {
+        // This is a real Firebase error - return the specific message if available
+        // or a generic message if the message is generic
+        if (message.isNotEmpty && 
+            !message.toLowerCase().contains('une erreur s\'est produite')) {
+          // Return the specific message (e.g., "Erreur de configuration de l'application...")
+          return message;
+        }
+        // Generic message for real Firebase errors without specific message
+        return 'Une erreur s\'est produite. Veuillez réessayer.';
+      }
+      
+      // Only return message if it's specific (not generic) and matches keywords
       if (message.isNotEmpty && 
           (message.contains('email') || 
            message.contains('mot de passe') ||
@@ -43,14 +57,12 @@ class AuthErrorMapper {
            message.contains('facturation') ||
            message.contains('billing') ||
            message.contains('quota') ||
-           message.contains('SMS'))) {
+           message.contains('SMS') ||
+           message.contains('configuration') ||
+           message.contains('support'))) {
         return message;
       }
-      // Check if it's a real Firebase error (has cause/stackTrace)
-      if (failure.cause != null) {
-        // This is a real Firebase error - show generic message
-        return 'Une erreur s\'est produite. Veuillez réessayer.';
-      }
+      
       // Not a real Firebase error - don't show generic message
       return null;
     }
