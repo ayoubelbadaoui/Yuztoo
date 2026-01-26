@@ -141,6 +141,29 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       // Validate only when field loses focus (after user changes/interacts with field)
       if (!_emailFocusNode.hasFocus) {
         _emailFieldKey.currentState?.validate();
+        // Mark as validated so real-time validation can work when correcting
+        setState(() {
+          _emailFieldHasBeenValidated = true;
+        });
+      } else {
+        // Reset when field gains focus again (user starts editing)
+        setState(() {
+          _emailFieldHasBeenValidated = false;
+        });
+      }
+    });
+    
+    // Add real-time validation for email field when user corrects it (only after error was shown)
+    _emailController.addListener(() {
+      // Validate in real-time only if field has been validated (error shown) and user is correcting
+      if (_emailFieldHasBeenValidated && _emailController.text.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _emailFieldKey.currentState?.validate();
+            });
+          }
+        });
       }
     });
     
@@ -630,6 +653,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           autovalidateMode: AutovalidateMode.disabled,
           cursorColor: const Color(0xFFBF8719),
           onTap: onTap,
+          onChanged: (value) {
+            // Real-time validation when correcting wrong email (only after error was shown)
+            if (_emailFieldHasBeenValidated && controller == _emailController && value.isNotEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _emailFieldKey.currentState?.validate();
+                  });
+                }
+              });
+            }
+          },
           style: const TextStyle(color: textLight, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
