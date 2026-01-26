@@ -359,6 +359,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           final failure = otpResult.leftOrNull;
           if (failure != null) {
             final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
+            // Only proceed if we have a specific error message (Firebase error)
+            if (frenchMessage == null) {
+              // Generic error - don't show, just continue silently
+              if (mounted) {
+                setState(() => _isLoading = false);
+              }
+              return;
+            }
             final isBillingBlocked =
                 frenchMessage.toLowerCase().contains('facturation') ||
                     frenchMessage.contains('BILLING_NOT_ENABLED');
