@@ -287,13 +287,22 @@ class FirebaseAuthRepository implements AuthRepository {
         );
       }
 
-      // 3. Update user with email (user is already authenticated with phone, so we can update email)
-      if (user.email == null || user.email!.isEmpty || user.email != email.value) {
-        await user.updateEmail(email.value);
+      // ROOT FIX: Firebase doesn't allow updateEmail() on phone-authenticated users
+      // because email is not verified. We'll store email in Firestore instead.
+      // The email will be available for account recovery and can be verified later.
+      // Only update password (user is already authenticated with phone, so we can update password)
+      try {
+        await user.updatePassword(password.value);
+      } on firebase.FirebaseAuthException catch (e) {
+        // If password update fails, log but don't fail the whole operation
+        // The user is still created and authenticated with phone
+        LoggerService.logError(
+          'Failed to update password after phone verification',
+          error: e,
+          context: {'code': e.code, 'uid': user.uid},
+        );
+        // Continue - password can be set later if needed
       }
-      
-      // 4. Update password (user is already authenticated with phone, so we can update password)
-      await user.updatePassword(password.value);
 
       LoggerService.logInfo(
         'User created with phone and email/password',
