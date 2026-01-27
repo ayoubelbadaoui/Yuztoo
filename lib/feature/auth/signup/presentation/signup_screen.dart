@@ -872,7 +872,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             controller: _emailController,
             focusNode: _emailFocusNode,
             label: 'Adresse email',
-            hint: 'votre@email.com',
+            hint: 'email',
             keyboardType: TextInputType.emailAddress,
             icon: Icons.mail_outline,
             validator: _validateEmail,
