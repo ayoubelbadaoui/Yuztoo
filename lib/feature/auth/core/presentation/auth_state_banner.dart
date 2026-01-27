@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/providers.dart';
 import '../application/state/auth_state.dart';
-import '../../login/application/providers.dart';
 
 /// Example presentation widget consuming the application layer via Riverpod.
 class AuthStateBanner extends ConsumerWidget {
