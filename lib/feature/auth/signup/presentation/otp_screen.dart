@@ -450,9 +450,9 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             ),
             children: [
               const TextSpan(text: 'Entrez le code envoyé au\n'),
-              TextSpan(
-                text: _formatPhoneForDisplay(widget.phone),
-                style: const TextStyle(
+              const TextSpan(
+                text: '---',
+                style: TextStyle(
                   color: primaryGold,
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
