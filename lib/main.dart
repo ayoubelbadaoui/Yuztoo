@@ -70,6 +70,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
   String? _signupCity; // Store city for Firestore profile
   String? _otpUnavailableMessage; // Store OTP unavailable message
   bool _isCheckingAuth = true; // Track if we're currently checking auth state
+  bool _isReturningFromOTP = false; // Track if we're returning from OTP screen to preserve data
 
   @override
   void initState() {
@@ -374,7 +375,10 @@ class _RootShellState extends ConsumerState<_RootShell> {
   }
 
   void _handleBackToSignup() {
-    setState(() => _currentScreen = ScreenId.signup);
+    setState(() {
+      _isReturningFromOTP = true; // Mark that we're returning from OTP
+      _currentScreen = ScreenId.signup;
+    });
   }
 
   void _handleBackToRole() {
@@ -529,12 +533,16 @@ class _RootShellState extends ConsumerState<_RootShell> {
           role: _role ?? UserRole.client,
           onBack: _handleBackToRole,
           onLogin: _handleLogin,
-          onSignup: () => setState(() => _currentScreen = ScreenId.signup),
+          onSignup: () => setState(() {
+            _isReturningFromOTP = false; // Clear flag when going to signup from login
+            _currentScreen = ScreenId.signup;
+          }),
         );
       case ScreenId.signup:
-        // Extract country code from phone number if available
+        // Only preserve data if returning from OTP screen
         String? extractedCountryCode;
-        if (_phoneNumber != null && _phoneNumber!.isNotEmpty && _phoneNumber!.startsWith('+')) {
+        if (_isReturningFromOTP && _phoneNumber != null && _phoneNumber!.isNotEmpty && _phoneNumber!.startsWith('+')) {
+          // Extract country code from phone number if available
           // Try to match against common country codes
           final commonCodes = ['+33', '+1', '+44', '+34', '+49', '+39', '+31', '+32', '+41', '+43', 
                               '+351', '+30', '+46', '+47', '+45', '+358', '+48', '+420', '+36', '+40',
@@ -553,13 +561,16 @@ class _RootShellState extends ConsumerState<_RootShell> {
         
         return SignupScreen(
           role: _role ?? UserRole.client,
-          onBack: () => setState(() => _currentScreen = ScreenId.login),
-          // Pass stored data when returning from OTP screen
-          initialEmail: _signupEmail,
-          initialPassword: _signupPassword,
-          initialPhone: _phoneNumber,
-          initialCity: _signupCity,
-          initialCountryCode: extractedCountryCode,
+          onBack: () => setState(() {
+            _isReturningFromOTP = false; // Clear flag when going back to login
+            _currentScreen = ScreenId.login;
+          }),
+          // Pass stored data ONLY when returning from OTP screen
+          initialEmail: _isReturningFromOTP ? _signupEmail : null,
+          initialPassword: _isReturningFromOTP ? _signupPassword : null,
+          initialPhone: _isReturningFromOTP ? _phoneNumber : null,
+          initialCity: _isReturningFromOTP ? _signupCity : null,
+          initialCountryCode: _isReturningFromOTP ? extractedCountryCode : null,
           onSignupSuccess: (userId, phoneNumber, verificationId, email, password, city, {otpUnavailableMessage}) {
             // Store all signup data, then navigate to OTP screen
             // Note: userId is empty until OTP is verified and user is created
@@ -571,6 +582,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
               _signupPassword = password; // Store password for user creation after OTP verification
               _signupCity = city;
               _otpUnavailableMessage = otpUnavailableMessage;
+              _isReturningFromOTP = false; // Clear flag when going to OTP
               _currentScreen = ScreenId.otp;
             });
           },
