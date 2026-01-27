@@ -294,8 +294,14 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
         // Firestore profile created successfully
         if (mounted) {
           showSuccessSnackbar(context, 'Inscription réussie!');
-          // Navigate to home (via onVerify callback)
-          widget.onVerify();
+          // Wait a bit for auth state to update, then navigate
+          // This ensures the auth state provider has time to emit the new authenticated state
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              // Navigate to home (via onVerify callback)
+              widget.onVerify();
+            }
+          });
         }
       },
     );
