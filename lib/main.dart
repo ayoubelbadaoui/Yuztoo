@@ -532,9 +532,34 @@ class _RootShellState extends ConsumerState<_RootShell> {
           onSignup: () => setState(() => _currentScreen = ScreenId.signup),
         );
       case ScreenId.signup:
+        // Extract country code from phone number if available
+        String? extractedCountryCode;
+        if (_phoneNumber != null && _phoneNumber!.isNotEmpty && _phoneNumber!.startsWith('+')) {
+          // Try to match against common country codes
+          final commonCodes = ['+33', '+1', '+44', '+34', '+49', '+39', '+31', '+32', '+41', '+43', 
+                              '+351', '+30', '+46', '+47', '+45', '+358', '+48', '+420', '+36', '+40',
+                              '+212', '+216', '+213', '+20', '+27', '+81', '+82', '+86', '+91', '+61', '+64', '+55', '+52', '+54', '+56'];
+          for (final code in commonCodes) {
+            if (_phoneNumber!.startsWith(code)) {
+              extractedCountryCode = code;
+              break;
+            }
+          }
+          // Fallback: use first 3 characters as country code
+          if (extractedCountryCode == null && _phoneNumber!.length > 3) {
+            extractedCountryCode = _phoneNumber!.substring(0, 3);
+          }
+        }
+        
         return SignupScreen(
           role: _role ?? UserRole.client,
           onBack: () => setState(() => _currentScreen = ScreenId.login),
+          // Pass stored data when returning from OTP screen
+          initialEmail: _signupEmail,
+          initialPassword: _signupPassword,
+          initialPhone: _phoneNumber,
+          initialCity: _signupCity,
+          initialCountryCode: extractedCountryCode,
           onSignupSuccess: (userId, phoneNumber, verificationId, email, password, city, {otpUnavailableMessage}) {
             // Store all signup data, then navigate to OTP screen
             // Note: userId is empty until OTP is verified and user is created

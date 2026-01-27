@@ -13,6 +13,12 @@ class SignupScreen extends ConsumerStatefulWidget {
     required this.role,
     required this.onBack,
     required this.onSignupSuccess,
+    // Optional initial values for when returning from OTP screen
+    this.initialEmail,
+    this.initialPassword,
+    this.initialPhone,
+    this.initialCity,
+    this.initialCountryCode,
   }) : super(key: key);
 
   final UserRole role;
@@ -26,6 +32,13 @@ class SignupScreen extends ConsumerStatefulWidget {
     String city, {
     String? otpUnavailableMessage,
   }) onSignupSuccess; // Pass signup data
+  
+  // Optional initial values (used when returning from OTP screen)
+  final String? initialEmail;
+  final String? initialPassword;
+  final String? initialPhone; // Full phone number with country code (E.164 format)
+  final String? initialCity;
+  final String? initialCountryCode;
 
   @override
   ConsumerState<SignupScreen> createState() => _SignupScreenState();
@@ -207,11 +220,40 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController();
-    _passwordController = TextEditingController();
-    _confirmPasswordController = TextEditingController();
+    
+    // Initialize controllers with initial values if provided (when returning from OTP screen)
+    _emailController = TextEditingController(text: widget.initialEmail ?? '');
+    _passwordController = TextEditingController(text: widget.initialPassword ?? '');
+    _confirmPasswordController = TextEditingController(text: widget.initialPassword ?? '');
     _phoneController = TextEditingController();
     _cityController = TextEditingController();
+    
+    // Initialize phone number and country code from initial phone (E.164 format)
+    if (widget.initialPhone != null && widget.initialPhone!.isNotEmpty) {
+      final phoneData = _extractPhoneData(widget.initialPhone!);
+      if (phoneData != null) {
+        _selectedCountryCode = phoneData['countryCode'] ?? '+33';
+        _phoneController.text = phoneData['localNumber'] ?? '';
+        _phoneNumber = widget.initialPhone; // Store full E.164 number
+      }
+    }
+    
+    // Initialize city
+    if (widget.initialCity != null && widget.initialCity!.isNotEmpty) {
+      _selectedCity = widget.initialCity;
+    }
+    
+    // Initialize country code if provided
+    if (widget.initialCountryCode != null && widget.initialCountryCode!.isNotEmpty) {
+      _selectedCountryCode = widget.initialCountryCode!;
+      // Find country name and flag
+      final country = countryCodes.firstWhere(
+        (c) => c['code'] == widget.initialCountryCode,
+        orElse: () => {'code': '+33', 'name': 'France', 'flag': '🇫🇷'},
+      );
+      _selectedCountryName = country['name'] ?? 'France';
+      _selectedCountryFlag = country['flag'] ?? '🇫🇷';
+    }
     
     _emailFocusNode = FocusNode();
     _passwordFocusNode = FocusNode();
@@ -391,6 +433,69 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _passwordFocusNode.unfocus();
     _confirmPasswordFocusNode.unfocus();
     _phoneFocusNode.unfocus();
+  }
+
+  /// Extract country code and local number from E.164 formatted phone number
+  /// Returns map with 'countryCode' and 'localNumber', or null if extraction fails
+  Map<String, String>? _extractPhoneData(String e164Number) {
+    if (e164Number.isEmpty || !e164Number.startsWith('+')) {
+      return null;
+    }
+    
+    // Try to match against known country codes (longest first to avoid partial matches)
+    final sortedCodes = countryCodes.map((c) => c['code']!).toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    
+    for (final code in sortedCodes) {
+      if (e164Number.startsWith(code)) {
+        final localNumber = e164Number.substring(code.length);
+        return {
+          'countryCode': code,
+          'localNumber': localNumber,
+        };
+      }
+    }
+    
+    // Fallback: try to extract first 1-3 digits as country code
+    // This is a simple heuristic and may not work for all countries
+    if (e164Number.length > 3) {
+      // Try 3 digits first (for codes like +351, +212, etc.)
+      if (e164Number.length > 5) {
+        final possibleCode = e164Number.substring(0, 4);
+        if (countryCodes.any((c) => c['code'] == possibleCode)) {
+          return {
+            'countryCode': possibleCode,
+            'localNumber': e164Number.substring(4),
+          };
+        }
+      }
+      // Try 2 digits (for codes like +33, +44, etc.)
+      if (e164Number.length > 4) {
+        final possibleCode = e164Number.substring(0, 3);
+        if (countryCodes.any((c) => c['code'] == possibleCode)) {
+          return {
+            'countryCode': possibleCode,
+            'localNumber': e164Number.substring(3),
+          };
+        }
+      }
+      // Try 1 digit (for codes like +1)
+      if (e164Number.length > 3) {
+        final possibleCode = e164Number.substring(0, 2);
+        if (countryCodes.any((c) => c['code'] == possibleCode)) {
+          return {
+            'countryCode': possibleCode,
+            'localNumber': e164Number.substring(2),
+          };
+        }
+      }
+    }
+    
+    // Default to France if extraction fails
+    return {
+      'countryCode': '+33',
+      'localNumber': e164Number.substring(1), // Remove the +
+    };
   }
 
   String _formatPhoneNumber(String countryCode, String rawInput) {
