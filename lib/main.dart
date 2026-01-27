@@ -252,17 +252,14 @@ class _RootShellState extends ConsumerState<_RootShell> {
       case Unauthenticated():
         // No user - ALWAYS go to role selection/login screen
         // This handles both initial check and subsequent logout/session expiry
+        // ROOT FIX: Always set to roleSelection when unauthenticated, no conditions
         if (mounted) {
           setState(() {
             _isCheckingAuth = false;
             _role = null;
-            // Always go to role selection when unauthenticated (especially on initial check)
-            if (_isCheckingAuth || _isAuthenticatedScreen(_currentScreen)) {
-              _currentScreen = ScreenId.roleSelection;
-            } else if (_currentScreen == ScreenId.splash) {
-              // If still on splash, go to role selection
-              _currentScreen = ScreenId.roleSelection;
-            }
+            // ALWAYS go to role selection when unauthenticated - no exceptions
+            // This ensures we never stay on splash or authenticated screens
+            _currentScreen = ScreenId.roleSelection;
           });
         }
       case AuthError():
@@ -481,22 +478,39 @@ class _RootShellState extends ConsumerState<_RootShell> {
     final isAuthenticated = authState is Authenticated;
     final isAuthenticatedScreen = _isAuthenticatedScreen(_currentScreen);
     
+    // ROOT FIX: Immediately update state and return correct screen if user is not authenticated
+    // This prevents any flash of authenticated screens
     if (!isAuthenticated && isAuthenticatedScreen) {
       // User is NOT authenticated but trying to access authenticated screen
-      // Force redirect to role selection immediately
-      if (mounted && (_isCheckingAuth || _currentScreen != ScreenId.roleSelection)) {
-        // Use synchronous setState if possible, or schedule it
+      // Force redirect to role selection IMMEDIATELY (synchronously)
+      if (mounted) {
+        // Update state synchronously - don't wait for postFrameCallback
+        _isCheckingAuth = false;
+        _currentScreen = ScreenId.roleSelection;
+        _role = null;
+        // Trigger setState to notify listeners
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            setState(() {
-              _isCheckingAuth = false;
-              _currentScreen = ScreenId.roleSelection;
-              _role = null;
-            });
+            setState(() {});
           }
         });
       }
       // Return role selection screen immediately
+      return RoleSelectionScreen(onSelectRole: _handleRoleSelect);
+    }
+    
+    // ROOT FIX: If user is not authenticated and we're on splash, go to role selection
+    // This handles the case where _currentScreen is still splash but auth state is determined
+    if (!isAuthenticated && _currentScreen == ScreenId.splash && !_isCheckingAuth) {
+      if (mounted) {
+        _currentScreen = ScreenId.roleSelection;
+        _role = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {});
+          }
+        });
+      }
       return RoleSelectionScreen(onSelectRole: _handleRoleSelect);
     }
     
