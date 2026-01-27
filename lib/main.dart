@@ -329,14 +329,37 @@ class _RootShellState extends ConsumerState<_RootShell> {
     // Check auth state before navigating - only navigate if user is authenticated
     final authState = ref.read(authStateProvider);
     if (authState is Authenticated) {
-      setState(() {
-        _isCheckingAuth = false;
-        if (_role == UserRole.client) {
-          _currentScreen = ScreenId.clientHome;
-          _activeTab = 'home';
-        } else {
-          _currentScreen = ScreenId.merchantDashboard;
-          _activeTab = 'dashboard';
+      // User is authenticated - get role and navigate
+      final user = authState.user;
+      // Get role from Firestore
+      ref.read(getUserRoleProvider).call(user.id).then((roleResult) {
+        final role = roleResult.fold(
+          (_) => null,
+          (r) => r,
+        );
+        
+        if (mounted) {
+          setState(() {
+            _isCheckingAuth = false;
+            _role = role ?? UserRole.client;
+            if (_role == UserRole.client) {
+              _currentScreen = ScreenId.clientHome;
+              _activeTab = 'home';
+            } else {
+              _currentScreen = ScreenId.merchantDashboard;
+              _activeTab = 'dashboard';
+            }
+          });
+        }
+      }).catchError((e) {
+        // Error getting role - default to client and navigate
+        if (mounted) {
+          setState(() {
+            _isCheckingAuth = false;
+            _role = UserRole.client;
+            _currentScreen = ScreenId.clientHome;
+            _activeTab = 'home';
+          });
         }
       });
     } else {
