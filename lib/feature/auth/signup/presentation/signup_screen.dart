@@ -7,6 +7,283 @@ import '../../core/application/auth_error_mapper.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
 
+/// Custom TextInputFormatter that formats phone numbers automatically based on country code
+class _PhoneNumberFormatter extends TextInputFormatter {
+  final String countryCode;
+  final Function(String) onFormat;
+
+  _PhoneNumberFormatter({
+    required this.countryCode,
+    required this.onFormat,
+  });
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Remove all non-digits
+    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    
+    if (digits.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    // Format according to country code
+    final formatted = _formatPhoneForInput(countryCode, digits);
+    
+    // Calculate cursor position - try to maintain relative position
+    final oldDigits = oldValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    final oldCursorOffset = oldValue.selection.extentOffset;
+    final oldDigitsBeforeCursor = oldValue.text.substring(0, oldCursorOffset).replaceAll(RegExp(r'[^\d]'), '').length;
+    
+    // Find position in new formatted string where same number of digits appear
+    int newCursorPosition = formatted.length;
+    int digitsCount = 0;
+    for (int i = 0; i < formatted.length; i++) {
+      if (RegExp(r'[0-9]').hasMatch(formatted[i])) {
+        digitsCount++;
+        if (digitsCount >= oldDigitsBeforeCursor) {
+          newCursorPosition = i + 1;
+          break;
+        }
+      }
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: newCursorPosition),
+    );
+  }
+
+  /// Format phone number for display in the input field
+  String _formatPhoneForInput(String countryCode, String digits) {
+    switch (countryCode) {
+      case '+33': // France: X XX XX XX XX
+        if (digits.length <= 1) return digits;
+        if (digits.length <= 3) return '${digits.substring(0, 1)} ${digits.substring(1)}';
+        if (digits.length <= 5) return '${digits.substring(0, 1)} ${digits.substring(1, 3)} ${digits.substring(3)}';
+        if (digits.length <= 7) return '${digits.substring(0, 1)} ${digits.substring(1, 3)} ${digits.substring(3, 5)} ${digits.substring(5)}';
+        if (digits.length <= 9) return '${digits.substring(0, 1)} ${digits.substring(1, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 7)} ${digits.substring(7)}';
+        return '${digits.substring(0, 1)} ${digits.substring(1, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 7)} ${digits.substring(7, 9)}';
+      
+      case '+1': // US/Canada: (XXX) XXX-XXXX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return '(${digits.substring(0, 3)}) ${digits.substring(3)}';
+        if (digits.length <= 10) return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}';
+        return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6, 10)}';
+      
+      case '+44': // UK: XXXX XXXXXX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4)}';
+        return '${digits.substring(0, 4)} ${digits.substring(4, 10)}';
+      
+      case '+34': // Spain: XXX XXX XXX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
+        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
+        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
+      
+      case '+49': // Germany: XXXX XXXXXXX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 11) return '${digits.substring(0, 4)} ${digits.substring(4)}';
+        return '${digits.substring(0, 4)} ${digits.substring(4, 11)}';
+      
+      case '+39': // Italy: XXX XXX XXXX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
+        if (digits.length <= 10) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
+        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 10)}';
+      
+      case '+31': // Netherlands: X XXXX XXXX
+        if (digits.length <= 1) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 1)} ${digits.substring(1)}';
+        if (digits.length <= 9) return '${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5)}';
+        return '${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5, 9)}';
+      
+      case '+32': // Belgium: XXXX XX XX XX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 4)} ${digits.substring(4)}';
+        if (digits.length <= 8) return '${digits.substring(0, 4)} ${digits.substring(4, 6)} ${digits.substring(6)}';
+        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4, 6)} ${digits.substring(6, 8)} ${digits.substring(8)}';
+        return '${digits.substring(0, 4)} ${digits.substring(4, 6)} ${digits.substring(6, 8)} ${digits.substring(8, 10)}';
+      
+      case '+41': // Switzerland: XX XXX XX XX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
+        if (digits.length <= 7) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
+        if (digits.length <= 9) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 7)} ${digits.substring(7)}';
+        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 7)} ${digits.substring(7, 9)}';
+      
+      case '+43': // Austria: XXXX XXXXXX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4)}';
+        return '${digits.substring(0, 4)} ${digits.substring(4, 10)}';
+      
+      case '+351': // Portugal: XXX XXX XXX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
+        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
+        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
+      
+      case '+30': // Greece: XXX XXX XXXX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
+        if (digits.length <= 10) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
+        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 10)}';
+      
+      case '+46': // Sweden: XX-XXX XX XX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 2)}-${digits.substring(2)}';
+        if (digits.length <= 7) return '${digits.substring(0, 2)}-${digits.substring(2, 5)} ${digits.substring(5)}';
+        if (digits.length <= 9) return '${digits.substring(0, 2)}-${digits.substring(2, 5)} ${digits.substring(5, 7)} ${digits.substring(7)}';
+        return '${digits.substring(0, 2)}-${digits.substring(2, 5)} ${digits.substring(5, 7)} ${digits.substring(7, 9)}';
+      
+      case '+47': // Norway: XXX XX XXX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 3)} ${digits.substring(3)}';
+        if (digits.length <= 8) return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5)}';
+        return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 8)}';
+      
+      case '+45': // Denmark: XX XX XX XX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 4) return '${digits.substring(0, 2)} ${digits.substring(2)}';
+        if (digits.length <= 6) return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
+        if (digits.length <= 8) return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6)}';
+        return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6, 8)}';
+      
+      case '+358': // Finland: XX XXX XXXX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
+        if (digits.length <= 9) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
+        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 9)}';
+      
+      case '+48': // Poland: XXX XXX XXX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
+        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
+        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
+      
+      case '+420': // Czech: XXX XXX XXX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
+        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
+        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
+      
+      case '+36': // Hungary: XX XXX XXXX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
+        if (digits.length <= 9) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
+        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 9)}';
+      
+      case '+40': // Romania: XXX XXX XXX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
+        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
+        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
+      
+      case '+212': // Morocco: XXXX-XXXXX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 9) return '${digits.substring(0, 4)}-${digits.substring(4)}';
+        return '${digits.substring(0, 4)}-${digits.substring(4, 9)}';
+      
+      case '+216': // Tunisia: XX XXX XXX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
+        if (digits.length <= 8) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
+        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 8)}';
+      
+      case '+213': // Algeria: XXX XX XX XX
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 3)} ${digits.substring(3)}';
+        if (digits.length <= 7) return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5)}';
+        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 7)} ${digits.substring(7)}';
+        return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 7)} ${digits.substring(7, 9)}';
+      
+      case '+20': // Egypt: XXXX XXX XXXX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 7) return '${digits.substring(0, 4)} ${digits.substring(4)}';
+        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7)}';
+        return '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7, 10)}';
+      
+      case '+27': // South Africa: XX XXX XXXX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
+        if (digits.length <= 9) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
+        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 9)}';
+      
+      case '+81': // Japan: XX-XXXX-XXXX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 2)}-${digits.substring(2)}';
+        if (digits.length <= 10) return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6)}';
+        return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6, 10)}';
+      
+      case '+82': // South Korea: XX-XXXX-XXXX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 2)}-${digits.substring(2)}';
+        if (digits.length <= 10) return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6)}';
+        return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6, 10)}';
+      
+      case '+86': // China: XXXX XXXX XXX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 8) return '${digits.substring(0, 4)} ${digits.substring(4)}';
+        if (digits.length <= 11) return '${digits.substring(0, 4)} ${digits.substring(4, 8)} ${digits.substring(8)}';
+        return '${digits.substring(0, 4)} ${digits.substring(4, 8)} ${digits.substring(8, 11)}';
+      
+      case '+91': // India: XXXX XXXX XX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 8) return '${digits.substring(0, 4)} ${digits.substring(4)}';
+        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4, 8)} ${digits.substring(8)}';
+        return '${digits.substring(0, 4)} ${digits.substring(4, 8)} ${digits.substring(8, 10)}';
+      
+      case '+61': // Australia: XXXX XXX XXX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 7) return '${digits.substring(0, 4)} ${digits.substring(4)}';
+        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7)}';
+        return '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7, 10)}';
+      
+      case '+64': // New Zealand: XXXX XXXX
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 8) return '${digits.substring(0, 4)} ${digits.substring(4)}';
+        return '${digits.substring(0, 4)} ${digits.substring(4, 8)}';
+      
+      case '+55': // Brazil: (XX) XXXX-XXXX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 6) return '(${digits.substring(0, 2)}) ${digits.substring(2)}';
+        if (digits.length <= 10) return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
+        return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6, 10)}';
+      
+      case '+52': // Mexico: XX XXXX XXXX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 2)} ${digits.substring(2)}';
+        if (digits.length <= 10) return '${digits.substring(0, 2)} ${digits.substring(2, 6)} ${digits.substring(6)}';
+        return '${digits.substring(0, 2)} ${digits.substring(2, 6)} ${digits.substring(6, 10)}';
+      
+      case '+54': // Argentina: XX XXXX-XXXX
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 6) return '${digits.substring(0, 2)} ${digits.substring(2)}';
+        if (digits.length <= 10) return '${digits.substring(0, 2)} ${digits.substring(2, 6)}-${digits.substring(6)}';
+        return '${digits.substring(0, 2)} ${digits.substring(2, 6)}-${digits.substring(6, 10)}';
+      
+      case '+56': // Chile: X XXXX XXXX
+        if (digits.length <= 1) return digits;
+        if (digits.length <= 5) return '${digits.substring(0, 1)} ${digits.substring(1)}';
+        if (digits.length <= 9) return '${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5)}';
+        return '${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5, 9)}';
+      
+      default:
+        // Default format: group by 2 digits
+        if (digits.length <= 2) return digits;
+        String formatted = '';
+        for (int i = 0; i < digits.length; i++) {
+          if (i > 0 && i % 2 == 0) formatted += ' ';
+          formatted += digits[i];
+        }
+        return formatted;
+    }
+  }
+}
+
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({
     Key? key,
@@ -496,6 +773,240 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       'countryCode': '+33',
       'localNumber': e164Number.substring(1), // Remove the +
     };
+  }
+
+  /// Format phone number for display in the input field (e.g., 6 12 34 56 78 for France)
+  String _formatPhoneForInput(String countryCode, String digits) {
+    if (digits.isEmpty) return '';
+    
+    // Remove all non-digits
+    final cleaned = digits.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.isEmpty) return '';
+    
+    // Format according to country code
+    switch (countryCode) {
+      case '+33': // France: X XX XX XX XX
+        if (cleaned.length <= 1) return cleaned;
+        if (cleaned.length <= 3) return '${cleaned.substring(0, 1)} ${cleaned.substring(1)}';
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 7) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7)}';
+        return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7, 9)}';
+      
+      case '+1': // US/Canada: (XXX) XXX-XXXX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 6) return '(${cleaned.substring(0, 3)}) ${cleaned.substring(3)}';
+        if (cleaned.length <= 10) return '(${cleaned.substring(0, 3)}) ${cleaned.substring(3, 6)}-${cleaned.substring(6)}';
+        return '(${cleaned.substring(0, 3)}) ${cleaned.substring(3, 6)}-${cleaned.substring(6, 10)}';
+      
+      case '+44': // UK: XXXX XXXXXX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
+        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 10)}';
+      
+      case '+34': // Spain: XXX XXX XXX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
+      
+      case '+49': // Germany: XXXX XXXXXXX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 11) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
+        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 11)}';
+      
+      case '+39': // Italy: XXX XXX XXXX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 10)}';
+      
+      case '+31': // Netherlands: X XXXX XXXX
+        if (cleaned.length <= 1) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 1)} ${cleaned.substring(1)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5)}';
+        return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5, 9)}';
+      
+      case '+32': // Belgium: XXXX XX XX XX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
+        if (cleaned.length <= 8) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6, 8)} ${cleaned.substring(8)}';
+        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6, 8)} ${cleaned.substring(8, 10)}';
+      
+      case '+41': // Switzerland: XX XXX XX XX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
+        if (cleaned.length <= 7) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7)}';
+        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7, 9)}';
+      
+      case '+43': // Austria: XXXX XXXXXX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
+        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 10)}';
+      
+      case '+351': // Portugal: XXX XXX XXX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
+      
+      case '+30': // Greece: XXX XXX XXXX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 10)}';
+      
+      case '+46': // Sweden: XX-XXX XX XX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)}-${cleaned.substring(2)}';
+        if (cleaned.length <= 7) return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7)}';
+        return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7, 9)}';
+      
+      case '+47': // Norway: XXX XX XXX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 8) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5)}';
+        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 8)}';
+      
+      case '+45': // Denmark: XX XX XX XX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 4) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 4)} ${cleaned.substring(4)}';
+        if (cleaned.length <= 8) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6, 8)}';
+      
+      case '+358': // Finland: XX XXX XXXX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
+        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 9)}';
+      
+      case '+48': // Poland: XXX XXX XXX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
+      
+      case '+420': // Czech: XXX XXX XXX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
+      
+      case '+36': // Hungary: XX XXX XXXX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
+        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 9)}';
+      
+      case '+40': // Romania: XXX XXX XXX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
+      
+      case '+212': // Morocco: XXXX-XXXXX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 4)}-${cleaned.substring(4)}';
+        return '${cleaned.substring(0, 4)}-${cleaned.substring(4, 9)}';
+      
+      case '+216': // Tunisia: XX XXX XXX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
+        if (cleaned.length <= 8) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
+        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 8)}';
+      
+      case '+213': // Algeria: XXX XX XX XX
+        if (cleaned.length <= 3) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
+        if (cleaned.length <= 7) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7)}';
+        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7, 9)}';
+      
+      case '+20': // Egypt: XXXX XXX XXXX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 7) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}';
+        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 10)}';
+      
+      case '+27': // South Africa: XX XXX XXXX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
+        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 9)}';
+      
+      case '+81': // Japan: XX-XXXX-XXXX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)}-${cleaned.substring(2)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 6)}-${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}';
+      
+      case '+82': // South Korea: XX-XXXX-XXXX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)}-${cleaned.substring(2)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 6)}-${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}';
+      
+      case '+86': // China: XXXX XXXX XXX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 8) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
+        if (cleaned.length <= 11) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)} ${cleaned.substring(8)}';
+        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)} ${cleaned.substring(8, 11)}';
+      
+      case '+91': // India: XXXX XXXX XX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 8) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)} ${cleaned.substring(8)}';
+        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)} ${cleaned.substring(8, 10)}';
+      
+      case '+61': // Australia: XXXX XXX XXX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 7) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}';
+        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 10)}';
+      
+      case '+64': // New Zealand: XXXX XXXX
+        if (cleaned.length <= 4) return cleaned;
+        if (cleaned.length <= 8) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
+        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)}';
+      
+      case '+55': // Brazil: (XX) XXXX-XXXX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 6) return '(${cleaned.substring(0, 2)}) ${cleaned.substring(2)}';
+        if (cleaned.length <= 10) return '(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6)}';
+        return '(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}';
+      
+      case '+52': // Mexico: XX XXXX XXXX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 6)} ${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 6)} ${cleaned.substring(6, 10)}';
+      
+      case '+54': // Argentina: XX XXXX-XXXX
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
+        if (cleaned.length <= 10) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 6)}-${cleaned.substring(6)}';
+        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}';
+      
+      case '+56': // Chile: X XXXX XXXX
+        if (cleaned.length <= 1) return cleaned;
+        if (cleaned.length <= 5) return '${cleaned.substring(0, 1)} ${cleaned.substring(1)}';
+        if (cleaned.length <= 9) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5)}';
+        return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5, 9)}';
+      
+      default:
+        // Default format: group by 2 digits
+        if (cleaned.length <= 2) return cleaned;
+        String formatted = '';
+        for (int i = 0; i < cleaned.length; i++) {
+          if (i > 0 && i % 2 == 0) formatted += ' ';
+          formatted += cleaned[i];
+        }
+        return formatted;
+    }
   }
 
   String _formatPhoneNumber(String countryCode, String rawInput) {
@@ -1259,15 +1770,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           key: _phoneFieldKey,
           autovalidateMode: AutovalidateMode.disabled,
           validator: (value) {
-            final currentValue = value ?? _phoneController.text;
+            // Extract only digits from the formatted value
+            final currentValue = (value ?? _phoneController.text).replaceAll(RegExp(r'[^\d]'), '');
             if (currentValue.isEmpty) {
               return 'Le numéro est requis.';
             }
-            // Additional regex check to ensure only numbers
-            if (!RegExp(r'^[0-9]+$').hasMatch(currentValue)) {
-              return 'Seuls les chiffres sont autorisés.';
-            }
-            // Country-specific length validation
+            // Country-specific length validation (using digits only)
             final expectedLength = countryPhoneLengths[_selectedCountryCode];
             if (expectedLength != null) {
               if (currentValue.length < expectedLength) {
@@ -1366,9 +1874,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 enabled: !_isLoading,
                 keyboardType: TextInputType.phone,
                           inputFormatters: [
-                            // Only allow numbers - reject any symbols
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9]'),
+                            // Custom formatter that formats phone number automatically based on country code
+                            _PhoneNumberFormatter(
+                              countryCode: _selectedCountryCode,
+                              onFormat: (_) {}, // Not needed, formatter handles it
                             ),
                           ],
                 cursorColor: const Color(0xFFBF8719),
@@ -1394,15 +1903,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   ),
                           ),
                           onChanged: (value) {
+                            // Extract only digits from formatted value for validation and E.164 formatting
+                            final digitsOnly = value.replaceAll(RegExp(r'[^\d]'), '');
                             // Update FormField state - this triggers validation if autovalidateMode allows
                             formFieldState.didChange(value);
-                            // Update phone number formatting
+                            // Update phone number formatting (E.164 format) using digits only
                             setState(() {
                               _phoneNumber =
-                                  _formatPhoneNumber(_selectedCountryCode, value);
+                                  _formatPhoneNumber(_selectedCountryCode, digitsOnly);
                             });
                             // Real-time validation when correcting wrong phone (only after error was shown)
-                            if (_phoneFieldHasBeenValidated && value.isNotEmpty) {
+                            if (_phoneFieldHasBeenValidated && digitsOnly.isNotEmpty) {
                               WidgetsBinding.instance.addPostFrameCallback((_) {
                                 if (mounted) {
                                   setState(() {
