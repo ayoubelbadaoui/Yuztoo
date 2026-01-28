@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/providers.dart';
 import '../../core/application/auth_error_mapper.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
+import 'utils/phone_formatter.dart';
 
 class OTPScreen extends ConsumerStatefulWidget {
   const OTPScreen({
@@ -58,94 +60,6 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   static const Color textGrey = Color(0xFFB0B0B0);
   static const Color borderColor = Color(0xFF2A3F5F);
   static const Color errorRed = Color(0xFFE74C3C);
-
-  /// Format phone number for display (e.g., +33 6 12 34 56 78)
-  static String _formatPhoneForDisplay(String phoneNumber) {
-    // Remove all non-digits except +
-    final cleaned = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
-    
-    if (!cleaned.startsWith('+')) {
-      return phoneNumber; // Return as-is if not in international format
-    }
-
-    // Extract country code and number
-    final parts = cleaned.substring(1).split('');
-    if (parts.isEmpty) return phoneNumber;
-
-    // Common country code lengths
-    String countryCode = '';
-    String number = '';
-    
-    // Try to detect country code (1-3 digits)
-    if (parts.length >= 3 && parts[0] == '3' && parts[1] == '3') {
-      // France +33
-      countryCode = '+33';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 2 && parts[0] == '1') {
-      // US/Canada +1
-      countryCode = '+1';
-      number = parts.skip(1).join('');
-    } else if (parts.length >= 2 && parts[0] == '4' && parts[1] == '4') {
-      // UK +44
-      countryCode = '+44';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 2 && parts[0] == '3' && parts[1] == '4') {
-      // Spain +34
-      countryCode = '+34';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 2 && parts[0] == '4' && parts[1] == '9') {
-      // Germany +49
-      countryCode = '+49';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 3 && parts[0] == '3' && parts[1] == '5' && parts[2] == '1') {
-      // Portugal +351
-      countryCode = '+351';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '3' && parts[1] == '5' && parts[2] == '8') {
-      // Finland +358
-      countryCode = '+358';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '4' && parts[1] == '2' && parts[2] == '0') {
-      // Czech +420
-      countryCode = '+420';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '2') {
-      // Morocco +212
-      countryCode = '+212';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '3') {
-      // Algeria +213
-      countryCode = '+213';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '6') {
-      // Tunisia +216
-      countryCode = '+216';
-      number = parts.skip(3).join('');
-    } else {
-      // Default: assume first 1-3 digits are country code
-      if (parts.length >= 3) {
-        countryCode = '+${parts[0]}${parts[1]}${parts[2]}';
-        number = parts.skip(3).join('');
-      } else if (parts.length >= 2) {
-        countryCode = '+${parts[0]}${parts[1]}';
-        number = parts.skip(2).join('');
-      } else {
-        countryCode = '+${parts[0]}';
-        number = parts.skip(1).join('');
-      }
-    }
-
-    // Format the number part with spaces (group by 2 digits)
-    String formattedNumber = '';
-    for (int i = 0; i < number.length; i++) {
-      if (i > 0 && i % 2 == 0) {
-        formattedNumber += ' ';
-      }
-      formattedNumber += number[i];
-    }
-
-    return '$countryCode $formattedNumber'.trim();
-  }
 
   @override
   void initState() {
@@ -307,12 +221,6 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     );
   }
 
-  void _onBackspace(int index) {
-    if (_controllers[index].text.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-    }
-  }
-
   Future<void> _handleResend() async {
     if (_otpBlocked) {
       if (mounted && _otpUnavailableMessage != null) {
@@ -347,16 +255,24 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_isVerifying, // Prevent back navigation during verification
-      onPopInvoked: (didPop) {
-        if (!didPop && !_isVerifying) {
-          // Handle Android back button
-          widget.onBack();
-        }
-      },
-      child: Scaffold(
-        backgroundColor: bgDark1,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: bgDark1, // Same color as background
+        statusBarIconBrightness: Brightness.light, // Light icons for dark background
+        statusBarBrightness: Brightness.dark, // For iOS
+        systemNavigationBarColor: bgDark1, // Same color as background
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: PopScope(
+        canPop: !_isVerifying, // Prevent back navigation during verification
+        onPopInvoked: (didPop) {
+          if (!didPop && !_isVerifying) {
+            // Handle Android back button
+            widget.onBack();
+          }
+        },
+        child: Scaffold(
+          backgroundColor: bgDark1,
         body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -379,6 +295,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
               _buildResendButton(),
             ],
           ),
+        ),
         ),
       ),
       ),
@@ -450,9 +367,9 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             ),
             children: [
               const TextSpan(text: 'Entrez le code envoyé au\n'),
-              const TextSpan(
-                text: '---',
-                style: TextStyle(
+              TextSpan(
+                text: PhoneFormatter.formatPhoneForDisplay(widget.phone),
+                style: const TextStyle(
                   color: primaryGold,
                   fontWeight: FontWeight.w600,
                   fontSize: 15,

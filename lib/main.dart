@@ -323,56 +323,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
     });
   }
 
-  void _handleLogin() {
-    // Check auth state before navigating - only navigate if user is authenticated
-    final authState = ref.read(authStateProvider);
-    if (authState is Authenticated) {
-      // User is authenticated - get role and navigate
-      final user = authState.user;
-      // Get role from Firestore
-      ref.read(getUserRoleProvider).call(user.id).then((roleResult) {
-        final role = roleResult.fold(
-          (_) => null,
-          (r) => r,
-        );
-        
-        if (mounted) {
-          setState(() {
-            _isCheckingAuth = false;
-            _role = role ?? UserRole.client;
-            if (_role == UserRole.client) {
-              _currentScreen = ScreenId.clientHome;
-              _activeTab = 'home';
-            } else {
-              _currentScreen = ScreenId.merchantDashboard;
-              _activeTab = 'dashboard';
-            }
-          });
-        }
-      }).catchError((e) {
-        // Error getting role - default to client and navigate
-        if (mounted) {
-          setState(() {
-            _isCheckingAuth = false;
-            _role = UserRole.client;
-            _currentScreen = ScreenId.clientHome;
-            _activeTab = 'home';
-          });
-        }
-      });
-    } else {
-      // User is not authenticated - go to role selection
-      setState(() {
-        _isCheckingAuth = false;
-        _currentScreen = ScreenId.roleSelection;
-        _role = null;
-      });
-    }
-  }
-
-  void _handleBackToLogin() {
-    setState(() => _currentScreen = ScreenId.login);
-  }
+  // Removed _handleLogin - business logic moved to LoginFlowController
+  // Navigation is now handled via onLoginSuccess callback
 
   void _handleBackToSignup() {
     setState(() {
@@ -532,7 +484,25 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return LoginScreen(
           role: _role ?? UserRole.client,
           onBack: _handleBackToRole,
-          onLogin: _handleLogin,
+          onLoginSuccess: ({
+            required String uid,
+            required UserRole role,
+            required String city,
+            required bool onboardingCompleted,
+          }) {
+            setState(() {
+              _isCheckingAuth = false;
+              _role = role;
+              if (role == UserRole.client) {
+                _currentScreen = ScreenId.clientHome;
+                _activeTab = 'home';
+                } else {
+                  // Merchant - route to dashboard (onboarding handled separately if needed)
+                  _currentScreen = ScreenId.merchantDashboard;
+                  _activeTab = 'dashboard';
+                }
+            });
+          },
           onSignup: () => setState(() {
             _isReturningFromOTP = false; // Clear flag when going to signup from login
             _currentScreen = ScreenId.signup;
@@ -598,7 +568,10 @@ class _RootShellState extends ConsumerState<_RootShell> {
           role: _role ?? UserRole.client,
           otpUnavailableMessage: _otpUnavailableMessage,
           onBack: _handleBackToSignup,
-          onVerify: _handleLogin,
+          onVerify: () {
+            // OTP verified - navigation handled by signup flow
+            // Auth state will update and trigger navigation
+          },
           onResend: () {
             // VerificationId will be updated by OTP screen if resend succeeds
             // This callback can be used for any additional logic if needed

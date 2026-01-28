@@ -29,5 +29,37 @@ abstract class UserRepository {
   /// 
   /// Returns Result<UserRole?> - UserRole if found, null if document doesn't exist or roles invalid
   Future<Result<UserRole?>> getUserRole(String uid);
+
+  /// Get user city from Firestore
+  /// 
+  /// [uid] - User's unique identifier
+  /// 
+  /// Returns Result<String?> - City if found, null if document doesn't exist or city is empty
+  Future<Result<String?>> getUserCity(String uid);
+
+  /// Get all user roles from Firestore
+  /// 
+  /// [uid] - User's unique identifier
+  /// 
+  /// Returns Result<Map<String, bool>?> - Roles map if found, null if document doesn't exist
+  Future<Result<Map<String, bool>?>> getUserRoles(String uid);
+
+  /// Check if merchant onboarding is completed
+  /// 
+  /// [uid] - User's unique identifier
+  /// 
+  /// Returns Result<bool?> - true if completed, false if not, null if not a merchant or document doesn't exist
+  Future<Result<bool?>> isMerchantOnboardingCompleted(String uid);
+
+  /// Update user city in Firestore
+  /// 
+  /// [uid] - User's unique identifier
+  /// [city] - New city value (required, non-empty)
+  /// 
+  /// Returns Result<Unit> on success, Result with failure on error
+  Future<Result<Unit>> updateUserCity({
+    required String uid,
+    required String city,
+  });
 }
 

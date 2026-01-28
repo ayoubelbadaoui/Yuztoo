@@ -1,288 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/utils/cities.dart';
 import '../application/providers.dart';
 import '../../core/application/auth_error_mapper.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
-
-/// Custom TextInputFormatter that formats phone numbers automatically based on country code
-class _PhoneNumberFormatter extends TextInputFormatter {
-  final String countryCode;
-  final Function(String) onFormat;
-
-  _PhoneNumberFormatter({
-    required this.countryCode,
-    required this.onFormat,
-  });
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    // Remove all non-digits
-    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (digits.isEmpty) {
-      return newValue.copyWith(text: '');
-    }
-
-    // Format according to country code
-    final formatted = _formatPhoneForInput(countryCode, digits);
-    
-    // Calculate cursor position - try to maintain relative position
-    final oldDigits = oldValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    final oldCursorOffset = oldValue.selection.extentOffset;
-    final oldDigitsBeforeCursor = oldValue.text.substring(0, oldCursorOffset).replaceAll(RegExp(r'[^\d]'), '').length;
-    
-    // Find position in new formatted string where same number of digits appear
-    int newCursorPosition = formatted.length;
-    int digitsCount = 0;
-    for (int i = 0; i < formatted.length; i++) {
-      if (RegExp(r'[0-9]').hasMatch(formatted[i])) {
-        digitsCount++;
-        if (digitsCount >= oldDigitsBeforeCursor) {
-          newCursorPosition = i + 1;
-          break;
-        }
-      }
-    }
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: newCursorPosition),
-    );
-  }
-
-  /// Format phone number for display in the input field
-  String _formatPhoneForInput(String countryCode, String digits) {
-    switch (countryCode) {
-      case '+33': // France: X XX XX XX XX
-        if (digits.length <= 1) return digits;
-        if (digits.length <= 3) return '${digits.substring(0, 1)} ${digits.substring(1)}';
-        if (digits.length <= 5) return '${digits.substring(0, 1)} ${digits.substring(1, 3)} ${digits.substring(3)}';
-        if (digits.length <= 7) return '${digits.substring(0, 1)} ${digits.substring(1, 3)} ${digits.substring(3, 5)} ${digits.substring(5)}';
-        if (digits.length <= 9) return '${digits.substring(0, 1)} ${digits.substring(1, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 7)} ${digits.substring(7)}';
-        return '${digits.substring(0, 1)} ${digits.substring(1, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 7)} ${digits.substring(7, 9)}';
-      
-      case '+1': // US/Canada: (XXX) XXX-XXXX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6) return '(${digits.substring(0, 3)}) ${digits.substring(3)}';
-        if (digits.length <= 10) return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}';
-        return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6, 10)}';
-      
-      case '+44': // UK: XXXX XXXXXX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4)}';
-        return '${digits.substring(0, 4)} ${digits.substring(4, 10)}';
-      
-      case '+34': // Spain: XXX XXX XXX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
-        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
-        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
-      
-      case '+49': // Germany: XXXX XXXXXXX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 11) return '${digits.substring(0, 4)} ${digits.substring(4)}';
-        return '${digits.substring(0, 4)} ${digits.substring(4, 11)}';
-      
-      case '+39': // Italy: XXX XXX XXXX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
-        if (digits.length <= 10) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
-        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 10)}';
-      
-      case '+31': // Netherlands: X XXXX XXXX
-        if (digits.length <= 1) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 1)} ${digits.substring(1)}';
-        if (digits.length <= 9) return '${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5)}';
-        return '${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5, 9)}';
-      
-      case '+32': // Belgium: XXXX XX XX XX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 4)} ${digits.substring(4)}';
-        if (digits.length <= 8) return '${digits.substring(0, 4)} ${digits.substring(4, 6)} ${digits.substring(6)}';
-        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4, 6)} ${digits.substring(6, 8)} ${digits.substring(8)}';
-        return '${digits.substring(0, 4)} ${digits.substring(4, 6)} ${digits.substring(6, 8)} ${digits.substring(8, 10)}';
-      
-      case '+41': // Switzerland: XX XXX XX XX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
-        if (digits.length <= 7) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
-        if (digits.length <= 9) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 7)} ${digits.substring(7)}';
-        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 7)} ${digits.substring(7, 9)}';
-      
-      case '+43': // Austria: XXXX XXXXXX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4)}';
-        return '${digits.substring(0, 4)} ${digits.substring(4, 10)}';
-      
-      case '+351': // Portugal: XXX XXX XXX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
-        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
-        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
-      
-      case '+30': // Greece: XXX XXX XXXX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
-        if (digits.length <= 10) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
-        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 10)}';
-      
-      case '+46': // Sweden: XX-XXX XX XX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 2)}-${digits.substring(2)}';
-        if (digits.length <= 7) return '${digits.substring(0, 2)}-${digits.substring(2, 5)} ${digits.substring(5)}';
-        if (digits.length <= 9) return '${digits.substring(0, 2)}-${digits.substring(2, 5)} ${digits.substring(5, 7)} ${digits.substring(7)}';
-        return '${digits.substring(0, 2)}-${digits.substring(2, 5)} ${digits.substring(5, 7)} ${digits.substring(7, 9)}';
-      
-      case '+47': // Norway: XXX XX XXX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 3)} ${digits.substring(3)}';
-        if (digits.length <= 8) return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5)}';
-        return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 8)}';
-      
-      case '+45': // Denmark: XX XX XX XX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 4) return '${digits.substring(0, 2)} ${digits.substring(2)}';
-        if (digits.length <= 6) return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
-        if (digits.length <= 8) return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6)}';
-        return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6, 8)}';
-      
-      case '+358': // Finland: XX XXX XXXX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
-        if (digits.length <= 9) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
-        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 9)}';
-      
-      case '+48': // Poland: XXX XXX XXX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
-        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
-        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
-      
-      case '+420': // Czech: XXX XXX XXX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
-        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
-        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
-      
-      case '+36': // Hungary: XX XXX XXXX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
-        if (digits.length <= 9) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
-        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 9)}';
-      
-      case '+40': // Romania: XXX XXX XXX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 3)} ${digits.substring(3)}';
-        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
-        return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
-      
-      case '+212': // Morocco: XXXX-XXXXX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 9) return '${digits.substring(0, 4)}-${digits.substring(4)}';
-        return '${digits.substring(0, 4)}-${digits.substring(4, 9)}';
-      
-      case '+216': // Tunisia: XX XXX XXX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
-        if (digits.length <= 8) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
-        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 8)}';
-      
-      case '+213': // Algeria: XXX XX XX XX
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 3)} ${digits.substring(3)}';
-        if (digits.length <= 7) return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5)}';
-        if (digits.length <= 9) return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 7)} ${digits.substring(7)}';
-        return '${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 7)} ${digits.substring(7, 9)}';
-      
-      case '+20': // Egypt: XXXX XXX XXXX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 7) return '${digits.substring(0, 4)} ${digits.substring(4)}';
-        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7)}';
-        return '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7, 10)}';
-      
-      case '+27': // South Africa: XX XXX XXXX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 2)} ${digits.substring(2)}';
-        if (digits.length <= 9) return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5)}';
-        return '${digits.substring(0, 2)} ${digits.substring(2, 5)} ${digits.substring(5, 9)}';
-      
-      case '+81': // Japan: XX-XXXX-XXXX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 2)}-${digits.substring(2)}';
-        if (digits.length <= 10) return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6)}';
-        return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6, 10)}';
-      
-      case '+82': // South Korea: XX-XXXX-XXXX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 2)}-${digits.substring(2)}';
-        if (digits.length <= 10) return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6)}';
-        return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6, 10)}';
-      
-      case '+86': // China: XXXX XXXX XXX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 8) return '${digits.substring(0, 4)} ${digits.substring(4)}';
-        if (digits.length <= 11) return '${digits.substring(0, 4)} ${digits.substring(4, 8)} ${digits.substring(8)}';
-        return '${digits.substring(0, 4)} ${digits.substring(4, 8)} ${digits.substring(8, 11)}';
-      
-      case '+91': // India: XXXX XXXX XX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 8) return '${digits.substring(0, 4)} ${digits.substring(4)}';
-        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4, 8)} ${digits.substring(8)}';
-        return '${digits.substring(0, 4)} ${digits.substring(4, 8)} ${digits.substring(8, 10)}';
-      
-      case '+61': // Australia: XXXX XXX XXX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 7) return '${digits.substring(0, 4)} ${digits.substring(4)}';
-        if (digits.length <= 10) return '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7)}';
-        return '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7, 10)}';
-      
-      case '+64': // New Zealand: XXXX XXXX
-        if (digits.length <= 4) return digits;
-        if (digits.length <= 8) return '${digits.substring(0, 4)} ${digits.substring(4)}';
-        return '${digits.substring(0, 4)} ${digits.substring(4, 8)}';
-      
-      case '+55': // Brazil: (XX) XXXX-XXXX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 6) return '(${digits.substring(0, 2)}) ${digits.substring(2)}';
-        if (digits.length <= 10) return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
-        return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6, 10)}';
-      
-      case '+52': // Mexico: XX XXXX XXXX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 2)} ${digits.substring(2)}';
-        if (digits.length <= 10) return '${digits.substring(0, 2)} ${digits.substring(2, 6)} ${digits.substring(6)}';
-        return '${digits.substring(0, 2)} ${digits.substring(2, 6)} ${digits.substring(6, 10)}';
-      
-      case '+54': // Argentina: XX XXXX-XXXX
-        if (digits.length <= 2) return digits;
-        if (digits.length <= 6) return '${digits.substring(0, 2)} ${digits.substring(2)}';
-        if (digits.length <= 10) return '${digits.substring(0, 2)} ${digits.substring(2, 6)}-${digits.substring(6)}';
-        return '${digits.substring(0, 2)} ${digits.substring(2, 6)}-${digits.substring(6, 10)}';
-      
-      case '+56': // Chile: X XXXX XXXX
-        if (digits.length <= 1) return digits;
-        if (digits.length <= 5) return '${digits.substring(0, 1)} ${digits.substring(1)}';
-        if (digits.length <= 9) return '${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5)}';
-        return '${digits.substring(0, 1)} ${digits.substring(1, 5)} ${digits.substring(5, 9)}';
-      
-      default:
-        // Default format: group by 2 digits
-        if (digits.length <= 2) return digits;
-        String formatted = '';
-        for (int i = 0; i < digits.length; i++) {
-          if (i > 0 && i % 2 == 0) formatted += ' ';
-          formatted += digits[i];
-        }
-        return formatted;
-    }
-  }
-}
+import 'constants/signup_constants.dart';
+import 'utils/phone_formatter.dart';
+import 'widgets/signup_form_fields.dart';
+import 'widgets/signup_ui_widgets.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({
@@ -290,7 +16,6 @@ class SignupScreen extends ConsumerStatefulWidget {
     required this.role,
     required this.onBack,
     required this.onSignupSuccess,
-    // Optional initial values for when returning from OTP screen
     this.initialEmail,
     this.initialPassword,
     this.initialPhone,
@@ -308,12 +33,11 @@ class SignupScreen extends ConsumerStatefulWidget {
     String password,
     String city, {
     String? otpUnavailableMessage,
-  }) onSignupSuccess; // Pass signup data
+  }) onSignupSuccess;
   
-  // Optional initial values (used when returning from OTP screen)
   final String? initialEmail;
   final String? initialPassword;
-  final String? initialPhone; // Full phone number with country code (E.164 format)
+  final String? initialPhone;
   final String? initialCity;
   final String? initialCountryCode;
 
@@ -329,207 +53,52 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _phoneFieldKey = GlobalKey<FormFieldState>();
   final _cityFieldKey = GlobalKey<FormFieldState>();
   
-  // Controllers
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   late TextEditingController _confirmPasswordController;
   late TextEditingController _phoneController;
-  late TextEditingController _cityController;
   
-  // Focus Nodes
   late FocusNode _emailFocusNode;
   late FocusNode _passwordFocusNode;
   late FocusNode _confirmPasswordFocusNode;
   late FocusNode _phoneFocusNode;
 
-  // State variables
   bool _isLoading = false;
-  bool _isPasswordVisible = false;
-  bool _isConfirmPasswordVisible = false;
   bool _isPasswordFocused = false;
   String? _selectedCity;
   String? _phoneNumber;
   String _selectedCountryCode = '+33';
-  String _selectedCountryName = 'France';
-  String _selectedCountryFlag = '🇫🇷';
-  String _selectedRole = 'client';
-  String? _phoneVerificationId;
   
-  // Track if fields have been validated (error shown)
   bool _emailFieldHasBeenValidated = false;
   bool _passwordFieldHasBeenValidated = false;
   bool _confirmPasswordFieldHasBeenValidated = false;
   bool _phoneFieldHasBeenValidated = false;
-  
-  // Real-time validation state
-  String? _emailError;
-  String? _passwordError;
-  String? _confirmPasswordError;
-
-  final List<Map<String, String>> countryCodes = [
-    {'code': '+33', 'name': 'France', 'flag': '🇫🇷'},
-    {'code': '+1', 'name': 'États-Unis', 'flag': '🇺🇸'},
-    {'code': '+44', 'name': 'Royaume-Uni', 'flag': '🇬🇧'},
-    {'code': '+34', 'name': 'Espagne', 'flag': '🇪🇸'},
-    {'code': '+49', 'name': 'Allemagne', 'flag': '🇩🇪'},
-    {'code': '+39', 'name': 'Italie', 'flag': '🇮🇹'},
-    {'code': '+31', 'name': 'Pays-Bas', 'flag': '🇳🇱'},
-    {'code': '+32', 'name': 'Belgique', 'flag': '🇧🇪'},
-    {'code': '+41', 'name': 'Suisse', 'flag': '🇨🇭'},
-    {'code': '+43', 'name': 'Autriche', 'flag': '🇦🇹'},
-    {'code': '+351', 'name': 'Portugal', 'flag': '🇵🇹'},
-    {'code': '+30', 'name': 'Grèce', 'flag': '🇬🇷'},
-    {'code': '+46', 'name': 'Suède', 'flag': '🇸🇪'},
-    {'code': '+47', 'name': 'Norvège', 'flag': '🇳🇴'},
-    {'code': '+45', 'name': 'Danemark', 'flag': '🇩🇰'},
-    {'code': '+358', 'name': 'Finlande', 'flag': '🇫🇮'},
-    {'code': '+48', 'name': 'Pologne', 'flag': '🇵🇱'},
-    {'code': '+420', 'name': 'République tchèque', 'flag': '🇨🇿'},
-    {'code': '+36', 'name': 'Hongrie', 'flag': '🇭🇺'},
-    {'code': '+40', 'name': 'Roumanie', 'flag': '🇷🇴'},
-    {'code': '+212', 'name': 'Maroc', 'flag': '🇲🇦'},
-    {'code': '+216', 'name': 'Tunisie', 'flag': '🇹🇳'},
-    {'code': '+213', 'name': 'Algérie', 'flag': '🇩🇿'},
-    {'code': '+20', 'name': 'Égypte', 'flag': '🇪🇬'},
-    {'code': '+27', 'name': 'Afrique du Sud', 'flag': '🇿🇦'},
-    {'code': '+81', 'name': 'Japon', 'flag': '🇯🇵'},
-    {'code': '+82', 'name': 'Corée du Sud', 'flag': '🇰🇷'},
-    {'code': '+86', 'name': 'Chine', 'flag': '🇨🇳'},
-    {'code': '+91', 'name': 'Inde', 'flag': '🇮🇳'},
-    {'code': '+61', 'name': 'Australie', 'flag': '🇦🇺'},
-    {'code': '+64', 'name': 'Nouvelle-Zélande', 'flag': '🇳🇿'},
-    {'code': '+55', 'name': 'Brésil', 'flag': '🇧🇷'},
-    {'code': '+52', 'name': 'Mexique', 'flag': '🇲🇽'},
-    {'code': '+54', 'name': 'Argentine', 'flag': '🇦🇷'},
-    {'code': '+56', 'name': 'Chili', 'flag': '🇨🇱'},
-  ];
-
-  // Phone number length requirements by country code (national number length, excluding country code)
-  static final Map<String, int> countryPhoneLengths = {
-    '+33': 9,   // France: 9 digits
-    '+1': 10,   // US/Canada: 10 digits
-    '+44': 10,  // UK: 10 digits
-    '+34': 9,   // Spain: 9 digits
-    '+49': 10,  // Germany: 10-11 digits (using 10 as minimum)
-    '+39': 9,   // Italy: 9-10 digits (using 9 as minimum)
-    '+31': 9,   // Netherlands: 9 digits
-    '+32': 9,   // Belgium: 9 digits
-    '+41': 9,   // Switzerland: 9 digits
-    '+43': 10,  // Austria: 10-13 digits (using 10 as minimum)
-    '+351': 9,  // Portugal: 9 digits
-    '+30': 10,  // Greece: 10 digits
-    '+46': 9,   // Sweden: 9 digits
-    '+47': 8,   // Norway: 8 digits
-    '+45': 8,   // Denmark: 8 digits
-    '+358': 9,  // Finland: 9-10 digits (using 9 as minimum)
-    '+48': 9,   // Poland: 9 digits
-    '+420': 9,  // Czech Republic: 9 digits
-    '+36': 9,   // Hungary: 9 digits
-    '+40': 9,   // Romania: 9-10 digits (using 9 as minimum)
-    '+212': 9,  // Morocco: 9 digits
-    '+216': 8,  // Tunisia: 8 digits
-    '+213': 9,  // Algeria: 9 digits
-    '+20': 10,  // Egypt: 10 digits
-    '+27': 9,   // South Africa: 9 digits
-    '+81': 10,  // Japan: 10 digits
-    '+82': 9,   // South Korea: 9-10 digits (using 9 as minimum)
-    '+86': 11,  // China: 11 digits
-    '+91': 10,  // India: 10 digits
-    '+61': 9,   // Australia: 9 digits
-    '+64': 8,   // New Zealand: 8-9 digits (using 8 as minimum)
-    '+55': 10,  // Brazil: 10-11 digits (using 10 as minimum)
-    '+52': 10,  // Mexico: 10 digits
-    '+54': 10,  // Argentina: 10 digits
-    '+56': 9,   // Chile: 9 digits
-  };
-
-  // Phone number format hints by country code
-  static final Map<String, String> countryPhoneHints = {
-    '+33': '612345678',
-    '+1': '5551234567',
-    '+44': '7912345678',
-    '+34': '612345678',
-    '+49': '15123456789',
-    '+39': '3123456789',
-    '+31': '612345678',
-    '+32': '470123456',
-    '+41': '791234567',
-    '+43': '6641234567',
-    '+351': '912345678',
-    '+30': '6912345678',
-    '+46': '701234567',
-    '+47': '91234567',
-    '+45': '20123456',
-    '+358': '501234567',
-    '+48': '512345678',
-    '+420': '601123456',
-    '+36': '201234567',
-    '+40': '712345678',
-    '+212': '612345678',
-    '+216': '20123456',
-    '+213': '551234567',
-    '+20': '1001234567',
-    '+27': '821234567',
-    '+81': '9012345678',
-    '+82': '1012345678',
-    '+86': '13812345678',
-    '+91': '9876543210',
-    '+61': '412345678',
-    '+64': '211234567',
-    '+55': '11987654321',
-    '+52': '5512345678',
-    '+54': '9112345678',
-    '+56': '912345678',
-  };
-
-  // Colors - Exact Yuztoo theme
-  static const Color bgDark1 = Color(0xFF0F1A29);
-  static const Color bgDark2 = Color(0xFF111A2A);
-  static const Color primaryGold = Color(0xFFD4A017);
-  static const Color textLight = Color(0xFFF5F5F5);
-  static const Color textGrey = Color(0xFFB0B0B0);
-  static const Color borderColor = Color(0xFF2A3F5F);
-  static const Color cardBg = Color(0xFF1A2A3A);
-  static const Color errorRed = Color(0xFFE74C3C);
-  static const Color successGreen = Color(0xFF27AE60);
-  static const transparent = Colors.transparent;
 
   @override
   void initState() {
     super.initState();
     
-    // Initialize controllers with initial values if provided (when returning from OTP screen)
     _emailController = TextEditingController(text: widget.initialEmail ?? '');
     _passwordController = TextEditingController(text: widget.initialPassword ?? '');
     _confirmPasswordController = TextEditingController(text: widget.initialPassword ?? '');
     _phoneController = TextEditingController();
-    _cityController = TextEditingController();
     
-    // Initialize phone number and country code from initial phone (E.164 format)
     if (widget.initialPhone != null && widget.initialPhone!.isNotEmpty) {
-      final phoneData = _extractPhoneData(widget.initialPhone!);
+      final phoneData = PhoneFormatter.extractPhoneData(widget.initialPhone!);
       if (phoneData != null) {
         _selectedCountryCode = phoneData['countryCode'] ?? '+33';
         _phoneController.text = phoneData['localNumber'] ?? '';
-        _phoneNumber = widget.initialPhone; // Store full E.164 number
+        _phoneNumber = widget.initialPhone;
       }
     }
     
-    // Initialize city
     if (widget.initialCity != null && widget.initialCity!.isNotEmpty) {
       _selectedCity = widget.initialCity;
     }
     
-    // Initialize country code if provided
     if (widget.initialCountryCode != null && widget.initialCountryCode!.isNotEmpty) {
       _selectedCountryCode = widget.initialCountryCode!;
-      // Find country name and flag
-      final country = countryCodes.firstWhere(
-        (c) => c['code'] == widget.initialCountryCode,
-        orElse: () => {'code': '+33', 'name': 'France', 'flag': '🇫🇷'},
-      );
-      _selectedCountryName = country['name'] ?? 'France';
-      _selectedCountryFlag = country['flag'] ?? '🇫🇷';
+      // Country code set, name and flag not needed
     }
     
     _emailFocusNode = FocusNode();
@@ -537,118 +106,76 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _confirmPasswordFocusNode = FocusNode();
     _phoneFocusNode = FocusNode();
     
-    // Add listener to validate only when field loses focus (blur)
     _emailFocusNode.addListener(() {
-      // Validate only when field loses focus (after user changes/interacts with field)
       if (!_emailFocusNode.hasFocus) {
         _emailFieldKey.currentState?.validate();
-        // Mark as validated so real-time validation can work when correcting
-        // Only set to true if there's an error, otherwise keep current state
         final hasError = _emailFieldKey.currentState?.hasError ?? false;
         if (hasError) {
-          setState(() {
-            _emailFieldHasBeenValidated = true;
-          });
+          setState(() => _emailFieldHasBeenValidated = true);
         }
       }
-      // Don't reset when field gains focus - keep the flag so real-time validation works
     });
     
-    // Add real-time validation for email field when user corrects it (only after error was shown)
     _emailController.addListener(() {
-      // Validate in real-time only if field has been validated (error shown) and user is correcting
       if (_emailFieldHasBeenValidated && _emailController.text.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            setState(() {
-              _emailFieldKey.currentState?.validate();
-            });
+            setState(() => _emailFieldKey.currentState?.validate());
           }
         });
       }
     });
     
     _passwordFocusNode.addListener(() {
-      setState(() {
-        _isPasswordFocused = _passwordFocusNode.hasFocus;
-      });
+      setState(() => _isPasswordFocused = _passwordFocusNode.hasFocus);
       if (!_passwordFocusNode.hasFocus && _passwordController.text.isNotEmpty) {
         _passwordFieldKey.currentState?.validate();
-        // Mark as validated so real-time validation can work when correcting
-        // Only set to true if there's an error, otherwise keep current state
         final hasError = _passwordFieldKey.currentState?.hasError ?? false;
         if (hasError) {
-          setState(() {
-            _passwordFieldHasBeenValidated = true;
-          });
+          setState(() => _passwordFieldHasBeenValidated = true);
         }
       }
-      // Don't reset when field gains focus - keep the flag so real-time validation works
     });
     
-    // Add real-time validation for password field when user corrects it (only after error was shown)
     _passwordController.addListener(() {
-      // Validate in real-time only if field has been validated (error shown) and user is correcting
       if (_passwordFieldHasBeenValidated && _passwordController.text.isNotEmpty) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-            setState(() {
-              _passwordFieldKey.currentState?.validate();
-            });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _passwordFieldKey.currentState?.validate());
           }
         });
       }
     });
     
     _confirmPasswordFocusNode.addListener(() {
-      // Validate only when field loses focus (after user changes/interacts with field)
-      if (!_confirmPasswordFocusNode.hasFocus &&
-          _confirmPasswordController.text.isNotEmpty) {
+      if (!_confirmPasswordFocusNode.hasFocus && _confirmPasswordController.text.isNotEmpty) {
         _confirmPasswordFieldKey.currentState?.validate();
-        // Mark as validated so real-time validation can work when correcting
-        // Only set to true if there's an error, otherwise keep current state
         final hasError = _confirmPasswordFieldKey.currentState?.hasError ?? false;
         if (hasError) {
-          setState(() {
-            _confirmPasswordFieldHasBeenValidated = true;
-          });
+          setState(() => _confirmPasswordFieldHasBeenValidated = true);
         }
       }
-      // Don't reset when field gains focus - keep the flag so real-time validation works
     });
     
-    // Add real-time validation for confirm password field when user corrects it (only after error was shown)
     _confirmPasswordController.addListener(() {
-      // Validate in real-time only if field has been validated (error shown) and user is correcting
       if (_confirmPasswordFieldHasBeenValidated && _confirmPasswordController.text.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            setState(() {
-              _confirmPasswordFieldKey.currentState?.validate();
-            });
+            setState(() => _confirmPasswordFieldKey.currentState?.validate());
           }
         });
       }
     });
     
     _phoneFocusNode.addListener(() {
-      // Validate only when field loses focus (after user changes/interacts with field)
       if (!_phoneFocusNode.hasFocus && _phoneController.text.isNotEmpty) {
         _phoneFieldKey.currentState?.validate();
-        // Mark as validated so real-time validation can work when correcting
-        // Only set to true if there's an error, otherwise keep current state
         final hasError = _phoneFieldKey.currentState?.hasError ?? false;
         if (hasError) {
-          setState(() {
-            _phoneFieldHasBeenValidated = true;
-          });
+          setState(() => _phoneFieldHasBeenValidated = true);
         }
       }
-      // Don't reset when field gains focus - keep the flag so real-time validation works
     });
-    
-    // Real-time validation for phone is handled in the TextField's onChanged callback
-    // The FormField builder receives the state and handles validation
   }
 
   @override
@@ -657,52 +184,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _phoneController.dispose();
-    _cityController.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
     _confirmPasswordFocusNode.dispose();
     _phoneFocusNode.dispose();
     super.dispose();
-  }
-
-  // Validation methods
-  String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'L\'adresse e-mail est requise.';
-    }
-    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-      return 'Adresse e-mail invalide.';
-    }
-    return null;
-  }
-
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Le mot de passe est requis.';
-    }
-    if (value.length < 8) {
-      return 'Au minimum 8 caractères.';
-    }
-    if (!RegExp(r'[A-Z]').hasMatch(value)) {
-      return 'Doit contenir une majuscule.';
-    }
-    if (!RegExp(r'[a-z]').hasMatch(value)) {
-      return 'Doit contenir une minuscule.';
-    }
-    if (!RegExp(r'[0-9]').hasMatch(value)) {
-      return 'Doit contenir un chiffre.';
-    }
-    return null;
-  }
-
-  String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Confirmez votre mot de passe.';
-    }
-    if (value != _passwordController.text) {
-      return 'Les mots de passe ne correspondent pas.';
-    }
-    return null;
   }
 
   void _unfocusAllFields() {
@@ -712,448 +198,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _phoneFocusNode.unfocus();
   }
 
-  /// Extract country code and local number from E.164 formatted phone number
-  /// Returns map with 'countryCode' and 'localNumber', or null if extraction fails
-  Map<String, String>? _extractPhoneData(String e164Number) {
-    if (e164Number.isEmpty || !e164Number.startsWith('+')) {
-      return null;
-    }
-    
-    // Try to match against known country codes (longest first to avoid partial matches)
-    final sortedCodes = countryCodes.map((c) => c['code']!).toList()
-      ..sort((a, b) => b.length.compareTo(a.length));
-    
-    for (final code in sortedCodes) {
-      if (e164Number.startsWith(code)) {
-        final localNumber = e164Number.substring(code.length);
-        return {
-          'countryCode': code,
-          'localNumber': localNumber,
-        };
-      }
-    }
-    
-    // Fallback: try to extract first 1-3 digits as country code
-    // This is a simple heuristic and may not work for all countries
-    if (e164Number.length > 3) {
-      // Try 3 digits first (for codes like +351, +212, etc.)
-      if (e164Number.length > 5) {
-        final possibleCode = e164Number.substring(0, 4);
-        if (countryCodes.any((c) => c['code'] == possibleCode)) {
-          return {
-            'countryCode': possibleCode,
-            'localNumber': e164Number.substring(4),
-          };
-        }
-      }
-      // Try 2 digits (for codes like +33, +44, etc.)
-      if (e164Number.length > 4) {
-        final possibleCode = e164Number.substring(0, 3);
-        if (countryCodes.any((c) => c['code'] == possibleCode)) {
-          return {
-            'countryCode': possibleCode,
-            'localNumber': e164Number.substring(3),
-          };
-        }
-      }
-      // Try 1 digit (for codes like +1)
-      if (e164Number.length > 3) {
-        final possibleCode = e164Number.substring(0, 2);
-        if (countryCodes.any((c) => c['code'] == possibleCode)) {
-          return {
-            'countryCode': possibleCode,
-            'localNumber': e164Number.substring(2),
-          };
-        }
-      }
-    }
-    
-    // Default to France if extraction fails
-    return {
-      'countryCode': '+33',
-      'localNumber': e164Number.substring(1), // Remove the +
-    };
-  }
-
-  /// Format phone number for display in the input field (e.g., 6 12 34 56 78 for France)
-  String _formatPhoneForInput(String countryCode, String digits) {
-    if (digits.isEmpty) return '';
-    
-    // Remove all non-digits
-    final cleaned = digits.replaceAll(RegExp(r'[^\d]'), '');
-    if (cleaned.isEmpty) return '';
-    
-    // Format according to country code
-    switch (countryCode) {
-      case '+33': // France: X XX XX XX XX
-        if (cleaned.length <= 1) return cleaned;
-        if (cleaned.length <= 3) return '${cleaned.substring(0, 1)} ${cleaned.substring(1)}';
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 7) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7)}';
-        return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7, 9)}';
-      
-      case '+1': // US/Canada: (XXX) XXX-XXXX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 6) return '(${cleaned.substring(0, 3)}) ${cleaned.substring(3)}';
-        if (cleaned.length <= 10) return '(${cleaned.substring(0, 3)}) ${cleaned.substring(3, 6)}-${cleaned.substring(6)}';
-        return '(${cleaned.substring(0, 3)}) ${cleaned.substring(3, 6)}-${cleaned.substring(6, 10)}';
-      
-      case '+44': // UK: XXXX XXXXXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
-        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 10)}';
-      
-      case '+34': // Spain: XXX XXX XXX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
-      
-      case '+49': // Germany: XXXX XXXXXXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 11) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
-        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 11)}';
-      
-      case '+39': // Italy: XXX XXX XXXX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 10)}';
-      
-      case '+31': // Netherlands: X XXXX XXXX
-        if (cleaned.length <= 1) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 1)} ${cleaned.substring(1)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5)}';
-        return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5, 9)}';
-      
-      case '+32': // Belgium: XXXX XX XX XX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
-        if (cleaned.length <= 8) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6, 8)} ${cleaned.substring(8)}';
-        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6, 8)} ${cleaned.substring(8, 10)}';
-      
-      case '+41': // Switzerland: XX XXX XX XX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
-        if (cleaned.length <= 7) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7)}';
-        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7, 9)}';
-      
-      case '+43': // Austria: XXXX XXXXXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
-        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 10)}';
-      
-      case '+351': // Portugal: XXX XXX XXX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
-      
-      case '+30': // Greece: XXX XXX XXXX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 10)}';
-      
-      case '+46': // Sweden: XX-XXX XX XX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)}-${cleaned.substring(2)}';
-        if (cleaned.length <= 7) return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7)}';
-        return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7, 9)}';
-      
-      case '+47': // Norway: XXX XX XXX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 8) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5)}';
-        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 8)}';
-      
-      case '+45': // Denmark: XX XX XX XX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 4) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 4)} ${cleaned.substring(4)}';
-        if (cleaned.length <= 8) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 4)} ${cleaned.substring(4, 6)} ${cleaned.substring(6, 8)}';
-      
-      case '+358': // Finland: XX XXX XXXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
-        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 9)}';
-      
-      case '+48': // Poland: XXX XXX XXX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
-      
-      case '+420': // Czech: XXX XXX XXX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
-      
-      case '+36': // Hungary: XX XXX XXXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
-        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 9)}';
-      
-      case '+40': // Romania: XXX XXX XXX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}';
-      
-      case '+212': // Morocco: XXXX-XXXXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 4)}-${cleaned.substring(4)}';
-        return '${cleaned.substring(0, 4)}-${cleaned.substring(4, 9)}';
-      
-      case '+216': // Tunisia: XX XXX XXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
-        if (cleaned.length <= 8) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
-        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 8)}';
-      
-      case '+213': // Algeria: XXX XX XX XX
-        if (cleaned.length <= 3) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 3)} ${cleaned.substring(3)}';
-        if (cleaned.length <= 7) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7)}';
-        return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 5)} ${cleaned.substring(5, 7)} ${cleaned.substring(7, 9)}';
-      
-      case '+20': // Egypt: XXXX XXX XXXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 7) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}';
-        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 10)}';
-      
-      case '+27': // South Africa: XX XXX XXXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}';
-        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 9)}';
-      
-      case '+81': // Japan: XX-XXXX-XXXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)}-${cleaned.substring(2)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 6)}-${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}';
-      
-      case '+82': // South Korea: XX-XXXX-XXXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)}-${cleaned.substring(2)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 6)}-${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 2)}-${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}';
-      
-      case '+86': // China: XXXX XXXX XXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 8) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
-        if (cleaned.length <= 11) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)} ${cleaned.substring(8)}';
-        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)} ${cleaned.substring(8, 11)}';
-      
-      case '+91': // India: XXXX XXXX XX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 8) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)} ${cleaned.substring(8)}';
-        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)} ${cleaned.substring(8, 10)}';
-      
-      case '+61': // Australia: XXXX XXX XXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 7) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}';
-        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 10)}';
-      
-      case '+64': // New Zealand: XXXX XXXX
-        if (cleaned.length <= 4) return cleaned;
-        if (cleaned.length <= 8) return '${cleaned.substring(0, 4)} ${cleaned.substring(4)}';
-        return '${cleaned.substring(0, 4)} ${cleaned.substring(4, 8)}';
-      
-      case '+55': // Brazil: (XX) XXXX-XXXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 6) return '(${cleaned.substring(0, 2)}) ${cleaned.substring(2)}';
-        if (cleaned.length <= 10) return '(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6)}';
-        return '(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}';
-      
-      case '+52': // Mexico: XX XXXX XXXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 6)} ${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 6)} ${cleaned.substring(6, 10)}';
-      
-      case '+54': // Argentina: XX XXXX-XXXX
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 6) return '${cleaned.substring(0, 2)} ${cleaned.substring(2)}';
-        if (cleaned.length <= 10) return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 6)}-${cleaned.substring(6)}';
-        return '${cleaned.substring(0, 2)} ${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}';
-      
-      case '+56': // Chile: X XXXX XXXX
-        if (cleaned.length <= 1) return cleaned;
-        if (cleaned.length <= 5) return '${cleaned.substring(0, 1)} ${cleaned.substring(1)}';
-        if (cleaned.length <= 9) return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5)}';
-        return '${cleaned.substring(0, 1)} ${cleaned.substring(1, 5)} ${cleaned.substring(5, 9)}';
-      
-      default:
-        // Default format: group by 2 digits
-        if (cleaned.length <= 2) return cleaned;
-        String formatted = '';
-        for (int i = 0; i < cleaned.length; i++) {
-          if (i > 0 && i % 2 == 0) formatted += ' ';
-          formatted += cleaned[i];
-        }
-        return formatted;
-    }
-  }
-
-  String _formatPhoneNumber(String countryCode, String rawInput) {
-    final trimmed = rawInput.trim();
-    final countryDigits = countryCode.replaceAll(RegExp(r'\\D'), '');
-    var digits = trimmed.replaceAll(RegExp(r'\\D'), '');
-
-    // If user already typed an international number (starts with +)
-    if (trimmed.startsWith('+')) {
-      // Normalize to +<digits> without leading zeros after +
-      digits = digits.replaceFirst(RegExp(r'^0+'), '');
-      return '+$digits';
-    }
-
-    // If user typed an international number with 00 prefix
-    if (digits.startsWith('00')) {
-      digits = digits.substring(2).replaceFirst(RegExp(r'^0+'), '');
-      return '+$digits';
-    }
-
-    // If user typed full number including country code (without +), don't double it
-    if (countryDigits.isNotEmpty && digits.startsWith(countryDigits)) {
-      return '+$digits';
-    }
-
-    // Otherwise, treat as national number and strip trunk prefix
-    digits = digits.replaceFirst(RegExp(r'^0+'), '');
-    return '$countryCode$digits';
-  }
-
-  /// Format phone number for display (e.g., +33 6 12 34 56 78)
-  static String formatPhoneForDisplay(String phoneNumber) {
-    // Remove all non-digits except +
-    final cleaned = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
-    
-    if (!cleaned.startsWith('+')) {
-      return phoneNumber; // Return as-is if not in international format
-    }
-
-    // Extract country code and number
-    final parts = cleaned.substring(1).split('');
-    if (parts.isEmpty) return phoneNumber;
-
-    // Common country code lengths
-    String countryCode = '';
-    String number = '';
-    
-    // Try to detect country code (1-3 digits)
-    if (parts.length >= 3 && parts[0] == '3' && parts[1] == '3') {
-      // France +33
-      countryCode = '+33';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 2 && parts[0] == '1') {
-      // US/Canada +1
-      countryCode = '+1';
-      number = parts.skip(1).join('');
-    } else if (parts.length >= 2 && parts[0] == '4' && parts[1] == '4') {
-      // UK +44
-      countryCode = '+44';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 2 && parts[0] == '3' && parts[1] == '4') {
-      // Spain +34
-      countryCode = '+34';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 2 && parts[0] == '4' && parts[1] == '9') {
-      // Germany +49
-      countryCode = '+49';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 3 && parts[0] == '3' && parts[1] == '5' && parts[2] == '1') {
-      // Portugal +351
-      countryCode = '+351';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '3' && parts[1] == '5' && parts[2] == '8') {
-      // Finland +358
-      countryCode = '+358';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '4' && parts[1] == '2' && parts[2] == '0') {
-      // Czech +420
-      countryCode = '+420';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '2') {
-      // Morocco +212
-      countryCode = '+212';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '3') {
-      // Algeria +213
-      countryCode = '+213';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 2 && parts[0] == '2' && parts[1] == '1' && parts[2] == '6') {
-      // Tunisia +216
-      countryCode = '+216';
-      number = parts.skip(3).join('');
-    } else {
-      // Default: assume first 1-3 digits are country code
-      if (parts.length >= 3) {
-        countryCode = '+${parts[0]}${parts[1]}${parts[2]}';
-        number = parts.skip(3).join('');
-      } else if (parts.length >= 2) {
-        countryCode = '+${parts[0]}${parts[1]}';
-        number = parts.skip(2).join('');
-      } else {
-        countryCode = '+${parts[0]}';
-        number = parts.skip(1).join('');
-      }
-    }
-
-    // Format the number part with spaces (group by 2 digits)
-    String formattedNumber = '';
-    for (int i = 0; i < number.length; i++) {
-      if (i > 0 && i % 2 == 0) {
-        formattedNumber += ' ';
-      }
-      formattedNumber += number[i];
-    }
-
-    return '$countryCode $formattedNumber'.trim();
-  }
-
-  bool _isValidE164(String phoneNumber) {
-    final digits = phoneNumber.replaceAll(RegExp(r'\D'), '');
-    // E.164 allows up to 15 digits (country code + national number)
-    return digits.length >= 8 && digits.length <= 15;
-  }
-
-  String? _validateCity(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'La ville est requise.';
-    }
-    return null;
-  }
-
   Future<void> _handleSignup() async {
-    // Validate form - errors will show for all invalid fields
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // Check if phone number is provided
     if (_phoneNumber == null || _phoneNumber!.isEmpty || _phoneController.text.isEmpty) {
       if (mounted) {
         showErrorSnackbar(context, 'Le numéro de téléphone est requis.');
       }
       return;
     }
-    final formattedPhoneNumber =
-        _formatPhoneNumber(_selectedCountryCode, _phoneController.text);
-    if (!_isValidE164(formattedPhoneNumber)) {
+    
+    final formattedPhoneNumber = PhoneFormatter.formatPhoneNumber(
+      _selectedCountryCode,
+      _phoneController.text,
+    );
+    
+    if (!PhoneFormatter.isValidE164(formattedPhoneNumber)) {
       if (mounted) {
         showErrorSnackbar(
           context,
@@ -1163,7 +225,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       return;
     }
 
-    // Check if city is selected
     if (_selectedCity == null || _selectedCity!.isEmpty) {
       if (mounted) {
         showErrorSnackbar(context, 'La ville est requise.');
@@ -1175,45 +236,36 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     setState(() => _isLoading = true);
 
-    // IMPORTANT: Don't create user yet - only send OTP
-    // User will be created in OTP screen after code verification
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    final phoneNumber = formattedPhoneNumber; // E.164 formatted
+    final phoneNumber = formattedPhoneNumber;
     
-    // Send OTP for phone verification (no user created yet)
-          final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
-          final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
+    final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
+    final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
 
-          otpResult.fold(
-            (failure) {
-              if (mounted) {
-                final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          // Only show error if it's a specific Firebase error (not generic)
+    otpResult.fold(
+      (failure) {
+        if (mounted) {
+          final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
           if (frenchMessage != null) {
-                showErrorSnackbar(context, frenchMessage);
+            showErrorSnackbar(context, frenchMessage);
           }
-                setState(() => _isLoading = false);
-              }
-            },
-            (verificationId) {
-        // OTP sent successfully - navigate to OTP screen
-        // Pass email and password so OTP screen can create user after verification
-              if (mounted) {
-                setState(() {
-                  _phoneVerificationId = verificationId;
-                  _isLoading = false;
-                });
+          setState(() => _isLoading = false);
+        }
+      },
+      (verificationId) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
 
-                showSuccessSnackbar(context, 'Code de vérification envoyé!');
-                // Navigate to OTP screen with all signup data
-          // Pass empty userId since user doesn't exist yet (will be created after OTP verification)
+          showSuccessSnackbar(context, 'Code de vérification envoyé!');
           widget.onSignupSuccess(
-            '', // No user ID yet - will be created after OTP verification
+            '',
             phoneNumber,
             verificationId,
             email,
-            password, // Pass password for user creation after OTP verification
+            password,
             _selectedCity!,
           );
         }
@@ -1221,1520 +273,153 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
   }
 
-  /// Build roles map based on user role
-  Map<String, bool> _buildRolesMap() {
-    if (widget.role == UserRole.client) {
-      return {
-        'client': true,
-        'merchant': false,
-        'provider': false,
-      };
-    } else {
-      return {
-        'client': false,
-        'merchant': true,
-        'provider': false,
-      };
-    }
-  }
-
-
-  void _clearForm() {
-    // Reset form state
-    _formKey.currentState?.reset();
-    
-    // Clear all controllers
-    _emailController.clear();
-    _passwordController.clear();
-    _confirmPasswordController.clear();
-    _phoneController.clear();
-    
-    // Reset state variables
-    setState(() {
-      _selectedCity = null;
-      _phoneNumber = null;
-      _phoneVerificationId = null;
-      _isPasswordVisible = false;
-      _isConfirmPasswordVisible = false;
-      _isPasswordFocused = false;
-      _isLoading = false;
-    });
-    
-    // Unfocus all fields
-    _emailFocusNode.unfocus();
-    _passwordFocusNode.unfocus();
-    _confirmPasswordFocusNode.unfocus();
-    _phoneFocusNode.unfocus();
-  }
-
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_isLoading, // Prevent back navigation during loading
-      onPopInvoked: (didPop) {
-        if (!didPop && !_isLoading) {
-          // Handle Android back button
-          widget.onBack();
-        }
-      },
-      child: Scaffold(
-      backgroundColor: bgDark1,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  onPressed: widget.onBack,
-                  icon: const Icon(Icons.arrow_back),
-                  color: const Color(0xFFBF8719),
-                  iconSize: 24,
-                ),
-              ),
-              _buildLogoSection(),
-              const SizedBox(height: 32),
-              _buildSignupForm(),
-              const SizedBox(height: 24),
-              _buildSignupButton(),
-              const SizedBox(height: 20),
-              _buildSocialDivider(),
-              const SizedBox(height: 16),
-              _buildSocialLoginButtons(),
-              const SizedBox(height: 24),
-              _buildFooter(),
-            ],
-          ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLogoSection() {
-    return Column(
-      children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: primaryGold, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: primaryGold.withOpacity(0.2),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.location_on,
-            color: primaryGold,
-            size: 40,
-          ),
-        ),
-        const SizedBox(height: 16),
-        RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'yuztoo',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: textLight,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Text(
-          'pour eux, pour vous',
-          style: TextStyle(
-            fontSize: 12,
-            color: textGrey,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Créez votre compte',
-          style: TextStyle(
-            fontSize: 18,
-            color: textLight,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSignupForm() {
-    return Form(
-      key: _formKey,
-      autovalidateMode: AutovalidateMode.disabled, // Disable form-level validation
-      child: Column(
-        children: [
-          _buildTextField(
-            controller: _emailController,
-            focusNode: _emailFocusNode,
-            label: 'Adresse email',
-            hint: 'email',
-            keyboardType: TextInputType.emailAddress,
-            icon: Icons.mail_outline,
-            validator: _validateEmail,
-            enabled: !_isLoading,
-            onTap: () {
-              _unfocusAllFields();
-              _emailFocusNode.requestFocus();
-            },
-          ),
-          const SizedBox(height: 16),
-          _buildPasswordField(
-            controller: _passwordController,
-            focusNode: _passwordFocusNode,
-            label: 'Mot de passe',
-            hint: 'Min. 8 caractères',
-            validator: _validatePassword,
-            enabled: !_isLoading,
-            onTap: () {
-              _unfocusAllFields();
-              _passwordFocusNode.requestFocus();
-            },
-          ),
-          if (_isPasswordFocused) ...[
-            const SizedBox(height: 12),
-            _buildPasswordHint(),
-          ],
-          const SizedBox(height: 16),
-          _buildConfirmPasswordField(
-            controller: _confirmPasswordController,
-            focusNode: _confirmPasswordFocusNode,
-            label: 'Confirmer mot de passe',
-            hint: 'Répétez votre mot de passe',
-            validator: _validateConfirmPassword,
-            enabled: !_isLoading,
-            onTap: () {
-              _unfocusAllFields();
-              _confirmPasswordFocusNode.requestFocus();
-            },
-          ),
-          const SizedBox(height: 16),
-          _buildPhoneField(),
-          const SizedBox(height: 16),
-          _buildCityDropdown(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    required String label,
-    required String hint,
-    required String? Function(String?) validator,
-    required IconData icon,
-    TextInputType keyboardType = TextInputType.text,
-    bool enabled = true,
-    VoidCallback? onTap,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: textGrey,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          key: _emailFieldKey,
-          controller: controller,
-          focusNode: focusNode,
-          enabled: enabled,
-          keyboardType: keyboardType,
-          validator: validator,
-          autovalidateMode: AutovalidateMode.disabled,
-          cursorColor: const Color(0xFFBF8719),
-          onTap: onTap,
-          onChanged: (value) {
-            // Real-time validation when correcting wrong email (only after error was shown)
-            if (_emailFieldHasBeenValidated && controller == _emailController && value.isNotEmpty) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() {
-                    _emailFieldKey.currentState?.validate();
-                  });
-                }
-              });
-            }
-          },
-          style: const TextStyle(
-            color: textLight,
-            fontSize: 14,
-            decoration: TextDecoration.none,
-            decorationColor: Colors.transparent,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(
-              color: textGrey,
-              fontSize: 13,
-              decoration: TextDecoration.none,
-            ),
-            prefixIcon: Icon(icon, color: primaryGold, size: 18),
-            filled: true,
-            fillColor: bgDark2,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            isDense: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: primaryGold, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: errorRed, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: errorRed, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            errorStyle: const TextStyle(
-              color: errorRed,
-              fontSize: 11,
-              decoration: TextDecoration.none,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPasswordField({
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    required String label,
-    required String hint,
-    required String? Function(String?) validator,
-    bool enabled = true,
-    VoidCallback? onTap,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: textGrey,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          key: _passwordFieldKey,
-          controller: controller,
-          focusNode: focusNode,
-          enabled: enabled,
-          obscureText: !_isPasswordVisible,
-          validator: validator,
-          autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
-          cursorColor: const Color(0xFFBF8719),
-          onTap: onTap,
-          onChanged: (value) {
-            // Real-time validation when correcting wrong password (only after error was shown)
-            if (_passwordFieldHasBeenValidated && controller == _passwordController && value.isNotEmpty) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() {
-                    _passwordFieldKey.currentState?.validate();
-                  });
-                }
-              });
-            }
-          },
-          style: const TextStyle(color: textLight, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: textGrey, fontSize: 13),
-            prefixIcon: Icon(Icons.lock_outline, color: primaryGold, size: 18),
-            suffixIcon: IconButton(
-              icon: Icon(
-                _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                color: primaryGold,
-                size: 20,
-              ),
-              onPressed: enabled
-                  ? () =>
-                      setState(() => _isPasswordVisible = !_isPasswordVisible)
-                  : null,
-            ),
-            filled: true,
-            fillColor: bgDark2,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: primaryGold, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: errorRed, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            errorStyle: const TextStyle(
-              color: errorRed,
-              fontSize: 11,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPasswordHint() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline,
-            size: 14,
-            color: textGrey,
-          ),
-          const SizedBox(width: 6),
-          const Expanded(
-            child: Text(
-              '8+ caractères, majuscules, minuscules et chiffres',
-              style: TextStyle(
-                fontSize: 11,
-                color: textGrey,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildConfirmPasswordField({
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    required String label,
-    required String hint,
-    required String? Function(String?) validator,
-    bool enabled = true,
-    VoidCallback? onTap,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: textGrey,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          key: _confirmPasswordFieldKey,
-          controller: controller,
-          focusNode: focusNode,
-          enabled: enabled,
-          obscureText: !_isConfirmPasswordVisible,
-          validator: validator,
-          autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via FocusNode listener
-          cursorColor: const Color(0xFFBF8719),
-          onTap: onTap,
-          onChanged: (value) {
-            // Real-time validation when correcting wrong confirm password (only after error was shown)
-            if (_confirmPasswordFieldHasBeenValidated && controller == _confirmPasswordController && value.isNotEmpty) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() {
-                    _confirmPasswordFieldKey.currentState?.validate();
-                  });
-                }
-              });
-            }
-          },
-          style: const TextStyle(color: textLight, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: textGrey, fontSize: 13),
-            prefixIcon: Icon(Icons.lock_outline, color: primaryGold, size: 18),
-            suffixIcon: IconButton(
-              icon: Icon(
-                _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                color: primaryGold,
-                size: 20,
-              ),
-              onPressed: enabled
-                  ? () => setState(
-                      () => _isConfirmPasswordVisible = !_isConfirmPasswordVisible)
-                  : null,
-            ),
-            filled: true,
-            fillColor: bgDark2,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: primaryGold, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: errorRed, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: borderColor, width: 1),
-            ),
-            errorStyle: const TextStyle(
-              color: errorRed,
-              fontSize: 11,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPhoneField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text(
-          'Numéro de téléphone',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: textGrey,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        FormField<String>(
-          key: _phoneFieldKey,
-          autovalidateMode: AutovalidateMode.disabled,
-          validator: (value) {
-            // Extract only digits from the formatted value
-            final currentValue = (value ?? _phoneController.text).replaceAll(RegExp(r'[^\d]'), '');
-            if (currentValue.isEmpty) {
-              return 'Le numéro est requis.';
-            }
-            // Country-specific length validation (using digits only)
-            final expectedLength = countryPhoneLengths[_selectedCountryCode];
-            if (expectedLength != null) {
-              if (currentValue.length < expectedLength) {
-                return 'Le numéro doit contenir $expectedLength chiffres.';
-              }
-              // Allow some flexibility (max 2 digits more than expected)
-              if (currentValue.length > expectedLength + 2) {
-                return 'Le numéro est trop long.';
-              }
-            } else {
-              // Fallback for countries not in the map
-              if (currentValue.length < 8) {
-                return 'Numéro invalide.';
-              }
-              if (currentValue.length > 15) {
-                return 'Le numéro est trop long.';
-              }
-            }
-            return null;
-          },
-          builder: (formFieldState) {
-            final hasError = formFieldState.hasError;
-            final borderColorValue = hasError
-                ? errorRed
-                : (_phoneFocusNode.hasFocus ? primaryGold : borderColor);
-            final borderWidth =
-                (hasError || _phoneFocusNode.hasFocus) ? 1.5 : 1.0;
-
-            return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: borderColorValue,
-                      width: borderWidth,
-                    ),
-                    color: bgDark2,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Country code button
-            GestureDetector(
-                        onTap: _isLoading
-                            ? null
-                            : () => _showCountryCodeModal(context),
-              child: Container(
-                height: 50,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 14,
-                          ),
-                decoration: BoxDecoration(
-                            border: Border(
-                              right: BorderSide(
-                                color: borderColor.withOpacity(0.3),
-                                width: 1,
-                              ),
-                            ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _selectedCountryCode,
-                      style: const TextStyle(
-                        color: textLight,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                              const SizedBox(width: 6),
-                    Icon(
-                      Icons.expand_more,
-                      color: primaryGold,
-                      size: 18,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-                      // Visual separator
-                      Container(
-                        width: 1,
-                        height: 30,
-                        color: borderColor.withOpacity(0.3),
-            ),
-            const SizedBox(width: 8),
-            // Phone number field
-            Expanded(
-                        child: TextField(
-                controller: _phoneController,
-                focusNode: _phoneFocusNode,
-                enabled: !_isLoading,
-                keyboardType: TextInputType.phone,
-                          inputFormatters: [
-                            // Custom formatter that formats phone number automatically based on country code
-                            _PhoneNumberFormatter(
-                              countryCode: _selectedCountryCode,
-                              onFormat: (_) {}, // Not needed, formatter handles it
-                            ),
-                          ],
-                cursorColor: const Color(0xFFBF8719),
-                onTap: () {
-                  _unfocusAllFields();
-                  _phoneFocusNode.requestFocus();
-                },
-                style: const TextStyle(color: textLight, fontSize: 14),
-                decoration: InputDecoration(
-                            hintText:
-                                countryPhoneHints[_selectedCountryCode] ??
-                                    '612345678',
-                            hintStyle:
-                                const TextStyle(color: textGrey, fontSize: 13),
-                            filled: false,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                    vertical: 14,
-                  ),
-                          ),
-                          onChanged: (value) {
-                            // Extract only digits from formatted value for validation and E.164 formatting
-                            final digitsOnly = value.replaceAll(RegExp(r'[^\d]'), '');
-                            // Update FormField state - this triggers validation if autovalidateMode allows
-                            formFieldState.didChange(value);
-                            // Update phone number formatting (E.164 format) using digits only
-                            setState(() {
-                              _phoneNumber =
-                                  _formatPhoneNumber(_selectedCountryCode, digitsOnly);
-                            });
-                            // Real-time validation when correcting wrong phone (only after error was shown)
-                            if (_phoneFieldHasBeenValidated && digitsOnly.isNotEmpty) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) {
-                                  setState(() {
-                                    formFieldState.validate();
-                                  });
-                                }
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Error message display - same style as other fields
-                if (hasError && formFieldState.errorText != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, top: 4),
-                    child: Text(
-                      formFieldState.errorText!,
-                      style: const TextStyle(
-                    color: errorRed,
-                    fontSize: 11,
-                        height: 1.0,
-                      ),
-                      maxLines: 1,
-              ),
-            ),
-          ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  void _showCountryCodeModal(BuildContext context) {
-    final TextEditingController searchController = TextEditingController();
-    List<Map<String, String>> filteredCountries = countryCodes;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: bgDark2,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.6,
-              ),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: borderColor.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Sélectionnez votre pays',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: textLight,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Search field
-                      TextField(
-                        controller: searchController,
-                        style: const TextStyle(color: textLight, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher un pays...',
-                          hintStyle:
-                              const TextStyle(color: textGrey, fontSize: 13),
-                          prefixIcon: Icon(Icons.search, color: primaryGold),
-                          filled: true,
-                          fillColor: bgDark1,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: borderColor, width: 1),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: borderColor, width: 1),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                              color: primaryGold,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            if (value.isEmpty) {
-                              filteredCountries = countryCodes;
-                            } else {
-                              filteredCountries = countryCodes
-                                  .where((country) =>
-                                      country['name']!
-                                          .toLowerCase()
-                                          .contains(value.toLowerCase()) ||
-                                      country['code']!
-                                          .contains(value.toLowerCase()))
-                                  .toList();
-                            }
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                // Countries list
-                Expanded(
-                  child: filteredCountries.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Aucun pays trouvé',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: textGrey,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: filteredCountries.length,
-                          itemBuilder: (context, index) {
-                            final country = filteredCountries[index];
-                            final isSelected =
-                                _selectedCountryCode == country['code'];
-
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                this.setState(() {
-                                  _selectedCountryCode = country['code']!;
-                                  _selectedCountryName = country['name']!;
-                                  _selectedCountryFlag = country['flag']!;
-                                  // Update phone number with new country code
-                                  if (_phoneController.text.isNotEmpty) {
-                                    _phoneNumber = _formatPhoneNumber(
-                                      country['code']!,
-                                      _phoneController.text,
-                                    );
-                                  }
-                                });
-                                // Re-validate phone field when country code changes
-                                // This ensures validation updates in real-time for all country codes
-                                // Also enable real-time validation if field has been validated before
-                                if (_phoneController.text.isNotEmpty) {
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    if (mounted) {
-                                      setState(() {
-                                        // Enable real-time validation if field was already validated
-                                        if (!_phoneFieldHasBeenValidated) {
-                                          _phoneFieldHasBeenValidated = true;
-                                        }
-                                        _phoneFieldKey.currentState?.validate();
-                                      });
-                                    }
-                                  });
-                                }
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  color: isSelected
-                                      ? primaryGold.withOpacity(0.15)
-                                      : transparent,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? primaryGold
-                                        : transparent,
-                                    width: isSelected ? 2 : 0,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            country['flag']!,
-                                            style: const TextStyle(
-                                                fontSize: 24),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  country['name']!,
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color: isSelected
-                                                        ? primaryGold
-                                                        : textLight,
-                                                    fontWeight: isSelected
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w400,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  country['code']!,
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: isSelected
-                                                        ? primaryGold
-                                                            .withOpacity(0.7)
-                                                        : textGrey,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (isSelected)
-                                      Icon(
-                                        Icons.check_circle,
-                                        color: primaryGold,
-                                        size: 20,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-            ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildCityDropdown() {
-    return FormField<String>(
-      key: _cityFieldKey,
-      validator: (value) {
-        if (_selectedCity == null || _selectedCity!.isEmpty) {
-          return 'La ville est requise.';
-        }
-        return null;
-      },
-      autovalidateMode: AutovalidateMode.disabled, // Validate only on blur via manual validation
-      builder: (FormFieldState<String> state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Ville',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: textGrey,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _isLoading
-                  ? null
-                  : () {
-                      _unfocusAllFields();
-                      _showCitySelectionModal(context, frenchCities);
-                    },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: state.hasError ? errorRed : borderColor,
-                    width: state.hasError ? 1.5 : 1,
-                  ),
-                  color: bgDark2,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.location_city_outlined,
-                      color: primaryGold,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _selectedCity ?? 'Sélectionnez votre ville',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: _selectedCity != null ? textLight : textGrey,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (state.hasError)
-              Padding(
-                padding: const EdgeInsets.only(left: 4, top: 4),
-                child: Text(
-                  state.errorText!,
-                  style: const TextStyle(
-                    color: errorRed,
-                    fontSize: 11,
-                    height: 1.0,
-                  ),
-                  maxLines: 1,
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showCitySelectionModal(BuildContext context, List<String> cities) {
-    final TextEditingController searchController = TextEditingController();
-    List<String> filteredCities = cities;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: bgDark2,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.6,
-              ),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: borderColor.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Sélectionnez votre ville',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: textLight,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Search field
-                      TextField(
-                        controller: searchController,
-                        style: const TextStyle(color: textLight, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher une ville...',
-                          hintStyle:
-                              const TextStyle(color: textGrey, fontSize: 13),
-                          prefixIcon: Icon(Icons.search, color: primaryGold),
-                          filled: true,
-                          fillColor: bgDark1,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: borderColor, width: 1),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: borderColor, width: 1),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                              color: primaryGold,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            if (value.isEmpty) {
-                              filteredCities = cities;
-                            } else {
-                              filteredCities = cities
-                                  .where((city) => city
-                                      .toLowerCase()
-                                      .contains(value.toLowerCase()))
-                                  .toList();
-                            }
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                // Cities list
-                Expanded(
-                  child: filteredCities.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Aucune ville trouvée',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: textGrey,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: filteredCities.length,
-                          itemBuilder: (context, index) {
-                            final city = filteredCities[index];
-                            final isSelected = _selectedCity == city;
-
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                // Update city and validate after modal closes
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (mounted) {
-                                    setState(() {
-                                      _selectedCity = city;
-                                    });
-                                    // Validate city field after selection
-                                    _cityFieldKey.currentState?.validate();
-                                  }
-                                });
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  color: isSelected
-                                      ? primaryGold.withOpacity(0.15)
-                                      : transparent,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? primaryGold
-                                        : transparent,
-                                    width: isSelected ? 2 : 0,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      city,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: isSelected
-                                            ? primaryGold
-                                            : textLight,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                      ),
-                                    ),
-                                    if (isSelected)
-                                      Icon(
-                                        Icons.check_circle,
-                                        color: primaryGold,
-                                        size: 20,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-            ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildSignupButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: FilledButton(
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFFBF8719),
-          disabledBackgroundColor: borderColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          shadowColor: const Color(0xFFBF8719).withOpacity(0.3),
-          elevation: _isLoading ? 4 : 2,
-        ),
-        onPressed: _isLoading ? null : _handleSignup,
-        child: _isLoading
-            ? SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(bgDark1.withOpacity(0.8)),
-                ),
-              )
-            : const Text(
-                'Créer un compte',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: bgDark1,
-                  letterSpacing: 0.3,
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildSocialDivider() {
-    return Row(
-      children: [
-        Expanded(
-          child: Divider(
-            color: borderColor.withOpacity(0.5),
-            thickness: 1,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            'OU',
-            style: TextStyle(
-              fontSize: 11,
-              color: textGrey,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Divider(
-            color: borderColor.withOpacity(0.5),
-            thickness: 1,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSocialLoginButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildSocialButton(
-            label: 'Google',
-            iconWidget: _buildGoogleIcon(),
-            onPressed: () => _handleSocialLogin('google'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildSocialButton(
-            icon: Icons.facebook,
-            label: 'Facebook',
-            iconColor: const Color(0xFF1877F2),
-            onPressed: () => _handleSocialLogin('facebook'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildSocialButton(
-            icon: Icons.apple,
-            label: 'Apple',
-            iconColor: textLight,
-            onPressed: () => _handleSocialLogin('apple'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGoogleIcon() {
-    return SizedBox(
-      width: 24,
-      height: 24,
-      child: CustomPaint(
-        painter: _GoogleIconPainter(),
-      ),
-    );
-  }
-
-  Widget _buildSocialButton({
-    IconData? icon,
-    String? label,
-    Color? iconColor,
-    Widget? iconWidget,
-    required VoidCallback onPressed,
-  }) {
-    return GestureDetector(
-      onTap: _isLoading ? null : onPressed,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: borderColor, width: 1.5),
-          color: bgDark2,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            iconWidget ?? Icon(icon, color: iconColor, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              label ?? '',
-              style: const TextStyle(
-                fontSize: 10,
-                color: textLight,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _handleSocialLogin(String provider) async {
-    // TODO: Implement social login (Google, Facebook, Apple)
     showErrorSnackbar(context, 'Connexion $provider bientôt disponible');
   }
 
-  Widget _buildFooter() {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: widget.onBack,
-          child: Text.rich(
-            TextSpan(
-              text: 'Vous avez un compte ? ',
-              style: const TextStyle(color: textGrey, fontSize: 13),
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: SignupConstants.bgDark1, // Same color as background
+        statusBarIconBrightness: Brightness.light, // Light icons for dark background
+        statusBarBrightness: Brightness.dark, // For iOS
+        systemNavigationBarColor: SignupConstants.bgDark1, // Same color as background
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: PopScope(
+        canPop: !_isLoading,
+        onPopInvoked: (didPop) {
+          if (!didPop && !_isLoading) {
+            widget.onBack();
+          }
+        },
+        child: Scaffold(
+          backgroundColor: SignupConstants.bgDark1,
+          body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                TextSpan(
-                  text: 'Connectez-vous',
-                  style: const TextStyle(
-                    color: primaryGold,
-                    fontWeight: FontWeight.w600,
-                    decoration: TextDecoration.underline,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: widget.onBack,
+                    icon: const Icon(Icons.arrow_back),
+                    color: const Color(0xFFBF8719),
+                    iconSize: 24,
                   ),
+                ),
+                const SignupLogoSection(),
+                const SizedBox(height: 32),
+                Form(
+                  key: _formKey,
+                  autovalidateMode: AutovalidateMode.disabled,
+                  child: Column(
+                    children: [
+                      EmailField(
+                        controller: _emailController,
+                        focusNode: _emailFocusNode,
+                        fieldKey: _emailFieldKey,
+                        hasBeenValidated: _emailFieldHasBeenValidated,
+                        enabled: !_isLoading,
+                        onUnfocusAll: _unfocusAllFields,
+                      ),
+                      const SizedBox(height: 16),
+                      PasswordField(
+                        controller: _passwordController,
+                        focusNode: _passwordFocusNode,
+                        fieldKey: _passwordFieldKey,
+                        hasBeenValidated: _passwordFieldHasBeenValidated,
+                        enabled: !_isLoading,
+                        onUnfocusAll: _unfocusAllFields,
+                        onFocusChanged: (isFocused) {
+                          setState(() => _isPasswordFocused = isFocused);
+                        },
+                      ),
+                      if (_isPasswordFocused) ...[
+                        const SizedBox(height: 12),
+                        const PasswordHint(),
+                      ],
+                      const SizedBox(height: 16),
+                      ConfirmPasswordField(
+                        controller: _confirmPasswordController,
+                        passwordController: _passwordController,
+                        focusNode: _confirmPasswordFocusNode,
+                        fieldKey: _confirmPasswordFieldKey,
+                        hasBeenValidated: _confirmPasswordFieldHasBeenValidated,
+                        enabled: !_isLoading,
+                        onUnfocusAll: _unfocusAllFields,
+                      ),
+                      const SizedBox(height: 16),
+                      PhoneField(
+                        controller: _phoneController,
+                        focusNode: _phoneFocusNode,
+                        fieldKey: _phoneFieldKey,
+                        selectedCountryCode: _selectedCountryCode,
+                        hasBeenValidated: _phoneFieldHasBeenValidated,
+                        enabled: !_isLoading,
+                        onUnfocusAll: _unfocusAllFields,
+                        onPhoneNumberUpdate: (formattedPhone) {
+                          setState(() => _phoneNumber = formattedPhone);
+                        },
+                        onCountryCodeChange: (code) {
+                          setState(() => _selectedCountryCode = code);
+                        },
+                        onRevalidatePhone: () {
+                          if (_phoneController.text.isNotEmpty) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) {
+                                setState(() {
+                                  if (!_phoneFieldHasBeenValidated) {
+                                    _phoneFieldHasBeenValidated = true;
+                                  }
+                                  _phoneFieldKey.currentState?.validate();
+                                });
+                              }
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      CityDropdown(
+                        fieldKey: _cityFieldKey,
+                        selectedCity: _selectedCity,
+                        enabled: !_isLoading,
+                        onUnfocusAll: _unfocusAllFields,
+                        onCitySelected: (city) {
+                          setState(() => _selectedCity = city);
+                        },
+                        onValidateCity: () {
+                          _cityFieldKey.currentState?.validate();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SignupButton(
+                  isLoading: _isLoading,
+                  onPressed: _handleSignup,
+                ),
+                const SizedBox(height: 20),
+                const SocialDivider(),
+                const SizedBox(height: 16),
+                SocialLoginButtons(
+                  isLoading: _isLoading,
+                  onSocialLogin: _handleSocialLogin,
+                ),
+                const SizedBox(height: 24),
+                SignupFooter(
+                  onBack: widget.onBack,
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 20),
-        Opacity(
-          opacity: 0.6,
-          child: Text(
-            'En continuant, vous acceptez nos conditions d\'utilisation',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11,
-              color: textGrey,
-            ),
-          ),
-        ),
-      ],
+      ),
+      ),
     );
   }
-}
-
-class _GoogleIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Scale factor: SVG viewBox is 24x24, we need to scale to actual size
-    final scale = size.width / 24.0;
-    final matrix = Matrix4.identity()..scale(scale);
-
-    // Red path - #EA4335
-    // M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z
-    final redPath = Path()
-      ..moveTo(22.56, 12.25)
-      ..cubicTo(22.56, 11.47, 22.49, 10.72, 22.36, 10.0)
-      ..lineTo(12.0, 10.0)
-      ..lineTo(12.0, 14.26)
-      ..lineTo(17.92, 14.26)
-      ..cubicTo(17.66, 15.63, 16.88, 16.79, 15.71, 17.57)
-      ..lineTo(15.71, 20.34)
-      ..lineTo(19.28, 20.34)
-      ..cubicTo(21.36, 18.42, 22.56, 15.6, 22.56, 12.25)
-      ..close();
-    redPath.transform(matrix.storage);
-    canvas.drawPath(
-      redPath,
-      Paint()..color = const Color(0xFFEA4335)..style = PaintingStyle.fill,
-    );
-
-    // Green path - #34A853
-    // M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z
-    final greenPath = Path()
-      ..moveTo(12.0, 23.0)
-      ..cubicTo(14.97, 23.0, 17.46, 22.02, 19.28, 20.34)
-      ..lineTo(15.71, 17.57)
-      ..cubicTo(14.73, 18.23, 13.48, 18.63, 12.0, 18.63)
-      ..cubicTo(9.14, 18.63, 6.71, 16.7, 5.84, 14.09)
-      ..lineTo(2.18, 16.93)
-      ..cubicTo(3.99, 20.53, 7.7, 23.0, 12.0, 23.0)
-      ..close();
-    greenPath.transform(matrix.storage);
-    canvas.drawPath(
-      greenPath,
-      Paint()..color = const Color(0xFF34A853)..style = PaintingStyle.fill,
-    );
-
-    // Yellow path - #FBBC05
-    // M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z
-    final yellowPath = Path()
-      ..moveTo(5.84, 14.09)
-      ..cubicTo(5.62, 13.43, 5.49, 12.73, 5.49, 12.0)
-      ..cubicTo(5.49, 11.27, 5.62, 10.57, 5.84, 9.91)
-      ..lineTo(5.84, 7.07)
-      ..lineTo(2.18, 7.07)
-      ..cubicTo(1.43, 8.55, 1.0, 10.22, 1.0, 12.0)
-      ..cubicTo(1.0, 13.78, 1.43, 15.45, 2.18, 16.93)
-      ..lineTo(5.03, 14.71)
-      ..lineTo(5.84, 14.09)
-      ..close();
-    yellowPath.transform(matrix.storage);
-    canvas.drawPath(
-      yellowPath,
-      Paint()..color = const Color(0xFFFBBC05)..style = PaintingStyle.fill,
-    );
-
-    // Blue path - #4285F4
-    // M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z
-    final bluePath = Path()
-      ..moveTo(12.0, 5.38)
-      ..cubicTo(13.62, 5.38, 15.06, 5.94, 16.21, 7.02)
-      ..lineTo(19.36, 3.87)
-      ..cubicTo(17.45, 2.09, 14.97, 1.0, 12.0, 1.0)
-      ..cubicTo(7.7, 1.0, 3.99, 3.47, 2.18, 7.07)
-      ..lineTo(5.84, 9.91)
-      ..cubicTo(6.71, 7.3, 9.14, 5.38, 12.0, 5.38)
-      ..close();
-    bluePath.transform(matrix.storage);
-    canvas.drawPath(
-      bluePath,
-      Paint()..color = const Color(0xFF4285F4)..style = PaintingStyle.fill,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
