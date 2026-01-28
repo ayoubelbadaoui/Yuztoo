@@ -25,9 +25,12 @@ class AuthUserDto {
     DocumentSnapshot<Map<String, dynamic>>? profileDoc,
   }) {
     final data = profileDoc?.data();
+    // ROOT FIX: If user was created with phone auth, email might not be in Firebase Auth
+    // but will be in Firestore. Use Firestore email as fallback.
+    final email = user.email ?? (data?['email'] as String?);
     return AuthUserDto(
       id: user.uid,
-      email: user.email,
+      email: email,
       displayName: user.displayName ?? data?['displayName'] as String?,
       photoUrl: user.photoURL ?? data?['photoUrl'] as String?,
       phoneNumber: user.phoneNumber ?? data?['phoneNumber'] as String?,

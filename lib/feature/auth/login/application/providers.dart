@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/application/state/auth_state.dart';
 import '../../core/application/providers.dart';
 import '../../core/infrastructure/auth_repository_provider.dart';
+import '../../core/infrastructure/user_repository_provider.dart';
 import 'sign_in_with_email_password.dart';
 import 'login_controller.dart';
+import 'login_flow_controller.dart';
+import 'state/login_flow_state.dart';
 
 final signInWithEmailPasswordProvider =
     Provider<SignInWithEmailPassword>((ref) {
@@ -24,4 +27,14 @@ final authControllerProvider =
 /// Exposes auth state as a convenience for UI widgets.
 final authStateProvider =
     Provider<AuthState>((ref) => ref.watch(authControllerProvider));
+
+/// Login flow controller provider - orchestrates complete login flow
+final loginFlowControllerProvider =
+    StateNotifierProvider<LoginFlowController, LoginFlowState>((ref) {
+  return LoginFlowController(
+    signInWithEmailPassword: ref.watch(signInWithEmailPasswordProvider),
+    userRepository: ref.watch(userRepositoryProvider),
+    authRepository: ref.watch(authRepositoryProvider),
+  );
+});
 
