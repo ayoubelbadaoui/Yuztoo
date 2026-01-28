@@ -85,5 +85,120 @@ class FirebaseUserRepository implements UserRepository {
       );
     }
   }
+
+  @override
+  Future<Result<String?>> getUserCity(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) {
+        return const Right<AuthFailure, String?>(null);
+      }
+
+      final data = doc.data();
+      if (data == null) {
+        return const Right<AuthFailure, String?>(null);
+      }
+
+      final city = data['city'] as String?;
+      return Right<AuthFailure, String?>(city);
+    } catch (e, st) {
+      return Left<AuthFailure, String?>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de la récupération de la ville',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<Unit>> updateUserCity({required String uid, required String city}) async {
+    if (city.isEmpty) {
+      return const Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(message: 'La ville est requise'),
+      );
+    }
+
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'city': city,
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+      return const Right<AuthFailure, Unit>(unit);
+    } catch (e, st) {
+      return Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de la mise à jour de la ville: ${e.toString()}',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<Map<String, bool>?>> getUserRoles(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) {
+        return const Right<AuthFailure, Map<String, bool>?>(null);
+      }
+
+      final data = doc.data();
+      if (data == null) {
+        return const Right<AuthFailure, Map<String, bool>?>(null);
+      }
+
+      final roles = data['roles'] as Map<String, dynamic>?;
+      if (roles == null) {
+        return const Right<AuthFailure, Map<String, bool>?>(null);
+      }
+
+      // Convert to Map<String, bool>
+      final rolesMap = <String, bool>{};
+      roles.forEach((key, value) {
+        if (value is bool) {
+          rolesMap[key] = value;
+        }
+      });
+
+      return Right<AuthFailure, Map<String, bool>?>(rolesMap);
+    } catch (e, st) {
+      return Left<AuthFailure, Map<String, bool>?>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de la récupération des rôles utilisateur',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<bool?>> isMerchantOnboardingCompleted(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) {
+        return const Right<AuthFailure, bool?>(null);
+      }
+
+      final data = doc.data();
+      if (data == null) {
+        return const Right<AuthFailure, bool?>(null);
+      }
+
+      final onboardingCompleted = data['merchant_onboarding_completed'] as bool?;
+      return Right<AuthFailure, bool?>(onboardingCompleted ?? false);
+    } catch (e, st) {
+      return Left<AuthFailure, bool?>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de la vérification de l\'onboarding',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
 }
 

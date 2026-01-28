@@ -5,6 +5,8 @@ import '../../core/application/state/auth_state.dart';
 import '../../core/infrastructure/auth_repository_provider.dart';
 import 'sign_in_with_email_password.dart';
 import 'login_controller.dart';
+import 'login_flow_controller.dart';
+import 'state/login_flow_state.dart';
 
 final signInWithEmailPasswordProvider =
     Provider<SignInWithEmailPassword>((ref) {
@@ -21,5 +23,10 @@ final loginControllerProvider =
     signOut: ref.watch(signOutProvider),
     watchAuthState: ref.watch(watchAuthStateProvider),
   );
+});
+
+final loginFlowControllerProvider =
+    StateNotifierProvider<LoginFlowController, LoginFlowState>((ref) {
+  return LoginFlowController(ref);
 });
 

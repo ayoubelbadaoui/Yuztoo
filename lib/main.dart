@@ -160,17 +160,6 @@ class _RootShellState extends ConsumerState<_RootShell> {
     });
   }
 
-  void _handleLogin() {
-    setState(() {
-      if (_role == UserRole.client) {
-        _currentScreen = ScreenId.clientHome;
-        _activeTab = 'home';
-      } else {
-        _currentScreen = ScreenId.merchantDashboard;
-        _activeTab = 'dashboard';
-      }
-    });
-  }
 
   void _handleBackToLogin() {
     setState(() => _currentScreen = ScreenId.login);
@@ -303,7 +292,30 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return LoginScreen(
           role: _role ?? UserRole.client,
           onBack: _handleBackToRole,
-          onLogin: _handleLogin,
+          onLoginSuccess: ({
+            required String uid,
+            required UserRole role,
+            required String city,
+            required bool onboardingCompleted,
+          }) {
+            setState(() {
+              _role = role;
+              if (role == UserRole.client) {
+                _currentScreen = ScreenId.clientHome;
+                _activeTab = 'home';
+              } else {
+                // Merchant role
+                if (onboardingCompleted) {
+                  _currentScreen = ScreenId.merchantDashboard;
+                  _activeTab = 'dashboard';
+                } else {
+                  // Navigate to onboarding if it exists, otherwise dashboard
+                  _currentScreen = ScreenId.merchantDashboard;
+                  _activeTab = 'dashboard';
+                }
+              }
+            });
+          },
           onSignup: () => setState(() => _currentScreen = ScreenId.signup),
         );
       case ScreenId.signup:
@@ -333,7 +345,17 @@ class _RootShellState extends ConsumerState<_RootShell> {
           role: _role ?? UserRole.client,
           otpUnavailableMessage: _otpUnavailableMessage,
           onBack: _handleBackToLogin,
-          onVerify: _handleLogin,
+          onVerify: () {
+            setState(() {
+              if (_role == UserRole.client) {
+                _currentScreen = ScreenId.clientHome;
+                _activeTab = 'home';
+              } else {
+                _currentScreen = ScreenId.merchantDashboard;
+                _activeTab = 'dashboard';
+              }
+            });
+          },
           onResend: () {
             // VerificationId will be updated by OTP screen if resend succeeds
             // This callback can be used for any additional logic if needed
