@@ -123,10 +123,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.7,
               ),
-              child: Column(
+      child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
                   Text(
                     'Sélectionnez votre ville',
                     style: TextStyle(
@@ -220,7 +220,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
+              children: [
               if (state.roles['client'] == true)
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -324,25 +324,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLoading = loginFlowState is LoginFlowLoading;
 
     // Listen to login flow state changes (must be in build method)
-    ref.listen<LoginFlowState>(loginFlowControllerProvider, (previous, next) {
-      if (next is LoginFlowSuccess) {
-        widget.onLoginSuccess(
-          uid: next.uid,
-          role: next.role,
-          city: next.city,
-          onboardingCompleted: next.onboardingCompleted,
-        );
-      } else if (next is LoginFlowError) {
-        final frenchMessage = AuthErrorMapper.getFrenchMessage(next.failure);
-        if (mounted) {
-          showErrorSnackbar(context, frenchMessage);
+    ref.listen<LoginFlowState>(
+      loginFlowControllerProvider,
+      (previous, next) {
+        if (next is LoginFlowSuccess) {
+          widget.onLoginSuccess(
+            uid: next.uid,
+            role: next.role,
+            city: next.city,
+            onboardingCompleted: next.onboardingCompleted,
+          );
+        } else if (next is LoginFlowError) {
+          final frenchMessage = AuthErrorMapper.getFrenchMessage(next.failure);
+          if (mounted) {
+            showErrorSnackbar(context, frenchMessage);
+          }
+        } else if (next is LoginFlowCityRequired) {
+          if (mounted) {
+            _showCityPicker(next.uid);
+          }
+        } else if (next is LoginFlowMultiRoleRequired) {
+          if (mounted) {
+            _showMultiRoleSelectionDialog(next);
+          }
         }
-      } else if (next is LoginFlowCityRequired) {
-        _showCityPicker(next.uid);
-      } else if (next is LoginFlowMultiRoleRequired) {
-        _showMultiRoleSelectionDialog(next);
-      }
-    });
+      },
+    );
 
     return GestureDetector(
       onTap: () {
@@ -357,12 +364,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              IconButton(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back),
-                color: const Color(0xFFBF8719),
-                iconSize: 24,
-              ),
+                IconButton(
+                  onPressed: widget.onBack,
+                  icon: const Icon(Icons.arrow_back),
+                  color: const Color(0xFFBF8719),
+                  iconSize: 24,
+                ),
               const SizedBox(height: 16),
               _buildLogoSection(),
               const SizedBox(height: 32),
@@ -371,19 +378,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   children: [
                     LoginInputField(
-                      controller: _emailController,
+                  controller: _emailController,
                       label: 'Adresse email',
-                      hint: 'votre@email.com',
-                      icon: Icons.mail_outline,
+                  hint: 'votre@email.com',
+                  icon: Icons.mail_outline,
                       validator: _validateEmail,
                       enabled: !isLoading,
-                    ),
-                    const SizedBox(height: 16),
+                ),
+                const SizedBox(height: 16),
                     LoginInputField(
-                      controller: _passwordController,
-                      label: 'Mot de passe',
-                      hint: '••••••••',
-                      icon: Icons.lock_outline,
+                  controller: _passwordController,
+                  label: 'Mot de passe',
+                  hint: '••••••••',
+                  icon: Icons.lock_outline,
                       obscure: !_isPasswordVisible,
                       validator: _validatePassword,
                       enabled: !isLoading,
@@ -395,21 +402,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           _isPasswordVisible = !_isPasswordVisible;
                         });
                       },
-                    ),
-                    const SizedBox(height: 12),
+                ),
+                const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                  onPressed: () {},
                         style: TextButton.styleFrom(
                           foregroundColor: _primaryGold,
                         ),
-                        child: const Text('Mot de passe oublié ?'),
+                  child: const Text('Mot de passe oublié ?'),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
                       height: 52,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
@@ -572,9 +579,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             iconColor: _textLight,
             onPressed: () => _handleSocialLogin('apple'),
             isLoading: isLoading,
+            ),
           ),
-        ),
-      ],
+        ],
     );
   }
 
