@@ -1,33 +1,39 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/providers.dart';
 import '../../core/application/auth_error_mapper.dart';
-import '../../core/application/state/auth_state.dart';
-import '../../login/application/providers.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
+import 'utils/phone_formatter.dart';
 
 class OTPScreen extends ConsumerStatefulWidget {
   const OTPScreen({
     super.key,
     required this.onBack,
     required this.onVerify,
+    required this.userId,
     required this.phone,
     required this.onResend,
     required this.email,
+    required this.password,
     required this.city,
     required this.role,
+    this.otpUnavailableMessage,
     this.verificationId,
   });
 
   final VoidCallback onBack;
   final VoidCallback onVerify;
+  final String userId; // User ID (empty until OTP verified and user created)
   final String phone;
   final VoidCallback onResend;
   final String email;
+  final String password; // Password for user creation after OTP verification
   final String city;
   final UserRole role;
+  final String? otpUnavailableMessage;
   final String? verificationId; // Optional, for resend functionality
 
   @override
@@ -42,6 +48,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   int _resendTimer = 60; // 60 seconds
   bool _canResend = false;
   bool _isVerifying = false;
+  bool _otpBlocked = false;
+  String? _otpUnavailableMessage;
   Timer? _timer;
 
   // Colors - Match signup screen dark theme
@@ -51,10 +59,26 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   static const Color textLight = Color(0xFFF5F5F5);
   static const Color textGrey = Color(0xFFB0B0B0);
   static const Color borderColor = Color(0xFF2A3F5F);
+  static const Color errorRed = Color(0xFFE74C3C);
 
   @override
   void initState() {
     super.initState();
+    _otpUnavailableMessage = widget.otpUnavailableMessage;
+
+    // Profile creation should ONLY happen after OTP verification is successful
+    // Remove auto-verification shortcut - user must always verify OTP code manually
+
+    if (widget.verificationId == null || widget.verificationId!.isEmpty) {
+      _otpBlocked = true;
+      if (_otpUnavailableMessage == null || _otpUnavailableMessage!.isEmpty) {
+        _otpUnavailableMessage =
+            'SMS indisponible pour le moment. Veuillez contacter le support.';
+      }
+      // Error message will be displayed in UI (red text in _buildLogoSection)
+      return;
+    }
+
     _startResendTimer();
     // Auto-focus first field
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -93,6 +117,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   }
 
   void _onChanged(int index, String value) {
+    if (_otpBlocked) return;
     if (value.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
@@ -113,17 +138,24 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
     setState(() => _isVerifying = true);
 
-    final verifyPhoneUseCase = ref.read(verifyAndLinkPhoneProvider);
-    final verifyResult = await verifyPhoneUseCase.call(
+    // Verify OTP and create user with phone + email/password
+    // This ensures user is only created after OTP verification
+    final verifyPhoneAndCreateUserUseCase = ref.read(verifyPhoneAndCreateUserProvider);
+    final verifyResult = await verifyPhoneAndCreateUserUseCase.call(
       verificationId: widget.verificationId!,
       smsCode: smsCode,
+      email: widget.email,
+      password: widget.password,
     );
 
     verifyResult.fold(
       (failure) {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          showErrorSnackbar(context, frenchMessage);
+          // Only show error if it's a specific Firebase error (not generic)
+          if (frenchMessage != null) {
+            showErrorSnackbar(context, frenchMessage);
+          }
           // Clear OTP fields on error so user can retry
           for (final controller in _controllers) {
             controller.clear();
@@ -132,27 +164,17 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           setState(() => _isVerifying = false);
         }
       },
-      (_) async {
-        // Phone linked successfully - now create Firestore profile
+      (authUser) async {
+        // User created successfully with phone + email/password - now create Firestore profile
         if (mounted) {
-          await _createFirestoreProfile();
+          await _createFirestoreProfile(authUser.id);
         }
       },
     );
   }
 
-  Future<void> _createFirestoreProfile() async {
-    // Get current authenticated user from auth state
-    final authState = ref.read(authStateProvider);
-    if (authState is! Authenticated) {
-      if (mounted) {
-        showErrorSnackbar(context, 'Erreur: Aucun utilisateur connecté');
-        setState(() => _isVerifying = false);
-      }
-      return;
-    }
-
-    final user = authState.user;
+  Future<void> _createFirestoreProfile(String userId) async {
+    // Use user ID from created user (after OTP verification)
 
     // Build roles map based on widget.role
     final Map<String, bool> roles = {
@@ -163,7 +185,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
     final createUserDocUseCase = ref.read(createUserDocumentProvider);
     final createResult = await createUserDocUseCase.call(
-      uid: user.id,
+      uid: userId, // Use userId from created user (after OTP verification)
       email: widget.email,
       phone: widget.phone,
       roles: roles,
@@ -174,7 +196,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       (failure) {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          showErrorSnackbar(context, frenchMessage);
+          // Only show error if it's a specific Firebase error (not generic)
+          if (frenchMessage != null) {
+            showErrorSnackbar(context, frenchMessage);
+          }
           setState(() => _isVerifying = false);
           // Don't navigate on error - user can retry or go back
         }
@@ -183,20 +208,26 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
         // Firestore profile created successfully
         if (mounted) {
           showSuccessSnackbar(context, 'Inscription réussie!');
-          // Navigate to home (via onVerify callback)
-          widget.onVerify();
+          // Wait a bit for auth state to update, then navigate
+          // This ensures the auth state provider has time to emit the new authenticated state
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              // Navigate to home (via onVerify callback)
+              widget.onVerify();
+            }
+          });
         }
       },
     );
   }
 
-  void _onBackspace(int index) {
-    if (_controllers[index].text.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-    }
-  }
-
   Future<void> _handleResend() async {
+    if (_otpBlocked) {
+      if (mounted && _otpUnavailableMessage != null) {
+        showErrorSnackbar(context, _otpUnavailableMessage!);
+      }
+      return;
+    }
     if (!_canResend) return;
 
     final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
@@ -206,7 +237,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       (failure) {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          showErrorSnackbar(context, frenchMessage);
+          // Only show error if it's a specific Firebase error (not generic)
+          if (frenchMessage != null) {
+            showErrorSnackbar(context, frenchMessage);
+          }
         }
       },
       (verificationId) {
@@ -221,9 +255,25 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: bgDark1,
-      body: SafeArea(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: bgDark1, // Same color as background
+        statusBarIconBrightness: Brightness.light, // Light icons for dark background
+        statusBarBrightness: Brightness.dark, // For iOS
+        systemNavigationBarColor: bgDark1, // Same color as background
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: PopScope(
+        canPop: !_isVerifying, // Prevent back navigation during verification
+        onPopInvoked: (didPop) {
+          if (!didPop && !_isVerifying) {
+            // Handle Android back button
+            widget.onBack();
+          }
+        },
+        child: Scaffold(
+          backgroundColor: bgDark1,
+        body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
@@ -246,6 +296,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             ],
           ),
         ),
+        ),
+      ),
       ),
     );
   }
@@ -306,14 +358,69 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          'Entrez le code envoyé au\n${widget.phone}',
+        RichText(
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 14,
-            color: textGrey,
+          text: TextSpan(
+            style: const TextStyle(
+              fontSize: 14,
+              color: textGrey,
+            ),
+            children: [
+              const TextSpan(text: 'Entrez le code envoyé au\n'),
+              TextSpan(
+                text: PhoneFormatter.formatPhoneForDisplay(widget.phone),
+                style: const TextStyle(
+                  color: primaryGold,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+            ],
           ),
         ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: _isVerifying ? null : widget.onBack,
+          child: Text(
+            'Numéro incorrect ?',
+            style: TextStyle(
+              fontSize: 13,
+              color: _isVerifying ? textGrey.withOpacity(0.5) : primaryGold,
+              fontWeight: FontWeight.w500,
+              decoration: TextDecoration.underline,
+              decorationColor: _isVerifying ? textGrey.withOpacity(0.5) : primaryGold,
+            ),
+          ),
+        ),
+        if (_otpUnavailableMessage != null && _otpUnavailableMessage!.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: errorRed.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: errorRed.withOpacity(0.3), width: 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: errorRed, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _otpUnavailableMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: errorRed,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -329,7 +436,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           child: TextField(
             controller: _controllers[index],
             focusNode: _focusNodes[index],
-            enabled: !_isVerifying,
+            enabled: !_isVerifying && !_otpBlocked,
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             maxLength: 1,
