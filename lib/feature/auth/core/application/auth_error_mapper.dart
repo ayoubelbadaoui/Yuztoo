@@ -34,7 +34,10 @@ class AuthErrorMapper {
       if (message.contains('email') || 
           message.contains('mot de passe') ||
           message.contains('téléphone') ||
-          message.contains('vérification')) {
+          message.contains('vérification') ||
+          message.contains('Profil utilisateur') ||
+          message.contains('profil') ||
+          message.contains('introuvable')) {
         return message;
       }
       return 'Une erreur s\'est produite. Veuillez réessayer.';

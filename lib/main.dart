@@ -71,32 +71,51 @@ class _RootShellState extends ConsumerState<_RootShell> {
   String? _signupCity; // Store city for Firestore profile
   String? _otpUnavailableMessage; // Store error message when OTP is unavailable
   bool _hasCheckedAuth = false; // Track if we've checked auth state
+  ProviderSubscription<AsyncValue<Result<AuthUser?>>>? _authStateSub;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _listenToAuthState();
-    });
+    _listenToAuthState();
   }
 
   /// Listen to auth state changes from application layer
   /// This ensures we catch auth state even if Firebase hasn't fully initialized yet
   void _listenToAuthState() {
     // Use authResultStreamProvider from application layer (respects architecture)
-    ref.listen<AsyncValue<Result<AuthUser?>>>(
+    //
+    // IMPORTANT: In Riverpod, `ref.listen` must be called while building.
+    // For initState / lifecycle, use `ref.listenManual`.
+    _authStateSub?.close();
+    _authStateSub = ref.listenManual<AsyncValue<Result<AuthUser?>>>(
       authResultStreamProvider,
       (previous, next) {
-        // Only handle the first auth state change (on app start)
-        // Subsequent changes (login/logout) will be handled by the app flow
-        if (!_hasCheckedAuth) {
-          _hasCheckedAuth = true;
-          next.whenData((result) async {
+        // Only handle the first DATA auth state change (on app start).
+        // Keep listening through loading/error so we don't lock the app into a bad state.
+        if (_hasCheckedAuth) return;
+
+        next.when(
+          data: (result) async {
+            if (_hasCheckedAuth) return;
+            _hasCheckedAuth = true;
             await _handleAuthStateChange(result);
-          });
-        }
+          },
+          loading: () {
+            // Still initializing; do nothing.
+          },
+          error: (_, __) {
+            // Firebase may not be ready yet; do nothing and keep waiting for a data event.
+          },
+        );
       },
+      fireImmediately: true,
     );
+  }
+
+  @override
+  void dispose() {
+    _authStateSub?.close();
+    super.dispose();
   }
 
   /// Handle auth state change on app start

@@ -19,6 +19,11 @@ class LoginInputField extends StatelessWidget {
     this.enabled = true,
     this.onSuffixTap,
     this.suffixIcon,
+    this.keyboardType,
+    this.textInputAction,
+    this.autocorrect = false,
+    this.enableSuggestions = false,
+    this.enableInteractiveSelection = true,
   });
 
   final TextEditingController controller;
@@ -30,6 +35,11 @@ class LoginInputField extends StatelessWidget {
   final bool enabled;
   final VoidCallback? onSuffixTap;
   final IconData? suffixIcon;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final bool autocorrect;
+  final bool enableSuggestions;
+  final bool enableInteractiveSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -45,43 +55,58 @@ class LoginInputField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: obscure,
-          validator: validator,
-          enabled: enabled,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          cursorColor: const Color(0xFFBF8719),
-          style: const TextStyle(color: _textLight, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: _textGrey, fontSize: 13),
-            prefixIcon: Icon(icon, color: _primaryGold, size: 18),
-            suffixIcon: suffixIcon != null && onSuffixTap != null
-                ? IconButton(
-                    icon: Icon(suffixIcon, color: _primaryGold, size: 18),
-                    onPressed: onSuffixTap,
-                  )
-                : null,
-            filled: true,
-            fillColor: _bgDark2,
-            enabledBorder: OutlineInputBorder(
+        Opacity(
+          opacity: enabled ? 1.0 : 0.6,
+          child: Container(
+            decoration: BoxDecoration(
+              color: _bgDark2,
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: _borderColor, width: 1),
+              border: Border.all(color: _borderColor, width: 1),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: _primaryGold, width: 2),
+            child: TextFormField(
+              controller: controller,
+              obscureText: obscure,
+              validator: validator,
+              enabled: enabled,
+              keyboardType: keyboardType,
+              textInputAction: textInputAction,
+              autocorrect: autocorrect,
+              enableSuggestions: enableSuggestions,
+              enableInteractiveSelection: enableInteractiveSelection,
+              // Disables platform spellcheck underlines (Android/iOS) when supported.
+              spellCheckConfiguration: SpellCheckConfiguration.disabled(),
+              autovalidateMode: AutovalidateMode.disabled,
+              cursorColor: const Color(0xFFBF8719),
+              style: TextStyle(
+                color: enabled ? _textLight : _textLight.withOpacity(0.6),
+                fontSize: 14,
+              ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: _textGrey, fontSize: 13),
+              prefixIcon: Icon(icon, color: _primaryGold, size: 18),
+              suffixIcon: suffixIcon != null && onSuffixTap != null
+                  ? IconButton(
+                      icon: Icon(suffixIcon, color: _primaryGold, size: 18),
+                      onPressed: onSuffixTap,
+                    )
+                  : null,
+              filled: true,
+              fillColor: Colors.transparent,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorStyle: const TextStyle(color: Color(0xFFE74C3C), fontSize: 12),
             ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: _borderColor, width: 1),
             ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: _borderColor, width: 1),
-            ),
-            errorStyle: const TextStyle(color: Color(0xFFE74C3C), fontSize: 12),
           ),
         ),
       ],

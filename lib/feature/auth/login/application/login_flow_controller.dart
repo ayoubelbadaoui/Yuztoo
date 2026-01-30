@@ -39,7 +39,9 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
           (rolesMap) async {
             if (rolesMap == null) {
               state = const LoginFlowError(
-                AuthUnexpectedFailure(message: 'Profil utilisateur introuvable.'),
+                AuthUnexpectedFailure(
+                  message: 'Profil utilisateur introuvable. Veuillez vous inscrire via l\'application pour créer votre profil.',
+                ),
               );
               await ref.read(auth_core.signOutProvider).call();
               return;
@@ -103,7 +105,9 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
           (rolesMap) async {
             if (rolesMap == null) {
               state = const LoginFlowError(
-                AuthUnexpectedFailure(message: 'Profil utilisateur introuvable.'),
+                AuthUnexpectedFailure(
+                  message: 'Profil utilisateur introuvable. Veuillez vous inscrire via l\'application pour créer votre profil.',
+                ),
               );
               await ref.read(auth_core.signOutProvider).call();
               return;
@@ -141,7 +145,9 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
       (rolesMap) async {
         if (rolesMap == null) {
           state = const LoginFlowError(
-            AuthUnexpectedFailure(message: 'Profil utilisateur introuvable.'),
+            AuthUnexpectedFailure(
+              message: 'Profil utilisateur introuvable. Veuillez vous inscrire via l\'application pour créer votre profil.',
+            ),
           );
           await ref.read(auth_core.signOutProvider).call();
           return;

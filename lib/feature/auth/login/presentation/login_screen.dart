@@ -54,10 +54,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String? _validateEmail(String? value) {
+    // Don't show error if field is empty while typing - only on submit
     if (value == null || value.isEmpty) {
       return 'L\'adresse e-mail est requise.';
     }
-    if (!EmailAddress.isValid(value)) {
+    // Only validate format if user has typed something
+    if (value.isNotEmpty && !EmailAddress.isValid(value)) {
       return 'Adresse e-mail invalide.';
     }
     return null;
@@ -384,6 +386,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   icon: Icons.mail_outline,
                       validator: _validateEmail,
                       enabled: !isLoading,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          enableSuggestions: false,
                 ),
                 const SizedBox(height: 16),
                     LoginInputField(
@@ -394,6 +400,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       obscure: !_isPasswordVisible,
                       validator: _validatePassword,
                       enabled: !isLoading,
+                          textInputAction: TextInputAction.done,
+                          autocorrect: false,
+                          enableSuggestions: false,
                       suffixIcon: _isPasswordVisible
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
