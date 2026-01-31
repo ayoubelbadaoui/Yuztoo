@@ -23,18 +23,11 @@ abstract class AuthRepository {
     required String smsCode,
   });
 
-  /// Verify phone OTP and create user with phone, then update with email/password
-  /// This ensures user is only created after OTP verification
-  Future<Result<AuthUser>> verifyPhoneAndCreateUser({
-    required String verificationId,
-    required String smsCode,
-    required EmailAddress email,
-    required Password password,
-  });
-
-  Future<Result<Unit>> deleteCurrentUser();
-
   Future<Result<Unit>> signOut();
+
+  Future<Result<Unit>> sendPasswordResetEmail({
+    required EmailAddress email,
+  });
 
   Stream<Result<AuthUser?>> watchAuthState();
 }

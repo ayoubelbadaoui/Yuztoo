@@ -9,7 +9,6 @@ import '../domain/value_objects/email_address.dart';
 import '../domain/value_objects/password.dart';
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
-import '../../../../core/infrastructure/logger_service.dart';
 import 'dto/auth_user_dto.dart';
 
 class FirebaseAuthRepository implements AuthRepository {
@@ -35,11 +34,6 @@ class FirebaseAuthRepository implements AuthRepository {
 
       final user = credential.user;
       if (user == null) {
-        LoggerService.logFailure(
-          'AuthFailure',
-          'User not found after sign-in',
-          context: {'email': email.value},
-        );
         return const Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(message: 'User not found after sign-in.'),
         );
@@ -48,23 +42,10 @@ class FirebaseAuthRepository implements AuthRepository {
       final profileDoc =
           await _firestore.collection('users').doc(user.uid).get();
       final dto = AuthUserDto.fromFirebase(user, profileDoc: profileDoc);
-      LoggerService.logInfo('Sign-in successful', context: {'uid': user.uid, 'email': email.value});
       return Right<AuthFailure, AuthUser>(dto.toDomain());
     } on firebase.FirebaseAuthException catch (e, st) {
-      LoggerService.logError(
-        'FirebaseAuthException during sign-in',
-        error: e,
-        stackTrace: st,
-        context: {'code': e.code, 'email': email.value},
-      );
       return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
     } catch (e, st) {
-      LoggerService.logError(
-        'Unexpected error during sign-in',
-        error: e,
-        stackTrace: st,
-        context: {'email': email.value},
-      );
       return Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
@@ -83,11 +64,6 @@ class FirebaseAuthRepository implements AuthRepository {
 
       final user = credential.user;
       if (user == null) {
-        LoggerService.logFailure(
-          'AuthFailure',
-          'User not found after signup',
-          context: {'email': email.value},
-        );
         return const Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(message: 'User not found after signup.'),
         );
@@ -95,23 +71,10 @@ class FirebaseAuthRepository implements AuthRepository {
 
       // Return AuthUser without Firestore profile (will be created later)
       final dto = AuthUserDto.fromFirebase(user);
-      LoggerService.logInfo('Signup successful', context: {'uid': user.uid, 'email': email.value});
       return Right<AuthFailure, AuthUser>(dto.toDomain());
     } on firebase.FirebaseAuthException catch (e, st) {
-      LoggerService.logError(
-        'FirebaseAuthException during signup',
-        error: e,
-        stackTrace: st,
-        context: {'code': e.code, 'email': email.value},
-      );
       return Left<AuthFailure, AuthUser>(_mapSignupException(e, st));
     } catch (e, st) {
-      LoggerService.logError(
-        'Unexpected error during signup',
-        error: e,
-        stackTrace: st,
-        context: {'email': email.value},
-      );
       return Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
@@ -122,71 +85,35 @@ class FirebaseAuthRepository implements AuthRepository {
     required String phoneNumber,
   }) async {
     final completer = Completer<Result<String>>();
-    const autoVerificationId = '__auto__';
 
     try {
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
-        verificationCompleted: (firebase.PhoneAuthCredential credential) async {
+        verificationCompleted: (firebase.PhoneAuthCredential credential) {
           // Auto-verification completed on some devices
-          try {
-            final user = _auth.currentUser;
-            if (user == null) {
-              if (!completer.isCompleted) {
-                completer.complete(const Left<AuthFailure, String>(
-                  AuthUnexpectedFailure(message: 'Aucun utilisateur connecté'),
-                ));
-              }
-              return;
-            }
-
-            await user.linkWithCredential(credential);
-            LoggerService.logInfo(
-              'Phone auto-verified and linked',
-              context: {'uid': user.uid, 'phoneNumber': phoneNumber},
-            );
-            if (!completer.isCompleted) {
-              completer.complete(const Right<AuthFailure, String>(autoVerificationId));
-            }
-          } on firebase.FirebaseAuthException catch (e, st) {
-            LoggerService.logError(
-              'FirebaseAuthException during auto phone linking',
-              error: e,
-              stackTrace: st,
-              context: {'code': e.code, 'phoneNumber': phoneNumber},
-            );
-            if (!completer.isCompleted) {
-              completer.complete(Left<AuthFailure, String>(_mapAuthException(e, st)));
-            }
-          } catch (e, st) {
-            LoggerService.logError(
-              'Unexpected error during auto phone linking',
-              error: e,
-              stackTrace: st,
-              context: {'phoneNumber': phoneNumber},
-            );
-            if (!completer.isCompleted) {
+          if (!completer.isCompleted) {
+            completer.complete(const Right<AuthFailure, String>(''));
+          }
+        },
+        verificationFailed: (firebase.FirebaseAuthException e) {
+          if (!completer.isCompleted) {
+            // Check for billing errors specifically
+            final errorMessage = e.message ?? '';
+            if (errorMessage.contains('BILLING_NOT_ENABLED') || 
+                errorMessage.toLowerCase().contains('billing')) {
               completer.complete(Left<AuthFailure, String>(
-                AuthUnexpectedFailure(cause: e, stackTrace: st),
+                const AuthUnexpectedFailure(
+                  message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+                ),
+              ));
+            } else {
+              completer.complete(Left<AuthFailure, String>(
+                _mapAuthException(e, StackTrace.current),
               ));
             }
           }
         },
-        verificationFailed: (firebase.FirebaseAuthException e) {
-          LoggerService.logError(
-            'Phone verification failed',
-            error: e,
-            stackTrace: StackTrace.current,
-            context: {'code': e.code, 'phoneNumber': phoneNumber},
-          );
-          if (!completer.isCompleted) {
-            completer.complete(Left<AuthFailure, String>(
-              _mapAuthException(e, StackTrace.current),
-            ));
-          }
-        },
         codeSent: (String verificationId, int? resendToken) {
-          LoggerService.logInfo('Phone verification code sent', context: {'phoneNumber': phoneNumber});
           if (!completer.isCompleted) {
             completer.complete(Right<AuthFailure, String>(verificationId));
           }
@@ -200,12 +127,6 @@ class FirebaseAuthRepository implements AuthRepository {
 
       return completer.future;
     } catch (e, st) {
-      LoggerService.logError(
-        'Unexpected error during phone verification',
-        error: e,
-        stackTrace: st,
-        context: {'phoneNumber': phoneNumber},
-      );
       return Left<AuthFailure, String>(
         AuthUnexpectedFailure(cause: e, stackTrace: st),
       );
@@ -225,147 +146,33 @@ class FirebaseAuthRepository implements AuthRepository {
 
       final user = _auth.currentUser;
       if (user == null) {
-        LoggerService.logFailure(
-          'AuthFailure',
-          'No authenticated user when linking phone',
-          context: {'verificationId': verificationId},
-        );
         return const Left<AuthFailure, Unit>(
           AuthUnexpectedFailure(message: 'Aucun utilisateur connecté'),
         );
       }
 
       await user.linkWithCredential(credential);
-      LoggerService.logInfo('Phone linked successfully', context: {'uid': user.uid});
       return const Right<AuthFailure, Unit>(unit);
     } on firebase.FirebaseAuthException catch (e, st) {
-      LoggerService.logError(
-        'FirebaseAuthException during phone linking',
-        error: e,
-        stackTrace: st,
-        context: {'code': e.code, 'verificationId': verificationId},
-      );
       return Left<AuthFailure, Unit>(_mapAuthException(e, st));
     } catch (e, st) {
-      LoggerService.logError(
-        'Unexpected error during phone linking',
-        error: e,
-        stackTrace: st,
-        context: {'verificationId': verificationId},
-      );
       return Left<AuthFailure, Unit>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
   }
 
   @override
-  Future<Result<AuthUser>> verifyPhoneAndCreateUser({
-    required String verificationId,
-    required String smsCode,
+  Future<Result<Unit>> sendPasswordResetEmail({
     required EmailAddress email,
-    required Password password,
   }) async {
     try {
-      // 1. Verify phone OTP and create credential
-      final phoneCredential = firebase.PhoneAuthProvider.credential(
-        verificationId: verificationId,
-        smsCode: smsCode,
-      );
-
-      // 2. Sign in with phone credential (creates user if doesn't exist)
-      final userCredential = await _auth.signInWithCredential(phoneCredential);
-      final user = userCredential.user;
-      
-      if (user == null) {
-        LoggerService.logFailure(
-          'AuthFailure',
-          'User not found after phone sign in',
-          context: {'verificationId': verificationId},
-        );
-        return const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(message: 'User not found after phone verification'),
-        );
-      }
-
-      // ROOT FIX: Firebase doesn't allow updateEmail() on phone-authenticated users
-      // because email is not verified. We'll store email in Firestore instead.
-      // The email will be available for account recovery and can be verified later.
-      // Only update password (user is already authenticated with phone, so we can update password)
-      try {
-        await user.updatePassword(password.value);
-      } on firebase.FirebaseAuthException catch (e) {
-        // If password update fails, log but don't fail the whole operation
-        // The user is still created and authenticated with phone
-        LoggerService.logError(
-          'Failed to update password after phone verification',
-          error: e,
-          context: {'code': e.code, 'uid': user.uid},
-        );
-        // Continue - password can be set later if needed
-      }
-
-      LoggerService.logInfo(
-        'User created with phone and email/password',
-        context: {'uid': user.uid, 'email': email.value},
-      );
-
-      final dto = AuthUserDto.fromFirebase(user);
-      return Right<AuthFailure, AuthUser>(dto.toDomain());
-    } on firebase.FirebaseAuthException catch (e, st) {
-      LoggerService.logError(
-        'FirebaseAuthException during phone verification and user creation',
-        error: e,
-        stackTrace: st,
-        context: {'code': e.code, 'verificationId': verificationId},
-      );
-      return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
-    } catch (e, st) {
-      LoggerService.logError(
-        'Unexpected error during phone verification and user creation',
-        error: e,
-        stackTrace: st,
-        context: {'verificationId': verificationId},
-      );
-      return Left<AuthFailure, AuthUser>(
-        AuthUnexpectedFailure(cause: e, stackTrace: st),
-      );
-    }
-  }
-
-  @override
-  Future<Result<Unit>> deleteCurrentUser() async {
-    try {
-      final user = _auth.currentUser;
-      if (user == null) {
-        LoggerService.logFailure(
-          'AuthFailure',
-          'No authenticated user to delete',
-        );
-        return const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'Aucun utilisateur connecté'),
-        );
-      }
-
-      await user.delete();
-      LoggerService.logInfo('User deleted successfully', context: {'uid': user.uid});
+      await _auth.sendPasswordResetEmail(email: email.value);
       return const Right<AuthFailure, Unit>(unit);
     } on firebase.FirebaseAuthException catch (e, st) {
-      LoggerService.logError(
-        'FirebaseAuthException during deleteCurrentUser',
-        error: e,
-        stackTrace: st,
-        context: {'code': e.code},
-      );
       return Left<AuthFailure, Unit>(_mapAuthException(e, st));
     } catch (e, st) {
-      LoggerService.logError(
-        'Unexpected error during deleteCurrentUser',
-        error: e,
-        stackTrace: st,
-      );
       return Left<AuthFailure, Unit>(
-        AuthUnexpectedFailure(cause: e, stackTrace: st),
-      );
+          AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
   }
 
@@ -373,22 +180,10 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<Result<Unit>> signOut() async {
     try {
       await _auth.signOut();
-      LoggerService.logInfo('Sign out successful');
       return const Right<AuthFailure, Unit>(unit);
     } on firebase.FirebaseAuthException catch (e, st) {
-      LoggerService.logError(
-        'FirebaseAuthException during sign out',
-        error: e,
-        stackTrace: st,
-        context: {'code': e.code},
-      );
       return Left<AuthFailure, Unit>(_mapAuthException(e, st));
     } catch (e, st) {
-      LoggerService.logError(
-        'Unexpected error during sign out',
-        error: e,
-        stackTrace: st,
-      );
       return Left<AuthFailure, Unit>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
@@ -396,44 +191,7 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Stream<Result<AuthUser?>> watchAuthState() async* {
-    // Emit current user immediately (root fix - don't wait for stream)
-    final currentUser = _auth.currentUser;
-    if (currentUser != null) {
-      try {
-        final profileDoc =
-            await _firestore.collection('users').doc(currentUser.uid).get();
-        final dto = AuthUserDto.fromFirebase(currentUser, profileDoc: profileDoc);
-        yield Right<AuthFailure, AuthUser?>(dto.toDomain());
-      } on firebase.FirebaseAuthException catch (e, st) {
-        LoggerService.logError(
-          'FirebaseAuthException in watchAuthState (current user)',
-          error: e,
-          stackTrace: st,
-          context: {'code': e.code, 'uid': currentUser.uid},
-        );
-        yield Left<AuthFailure, AuthUser?>(_mapAuthException(e, st));
-      } catch (e, st) {
-        LoggerService.logError(
-          'Unexpected error in watchAuthState (current user)',
-          error: e,
-          stackTrace: st,
-          context: {'uid': currentUser.uid},
-        );
-        yield Left<AuthFailure, AuthUser?>(
-            AuthUnexpectedFailure(cause: e, stackTrace: st));
-      }
-    } else {
-      // No current user - emit null immediately
-      yield const Right<AuthFailure, AuthUser?>(null);
-    }
-
-    // Then listen to changes
     await for (final user in _auth.userChanges()) {
-      // Skip if it's the same as current user we already emitted
-      if (user?.uid == currentUser?.uid) {
-        continue;
-      }
-
       if (user == null) {
         yield const Right<AuthFailure, AuthUser?>(null);
         continue;
@@ -445,20 +203,8 @@ class FirebaseAuthRepository implements AuthRepository {
         final dto = AuthUserDto.fromFirebase(user, profileDoc: profileDoc);
         yield Right<AuthFailure, AuthUser?>(dto.toDomain());
       } on firebase.FirebaseAuthException catch (e, st) {
-        LoggerService.logError(
-          'FirebaseAuthException in watchAuthState',
-          error: e,
-          stackTrace: st,
-          context: {'code': e.code, 'uid': user.uid},
-        );
         yield Left<AuthFailure, AuthUser?>(_mapAuthException(e, st));
       } catch (e, st) {
-        LoggerService.logError(
-          'Unexpected error in watchAuthState',
-          error: e,
-          stackTrace: st,
-          context: {'uid': user.uid},
-        );
         yield Left<AuthFailure, AuthUser?>(
             AuthUnexpectedFailure(cause: e, stackTrace: st));
       }
@@ -467,121 +213,38 @@ class FirebaseAuthRepository implements AuthRepository {
 
   AuthFailure _mapAuthException(
       firebase.FirebaseAuthException error, StackTrace stackTrace) {
-    final failure = _mapAuthExceptionInternal(error, stackTrace);
-    LoggerService.logFailure(
-      failure.runtimeType.toString(),
-      'Auth exception mapped',
-      cause: error,
-      stackTrace: stackTrace,
-      context: {'code': error.code, 'message': error.message},
-    );
-    return failure;
-  }
-
-  AuthFailure _mapAuthExceptionInternal(
-      firebase.FirebaseAuthException error, StackTrace stackTrace) {
-    if ((error.message ?? '').contains('BILLING_NOT_ENABLED')) {
-      return const AuthUnexpectedFailure(
-        message:
-            'La vérification par SMS n\'est pas disponible pour le moment. Veuillez contacter le support.',
-      );
-    }
     switch (error.code) {
-      // User account errors
       case 'user-disabled':
         return const AccountDisabledFailure();
       case 'user-not-found':
       case 'wrong-password':
         return const InvalidCredentialsFailure();
-      
-      // Email/credential errors
-      case 'invalid-email':
-        return const AuthUnexpectedFailure(
-          message: 'Adresse email invalide. Veuillez vérifier votre email.',
-        );
-      case 'invalid-credential':
-        return const InvalidCredentialsFailure();
-
-      // Phone auth errors
-      case 'invalid-phone-number':
-        return const AuthUnexpectedFailure(
-          message: 'Numéro de téléphone invalide. Vérifiez le format.',
-        );
-      case 'missing-phone-number':
-        return const AuthUnexpectedFailure(
-          message: 'Le numéro de téléphone est requis.',
-        );
-      case 'quota-exceeded':
-        return const AuthUnexpectedFailure(
-          message:
-              'Quota SMS dépassé. Veuillez réessayer plus tard.',
-        );
-      case 'app-not-authorized':
-        return const AuthUnexpectedFailure(
-          message:
-              'Application non autorisée pour la vérification SMS.',
-        );
-      case 'captcha-check-failed':
-        return const AuthUnexpectedFailure(
-          message:
-              'Vérification reCAPTCHA échouée. Réessayez.',
-        );
-      case 'missing-client-identifier':
-        return AuthUnexpectedFailure(
-          message:
-              'Erreur de configuration de l\'application. Veuillez contacter le support.',
-          cause: error,
-          stackTrace: stackTrace,
-        );
-      case 'internal-error':
-        return const AuthUnexpectedFailure(
-          message:
-              'Erreur interne lors de la vérification du téléphone.',
-        );
-      
-      // Network errors
       case 'network-request-failed':
-      case 'network-error':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
-      
-      // Rate limiting
-      case 'too-many-requests':
-        return const AuthUnexpectedFailure(
-          message: 'Trop de tentatives. Veuillez réessayer plus tard.',
-        );
-      
-      // Operation errors
-      case 'operation-not-allowed':
-        return const AuthUnexpectedFailure(
-          message: 'Cette opération n\'est pas autorisée.',
-        );
       case 'user-cancelled':
         return const UserCancelledFailure();
-      
-      // Generic fallback
+      case 'internal-error':
+        // Check if it's a billing error
+        if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
+            error.message?.toLowerCase().contains('billing') == true) {
+          return const AuthUnexpectedFailure(
+            message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+          );
+        }
+        return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
       default:
-        return AuthUnexpectedFailure(
-          message: 'Une erreur s\'est produite lors de la connexion.',
-          cause: error,
-          stackTrace: stackTrace,
-        );
+        // Check error message for billing-related errors
+        if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
+            error.message?.toLowerCase().contains('billing') == true) {
+          return const AuthUnexpectedFailure(
+            message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+          );
+        }
+        return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
     }
   }
 
   AuthFailure _mapSignupException(
-      firebase.FirebaseAuthException error, StackTrace stackTrace) {
-    final failure = _mapSignupExceptionInternal(error, stackTrace);
-    LoggerService.logFailure(
-      failure.runtimeType.toString(),
-      'Signup exception mapped',
-      cause: error,
-      stackTrace: stackTrace,
-      context: {'code': error.code, 'message': error.message},
-    );
-    return failure;
-  }
-
-  AuthFailure _mapSignupExceptionInternal(
       firebase.FirebaseAuthException error, StackTrace stackTrace) {
     switch (error.code) {
       case 'email-already-in-use':
