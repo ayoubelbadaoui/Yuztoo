@@ -61,7 +61,7 @@ class _RootShell extends ConsumerStatefulWidget {
 }
 
 class _RootShellState extends ConsumerState<_RootShell> {
-  ScreenId _currentScreen = ScreenId.splash;
+  ScreenId? _currentScreen; // null = loading/auth checking
   UserRole? _role;
   String _activeTab = 'home';
   String? _signupUserId; // Store user ID from signup (passed to OTP screen)
@@ -163,7 +163,11 @@ class _RootShellState extends ConsumerState<_RootShell> {
     } else {
       // No user - show splash, will navigate to role selection when splash completes
       // (splash screen will handle navigation after 2 seconds)
-      // Keep current screen as splash
+      if (mounted) {
+        setState(() {
+          _currentScreen = ScreenId.splash;
+        });
+      }
     }
   }
 
@@ -302,7 +306,16 @@ class _RootShellState extends ConsumerState<_RootShell> {
   }
 
   Widget _buildScreen() {
-    switch (_currentScreen) {
+    // Show loading while checking auth state
+    if (_currentScreen == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    switch (_currentScreen!) {
       case ScreenId.splash:
         return SplashScreen(onComplete: _goToRoleSelection);
       case ScreenId.roleSelection:

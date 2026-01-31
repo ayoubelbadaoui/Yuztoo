@@ -8,6 +8,7 @@ import '../../../../types.dart';
 import '../application/providers.dart';
 import '../application/state/login_flow_state.dart';
 import 'widgets/input_field.dart';
+import 'widgets/forgot_password_dialog.dart';
 
 // Dark theme colors matching signup screen
 const Color _bgDark1 = Color(0xFF0F1A29);
@@ -44,37 +45,90 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
   bool _isPasswordVisible = false;
+  bool _shouldValidateRequired = false; // Track if we should show "required" errors
+  bool _emailHasBeenValidated = false; // Track if email field has been validated (blurred)
+
+  @override
+  void initState() {
+    super.initState();
+    // Validate email format when user clicks on another field (blur event)
+    _emailFocusNode.addListener(() {
+      if (!_emailFocusNode.hasFocus) {
+        // Field lost focus - mark as validated and validate if it has content
+        _emailHasBeenValidated = true;
+        if (_emailController.text.isNotEmpty) {
+          _formKey.currentState?.validate();
+        }
+        // Trigger rebuild to enable real-time validation
+        setState(() {});
+      }
+    });
+    
+    // Enable real-time validation after first blur (for corrections)
+    _emailController.addListener(() {
+      if (_emailHasBeenValidated && _emailController.text.isNotEmpty) {
+        // Field has been validated before - validate in real-time as user corrects
+        _formKey.currentState?.validate();
+      }
+    });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
   String? _validateEmail(String? value) {
-    // Don't show error if field is empty while typing - only on submit
+    // Show "required" error only after submit attempt
     if (value == null || value.isEmpty) {
-      return 'L\'adresse e-mail est requise.';
+      return _shouldValidateRequired ? 'L\'adresse e-mail est requise.' : null;
     }
-    // Only validate format if user has typed something
-    if (value.isNotEmpty && !EmailAddress.isValid(value)) {
-      return 'Adresse e-mail invalide.';
+    // Validate format:
+    // - Show error on blur (when clicking another field) if format is wrong
+    // - Clear error in real-time as user corrects the format
+    if (!EmailAddress.isValid(value)) {
+      // Only show error if field has been validated (blurred) or on submit
+      // This allows real-time correction after first validation
+      if (_emailHasBeenValidated || _shouldValidateRequired) {
+        return 'Adresse e-mail invalide.';
+      }
+      return null;
     }
     return null;
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Le mot de passe est requis.';
-    }
-    // For login, we don't need strict validation - just check it's not empty
-    // The server will validate the actual password
+    // On login page, no validation errors shown
+    // Only check on submit if empty (handled in _handleLogin)
+    // Server will validate the actual password
     return null;
   }
 
   Future<void> _handleLogin() async {
+    // Enable "required" validation on submit attempt (for email only)
+    setState(() {
+      _shouldValidateRequired = true;
+    });
+    
+    // Check if email is empty
+    if (_emailController.text.trim().isEmpty) {
+      _formKey.currentState?.validate();
+      return;
+    }
+    
+    // Check if password is empty (no error shown, just prevent submission)
+    if (_passwordController.text.isEmpty) {
+      return;
+    }
+    
+    // Validate form - this will show email format errors if any
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -329,6 +383,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen<LoginFlowState>(
       loginFlowControllerProvider,
       (previous, next) {
+        // Only handle state changes, not initial build (when previous is null)
+        if (previous == null) return;
+
         if (next is LoginFlowSuccess) {
           widget.onLoginSuccess(
             uid: next.uid,
@@ -342,11 +399,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             showErrorSnackbar(context, frenchMessage);
           }
         } else if (next is LoginFlowCityRequired) {
-          if (mounted) {
+          // Only show if state actually changed to CityRequired
+          if (previous is! LoginFlowCityRequired && mounted) {
             _showCityPicker(next.uid);
           }
         } else if (next is LoginFlowMultiRoleRequired) {
-          if (mounted) {
+          // Only show if state actually changed to MultiRoleRequired
+          if (previous is! LoginFlowMultiRoleRequired && mounted) {
             _showMultiRoleSelectionDialog(next);
           }
         }
@@ -390,6 +449,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           textInputAction: TextInputAction.next,
                           autocorrect: false,
                           enableSuggestions: false,
+                          focusNode: _emailFocusNode,
+                          validateOnChange: _emailHasBeenValidated,
                 ),
                 const SizedBox(height: 16),
                     LoginInputField(
@@ -403,6 +464,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           textInputAction: TextInputAction.done,
                           autocorrect: false,
                           enableSuggestions: false,
+                          focusNode: _passwordFocusNode,
                       suffixIcon: _isPasswordVisible
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
@@ -416,7 +478,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                  onPressed: () {},
+                  onPressed: isLoading
+                      ? null
+                      : () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => const ForgotPasswordDialog(),
+                          );
+                        },
                         style: TextButton.styleFrom(
                           foregroundColor: _primaryGold,
                         ),

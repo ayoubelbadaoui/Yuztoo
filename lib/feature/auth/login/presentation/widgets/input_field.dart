@@ -24,6 +24,8 @@ class LoginInputField extends StatelessWidget {
     this.autocorrect = false,
     this.enableSuggestions = false,
     this.enableInteractiveSelection = true,
+    this.focusNode,
+    this.validateOnChange = false,
   });
 
   final TextEditingController controller;
@@ -40,76 +42,123 @@ class LoginInputField extends StatelessWidget {
   final bool autocorrect;
   final bool enableSuggestions;
   final bool enableInteractiveSelection;
+  final FocusNode? focusNode;
+  final bool validateOnChange;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: _textLight,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Opacity(
-          opacity: enabled ? 1.0 : 0.6,
-          child: Container(
-            decoration: BoxDecoration(
-              color: _bgDark2,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _borderColor, width: 1),
-            ),
-            child: TextFormField(
-              controller: controller,
-              obscureText: obscure,
-              validator: validator,
-              enabled: enabled,
-              keyboardType: keyboardType,
-              textInputAction: textInputAction,
-              autocorrect: autocorrect,
-              enableSuggestions: enableSuggestions,
-              enableInteractiveSelection: enableInteractiveSelection,
-              // Disables platform spellcheck underlines (Android/iOS) when supported.
-              spellCheckConfiguration: SpellCheckConfiguration.disabled(),
-              autovalidateMode: AutovalidateMode.disabled,
-              cursorColor: const Color(0xFFBF8719),
+    return FormField<String>(
+      validator: validator,
+      initialValue: controller.text,
+      autovalidateMode: validateOnChange 
+          ? AutovalidateMode.onUserInteraction 
+          : AutovalidateMode.disabled,
+      builder: (formFieldState) {
+        // Sync controller value with FormField
+        if (formFieldState.value != controller.text) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            formFieldState.didChange(controller.text);
+          });
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
               style: TextStyle(
-                color: enabled ? _textLight : _textLight.withOpacity(0.6),
+                color: _textLight,
                 fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(color: _textGrey, fontSize: 13),
-              prefixIcon: Icon(icon, color: _primaryGold, size: 18),
-              suffixIcon: suffixIcon != null && onSuffixTap != null
-                  ? IconButton(
-                      icon: Icon(suffixIcon, color: _primaryGold, size: 18),
-                      onPressed: onSuffixTap,
-                    )
-                  : null,
-              filled: true,
-              fillColor: Colors.transparent,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
+            ),
+            const SizedBox(height: 8),
+            Opacity(
+              opacity: enabled ? 1.0 : 0.6,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _bgDark2,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: formFieldState.hasError
+                        ? const Color(0xFFE74C3C)
+                        : _borderColor,
+                    width: formFieldState.hasError ? 1.5 : 1,
+                  ),
+                ),
+                child: TextFormField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  obscureText: obscure,
+                  validator: null, // Validation handled by outer FormField
+                  enabled: enabled,
+                  keyboardType: keyboardType,
+                  textInputAction: textInputAction,
+                  autocorrect: autocorrect,
+                  enableSuggestions: enableSuggestions,
+                  enableInteractiveSelection: enableInteractiveSelection,
+                  // Disables platform spellcheck underlines (Android/iOS) when supported.
+                  spellCheckConfiguration: SpellCheckConfiguration.disabled(),
+                  autovalidateMode: AutovalidateMode.disabled, // Validation handled by outer FormField
+                  cursorColor: const Color(0xFFBF8719),
+                  style: TextStyle(
+                    color: enabled ? _textLight : _textLight.withOpacity(0.6),
+                    fontSize: 14,
+                  ),
+                  onChanged: (value) {
+                    formFieldState.didChange(value);
+                    // Validate in real-time if validateOnChange is enabled (for corrections)
+                    if (validateOnChange) {
+                      formFieldState.validate();
+                    }
+                  },
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: const TextStyle(color: _textGrey, fontSize: 13),
+                    prefixIcon: Icon(icon, color: _primaryGold, size: 18),
+                    suffixIcon: suffixIcon != null && onSuffixTap != null
+                        ? IconButton(
+                            icon: Icon(suffixIcon, color: _primaryGold, size: 18),
+                            onPressed: onSuffixTap,
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.transparent,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    // Hide error text inside the field
+                    errorText: null,
+                    errorStyle: const TextStyle(height: 0, fontSize: 0),
+                  ),
+                ),
               ),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              errorStyle: const TextStyle(color: Color(0xFFE74C3C), fontSize: 12),
             ),
-            ),
-          ),
-        ),
-      ],
+            // Show error message below the field
+            if (formFieldState.hasError) ...[
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  formFieldState.errorText ?? '',
+                  style: const TextStyle(
+                    color: Color(0xFFE74C3C),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

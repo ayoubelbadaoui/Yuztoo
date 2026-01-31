@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../core/domain/auth_failure.dart';
-import '../../core/infrastructure/user_repository_provider.dart';
 import '../../../../../types.dart';
 import '../application/state/login_flow_state.dart';
 import 'providers.dart';
@@ -28,8 +27,8 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
         state = LoginFlowError(failure);
       },
       (authUser) async {
-        final userRepository = ref.read(userRepositoryProvider);
-        final profileCheckResult = await userRepository.getUserRoles(authUser.id);
+        final getUserRolesUseCase = ref.read(auth_core.getUserRolesProvider);
+        final profileCheckResult = await getUserRolesUseCase.call(authUser.id);
 
         await profileCheckResult.fold(
           (failure) async {
@@ -47,7 +46,8 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
               return;
             }
 
-            final cityResult = await userRepository.getUserCity(authUser.id);
+            final getUserCityUseCase = ref.read(auth_core.getUserCityProvider);
+            final cityResult = await getUserCityUseCase.call(authUser.id);
             await cityResult.fold(
               (failure) async {
                 state = LoginFlowError(failure);
@@ -88,8 +88,8 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
 
   Future<void> updateCity(String uid, String city) async {
     state = const LoginFlowLoading();
-    final userRepository = ref.read(userRepositoryProvider);
-    final updateResult = await userRepository.updateUserCity(uid: uid, city: city);
+    final updateUserCityUseCase = ref.read(auth_core.updateUserCityProvider);
+    final updateResult = await updateUserCityUseCase.call(uid: uid, city: city);
 
     await updateResult.fold(
       (failure) async {
@@ -97,7 +97,8 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
       },
       (_) async {
         // City updated, now proceed with role-based routing
-        final rolesResult = await userRepository.getUserRoles(uid);
+        final getUserRolesUseCase = ref.read(auth_core.getUserRolesProvider);
+        final rolesResult = await getUserRolesUseCase.call(uid);
         await rolesResult.fold(
           (failure) async {
             state = LoginFlowError(failure);
@@ -135,8 +136,8 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
 
   Future<void> selectRole(String uid, UserRole selectedRole, String city) async {
     state = const LoginFlowLoading();
-    final userRepository = ref.read(userRepositoryProvider);
-    final rolesResult = await userRepository.getUserRoles(uid);
+    final getUserRolesUseCase = ref.read(auth_core.getUserRolesProvider);
+    final rolesResult = await getUserRolesUseCase.call(uid);
 
     await rolesResult.fold(
       (failure) async {
@@ -163,11 +164,12 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
     String city,
     Map<String, bool> rolesMap,
   ) async {
-    final roleCacheService = ref.read(roleCacheServiceProvider);
+    final roleCacheService = ref.read(auth_core.roleCacheServiceProvider);
     await roleCacheService.saveLastSelectedRole(selectedRole);
 
-    final userRepository = ref.read(userRepositoryProvider);
-    final onboardingResult = await userRepository.isMerchantOnboardingCompleted(uid);
+    final isOnboardingCompletedUseCase =
+        ref.read(auth_core.isMerchantOnboardingCompletedProvider);
+    final onboardingResult = await isOnboardingCompletedUseCase.call(uid);
 
     await onboardingResult.fold(
       (failure) async {

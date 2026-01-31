@@ -25,5 +25,9 @@ abstract class AuthRepository {
 
   Future<Result<Unit>> signOut();
 
+  Future<Result<Unit>> sendPasswordResetEmail({
+    required EmailAddress email,
+  });
+
   Stream<Result<AuthUser?>> watchAuthState();
 }
