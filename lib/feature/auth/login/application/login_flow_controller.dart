@@ -1,197 +1,190 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/domain/repositories/user_repository.dart';
-import '../../core/domain/repositories/auth_repository.dart';
+import '../../core/application/providers.dart' as auth_core;
 import '../../core/domain/auth_failure.dart';
-import '../../../../types.dart';
-import 'sign_in_with_email_password.dart';
-import 'state/login_flow_state.dart';
+import '../../../../../types.dart';
+import '../application/state/login_flow_state.dart';
+import 'providers.dart';
 
-/// Controller for the complete login flow
-/// 
-/// Orchestrates: sign in → fetch profile → check city → check roles → determine routing
 class LoginFlowController extends StateNotifier<LoginFlowState> {
-  LoginFlowController({
-    required SignInWithEmailPassword signInWithEmailPassword,
-    required UserRepository userRepository,
-    required AuthRepository authRepository,
-  })  : _signInWithEmailPassword = signInWithEmailPassword,
-        _userRepository = userRepository,
-        _authRepository = authRepository,
-        super(const LoginFlowInitial());
+  LoginFlowController(this.ref) : super(const LoginFlowInitial());
 
-  final SignInWithEmailPassword _signInWithEmailPassword;
-  final UserRepository _userRepository;
-  final AuthRepository _authRepository;
+  final Ref ref;
 
-  /// Start the complete login flow
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  /// Reset the login flow to initial state
+  /// Useful when user cancels city picker or role selection
+  void reset() {
+    state = const LoginFlowInitial();
+  }
+
+  Future<void> signIn({required String email, required String password}) async {
     state = const LoginFlowLoading();
 
-    // Step 1: Sign in with email and password
-    final signInResult = await _signInWithEmailPassword(
-      email: email,
-      password: password,
-    );
+    final signInUseCase = ref.read(signInWithEmailPasswordProvider);
+    final signInResult = await signInUseCase.call(email: email, password: password);
 
     await signInResult.fold(
       (failure) async {
         state = LoginFlowError(failure);
       },
       (authUser) async {
-        // Step 2: Fetch user profile to verify it exists
-        await _handleProfileFetch(authUser.id);
-      },
-    );
-  }
+        final getUserRolesUseCase = ref.read(auth_core.getUserRolesProvider);
+        final profileCheckResult = await getUserRolesUseCase.call(authUser.id);
 
-  /// Handle profile fetch and continue flow
-  Future<void> _handleProfileFetch(String uid) async {
-    final roleResult = await _userRepository.getUserRole(uid);
-    
-    await roleResult.fold(
-      (failure) async {
-        // Profile fetch failed - sign out and show error
-        await _authRepository.signOut();
-        state = LoginFlowError(failure);
-      },
-      (role) async {
-        if (role == null) {
-          // Profile doesn't exist - sign out and show error
-          await _authRepository.signOut();
-          state = const LoginFlowError(
-            AuthUnexpectedFailure(message: 'Profil utilisateur introuvable.'),
-          );
-        } else {
-          // Profile exists - check city
-          await _handleCityCheck(uid, role);
-        }
-      },
-    );
-  }
+        await profileCheckResult.fold(
+          (failure) async {
+            state = LoginFlowError(failure);
+            await ref.read(auth_core.signOutProvider).call();
+          },
+          (rolesMap) async {
+            if (rolesMap == null) {
+              state = const LoginFlowError(
+                AuthUnexpectedFailure(
+                  message: 'Profil utilisateur introuvable. Veuillez vous inscrire via l\'application pour créer votre profil.',
+                ),
+              );
+              await ref.read(auth_core.signOutProvider).call();
+              return;
+            }
 
-  /// Handle city check and continue flow
-  Future<void> _handleCityCheck(String uid, UserRole role) async {
-    final cityResult = await _userRepository.getUserCity(uid);
-    
-    await cityResult.fold(
-      (failure) async {
-        state = LoginFlowError(failure);
-      },
-      (city) async {
-        if (city == null || city.isEmpty) {
-          // City is missing - require city selection
-          state = LoginFlowCityRequired(uid);
-        } else {
-          // City exists - check for multi-role
-          await _handleRoleCheck(uid, city);
-        }
-      },
-    );
-  }
+            final getUserCityUseCase = ref.read(auth_core.getUserCityProvider);
+            final cityResult = await getUserCityUseCase.call(authUser.id);
+            await cityResult.fold(
+              (failure) async {
+                state = LoginFlowError(failure);
+              },
+              (city) async {
+                if (city == null || city.isEmpty) {
+                  state = LoginFlowCityRequired(authUser.id);
+                  return;
+                }
 
-  /// Handle role check and determine if multi-role selection is needed
-  Future<void> _handleRoleCheck(String uid, String city) async {
-    final rolesResult = await _userRepository.getUserRoles(uid);
-    
-    await rolesResult.fold(
-      (failure) async {
-        state = LoginFlowError(failure);
-      },
-      (roles) async {
-        if (roles == null) {
-          state = const LoginFlowError(
-            AuthUnexpectedFailure(message: 'Impossible de récupérer les rôles utilisateur.'),
-          );
-          return;
-        }
+                final hasClientRole = rolesMap['client'] == true;
+                final hasMerchantRole = rolesMap['merchant'] == true;
+                final isMultiRole = hasClientRole && hasMerchantRole;
 
-        final isClient = roles['client'] == true;
-        final isMerchant = roles['merchant'] == true;
-
-        if (isClient && isMerchant) {
-          // Multi-role user - show selection dialog
-          state = LoginFlowMultiRoleRequired(
-            uid: uid,
-            roles: roles,
-            city: city,
-          );
-        } else if (isMerchant) {
-          // Merchant only - check onboarding
-          await _handleMerchantOnboarding(uid, city);
-        } else {
-          // Client only - complete flow
-          state = LoginFlowSuccess(
-            uid: uid,
-            role: UserRole.client,
-            city: city,
-            onboardingCompleted: true, // Clients don't have onboarding
-          );
-        }
-      },
-    );
-  }
-
-  /// Handle merchant onboarding check
-  Future<void> _handleMerchantOnboarding(String uid, String city) async {
-    final onboardingResult = await _userRepository.isMerchantOnboardingCompleted(uid);
-    
-    await onboardingResult.fold(
-      (failure) async {
-        state = LoginFlowError(failure);
-      },
-      (onboardingCompleted) async {
-        state = LoginFlowSuccess(
-          uid: uid,
-          role: UserRole.merchant,
-          city: city,
-          onboardingCompleted: onboardingCompleted ?? false,
+                if (isMultiRole) {
+                  state = LoginFlowMultiRoleRequired(
+                    uid: authUser.id,
+                    roles: rolesMap,
+                    city: city,
+                  );
+                } else {
+                  final selectedRole =
+                      hasClientRole ? UserRole.client : UserRole.merchant;
+                  await _handleRoleSelectionAndRouting(
+                    authUser.id,
+                    selectedRole,
+                    city,
+                    rolesMap,
+                  );
+                }
+              },
+            );
+          },
         );
       },
     );
   }
 
-  /// Update city after user selection
   Future<void> updateCity(String uid, String city) async {
     state = const LoginFlowLoading();
-    
-    final updateResult = await _userRepository.updateUserCity(
-      uid: uid,
-      city: city,
-    );
-    
+    final updateUserCityUseCase = ref.read(auth_core.updateUserCityProvider);
+    final updateResult = await updateUserCityUseCase.call(uid: uid, city: city);
+
     await updateResult.fold(
       (failure) async {
         state = LoginFlowError(failure);
       },
       (_) async {
-        // City updated - continue with role check
-        await _handleRoleCheck(uid, city);
+        // City updated, now proceed with role-based routing
+        final getUserRolesUseCase = ref.read(auth_core.getUserRolesProvider);
+        final rolesResult = await getUserRolesUseCase.call(uid);
+        await rolesResult.fold(
+          (failure) async {
+            state = LoginFlowError(failure);
+          },
+          (rolesMap) async {
+            if (rolesMap == null) {
+              state = const LoginFlowError(
+                AuthUnexpectedFailure(
+                  message: 'Profil utilisateur introuvable. Veuillez vous inscrire via l\'application pour créer votre profil.',
+                ),
+              );
+              await ref.read(auth_core.signOutProvider).call();
+              return;
+            }
+            final hasClientRole = rolesMap['client'] == true;
+            final hasMerchantRole = rolesMap['merchant'] == true;
+            final isMultiRole = hasClientRole && hasMerchantRole;
+
+            if (isMultiRole) {
+              state = LoginFlowMultiRoleRequired(
+                uid: uid,
+                roles: rolesMap,
+                city: city,
+              );
+            } else {
+              final selectedRole =
+                  hasClientRole ? UserRole.client : UserRole.merchant;
+              await _handleRoleSelectionAndRouting(uid, selectedRole, city, rolesMap);
+            }
+          },
+        );
       },
     );
   }
 
-  /// Select role for multi-role user
   Future<void> selectRole(String uid, UserRole selectedRole, String city) async {
-    if (selectedRole == UserRole.merchant) {
-      // Check onboarding for merchant
-      await _handleMerchantOnboarding(uid, city);
-    } else {
-      // Client - complete flow
-      state = LoginFlowSuccess(
-        uid: uid,
-        role: UserRole.client,
-        city: city,
-        onboardingCompleted: true,
-      );
-    }
+    state = const LoginFlowLoading();
+    final getUserRolesUseCase = ref.read(auth_core.getUserRolesProvider);
+    final rolesResult = await getUserRolesUseCase.call(uid);
+
+    await rolesResult.fold(
+      (failure) async {
+        state = LoginFlowError(failure);
+      },
+      (rolesMap) async {
+        if (rolesMap == null) {
+          state = const LoginFlowError(
+            AuthUnexpectedFailure(
+              message: 'Profil utilisateur introuvable. Veuillez vous inscrire via l\'application pour créer votre profil.',
+            ),
+          );
+          await ref.read(auth_core.signOutProvider).call();
+          return;
+        }
+        await _handleRoleSelectionAndRouting(uid, selectedRole, city, rolesMap);
+      },
+    );
   }
 
-  /// Reset to initial state
-  void reset() {
-    state = const LoginFlowInitial();
+  Future<void> _handleRoleSelectionAndRouting(
+    String uid,
+    UserRole selectedRole,
+    String city,
+    Map<String, bool> rolesMap,
+  ) async {
+    final roleCacheService = ref.read(auth_core.roleCacheServiceProvider);
+    await roleCacheService.saveLastSelectedRole(selectedRole);
+
+    final isOnboardingCompletedUseCase =
+        ref.read(auth_core.isMerchantOnboardingCompletedProvider);
+    final onboardingResult = await isOnboardingCompletedUseCase.call(uid);
+
+    await onboardingResult.fold(
+      (failure) async {
+        state = LoginFlowError(failure);
+      },
+      (onboardingCompleted) async {
+        final actualOnboardingCompleted = onboardingCompleted ?? false;
+        state = LoginFlowSuccess(
+          uid: uid,
+          role: selectedRole,
+          city: city,
+          onboardingCompleted: actualOnboardingCompleted,
+        );
+      },
+    );
   }
 }
 
