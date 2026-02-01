@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/application/providers.dart' as auth_core;
-import '../../core/domain/auth_failure.dart';
+import '../../core/domain/entities/auth_user.dart';
 import '../../../../../types.dart';
 import '../application/state/login_flow_state.dart';
 import 'providers.dart';
@@ -27,59 +27,39 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
         state = LoginFlowError(failure);
       },
       (authUser) async {
-        final getUserRolesUseCase = ref.read(auth_core.getUserRolesProvider);
-        final profileCheckResult = await getUserRolesUseCase.call(authUser.id);
-
-        await profileCheckResult.fold(
+        final rolesMap = await _resolveRoles(authUser);
+        final getUserCityUseCase = ref.read(auth_core.getUserCityProvider);
+        final cityResult = await getUserCityUseCase.call(authUser.id);
+        await cityResult.fold(
           (failure) async {
             state = LoginFlowError(failure);
-            await ref.read(auth_core.signOutProvider).call();
           },
-          (rolesMap) async {
-            if (rolesMap == null) {
-              state = const LoginFlowError(
-                AuthUnexpectedFailure(
-                  message: 'Profil utilisateur introuvable. Veuillez vous inscrire via l\'application pour créer votre profil.',
-                ),
-              );
-              await ref.read(auth_core.signOutProvider).call();
+          (city) async {
+            if (city == null || city.isEmpty) {
+              state = LoginFlowCityRequired(authUser.id);
               return;
             }
 
-            final getUserCityUseCase = ref.read(auth_core.getUserCityProvider);
-            final cityResult = await getUserCityUseCase.call(authUser.id);
-            await cityResult.fold(
-              (failure) async {
-                state = LoginFlowError(failure);
-              },
-              (city) async {
-                if (city == null || city.isEmpty) {
-                  state = LoginFlowCityRequired(authUser.id);
-                  return;
-                }
+            final hasClientRole = rolesMap['client'] == true;
+            final hasMerchantRole = rolesMap['merchant'] == true;
+            final isMultiRole = hasClientRole && hasMerchantRole;
 
-                final hasClientRole = rolesMap['client'] == true;
-                final hasMerchantRole = rolesMap['merchant'] == true;
-                final isMultiRole = hasClientRole && hasMerchantRole;
-
-                if (isMultiRole) {
-                  state = LoginFlowMultiRoleRequired(
-                    uid: authUser.id,
-                    roles: rolesMap,
-                    city: city,
-                  );
-                } else {
-                  final selectedRole =
-                      hasClientRole ? UserRole.client : UserRole.merchant;
-                  await _handleRoleSelectionAndRouting(
-                    authUser.id,
-                    selectedRole,
-                    city,
-                    rolesMap,
-                  );
-                }
-              },
-            );
+            if (isMultiRole) {
+              state = LoginFlowMultiRoleRequired(
+                uid: authUser.id,
+                roles: rolesMap,
+                city: city,
+              );
+            } else {
+              final selectedRole =
+                  hasClientRole ? UserRole.client : UserRole.merchant;
+              await _handleRoleSelectionAndRouting(
+                authUser.id,
+                selectedRole,
+                city,
+                rolesMap,
+              );
+            }
           },
         );
       },
@@ -104,29 +84,27 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
             state = LoginFlowError(failure);
           },
           (rolesMap) async {
-            if (rolesMap == null) {
-              state = const LoginFlowError(
-                AuthUnexpectedFailure(
-                  message: 'Profil utilisateur introuvable. Veuillez vous inscrire via l\'application pour créer votre profil.',
-                ),
-              );
-              await ref.read(auth_core.signOutProvider).call();
-              return;
-            }
-            final hasClientRole = rolesMap['client'] == true;
-            final hasMerchantRole = rolesMap['merchant'] == true;
+            // Use fallback roles if rolesMap is null (don't sign out - use fallback)
+            final effectiveRolesMap = rolesMap ?? <String, bool>{
+              'client': true, // Default to client if roles missing
+              'merchant': false,
+              'provider': false,
+            };
+            
+            final hasClientRole = effectiveRolesMap['client'] == true;
+            final hasMerchantRole = effectiveRolesMap['merchant'] == true;
             final isMultiRole = hasClientRole && hasMerchantRole;
 
             if (isMultiRole) {
               state = LoginFlowMultiRoleRequired(
                 uid: uid,
-                roles: rolesMap,
+                roles: effectiveRolesMap,
                 city: city,
               );
             } else {
               final selectedRole =
                   hasClientRole ? UserRole.client : UserRole.merchant;
-              await _handleRoleSelectionAndRouting(uid, selectedRole, city, rolesMap);
+              await _handleRoleSelectionAndRouting(uid, selectedRole, city, effectiveRolesMap);
             }
           },
         );
@@ -144,16 +122,15 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
         state = LoginFlowError(failure);
       },
       (rolesMap) async {
-        if (rolesMap == null) {
-          state = const LoginFlowError(
-            AuthUnexpectedFailure(
-              message: 'Profil utilisateur introuvable. Veuillez vous inscrire via l\'application pour créer votre profil.',
-            ),
-          );
-          await ref.read(auth_core.signOutProvider).call();
-          return;
-        }
-        await _handleRoleSelectionAndRouting(uid, selectedRole, city, rolesMap);
+        // Use fallback roles if rolesMap is null (don't sign out - use fallback)
+        // Build roles map based on selected role if rolesMap is missing
+        final effectiveRolesMap = rolesMap ?? <String, bool>{
+          'client': selectedRole == UserRole.client,
+          'merchant': selectedRole == UserRole.merchant,
+          'provider': false,
+        };
+        
+        await _handleRoleSelectionAndRouting(uid, selectedRole, city, effectiveRolesMap);
       },
     );
   }
@@ -164,27 +141,63 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
     String city,
     Map<String, bool> rolesMap,
   ) async {
-    final roleCacheService = ref.read(auth_core.roleCacheServiceProvider);
-    await roleCacheService.saveLastSelectedRole(selectedRole);
+    // TODO: Implement role cache service if needed
+    // final roleCacheService = ref.read(auth_core.roleCacheServiceProvider);
+    // await roleCacheService.saveLastSelectedRole(selectedRole);
 
-    final isOnboardingCompletedUseCase =
-        ref.read(auth_core.isMerchantOnboardingCompletedProvider);
-    final onboardingResult = await isOnboardingCompletedUseCase.call(uid);
-
-    await onboardingResult.fold(
-      (failure) async {
-        state = LoginFlowError(failure);
-      },
-      (onboardingCompleted) async {
-        final actualOnboardingCompleted = onboardingCompleted ?? false;
-        state = LoginFlowSuccess(
-          uid: uid,
-          role: selectedRole,
-          city: city,
-          onboardingCompleted: actualOnboardingCompleted,
+    // Only check onboarding for merchants; clients don't need it
+    bool actualOnboardingCompleted = false;
+    if (selectedRole == UserRole.merchant) {
+      try {
+        final isOnboardingCompletedUseCase =
+            ref.read(auth_core.isMerchantOnboardingCompletedProvider);
+        final onboardingResult = await isOnboardingCompletedUseCase.call(uid);
+        actualOnboardingCompleted = onboardingResult.fold(
+          (_) => false, // On failure, assume incomplete (non-fatal)
+          (completed) => completed ?? false,
         );
-      },
+      } catch (_) {
+        // Any exception -> assume incomplete (non-fatal)
+        actualOnboardingCompleted = false;
+      }
+    }
+
+    state = LoginFlowSuccess(
+      uid: uid,
+      role: selectedRole,
+      city: city,
+      onboardingCompleted: actualOnboardingCompleted,
     );
+  }
+
+  Future<Map<String, bool>> _resolveRoles(AuthUser authUser) async {
+    final fallbackRoles = <String, bool>{
+      'client': authUser.role.toLowerCase() != 'merchant',
+      'merchant': authUser.role.toLowerCase() == 'merchant',
+      'provider': false,
+    };
+
+    try {
+      final getUserRolesUseCase = ref.read(auth_core.getUserRolesProvider);
+      final profileCheckResult = await getUserRolesUseCase.call(authUser.id);
+
+      return await profileCheckResult.fold(
+        (failure) async {
+          // On failure, fall back to authUser role (don’t force sign-out)
+          return fallbackRoles;
+        },
+        (rolesMap) async {
+          if (rolesMap == null) {
+            // Legacy or missing roles map — use authUser role fallback
+            return fallbackRoles;
+          }
+          return rolesMap;
+        },
+      );
+    } catch (_) {
+      // Any unexpected error -> fallback
+      return fallbackRoles;
+    }
   }
 }
 

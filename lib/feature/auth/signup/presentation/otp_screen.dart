@@ -12,7 +12,6 @@ class OTPScreen extends ConsumerStatefulWidget {
   const OTPScreen({
     super.key,
     required this.onBack,
-    required this.onVerify,
     required this.userId,
     required this.phone,
     required this.onResend,
@@ -25,7 +24,6 @@ class OTPScreen extends ConsumerStatefulWidget {
   });
 
   final VoidCallback onBack;
-  final VoidCallback onVerify;
   final String userId; // User ID (empty until OTP verified and user created)
   final String phone;
   final VoidCallback onResend;
@@ -208,14 +206,9 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
         // Firestore profile created successfully
         if (mounted) {
           showSuccessSnackbar(context, 'Inscription réussie!');
-          // Wait a bit for auth state to update, then navigate
-          // This ensures the auth state provider has time to emit the new authenticated state
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) {
-              // Navigate to home (via onVerify callback)
-              widget.onVerify();
-            }
-          });
+          // Navigation will be driven by auth state changes (AuthController + navigation provider)
+          // Just pop OTP screen; auth stream will emit Authenticated and RootShell will navigate.
+          Navigator.of(context).pop();
         }
       },
     );
@@ -289,9 +282,9 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
                 ),
               ),
               _buildLogoSection(),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
               _buildOTPFields(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               _buildResendButton(),
             ],
           ),
@@ -325,7 +318,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             size: 40,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         RichText(
           text: const TextSpan(
             children: [
@@ -340,6 +333,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 6),
         const Text(
           'pour eux, pour vous',
           style: TextStyle(
@@ -348,7 +342,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             letterSpacing: 1,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
         const Text(
           'Vérification',
           style: TextStyle(
@@ -357,13 +351,14 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
             style: const TextStyle(
               fontSize: 14,
               color: textGrey,
+              height: 1.5,
             ),
             children: [
               const TextSpan(text: 'Entrez le code envoyé au\n'),
@@ -372,13 +367,13 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
                 style: const TextStyle(
                   color: primaryGold,
                   fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  fontSize: 16,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         GestureDetector(
           onTap: _isVerifying ? null : widget.onBack,
           child: Text(
@@ -429,10 +424,11 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     return Column(
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: List.generate(6, (index) {
         return SizedBox(
-          width: 48,
+          width: 52,
+          height: 64,
           child: TextField(
             controller: _controllers[index],
             focusNode: _focusNodes[index],
@@ -457,7 +453,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
               counterText: '',
               filled: true,
               fillColor: bgDark2,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(vertical: 18),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: borderColor, width: 1),

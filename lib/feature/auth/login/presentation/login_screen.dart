@@ -23,18 +23,11 @@ class LoginScreen extends ConsumerStatefulWidget {
     super.key,
     required this.role,
     required this.onBack,
-    required this.onLoginSuccess,
     required this.onSignup,
   });
 
   final UserRole role;
   final VoidCallback onBack;
-  final Function({
-    required String uid,
-    required UserRole role,
-    required String city,
-    required bool onboardingCompleted,
-  }) onLoginSuccess;
   final VoidCallback onSignup;
 
   @override
@@ -48,6 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
   bool _isPasswordVisible = false;
+  bool _isLoginSubmitting = false; // simple debounce to prevent rapid taps
   bool _shouldValidateRequired = false; // Track if we should show "required" errors
   bool _emailHasBeenValidated = false; // Track if email field has been validated (blurred)
 
@@ -133,11 +127,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
+    if (_isLoginSubmitting) return;
+    setState(() => _isLoginSubmitting = true);
+
     final loginFlowController = ref.read(loginFlowControllerProvider.notifier);
-    await loginFlowController.signIn(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
+    try {
+      await loginFlowController.signIn(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoginSubmitting = false);
+      }
+    }
   }
 
   void _showCityPicker(String uid) {
@@ -387,15 +390,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (previous == null) return;
 
         if (next is LoginFlowSuccess) {
-          widget.onLoginSuccess(
-            uid: next.uid,
-            role: next.role,
-            city: next.city,
-            onboardingCompleted: next.onboardingCompleted,
-          );
+          // Login successful - userChanges() stream will automatically emit the authenticated user
+          // DO NOT call refreshAuthState() - it cancels and re-subscribes which can cause logout
+          // The stream will naturally emit when Firebase Auth updates
         } else if (next is LoginFlowError) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(next.failure);
-          if (mounted) {
+          if (mounted && frenchMessage != null) {
             showErrorSnackbar(context, frenchMessage);
           }
         } else if (next is LoginFlowCityRequired) {
@@ -506,7 +506,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           shadowColor: const Color(0xFFBF8719).withOpacity(0.3),
                           elevation: isLoading ? 4 : 2,
                         ),
-                        onPressed: isLoading ? null : _handleLogin,
+                        onPressed: (isLoading || _isLoginSubmitting) ? null : _handleLogin,
                         child: isLoading
                             ? SizedBox(
                                 width: 24,

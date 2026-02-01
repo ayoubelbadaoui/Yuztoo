@@ -82,9 +82,23 @@ class PhoneFormatter {
       countryCode = '+420';
       number = parts.skip(3).join('');
     } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '2') {
-      // Morocco +212
+      // Morocco +212 - format: +212 6 50 01 46 83
       countryCode = '+212';
       number = parts.skip(3).join('');
+      // Format Morocco numbers: single digit + groups of 2
+      if (number.isNotEmpty) {
+        String formattedNumber = number[0]; // First digit
+        // Group remaining digits in pairs
+        for (int i = 1; i < number.length; i += 2) {
+          formattedNumber += ' '; // Add space before each pair
+          if (i + 1 < number.length) {
+            formattedNumber += number[i] + number[i + 1]; // Add pair
+          } else {
+            formattedNumber += number[i]; // Last single digit if odd
+          }
+        }
+        return '$countryCode $formattedNumber';
+      }
     } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '3') {
       // Algeria +213
       countryCode = '+213';

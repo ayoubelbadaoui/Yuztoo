@@ -72,16 +72,26 @@ class FirebaseUserRepository implements UserRepository {
       }
 
       final roles = data['roles'] as Map<String, dynamic>?;
-      if (roles == null) {
-        return const Right<AuthFailure, UserRole?>(null);
+      if (roles != null) {
+        if (roles['merchant'] == true) {
+          return const Right<AuthFailure, UserRole?>(UserRole.merchant);
+        }
+        if (roles['client'] == true) {
+          return const Right<AuthFailure, UserRole?>(UserRole.client);
+        }
       }
 
-      // Check if user is merchant
-      if (roles['merchant'] == true) {
-        return const Right<AuthFailure, UserRole?>(UserRole.merchant);
+      // Fallback for legacy schema using a single "role" string
+      final legacyRole = data['role'] as String?;
+      if (legacyRole != null) {
+        final normalized = legacyRole.toLowerCase();
+        if (normalized == 'merchant') {
+          return const Right<AuthFailure, UserRole?>(UserRole.merchant);
+        }
+        return const Right<AuthFailure, UserRole?>(UserRole.client);
       }
 
-      // Default to client
+      // Default to client when nothing else is present
       return const Right<AuthFailure, UserRole?>(UserRole.client);
     } catch (e, st) {
       LoggerService.logError(
@@ -191,18 +201,30 @@ class FirebaseUserRepository implements UserRepository {
       }
 
       final roles = data['roles'] as Map<String, dynamic>?;
-      if (roles == null) {
-        return const Right<AuthFailure, Map<String, bool>?>(null);
+      if (roles != null) {
+        // Convert to Map<String, bool>
+        final rolesMap = <String, bool>{
+          'client': roles['client'] == true,
+          'merchant': roles['merchant'] == true,
+          'provider': roles['provider'] == true,
+        };
+        return Right<AuthFailure, Map<String, bool>?>(rolesMap);
       }
 
-      // Convert to Map<String, bool>
-      final rolesMap = <String, bool>{
-        'client': roles['client'] == true,
-        'merchant': roles['merchant'] == true,
-        'provider': roles['provider'] == true,
-      };
+      // Fallback for legacy schema using a single "role" string
+      final legacyRole = data['role'] as String?;
+      if (legacyRole != null) {
+        final normalized = legacyRole.toLowerCase();
+        final rolesMap = <String, bool>{
+          'client': normalized != 'merchant', // default client if not merchant
+          'merchant': normalized == 'merchant',
+          'provider': false,
+        };
+        return Right<AuthFailure, Map<String, bool>?>(rolesMap);
+      }
 
-      return Right<AuthFailure, Map<String, bool>?>(rolesMap);
+      // Nothing found
+      return const Right<AuthFailure, Map<String, bool>?>(null);
     } catch (e, st) {
       LoggerService.logError(
         'Error getting user roles',
@@ -239,8 +261,10 @@ class FirebaseUserRepository implements UserRepository {
         return const Right<AuthFailure, bool?>(null);
       }
 
-      // Check onboarding status (defaults to false if not set)
-      final onboardingCompleted = data['onboardingCompleted'] as bool? ?? false;
+      // Check onboarding status from nested onboarding.merchant field
+      // Falls back to false if not set (defaults to incomplete)
+      final onboarding = data['onboarding'] as Map<String, dynamic>?;
+      final onboardingCompleted = onboarding?['merchant'] as bool? ?? false;
       return Right<AuthFailure, bool?>(onboardingCompleted);
     } catch (e, st) {
       LoggerService.logError(

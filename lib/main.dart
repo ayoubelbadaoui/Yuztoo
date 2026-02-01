@@ -1,10 +1,14 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_bootstrap.dart';
+import 'core/domain/core/either.dart';
+import 'core/domain/core/failure.dart';
 import 'core/domain/core/result.dart';
 import 'feature/auth/core/application/providers.dart';
+import 'feature/auth/core/application/state/auth_state.dart';
 import 'feature/auth/core/domain/entities/auth_user.dart';
 import 'theme.dart';
 import 'types.dart';
@@ -61,53 +65,34 @@ class _RootShell extends ConsumerStatefulWidget {
 }
 
 class _RootShellState extends ConsumerState<_RootShell> {
-  ScreenId? _currentScreen; // null = loading/auth checking
-  UserRole? _role;
+  ProviderSubscription<AuthState>? _authStateSub;
+  // Main navigation screen from provider (auth flow)
+  ScreenId? _authScreen; // null = loading
+  // Within-app navigation (discovery, messages, etc.) - manual state
+  ScreenId? _nestedScreen; // null = use _authScreen
+  UserRole? _role; // For bottom nav and role-based navigation
   String _activeTab = 'home';
-  String? _signupUserId; // Store user ID from signup (passed to OTP screen)
-  String? _phoneNumber; // Store phone number for OTP screen
-  String? _verificationId; // Store verificationId for OTP resend
-  String? _signupEmail; // Store email for Firestore profile
-  String? _signupCity; // Store city for Firestore profile
-  String? _otpUnavailableMessage; // Store error message when OTP is unavailable
-  bool _hasCheckedAuth = false; // Track if we've checked auth state
-  ProviderSubscription<AsyncValue<Result<AuthUser?>>>? _authStateSub;
+  // Signup/OTP flow data
+  String? _signupUserId;
+  String? _phoneNumber;
+  String? _verificationId;
+  String? _signupEmail;
+  String? _signupPassword;
+  String? _signupCity;
+  String? _otpUnavailableMessage;
 
   @override
   void initState() {
     super.initState();
-    _listenToAuthState();
-  }
+    // Initialize to splash screen immediately
+    _authScreen = ScreenId.splash;
+    _hasReceivedFirstAuthState = false;
+    _isNavigatingToHome = false;
 
-  /// Listen to auth state changes from application layer
-  /// This ensures we catch auth state even if Firebase hasn't fully initialized yet
-  void _listenToAuthState() {
-    // Use authResultStreamProvider from application layer (respects architecture)
-    //
-    // IMPORTANT: In Riverpod, `ref.listen` must be called while building.
-    // For initState / lifecycle, use `ref.listenManual`.
-    _authStateSub?.close();
-    _authStateSub = ref.listenManual<AsyncValue<Result<AuthUser?>>>(
-      authResultStreamProvider,
-      (previous, next) {
-        // Only handle the first DATA auth state change (on app start).
-        // Keep listening through loading/error so we don't lock the app into a bad state.
-        if (_hasCheckedAuth) return;
-
-        next.when(
-          data: (result) async {
-            if (_hasCheckedAuth) return;
-            _hasCheckedAuth = true;
-            await _handleAuthStateChange(result);
-          },
-          loading: () {
-            // Still initializing; do nothing.
-          },
-          error: (_, __) {
-            // Firebase may not be ready yet; do nothing and keep waiting for a data event.
-          },
-        );
-      },
+    // Listen immediately so we don't miss a fast first auth emission.
+    _authStateSub = ref.listenManual<AuthState>(
+      authControllerProvider,
+      (previous, next) => _handleAuthStateChange(next),
       fireImmediately: true,
     );
   }
@@ -118,89 +103,251 @@ class _RootShellState extends ConsumerState<_RootShell> {
     super.dispose();
   }
 
-  /// Handle auth state change on app start
-  /// If authenticated, navigate to appropriate home screen (skip splash)
-  /// If not authenticated, show splash then go to role selection
-  Future<void> _handleAuthStateChange(Result<AuthUser?> result) async {
-    final user = result.fold(
-      (_) => null,
-      (u) => u,
-    );
+  bool _hasReceivedFirstAuthState = false;
+  bool _isNavigatingToHome = false; // Track when we're navigating to home
 
-    if (user != null) {
-      // User is authenticated - get role from Firestore using application layer
-      try {
-        final getUserRole = ref.read(getUserRoleProvider);
-        final roleResult = await getUserRole.call(user.id);
-        final role = roleResult.fold(
-          (_) => null,
-          (r) => r,
-        );
-        
-        if (mounted) {
-          setState(() {
-            _role = role ?? UserRole.client; // Default to client if role not found
-            if (_role == UserRole.client) {
-              _currentScreen = ScreenId.clientHome;
-              _activeTab = 'home';
-            } else {
-              _currentScreen = ScreenId.merchantDashboard;
-              _activeTab = 'dashboard';
-            }
-          });
-          // Skip splash - user is authenticated, go directly to home
-        }
-      } catch (e) {
-        // Error getting role - default to client and show home
-        if (mounted) {
-          setState(() {
-            _role = UserRole.client;
-            _currentScreen = ScreenId.clientHome;
-            _activeTab = 'home';
-          });
-        }
+  /// Handle auth state changes and update navigation
+  void _handleAuthStateChange(AuthState authState) {
+    if (!mounted) return;
+    
+    if (authState is AuthInitial) {
+      // Initial state - show splash while auth stream initializes
+      // Only set if we're on splash or null
+      if (_authScreen == null || _authScreen == ScreenId.splash) {
+        setState(() => _authScreen = ScreenId.splash);
+      }
+      return;
+    } else if (authState is AuthLoading) {
+      // Show loading, but keep splash if we haven't received first state yet
+      if (!_hasReceivedFirstAuthState || _isNavigatingToHome) {
+        setState(() => _authScreen = ScreenId.splash);
+      } else {
+        setState(() => _authScreen = null); // Show loading
       }
     } else {
-      // No user - show splash, will navigate to role selection when splash completes
-      // (splash screen will handle navigation after 2 seconds)
+      // Mark that we've received the first real auth state.
+      // IMPORTANT: capture whether this is the first state BEFORE flipping the flag,
+      // so AuthError can correctly route off splash on first emission.
+      final wasFirstRealAuthState = !_hasReceivedFirstAuthState;
+      _hasReceivedFirstAuthState = true;
+      
+      if (authState is Unauthenticated) {
+        // Reset navigation flag
+        _isNavigatingToHome = false;
+        
+        // On first auth state, if unauthenticated, go to role selection
+        // But if we're already on a home screen (shouldn't happen, but safety check), don't navigate
+        // IMPORTANT: If we're navigating to home (just logged in), don't navigate away
+        // This prevents race conditions where userChanges() emits null briefly
+        final onHomeScreen = _authScreen == ScreenId.clientHome ||
+            _authScreen == ScreenId.merchantDashboard;
+        final inAuthFlow = _authScreen == ScreenId.login ||
+            _authScreen == ScreenId.signup ||
+            _authScreen == ScreenId.otp;
+        
+        // Don't navigate if we're in the middle of navigating to home (prevents logout during login)
+        if (!onHomeScreen && !inAuthFlow && !_isNavigatingToHome) {
+          setState(() {
+            _authScreen = ScreenId.roleSelection;
+            _role = null;
+            _nestedScreen = null;
+          });
+        }
+      } else if (authState is AuthError) {
+        // Reset navigation flag
+        _isNavigatingToHome = false;
+        
+        // Only navigate to role selection if this is the first real auth state.
+        // This prevents showing errors for temporary network issues during app startup
+        if (wasFirstRealAuthState) {
+          // First real state is an error - likely temporary, treat as unauthenticated
+          setState(() {
+            _authScreen = ScreenId.roleSelection;
+            _role = null;
+            _nestedScreen = null;
+          });
+        }
+        // If we already have a state, don't navigate away (prevents flicker)
+        // The error might be temporary and will resolve on next auth state change
+      } else if (authState is Authenticated) {
+        // For authenticated users, compute navigation based on role
+        // Keep splash screen until navigation is ready
+        // Set flag and ensure splash BEFORE async operation to prevent any flicker
+        _isNavigatingToHome = true;
+        if (_authScreen != ScreenId.splash) {
+          setState(() => _authScreen = ScreenId.splash);
+        }
+        // Now handle navigation (async)
+        _handleAuthenticatedUser(authState.user);
+      }
+    }
+  }
+  
+  /// Handle authenticated user - compute role and navigate
+  /// Handles delays gracefully without showing errors
+  /// Keeps splash screen until navigation is ready to prevent flicker
+  /// NOTE: Flag and splash screen are set synchronously in _handleAuthStateChange
+  /// before this async function is called to prevent any race conditions
+  Future<void> _handleAuthenticatedUser(AuthUser user) async {
+    if (!mounted) {
+      _isNavigatingToHome = false;
+      return;
+    }
+    
+    // Flag is already set in _handleAuthStateChange, but ensure we're still on splash
+    if (_authScreen != ScreenId.splash && mounted) {
+      setState(() => _authScreen = ScreenId.splash);
+    }
+    
+    // Use fallback role immediately (from user.role) to prevent delays
+    final fallbackRole = _mapUserRoleString(user.role) ?? UserRole.client;
+    
+    try {
+      // Get user role with timeout to handle network delays gracefully
+      final getUserRole = ref.read(getUserRoleProvider);
+      Result<UserRole?> roleResult;
+      try {
+        roleResult = await getUserRole
+            .call(user.id)
+            .timeout(const Duration(seconds: 5));
+      } on TimeoutException catch (_) {
+        // Timeout is not an error - return fallback role wrapped in Result
+        roleResult = Right<AppFailure, UserRole?>(fallbackRole);
+      } catch (_) {
+        // Any error - use fallback role wrapped in Result
+        roleResult = Right<AppFailure, UserRole?>(fallbackRole);
+      }
+      
+      final role = roleResult.fold(
+        (_) => fallbackRole, // network/firestore failure → fall back to authUser role
+        (r) => r ?? fallbackRole, // missing doc/roles → fall back to authUser role
+      );
+      
+      if (!mounted) {
+        _isNavigatingToHome = false;
+        return;
+      }
+      
+      // Use the role (fallbackRole is already set, so role will never be null)
+      final effectiveRole = role;
+      
+      // Determine target screen based on role and onboarding status
+      ScreenId targetScreen;
+      if (effectiveRole == UserRole.client) {
+        targetScreen = ScreenId.clientHome;
+    } else {
+        // Merchant - check onboarding status
+        bool onboardingCompleted = false;
+        try {
+          final isOnboardingCompleted = ref.read(isMerchantOnboardingCompletedProvider);
+          final onboardingResult = await isOnboardingCompleted
+              .call(user.id)
+              .timeout(const Duration(seconds: 5));
+          onboardingCompleted = onboardingResult.fold(
+            (_) => false, // Error → assume incomplete
+            (completed) => completed ?? false, // null → incomplete
+          );
+        } catch (_) {
+          // Timeout or error → assume incomplete (non-fatal)
+          onboardingCompleted = false;
+        }
+        
+        // Route based on onboarding status
+        targetScreen = onboardingCompleted 
+            ? ScreenId.merchantDashboard 
+            : ScreenId.merchantOnboarding;
+      }
+      
+      // Now navigate to home screen (we were on splash, so this is safe)
       if (mounted) {
         setState(() {
-          _currentScreen = ScreenId.splash;
+          _authScreen = targetScreen;
+          _role = effectiveRole;
+          _activeTab = effectiveRole == UserRole.client ? 'home' : 'dashboard';
+          _nestedScreen = null;
+          _isNavigatingToHome = false; // Navigation complete
+        });
+      }
+    } catch (e) {
+      // On any unexpected error, fall back to authUser role without signing out
+      // Don't show errors - just use fallback data
+      if (!mounted) {
+        _isNavigatingToHome = false;
+        return;
+      }
+      
+      final fallbackRole = _mapUserRoleString(user.role) ?? UserRole.client;
+      
+      // Determine target screen with onboarding check for merchants
+      ScreenId targetScreen;
+      if (fallbackRole == UserRole.merchant) {
+        // Check onboarding status with timeout
+        bool onboardingCompleted = false;
+        try {
+          final isOnboardingCompleted = ref.read(isMerchantOnboardingCompletedProvider);
+          final onboardingResult = await isOnboardingCompleted
+              .call(user.id)
+              .timeout(const Duration(seconds: 5));
+          onboardingCompleted = onboardingResult.fold(
+            (_) => false, // Error → assume incomplete
+            (completed) => completed ?? false, // null → incomplete
+          );
+        } catch (_) {
+          // Timeout or error → assume incomplete (non-fatal)
+          onboardingCompleted = false;
+        }
+        targetScreen = onboardingCompleted
+            ? ScreenId.merchantDashboard
+            : ScreenId.merchantOnboarding;
+      } else {
+        targetScreen = ScreenId.clientHome;
+      }
+      
+      if (mounted) {
+        setState(() {
+          _role = fallbackRole;
+          _authScreen = targetScreen;
+          _activeTab = fallbackRole == UserRole.merchant ? 'dashboard' : 'home';
+          _nestedScreen = null;
+          _isNavigatingToHome = false; // Navigation complete
         });
       }
     }
   }
 
-  void _goToRoleSelection() {
-    setState(() => _currentScreen = ScreenId.roleSelection);
+  UserRole? _mapUserRoleString(String role) {
+    switch (role.toLowerCase()) {
+      case 'merchant':
+        return UserRole.merchant;
+      case 'client':
+      default:
+        return UserRole.client;
+    }
   }
 
+  // Note: navigation to role selection is driven by AuthState (Unauthenticated),
+  // not by the splash screen timer.
+
   void _handleRoleSelect(UserRole role) {
+    // Set role for login screen, but navigation to login is handled by provider
+    // For now, we need to manually navigate to login since we're in auth flow
     setState(() {
       _role = role;
-      _currentScreen = ScreenId.login;
+      _authScreen = ScreenId.login;
       _activeTab = role == UserRole.client ? 'home' : 'dashboard';
     });
   }
 
-
   void _handleBackToLogin() {
-    setState(() => _currentScreen = ScreenId.login);
+    setState(() => _authScreen = ScreenId.login);
   }
 
   void _handleBackToRole() {
-    setState(() => _currentScreen = ScreenId.roleSelection);
-  }
-
-  void _handleLogout() {
-    setState(() {
-      _role = null;
-      _currentScreen = ScreenId.roleSelection;
-      _activeTab = 'home';
-    });
+    setState(() => _authScreen = ScreenId.roleSelection);
   }
 
   void _handleNavigate(String screen) {
+    // Within-app navigation (manual state for nested screens)
     final map = <String, ScreenId>{
       'discovery': ScreenId.discovery,
       'qr-scanner': ScreenId.qrScanner,
@@ -219,7 +366,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
     final target = map[screen];
     if (target != null) {
-      setState(() => _currentScreen = target);
+      setState(() => _nestedScreen = target);
     }
   }
 
@@ -236,7 +383,14 @@ class _RootShellState extends ConsumerState<_RootShell> {
           'messages': ScreenId.messages,
           'profile': ScreenId.clientProfile,
         };
-        _currentScreen = map[tab] ?? ScreenId.clientHome;
+        final target = map[tab] ?? ScreenId.clientHome;
+        // If it's a main tab screen, update auth screen; otherwise nested
+        if (target == ScreenId.clientHome || target == ScreenId.clientProfile) {
+          _authScreen = target;
+          _nestedScreen = null;
+        } else {
+          _nestedScreen = target;
+        }
       } else {
         final map = <String, ScreenId>{
           'dashboard': ScreenId.merchantDashboard,
@@ -245,7 +399,14 @@ class _RootShellState extends ConsumerState<_RootShell> {
           'messages': ScreenId.merchantMessages,
           'profile': ScreenId.merchantProfile,
         };
-        _currentScreen = map[tab] ?? ScreenId.merchantDashboard;
+        final target = map[tab] ?? ScreenId.merchantDashboard;
+        // If it's a main tab screen, update auth screen; otherwise nested
+        if (target == ScreenId.merchantDashboard || target == ScreenId.merchantProfile) {
+          _authScreen = target;
+          _nestedScreen = null;
+        } else {
+          _nestedScreen = target;
+        }
       }
     });
   }
@@ -253,12 +414,14 @@ class _RootShellState extends ConsumerState<_RootShell> {
   void _handleBackToBase() {
     if (_role == UserRole.client) {
       setState(() {
-        _currentScreen = ScreenId.clientHome;
+        _authScreen = ScreenId.clientHome;
+        _nestedScreen = null;
         _activeTab = 'home';
       });
     } else {
       setState(() {
-        _currentScreen = ScreenId.merchantDashboard;
+        _authScreen = ScreenId.merchantDashboard;
+        _nestedScreen = null;
         _activeTab = 'dashboard';
       });
     }
@@ -277,11 +440,15 @@ class _RootShellState extends ConsumerState<_RootShell> {
       ScreenId.merchantMessages,
       ScreenId.merchantProfile,
     };
-    return _role != null && allowed.contains(_currentScreen);
+    final currentScreen = _nestedScreen ?? _authScreen;
+    return _role != null && currentScreen != null && allowed.contains(currentScreen);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Keep provider alive (listening is in initState via listenManual)
+    ref.watch(authControllerProvider);
+    
     final body = AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       child: _buildScreen(),
@@ -306,8 +473,11 @@ class _RootShellState extends ConsumerState<_RootShell> {
   }
 
   Widget _buildScreen() {
+    // Determine current screen: nested screen takes priority, then auth screen
+    final currentScreen = _nestedScreen ?? _authScreen;
+    
     // Show loading while checking auth state
-    if (_currentScreen == null) {
+    if (currentScreen == null) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
@@ -315,79 +485,34 @@ class _RootShellState extends ConsumerState<_RootShell> {
       );
     }
     
-    switch (_currentScreen!) {
+    switch (currentScreen) {
       case ScreenId.splash:
-        return SplashScreen(onComplete: _goToRoleSelection);
+        // Splash is a pure loading surface; routing is driven by AuthState.
+        return const SplashScreen();
       case ScreenId.roleSelection:
         return RoleSelectionScreen(onSelectRole: _handleRoleSelect);
       case ScreenId.login:
         return LoginScreen(
           role: _role ?? UserRole.client,
           onBack: _handleBackToRole,
-          onLoginSuccess: ({
-            required String uid,
-            required UserRole role,
-            required String city,
-            required bool onboardingCompleted,
-          }) {
-            setState(() {
-              _role = role;
-              if (role == UserRole.client) {
-                _currentScreen = ScreenId.clientHome;
-                _activeTab = 'home';
-              } else {
-                // Merchant role
-                if (onboardingCompleted) {
-                  _currentScreen = ScreenId.merchantDashboard;
-                  _activeTab = 'dashboard';
-                } else {
-                  // Navigate to onboarding if it exists, otherwise dashboard
-                  _currentScreen = ScreenId.merchantDashboard;
-                  _activeTab = 'dashboard';
-                }
-              }
-            });
-          },
-          onSignup: () => setState(() => _currentScreen = ScreenId.signup),
+          onSignup: () => setState(() => _authScreen = ScreenId.signup),
         );
       case ScreenId.signup:
         return SignupScreen(
           role: _role ?? UserRole.client,
-          onBack: () => setState(() => _currentScreen = ScreenId.login),
-          onSignupSuccess: (userId, phoneNumber, verificationId, email, city, {otpUnavailableMessage}) {
-            // Store all signup data, then navigate to OTP screen
-            setState(() {
-              _signupUserId = userId;
-              _phoneNumber = phoneNumber;
-              _verificationId = verificationId;
-              _signupEmail = email;
-              _signupCity = city;
-              _otpUnavailableMessage = otpUnavailableMessage;
-              _currentScreen = ScreenId.otp;
-            });
-          },
+          onBack: () => setState(() => _authScreen = ScreenId.login),
         );
       case ScreenId.otp:
         return OTPScreen(
+          onBack: _handleBackToLogin,
           userId: _signupUserId ?? '',
           phone: _phoneNumber ?? '+33 XXX XXX XXX',
           verificationId: _verificationId,
           email: _signupEmail ?? '',
+          password: _signupPassword ?? '',
           city: _signupCity ?? '',
           role: _role ?? UserRole.client,
           otpUnavailableMessage: _otpUnavailableMessage,
-          onBack: _handleBackToLogin,
-          onVerify: () {
-            setState(() {
-              if (_role == UserRole.client) {
-                _currentScreen = ScreenId.clientHome;
-                _activeTab = 'home';
-              } else {
-                _currentScreen = ScreenId.merchantDashboard;
-                _activeTab = 'dashboard';
-              }
-            });
-          },
           onResend: () {
             // VerificationId will be updated by OTP screen if resend succeeds
             // This callback can be used for any additional logic if needed
@@ -398,19 +523,19 @@ class _RootShellState extends ConsumerState<_RootShell> {
       case ScreenId.discovery:
         return DiscoveryScreen(
           onBack: _handleBackToBase,
-          onStoreSelect: () => setState(() => _currentScreen = ScreenId.storeProfile),
+          onStoreSelect: () => setState(() => _nestedScreen = ScreenId.storeProfile),
         );
       case ScreenId.qrScanner:
         return QRScannerScreen(
           onBack: _handleBackToBase,
-          onScanSuccess: () => setState(() => _currentScreen = ScreenId.storeProfile),
+          onScanSuccess: () => setState(() => _nestedScreen = ScreenId.storeProfile),
         );
       case ScreenId.loyalty:
         return LoyaltyCardsScreen(onBack: _handleBackToBase);
       case ScreenId.storeProfile:
         return StoreProfileScreen(
           onBack: _handleBackToBase,
-          onMessage: () => setState(() => _currentScreen = ScreenId.messages),
+          onMessage: () => setState(() => _nestedScreen = ScreenId.messages),
           onReserve: _handleBackToBase,
         );
       case ScreenId.notifications:
@@ -422,7 +547,11 @@ class _RootShellState extends ConsumerState<_RootShell> {
           onConversationSelect: () {},
         );
       case ScreenId.clientProfile:
-        return ClientProfileScreen(onLogout: _handleLogout);
+        return const ClientProfileScreen();
+      case ScreenId.merchantOnboarding:
+        // TODO: Replace with actual MerchantOnboardingScreen when implemented
+        // For now, show merchant dashboard as placeholder
+        return MerchantDashboardScreen(onNavigate: _handleNavigate);
       case ScreenId.merchantDashboard:
         return MerchantDashboardScreen(onNavigate: _handleNavigate);
       case ScreenId.merchantClients:
@@ -444,7 +573,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
           onConversationSelect: () {},
         );
       case ScreenId.merchantProfile:
-        return ClientProfileScreen(onLogout: _handleLogout);
+        return const ClientProfileScreen();
       case ScreenId.merchantStats:
         return MerchantStatsScreen(onBack: _handleBackToBase);
     }
