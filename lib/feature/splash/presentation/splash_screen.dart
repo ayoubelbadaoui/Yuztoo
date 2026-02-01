@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../theme.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key, required this.onComplete});
+  const SplashScreen({super.key, this.onComplete});
 
-  final VoidCallback onComplete;
+  final VoidCallback? onComplete;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -22,7 +22,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       duration: const Duration(milliseconds: 600),
     )..forward();
 
-    Timer(const Duration(seconds: 2), widget.onComplete);
+    // Important: Splash is used as a loading surface while providers resolve auth.
+    // It must NOT force navigation unless explicitly requested by caller.
+    if (widget.onComplete != null) {
+      Timer(const Duration(seconds: 2), widget.onComplete!);
+    }
   }
 
   @override

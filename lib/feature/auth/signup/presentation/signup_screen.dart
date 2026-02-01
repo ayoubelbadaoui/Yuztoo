@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/providers.dart';
 import '../../core/application/auth_error_mapper.dart';
+import 'otp_screen.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
 import 'constants/signup_constants.dart';
@@ -15,7 +16,6 @@ class SignupScreen extends ConsumerStatefulWidget {
     Key? key,
     required this.role,
     required this.onBack,
-    required this.onSignupSuccess,
     this.initialEmail,
     this.initialPassword,
     this.initialPhone,
@@ -25,16 +25,6 @@ class SignupScreen extends ConsumerStatefulWidget {
 
   final UserRole role;
   final VoidCallback onBack;
-  final Function(
-    String userId,
-    String phoneNumber,
-    String? verificationId,
-    String email,
-    String password,
-    String city, {
-    String? otpUnavailableMessage,
-  }) onSignupSuccess;
-  
   final String? initialEmail;
   final String? initialPassword;
   final String? initialPhone;
@@ -64,6 +54,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   late FocusNode _phoneFocusNode;
 
   bool _isLoading = false;
+  bool _isSubmitting = false; // simple debounce to prevent rapid taps
   bool _isPasswordFocused = false;
   String? _selectedCity;
   String? _phoneNumber;
@@ -232,7 +223,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       return;
     }
 
-    if (_isLoading) return;
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    if (_isLoading) {
+      setState(() => _isSubmitting = false);
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -241,7 +238,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final phoneNumber = formattedPhoneNumber;
     
     final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
-    final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
+    late final dynamic otpResult; // Either<AuthFailure, String>
+    try {
+      otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+      }
+      rethrow;
+    }
 
     otpResult.fold(
       (failure) {
@@ -250,27 +258,43 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           if (frenchMessage != null) {
             showErrorSnackbar(context, frenchMessage);
           }
-          setState(() => _isLoading = false);
+          setState(() {
+            _isLoading = false;
+            _isSubmitting = false;
+          });
         }
       },
       (verificationId) {
         if (mounted) {
           setState(() {
             _isLoading = false;
+            _isSubmitting = false;
           });
 
           showSuccessSnackbar(context, 'Code de vérification envoyé!');
-          widget.onSignupSuccess(
-            '',
-            phoneNumber,
-            verificationId,
-            email,
-            password,
-            _selectedCity!,
+          // Navigate to OTP screen and let auth stream handle navigation after verification
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => OTPScreen(
+                onBack: () => Navigator.of(context).pop(),
+                userId: '', // Not needed until verification
+                phone: phoneNumber,
+                onResend: () {},
+                email: email,
+                password: password,
+                city: _selectedCity!,
+                role: widget.role,
+                verificationId: verificationId,
+              ),
+            ),
           );
         }
       },
     );
+
+    if (mounted && _isSubmitting) {
+      setState(() => _isSubmitting = false);
+    }
   }
 
   Future<void> _handleSocialLogin(String provider) async {
@@ -401,7 +425,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 const SizedBox(height: 24),
                 SignupButton(
                   isLoading: _isLoading,
-                  onPressed: _handleSignup,
+                  onPressed: (_isLoading || _isSubmitting) ? null : _handleSignup,
                 ),
                 const SizedBox(height: 20),
                 const SocialDivider(),

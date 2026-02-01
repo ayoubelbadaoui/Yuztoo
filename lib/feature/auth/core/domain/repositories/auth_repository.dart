@@ -29,5 +29,14 @@ abstract class AuthRepository {
     required EmailAddress email,
   });
 
+  Future<Result<AuthUser>> verifyPhoneAndCreateUser({
+    required String verificationId,
+    required String smsCode,
+    required EmailAddress email,
+    required Password password,
+  });
+
+  Future<Result<Unit>> deleteCurrentUser();
+
   Stream<Result<AuthUser?>> watchAuthState();
 }

@@ -16,7 +16,10 @@ import '../infrastructure/user_repository_provider.dart';
 
 // Re-export infrastructure providers for use in application layer (for creating use cases)
 export '../infrastructure/auth_repository_provider.dart' show authRepositoryProvider;
-export '../infrastructure/user_repository_provider.dart' show roleCacheServiceProvider;
+// Note: roleCacheServiceProvider removed - not implemented yet
+
+// Export navigation state provider
+export 'navigation_state_provider.dart' show navigationStateProvider, NavigationState, NavigationLoading, NavigationUnauthenticated, NavigationAuthenticated, NavigationError;
 
 final signOutProvider = Provider<SignOut>((ref) {
   final repository = ref.watch(authRepositoryProvider);
@@ -76,4 +79,3 @@ final isMerchantOnboardingCompletedProvider =
   final repository = ref.watch(userRepositoryProvider);
   return IsMerchantOnboardingCompleted(repository);
 });
-

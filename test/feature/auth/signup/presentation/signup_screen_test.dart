@@ -9,6 +9,8 @@ import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/email_addr
 import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/password.dart';
 import 'package:flutter_yuztoo/feature/auth/core/infrastructure/auth_repository_provider.dart';
 import 'package:flutter_yuztoo/feature/auth/signup/presentation/signup_screen.dart';
+import 'package:flutter_yuztoo/feature/auth/signup/presentation/otp_screen.dart';
+import 'package:flutter_yuztoo/feature/auth/signup/presentation/widgets/signup_form_fields.dart';
 import 'package:flutter_yuztoo/types.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
@@ -50,6 +52,25 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<Result<Unit>> sendPasswordResetEmail({
+    required EmailAddress email,
+  }) async {
+    return const Right<AuthFailure, Unit>(unit);
+  }
+
+  @override
+  Future<Result<AuthUser>> verifyPhoneAndCreateUser({
+    required String verificationId,
+    required String smsCode,
+    required EmailAddress email,
+    required Password password,
+  }) async {
+    return Right<AuthFailure, AuthUser>(
+      AuthUser(id: 'uid-123', email: email.value),
+    );
+  }
+
+  @override
   Future<Result<Unit>> deleteCurrentUser() async {
     return const Right<AuthFailure, Unit>(unit);
   }
@@ -66,13 +87,9 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 void main() {
-  testWidgets('Signup flow calls onSignupSuccess with formatted phone number',
-      (tester) async {
-    String? receivedPhone;
-    String? receivedVerificationId;
-    String? receivedEmail;
-    String? receivedCity;
-
+  testWidgets(
+    'Signup flow navigates to OTPScreen with formatted phone number',
+    (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -82,33 +99,35 @@ void main() {
           home: SignupScreen(
             role: UserRole.client,
             onBack: () {},
-            onSignupSuccess:
-                (phoneNumber, verificationId, email, city, otpUnavailableMessage) {
-              receivedPhone = phoneNumber;
-              receivedVerificationId = verificationId;
-              receivedEmail = email;
-              receivedCity = city;
-            },
           ),
         ),
       ),
     );
 
+    final fields = find.byType(TextFormField);
+    expect(fields, findsNWidgets(3));
+
+    final phoneField = find.descendant(
+      of: find.byType(PhoneField),
+      matching: find.byType(TextField),
+    );
+    expect(phoneField, findsOneWidget);
+
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'votre@email.com'),
+      fields.at(0),
       'test@example.com',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Min. 8 caractères'),
+      fields.at(1),
       'Password1',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Répétez votre mot de passe'),
+      fields.at(2),
       'Password1',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, '612345678'),
-      '0612345678',
+      phoneField,
+      '612345678',
     );
 
     final cityField = find.text('Sélectionnez votre ville');
@@ -125,10 +144,18 @@ void main() {
     await tester.tap(find.text('Créer un compte'));
     await tester.pumpAndSettle();
 
-    expect(receivedPhone, '+33612345678');
-    expect(receivedVerificationId, 'verif-123');
-    expect(receivedEmail, 'test@example.com');
-    expect(receivedCity, 'Paris');
-  });
+    final otpFinder = find.byType(OTPScreen);
+    expect(otpFinder, findsOneWidget);
+
+    final otp = tester.widget<OTPScreen>(otpFinder);
+    expect(otp.userId, ''); // SignupScreen defers user creation until OTP verification
+    expect(otp.phone, '+33612345678');
+    expect(otp.verificationId, 'verif-123');
+    expect(otp.email, 'test@example.com');
+    expect(otp.password, 'Password1');
+    expect(otp.city, 'Paris');
+    expect(otp.role, UserRole.client);
+  },
+  );
 }
 

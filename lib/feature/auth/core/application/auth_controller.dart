@@ -42,6 +42,17 @@ class AuthController extends StateNotifier<AuthState> {
     });
   }
 
+  /// Manually refresh auth state by re-checking current user
+  /// This is useful after sign-in to ensure immediate state update
+  /// NOTE: This safely re-subscribes - userChanges() will emit current user immediately
+  /// so there's no risk of logout (it emits the authenticated user, not null)
+  Future<void> refreshAuthState() async {
+    // Cancel current subscription and re-listen to get fresh state
+    // userChanges() emits the current user immediately on subscription,
+    // so this is safe and won't cause logout
+    _listenToAuthStream();
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();

@@ -71,7 +71,7 @@ class _ForgotPasswordDialogState extends ConsumerState<ForgotPasswordDialog> {
           }
         } else if (next is ForgotPasswordError) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(next.failure);
-          if (mounted) {
+          if (mounted && frenchMessage != null) {
             showErrorSnackbar(context, frenchMessage);
           }
         }

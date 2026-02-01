@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme.dart';
 import '../../../core/shared/widgets/logout_confirm_dialog.dart';
+import '../../auth/core/application/providers.dart';
 
-class ClientProfileScreen extends StatefulWidget {
-  const ClientProfileScreen({super.key, required this.onLogout});
-
-  final VoidCallback onLogout;
+class ClientProfileScreen extends ConsumerStatefulWidget {
+  const ClientProfileScreen({super.key});
 
   @override
-  State<ClientProfileScreen> createState() => _ClientProfileScreenState();
+  ConsumerState<ClientProfileScreen> createState() =>
+      _ClientProfileScreenState();
 }
 
-class _ClientProfileScreenState extends State<ClientProfileScreen> {
+class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
   bool pushEnabled = true;
   bool emailEnabled = true;
 
@@ -110,7 +111,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
             onPressed: () async {
               final confirm = await showLogoutConfirmationDialog(context);
               if (confirm) {
-                widget.onLogout();
+                // Real logout via AuthController
+                await ref.read(authControllerProvider.notifier).signOut();
               }
             },
             icon: const Icon(Icons.logout, color: Colors.red),
