@@ -29,3 +29,8 @@ final class AuthUnexpectedFailure extends AuthFailure {
     StackTrace? stackTrace,
   }) : super(message, cause: cause, stackTrace: stackTrace);
 }
+
+final class ProfileIncompleteFailure extends AuthFailure {
+  const ProfileIncompleteFailure()
+      : super('Profile incomplete');
+}

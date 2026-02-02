@@ -412,6 +412,9 @@ class FirebaseAuthRepository implements AuthRepository {
         return const AccountDisabledFailure();
       case 'user-not-found':
       case 'wrong-password':
+      case 'invalid-credential':
+      case 'invalid-email':
+        // All invalid credential errors should show "Identifiants invalides"
         return const InvalidCredentialsFailure();
       case 'network-request-failed':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
@@ -427,6 +430,12 @@ class FirebaseAuthRepository implements AuthRepository {
         }
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
       default:
+        // Check error message for invalid credential keywords (fallback for edge cases)
+        if (error.message?.toLowerCase().contains('invalid') == true ||
+            error.message?.toLowerCase().contains('credential') == true ||
+            error.message?.toLowerCase().contains('password') == true) {
+          return const InvalidCredentialsFailure();
+        }
         // Check error message for billing-related errors
         if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
             error.message?.toLowerCase().contains('billing') == true) {

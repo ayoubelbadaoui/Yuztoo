@@ -11,6 +11,9 @@ import 'use_cases/get_user_roles.dart';
 import 'use_cases/get_user_city.dart';
 import 'use_cases/update_user_city.dart';
 import 'use_cases/is_merchant_onboarding_completed.dart';
+import 'use_cases/patch_user_document.dart';
+import 'use_cases/update_last_login_at.dart';
+import 'use_cases/check_user_profile_complete.dart';
 import '../infrastructure/auth_repository_provider.dart';
 import '../infrastructure/user_repository_provider.dart';
 
@@ -78,4 +81,22 @@ final isMerchantOnboardingCompletedProvider =
     Provider<IsMerchantOnboardingCompleted>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return IsMerchantOnboardingCompleted(repository);
+});
+
+/// Use case provider for patching user document (legacy migration)
+final patchUserDocumentProvider = Provider<PatchUserDocument>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return PatchUserDocument(repository);
+});
+
+/// Use case provider for updating last login timestamp
+final updateLastLoginAtProvider = Provider<UpdateLastLoginAt>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return UpdateLastLoginAt(repository);
+});
+
+/// Use case provider for checking profile completeness
+final checkUserProfileCompleteProvider = Provider<CheckUserProfileComplete>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return CheckUserProfileComplete(repository);
 });

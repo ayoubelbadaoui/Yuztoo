@@ -5,8 +5,25 @@ import '../../../../../types.dart';
 /// 
 /// This interface is in the domain layer and contains no Firebase types.
 /// Implementations should be in the infrastructure layer.
+/// 
+/// User Schema (/users/{uid}):
+/// - uid: String (required)
+/// - email: String (required)
+/// - phone: String (required)
+/// - city: String (required)
+/// - roles: Map<String, bool> (required) - {"client": bool, "merchant": bool, "provider": bool}
+/// - merchant_id: String? (nullable, set when merchant completes onboarding)
+/// - status: String (default: "active")
+/// - onboarding: Map<String, bool> (default: {"merchant": false})
+/// - created_at: Timestamp (server timestamp)
+/// - updated_at: Timestamp (server timestamp)
+/// - last_login_at: Timestamp? (nullable, updated on sign-in)
 abstract class UserRepository {
-  /// Create a user document in Firestore
+  /// Create a user document in Firestore with full schema
+  /// 
+  /// Creates a new user document with all required and optional fields.
+  /// All new users will have the complete schema including merchant_id (null),
+  /// status ("active"), onboarding.merchant (false), and last_login_at (null).
   /// 
   /// [uid] - User's unique identifier
   /// [email] - User's email address
@@ -61,5 +78,34 @@ abstract class UserRepository {
     required String uid,
     required String city,
   });
+
+  /// Patch missing fields in user document for legacy users
+  /// 
+  /// Updates only missing required fields without overwriting existing data.
+  /// Handles migration from legacy schema (single role string) to new schema (roles map).
+  /// 
+  /// [uid] - User's unique identifier
+  /// 
+  /// Returns Result<Unit> on success, Result with failure on error
+  Future<Result<Unit>> patchUserDocument(String uid);
+
+  /// Update last_login_at timestamp on successful sign-in
+  /// 
+  /// Uses server timestamp to ensure consistency and handle concurrent logins.
+  /// 
+  /// [uid] - User's unique identifier
+  /// 
+  /// Returns Result<Unit> on success, Result with failure on error
+  Future<Result<Unit>> updateLastLoginAt(String uid);
+
+  /// Check if user profile is complete with all required fields
+  /// 
+  /// Required fields: uid, email, phone, city, roles
+  /// Optional but should exist: merchant_id, status, onboarding, created_at, updated_at
+  /// 
+  /// [uid] - User's unique identifier
+  /// 
+  /// Returns Result<bool> - true if complete, false if incomplete
+  Future<Result<bool>> checkUserProfileComplete(String uid);
 }
 
