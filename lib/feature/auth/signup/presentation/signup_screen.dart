@@ -312,7 +312,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: PopScope(
-        canPop: !_isLoading,
+        canPop: false, // Use our custom navigation instead of route popping
         onPopInvoked: (didPop) {
           if (!didPop && !_isLoading) {
             widget.onBack();

@@ -417,7 +417,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // Dismiss keyboard when tapping outside
         FocusScope.of(context).unfocus();
       },
-      child: Scaffold(
+      child: PopScope(
+        canPop: false, // Use our custom navigation instead of route popping
+        onPopInvoked: (didPop) {
+          if (!didPop) {
+            widget.onBack();
+          }
+        },
+        child: Scaffold(
         backgroundColor: _bgDark1,
         body: SafeArea(
           child: SingleChildScrollView(
@@ -540,9 +547,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               _buildFooter(),
             ],
           ),
+          ),
         ),
       ),
-      ),
+        ),
     );
   }
 

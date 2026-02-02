@@ -31,6 +31,10 @@ import 'feature/merchant_dashboard/presentation/merchant_dashboard_screen.dart';
 import 'feature/promotions/presentation/promotions_management_screen.dart';
 import 'feature/merchant_qr/presentation/merchant_qr_screen.dart';
 import 'feature/merchant_stats/presentation/merchant_stats_screen.dart';
+import 'feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart';
+import 'feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
+import 'feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
+import 'feature/merchant_onboarding/presentation/widgets/subcategory/restaurant_subcategories.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -149,7 +153,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
         if (!onHomeScreen && !inAuthFlow && !_isNavigatingToHome) {
           setState(() {
             _authScreen = ScreenId.roleSelection;
-            _role = null;
+            // Don't reset _role - preserve last selection
             _nestedScreen = null;
           });
         }
@@ -329,11 +333,18 @@ class _RootShellState extends ConsumerState<_RootShell> {
   // not by the splash screen timer.
 
   void _handleRoleSelect(UserRole role) {
-    // Set role for login screen, but navigation to login is handled by provider
-    // For now, we need to manually navigate to login since we're in auth flow
+    // Set role and navigate based on role
+    // This is called when user clicks action buttons (Découvrir, Scan, Login)
+    // so we should always navigate
     setState(() {
       _role = role;
-      _authScreen = ScreenId.login;
+      if (role == UserRole.merchant) {
+        // Navigate to merchant onboarding for discovery
+        _authScreen = ScreenId.merchantOnboarding;
+      } else {
+        // Navigate to login for clients
+        _authScreen = ScreenId.login;
+      }
       _activeTab = role == UserRole.client ? 'home' : 'dashboard';
     });
   }
@@ -474,23 +485,22 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
   Widget _buildScreen() {
     // Determine current screen: nested screen takes priority, then auth screen
-    final currentScreen = _nestedScreen ?? _authScreen;
-    
-    // Show loading while checking auth state
-    if (currentScreen == null) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
+    // Fallback to role selection if auth screen is null (shouldn't happen, but safety)
+    final currentScreen = _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
     
     switch (currentScreen) {
       case ScreenId.splash:
         // Splash is a pure loading surface; routing is driven by AuthState.
         return const SplashScreen();
       case ScreenId.roleSelection:
-        return RoleSelectionScreen(onSelectRole: _handleRoleSelect);
+        return RoleSelectionScreen(
+          onSelectRole: _handleRoleSelect,
+          initialRole: _role,
+          onRoleChanged: (UserRole role) {
+            // Update role without navigating (just preserve selection)
+            setState(() => _role = role);
+          },
+        );
       case ScreenId.login:
         return LoginScreen(
           role: _role ?? UserRole.client,
@@ -549,9 +559,35 @@ class _RootShellState extends ConsumerState<_RootShell> {
       case ScreenId.clientProfile:
         return const ClientProfileScreen();
       case ScreenId.merchantOnboarding:
-        // TODO: Replace with actual MerchantOnboardingScreen when implemented
-        // For now, show merchant dashboard as placeholder
-        return MerchantDashboardScreen(onNavigate: _handleNavigate);
+        return MerchantOnboardingScreen(
+          onCategorySelected: (categoryId) {
+            // Category selection handled internally
+          },
+          onBack: () => setState(() => _authScreen = ScreenId.roleSelection),
+          onNext: () {
+            // Navigate to subcategory selection for restaurant (for now, only restaurant has subcategories)
+            setState(() => _authScreen = ScreenId.merchantSubcategorySelection);
+          },
+        );
+      case ScreenId.merchantSubcategorySelection:
+        return SubcategorySelectionScreen(
+          categoryTitle: 'Métiers de bouche mais encore...',
+          subcategories: RestaurantSubcategories.all,
+          onSubcategorySelected: (subcategoryId) {
+            // Handle subcategory selection
+          },
+          onBack: () => setState(() => _authScreen = ScreenId.merchantOnboarding),
+          onNext: () {
+            setState(() => _authScreen = ScreenId.merchantBenefits);
+          },
+        );
+      case ScreenId.merchantBenefits:
+        return MerchantBenefitsScreen(
+          onBack: () => setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
+          onStartFree: () {
+            // TODO: Handle start free - navigate to signup or next step
+          },
+        );
       case ScreenId.merchantDashboard:
         return MerchantDashboardScreen(onNavigate: _handleNavigate);
       case ScreenId.merchantClients:

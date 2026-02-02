@@ -257,7 +257,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: PopScope(
-        canPop: !_isVerifying, // Prevent back navigation during verification
+        canPop: false, // Use our custom navigation instead of route popping
         onPopInvoked: (didPop) {
           if (!didPop && !_isVerifying) {
             // Handle Android back button

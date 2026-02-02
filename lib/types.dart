@@ -15,6 +15,8 @@ enum ScreenId {
   messages,
   clientProfile,
   merchantOnboarding,
+  merchantSubcategorySelection,
+  merchantBenefits,
   merchantDashboard,
   merchantClients,
   merchantPromotions,
