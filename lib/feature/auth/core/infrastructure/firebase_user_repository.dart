@@ -43,7 +43,7 @@ class FirebaseUserRepository implements UserRepository {
         },
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
-        'last_login_at': null, // Null on creation, updated on sign-in
+        'last_login_at': false, // False on creation, updated on sign-in
       }, SetOptions(merge: false));
       LoggerService.logInfo('User document created successfully', context: {'uid': uid, 'email': email, 'city': city});
       return const Right<AuthFailure, Unit>(unit);
