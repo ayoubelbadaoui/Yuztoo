@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
 /// Shows an error snackbar with French styling
-void showErrorSnackbar(BuildContext context, String message) {
+/// FIX HIGH 10: Support for action button in error snackbars
+void showErrorSnackbar(
+  BuildContext context,
+  String message, {
+  Duration? duration,
+  SnackBarAction? action,
+}) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
@@ -13,12 +19,13 @@ void showErrorSnackbar(BuildContext context, String message) {
         ),
       ),
       backgroundColor: Colors.red,
-      duration: const Duration(seconds: 4),
+      duration: duration ?? const Duration(seconds: 4),
       behavior: SnackBarBehavior.floating,
       margin: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
+      action: action,
     ),
   );
 }

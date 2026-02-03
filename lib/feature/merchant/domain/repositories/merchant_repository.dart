@@ -49,5 +49,20 @@ abstract class MerchantRepository {
     required String merchantId,
     required String userId,
   });
+
+  /// Get merchant by merchant ID.
+  /// 
+  /// [merchantId] - Unique identifier for the merchant document
+  /// 
+  /// Returns Result<Merchant?> - Merchant if found, null if not found
+  Future<Result<Merchant?>> getMerchantById(String merchantId);
+
+  /// Get all active merchants, optionally filtered by city.
+  /// 
+  /// [city] - Optional city filter. If provided, returns only merchants in that city.
+  ///          If null, returns all active merchants.
+  /// 
+  /// Returns Result<List<Merchant>> - List of active merchants, empty list if none found
+  Future<Result<List<Merchant>>> getMerchants({String? city});
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets/merchant_onboarding_colors.dart';
 import 'widgets/onboarding_header.dart';
 import 'widgets/onboarding_footer.dart';
@@ -7,9 +8,10 @@ import 'widgets/category_card.dart';
 import 'widgets/top_snackbar.dart';
 import '../../../core/shared/widgets/back_button.dart';
 import '../domain/entities/merchant_category.dart';
+import '../application/providers.dart';
 
 /// Merchant onboarding screen - category selection
-class MerchantOnboardingScreen extends StatefulWidget {
+class MerchantOnboardingScreen extends ConsumerStatefulWidget {
   const MerchantOnboardingScreen({
     super.key,
     this.onCategorySelected,
@@ -22,14 +24,15 @@ class MerchantOnboardingScreen extends StatefulWidget {
   final VoidCallback? onNext;
 
   @override
-  State<MerchantOnboardingScreen> createState() =>
+  ConsumerState<MerchantOnboardingScreen> createState() =>
       _MerchantOnboardingScreenState();
 }
 
-class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
+class _MerchantOnboardingScreenState
+    extends ConsumerState<MerchantOnboardingScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  String? _selectedCategoryId;
+  DateTime? _lastCategoryTapTime; // FIX HIGH 5: Debouncing for rapid taps
 
   // Mock categories - in real app, these would come from domain/application layer
   static final List<MerchantCategory> _categories = [
@@ -83,14 +86,24 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
 
   @override
   void dispose() {
+    // FIX HIGH 9: Proper cleanup to prevent memory leaks
     _animationController.dispose();
     super.dispose();
   }
 
   void _onCategoryTap(String categoryId) {
-    setState(() {
-      _selectedCategoryId = categoryId;
-    });
+    // FIX HIGH 5: Debounce rapid taps (prevent multiple selections in quick succession)
+    final now = DateTime.now();
+    if (_lastCategoryTapTime != null &&
+        now.difference(_lastCategoryTapTime!) < const Duration(milliseconds: 300)) {
+      // Ignore rapid taps (less than 300ms apart)
+      return;
+    }
+    _lastCategoryTapTime = now;
+
+    // Store category in controller
+    final controller = ref.read(merchantOnboardingControllerProvider.notifier);
+    controller.selectCategory(categoryId);
 
     // Show SnackBar feedback from top
     final category = _categories.firstWhere((c) => c.id == categoryId);
@@ -170,9 +183,13 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final category = _categories[index];
+                          // Read selected category from controller state
+                          final selectedCategoryId = ref.watch(
+                            merchantOnboardingControllerProvider,
+                          ).selectedCategoryId;
                           return CategoryCard(
                             category: category,
-                            isSelected: _selectedCategoryId == category.id,
+                            isSelected: selectedCategoryId == category.id,
                             onTap: () => _onCategoryTap(category.id),
                             animationDelay: index * 60,
                           );
@@ -211,13 +228,19 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                   ),
                   child: SafeArea(
                     top: false,
-                    child: SizedBox(
+                      child: SizedBox(
                       width: double.infinity,
                       height: 50,
-                      child: ElevatedButton(
-                        onPressed: _selectedCategoryId != null
-                            ? () => widget.onNext?.call()
-                            : null,
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          // Read selected category from controller state
+                          final selectedCategoryId = ref.watch(
+                            merchantOnboardingControllerProvider,
+                          ).selectedCategoryId;
+                          return ElevatedButton(
+                            onPressed: selectedCategoryId != null
+                                ? () => widget.onNext?.call()
+                                : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: MerchantOnboardingColors.primaryGold,
                           disabledBackgroundColor:
@@ -225,19 +248,21 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          shadowColor: MerchantOnboardingColors.primaryGold.withOpacity(0.3),
-                          elevation: _selectedCategoryId != null ? 6 : 0,
-                        ),
-                        child: Text(
-                          'Suivant',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: _selectedCategoryId != null
-                                ? MerchantOnboardingColors.bgDark1
-                                : MerchantOnboardingColors.textGrey.withOpacity(0.5),
+                            shadowColor: MerchantOnboardingColors.primaryGold.withOpacity(0.3),
+                            elevation: selectedCategoryId != null ? 6 : 0,
                           ),
-                        ),
+                          child: Text(
+                            'Suivant',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: selectedCategoryId != null
+                                  ? MerchantOnboardingColors.bgDark1
+                                  : MerchantOnboardingColors.textGrey.withOpacity(0.5),
+                            ),
+                          ),
+                        );
+                        },
                       ),
                     ),
                   ),

@@ -60,6 +60,22 @@ class _FakeMerchantRepository implements MerchantRepository {
   }) async {
     return const Right<MerchantFailure, Unit>(unit);
   }
+
+  @override
+  Future<Result<Merchant?>> getMerchantById(String merchantId) async {
+    if (_createdMerchant != null && _createdMerchant!.id == merchantId) {
+      return Right<MerchantFailure, Merchant?>(_createdMerchant);
+    }
+    return const Right<MerchantFailure, Merchant?>(null);
+  }
+
+  @override
+  Future<Result<List<Merchant>>> getMerchants({String? city}) async {
+    if (_createdMerchant != null) {
+      return Right<MerchantFailure, List<Merchant>>([_createdMerchant!]);
+    }
+    return const Right<MerchantFailure, List<Merchant>>([]);
+  }
 }
 
 void main() {
@@ -275,6 +291,16 @@ class _FailingCreateRepository implements MerchantRepository {
     return const Left<MerchantFailure, Unit>(
       UnableToCreateMerchantFailure(),
     );
+  }
+
+  @override
+  Future<Result<Merchant?>> getMerchantById(String merchantId) async {
+    return const Right<MerchantFailure, Merchant?>(null);
+  }
+
+  @override
+  Future<Result<List<Merchant>>> getMerchants({String? city}) async {
+    return const Right<MerchantFailure, List<Merchant>>([]);
   }
 }
 

@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets/subcategory/subcategory_colors.dart';
 import 'widgets/subcategory/subcategory_header.dart';
 import 'widgets/subcategory/subcategory_footer.dart';
 import 'widgets/subcategory/subcategory_card.dart';
 import 'widgets/top_snackbar.dart';
 import '../domain/entities/merchant_subcategory.dart';
+import '../application/providers.dart';
 
 /// Subcategory selection screen - shows subcategories for selected category
-class SubcategorySelectionScreen extends StatefulWidget {
+class SubcategorySelectionScreen extends ConsumerStatefulWidget {
   const SubcategorySelectionScreen({
     super.key,
     required this.categoryTitle,
@@ -25,15 +27,14 @@ class SubcategorySelectionScreen extends StatefulWidget {
   final VoidCallback? onNext;
 
   @override
-  State<SubcategorySelectionScreen> createState() =>
+  ConsumerState<SubcategorySelectionScreen> createState() =>
       _SubcategorySelectionScreenState();
 }
 
 class _SubcategorySelectionScreenState
-    extends State<SubcategorySelectionScreen>
+    extends ConsumerState<SubcategorySelectionScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  String? _selectedSubcategoryId;
 
   @override
   void initState() {
@@ -47,14 +48,15 @@ class _SubcategorySelectionScreenState
 
   @override
   void dispose() {
+    // FIX HIGH 9: Proper cleanup to prevent memory leaks
     _animationController.dispose();
     super.dispose();
   }
 
   void _onSubcategoryTap(String subcategoryId) {
-    setState(() {
-      _selectedSubcategoryId = subcategoryId;
-    });
+    // Store subcategory in controller
+    final controller = ref.read(merchantOnboardingControllerProvider.notifier);
+    controller.selectSubcategory(subcategoryId);
 
     // Show SnackBar feedback from top
     final subcategory = widget.subcategories.firstWhere(
@@ -120,9 +122,13 @@ class _SubcategorySelectionScreenState
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final subcategory = widget.subcategories[index];
+                          // Read selected subcategory from controller state
+                          final selectedSubcategoryId = ref.watch(
+                            merchantOnboardingControllerProvider,
+                          ).selectedSubcategoryId;
                           return SubcategoryCard(
                             subcategory: subcategory,
-                            isSelected: _selectedSubcategoryId == subcategory.id,
+                            isSelected: selectedSubcategoryId == subcategory.id,
                             onTap: () => _onSubcategoryTap(subcategory.id),
                             animationDelay: index * 40,
                           );
@@ -164,10 +170,16 @@ class _SubcategorySelectionScreenState
                     child: SizedBox(
                       width: double.infinity,
                       height: 50,
-                      child: ElevatedButton(
-                        onPressed: _selectedSubcategoryId != null
-                            ? () => widget.onNext?.call()
-                            : null,
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          // Read selected subcategory from controller state
+                          final selectedSubcategoryId = ref.watch(
+                            merchantOnboardingControllerProvider,
+                          ).selectedSubcategoryId;
+                          return ElevatedButton(
+                            onPressed: selectedSubcategoryId != null
+                                ? () => widget.onNext?.call()
+                                : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: SubcategoryColors.primaryGold,
                           disabledBackgroundColor:
@@ -175,20 +187,22 @@ class _SubcategorySelectionScreenState
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          shadowColor:
-                              SubcategoryColors.primaryGold.withOpacity(0.3),
-                          elevation: _selectedSubcategoryId != null ? 6 : 0,
-                        ),
-                        child: Text(
-                          'Suivant',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: _selectedSubcategoryId != null
-                                ? SubcategoryColors.bgDark1
-                                : SubcategoryColors.textGrey.withOpacity(0.5),
+                            shadowColor:
+                                SubcategoryColors.primaryGold.withOpacity(0.3),
+                            elevation: selectedSubcategoryId != null ? 6 : 0,
                           ),
-                        ),
+                          child: Text(
+                            'Suivant',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: selectedSubcategoryId != null
+                                  ? SubcategoryColors.bgDark1
+                                  : SubcategoryColors.textGrey.withOpacity(0.5),
+                            ),
+                          ),
+                        );
+                        },
                       ),
                     ),
                   ),

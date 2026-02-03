@@ -416,6 +416,11 @@ class FirebaseAuthRepository implements AuthRepository {
       case 'invalid-email':
         // All invalid credential errors should show "Identifiants invalides"
         return const InvalidCredentialsFailure();
+      case 'phone-number-already-exists':
+      case 'credential-already-in-use':
+        return const AuthUnexpectedFailure(
+          message: 'Ce numéro de téléphone est déjà utilisé. Veuillez vous connecter.',
+        );
       case 'network-request-failed':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
       case 'user-cancelled':
@@ -430,6 +435,16 @@ class FirebaseAuthRepository implements AuthRepository {
         }
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
       default:
+        // Check error message for "already linked" or "already exists" errors
+        if (error.message?.toLowerCase().contains('already been linked') == true ||
+            error.message?.toLowerCase().contains('déjà lié') == true ||
+            error.message?.toLowerCase().contains('already exists') == true ||
+            error.message?.toLowerCase().contains('déjà utilisé') == true ||
+            error.code == 'provider-already-linked') {
+          return const AuthUnexpectedFailure(
+            message: 'Ce numéro de téléphone est déjà utilisé. Veuillez vous connecter.',
+          );
+        }
         // Check error message for invalid credential keywords (fallback for edge cases)
         if (error.message?.toLowerCase().contains('invalid') == true ||
             error.message?.toLowerCase().contains('credential') == true ||
@@ -469,6 +484,14 @@ class FirebaseAuthRepository implements AuthRepository {
       case 'network-request-failed':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
       default:
+        // Check error message for "already linked" errors
+        if (error.message?.toLowerCase().contains('already been linked') == true ||
+            error.message?.toLowerCase().contains('déjà lié') == true ||
+            error.code == 'provider-already-linked') {
+          return const AuthUnexpectedFailure(
+            message: 'Ce numéro de téléphone est déjà utilisé. Veuillez vous connecter.',
+          );
+        }
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
     }
   }

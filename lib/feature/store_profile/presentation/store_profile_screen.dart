@@ -1,23 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme.dart';
+import '../../merchant/application/providers.dart' as merchant_providers;
+import '../../merchant/domain/entities/merchant.dart';
+import '../../../../core/shared/widgets/snackbar.dart';
 
-class StoreProfileScreen extends StatefulWidget {
-  const StoreProfileScreen(
-      {super.key,
-      required this.onBack,
-      required this.onMessage,
-      required this.onReserve});
+class StoreProfileScreen extends ConsumerStatefulWidget {
+  const StoreProfileScreen({
+    super.key,
+    this.merchantId,
+    required this.onBack,
+    required this.onMessage,
+    required this.onReserve,
+  });
 
+  final String? merchantId;
   final VoidCallback onBack;
   final VoidCallback onMessage;
   final VoidCallback onReserve;
 
   @override
-  State<StoreProfileScreen> createState() => _StoreProfileScreenState();
+  ConsumerState<StoreProfileScreen> createState() => _StoreProfileScreenState();
 }
 
-class _StoreProfileScreenState extends State<StoreProfileScreen>
+class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen>
     with SingleTickerProviderStateMixin {
+  Merchant? _merchant;
+  bool _isLoading = true;
+  String? _errorMessage;
+
   final promotions = const [
     {
       'title': '20% de réduction',
@@ -47,7 +58,118 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
   ];
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.merchantId != null && widget.merchantId!.isNotEmpty) {
+      _loadMerchant();
+    } else {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Aucun commerce sélectionné';
+      });
+    }
+  }
+
+  Future<void> _loadMerchant({bool isRetry = false}) async {
+    if (!isRetry) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    // FIX HIGH 8: Retry mechanism for failed operations
+    final getMerchantById = ref.read(merchant_providers.getMerchantByIdProvider);
+    final result = await getMerchantById.call(widget.merchantId!);
+
+    result.fold(
+      (failure) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Erreur lors du chargement du commerce';
+          });
+          
+          // FIX HIGH 10: Better error recovery - show retry option
+          showErrorSnackbar(
+            context,
+            'Impossible de charger les informations du commerce. Appuyez pour réessayer.',
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Réessayer',
+              onPressed: () => _loadMerchant(isRetry: true),
+            ),
+          );
+        }
+      },
+      (merchant) {
+        if (mounted) {
+          setState(() {
+            _merchant = merchant;
+            _isLoading = false;
+            if (merchant == null) {
+              _errorMessage = 'Commerce introuvable';
+            }
+          });
+        }
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Chargement...',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null || _merchant == null) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: widget.onBack,
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage ?? 'Commerce introuvable',
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: widget.merchantId != null && widget.merchantId!.isNotEmpty
+                    ? _loadMerchant
+                    : null,
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final merchant = _merchant!;
+
     return DefaultTabController(
       length: 2,
       child: Column(
@@ -61,6 +183,12 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
                 child: Image.network(
                   'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800',
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.store, size: 64, color: Colors.grey),
+                    );
+                  },
                 ),
               ),
               Positioned(
@@ -94,25 +222,27 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Café Central',
-                    style: Theme.of(context).textTheme.headlineSmall),
+                Text(
+                  merchant.name,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 const SizedBox(height: 6),
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.star, size: 16, color: YColors.secondary),
-                    SizedBox(width: 4),
-                    Text('4.5 (128 avis)',
+                    const Icon(Icons.star, size: 16, color: YColors.secondary),
+                    const SizedBox(width: 4),
+                    const Text('4.5 (128 avis)',
                         style: TextStyle(color: YColors.muted)),
-                    SizedBox(width: 12),
-                    Icon(Icons.place, size: 16, color: YColors.muted),
-                    SizedBox(width: 4),
-                    Text('0.5 km', style: TextStyle(color: YColors.muted)),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.place, size: 16, color: YColors.muted),
+                    const SizedBox(width: 4),
+                    Text(merchant.city, style: const TextStyle(color: YColors.muted)),
                   ],
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Restaurant & Café traditionnel marocain. Spécialités locales et pâtisseries fraîches tous les jours.',
-                  style: TextStyle(color: YColors.muted),
+                Text(
+                  merchant.description ?? 'Aucune description disponible',
+                  style: const TextStyle(color: YColors.muted),
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -138,24 +268,29 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
             ),
           ),
           const Divider(height: 1),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
               children: [
-                _InfoRow(
+                if (merchant.hours != null && merchant.hours!.isNotEmpty)
+                  _InfoRow(
                     icon: Icons.access_time,
                     title: 'Horaires',
-                    subtitle: 'Lun - Sam: 8h00 - 22h00'),
-                SizedBox(height: 10),
+                    subtitle: _formatHours(merchant.hours!),
+                  ),
+                if (merchant.hours != null && merchant.hours!.isNotEmpty)
+                  const SizedBox(height: 10),
                 _InfoRow(
-                    icon: Icons.phone_outlined,
-                    title: 'Téléphone',
-                    subtitle: '+212 5XX XXX XXX'),
-                SizedBox(height: 10),
+                  icon: Icons.phone_outlined,
+                  title: 'Téléphone',
+                  subtitle: merchant.phone,
+                ),
+                const SizedBox(height: 10),
                 _InfoRow(
-                    icon: Icons.place_outlined,
-                    title: 'Adresse',
-                    subtitle: '123 Avenue Mohammed V, Casablanca'),
+                  icon: Icons.place_outlined,
+                  title: 'Adresse',
+                  subtitle: merchant.address ?? merchant.city,
+                ),
               ],
             ),
           ),
@@ -288,11 +423,22 @@ class _StoreProfileScreenState extends State<StoreProfileScreen>
       ),
     );
   }
+
+  String _formatHours(Map<String, dynamic> hours) {
+    // Simple formatting - can be improved later
+    if (hours.containsKey('monday')) {
+      return 'Lun - Sam: 8h00 - 22h00'; // Default format
+    }
+    return 'Horaires non disponibles';
+  }
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow(
-      {required this.icon, required this.title, required this.subtitle});
+  const _InfoRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
   final IconData icon;
   final String title;
@@ -305,13 +451,15 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, color: YColors.muted),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(color: YColors.muted)),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(subtitle, style: const TextStyle(color: YColors.muted)),
+            ],
+          ),
         ),
       ],
     );

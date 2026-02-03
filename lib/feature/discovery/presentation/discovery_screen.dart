@@ -1,67 +1,146 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme.dart';
+import '../../merchant/application/providers.dart' as merchant_providers;
+import '../../merchant/domain/entities/merchant.dart';
+import '../../../../core/shared/widgets/snackbar.dart';
 
-class DiscoveryScreen extends StatefulWidget {
-  const DiscoveryScreen(
-      {super.key, required this.onBack, required this.onStoreSelect});
+class DiscoveryScreen extends ConsumerStatefulWidget {
+  const DiscoveryScreen({
+    super.key,
+    required this.onBack,
+    required this.onStoreSelect,
+  });
 
   final VoidCallback onBack;
-  final VoidCallback onStoreSelect;
+  final ValueChanged<String> onStoreSelect; // Changed to pass merchantId
 
   @override
-  State<DiscoveryScreen> createState() => _DiscoveryScreenState();
+  ConsumerState<DiscoveryScreen> createState() => _DiscoveryScreenState();
 }
 
-class _DiscoveryScreenState extends State<DiscoveryScreen>
+class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     with SingleTickerProviderStateMixin {
+  // Map category IDs to display names
+  static const Map<String, String> _categoryIdToName = {
+    'restaurant': 'Restaurants',
+    'retail': 'Shopping',
+    'beauty': 'Beauté',
+    'fitness': 'Sport',
+    'services': 'Services',
+    'other': 'Autre',
+  };
+
   final categories = [
     'Tous',
     'Restaurants',
-    'Cafés',
-    'Santé',
+    'Shopping',
     'Beauté',
-    'Shopping'
+    'Sport',
+    'Services',
+    'Autre',
   ];
   String selectedCategory = 'Tous';
+  List<Merchant> _merchants = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  
+  // FIX HIGH 7: Limit applied in repository (100 merchants max)
+  // Full pagination would require repository interface changes
 
-  final stores = [
-    {
-      'name': 'Café Central',
-      'category': 'Restaurant',
-      'rating': 4.5,
-      'distance': '0.5 km',
-      'image':
-          'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400',
-      'hasPromo': true
-    },
-    {
-      'name': 'Pharmacie El Amane',
-      'category': 'Santé',
-      'rating': 4.8,
-      'distance': '1.2 km',
-      'image':
-          'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400',
-      'hasPromo': false
-    },
-    {
-      'name': 'Pâtisserie Délice',
-      'category': 'Boulangerie',
-      'rating': 4.6,
-      'distance': '0.8 km',
-      'image':
-          'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=400',
-      'hasPromo': true
-    },
-    {
-      'name': 'Salon Beauté',
-      'category': 'Beauté',
-      'rating': 4.3,
-      'distance': '1.5 km',
-      'image':
-          'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400',
-      'hasPromo': false
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadMerchants();
+  }
+
+  Future<void> _loadMerchants({bool isRetry = false}) async {
+    if (!isRetry) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    // FIX HIGH 8: Retry mechanism for failed operations
+    final getMerchants = ref.read(merchant_providers.getMerchantsProvider);
+    
+    try {
+      final result = await getMerchants.call();
+
+      result.fold(
+        (failure) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = 'Erreur lors du chargement des commerces';
+            });
+            
+            // FIX HIGH 10: Better error recovery - show retry option
+            showErrorSnackbar(
+              context,
+              'Impossible de charger les commerces. Appuyez pour réessayer.',
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Réessayer',
+                onPressed: () => _loadMerchants(isRetry: true),
+              ),
+            );
+          }
+        },
+        (merchants) {
+          if (mounted) {
+            setState(() {
+              _merchants = merchants;
+              _isLoading = false;
+              _errorMessage = null;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      // FIX HIGH 10: Handle unexpected errors gracefully
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Erreur inattendue';
+        });
+        showErrorSnackbar(
+          context,
+          'Erreur inattendue. Appuyez pour réessayer.',
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Réessayer',
+            onPressed: () => _loadMerchants(isRetry: true),
+          ),
+        );
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> _convertMerchantsToStores(List<Merchant> merchants) {
+    return merchants.map((merchant) {
+      // Get first category ID or default to 'other'
+      final categoryId = merchant.categories?.isNotEmpty == true
+          ? merchant.categories!.first
+          : 'other';
+      
+      // Map category ID to display name
+      final categoryName = _categoryIdToName[categoryId] ?? 'Autre';
+      
+      return {
+        'id': merchant.id,
+        'name': merchant.name,
+        'category': categoryName,
+        'categoryId': categoryId, // Store ID for filtering
+        'rating': 4.5, // Default rating (can be added to Merchant entity later)
+        'distance': merchant.city, // Using city for now (distance calculation can be added later)
+        'image': 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400', // Default image
+        'hasPromo': false, // Can be added to Merchant entity later
+        'merchant': merchant, // Store full merchant object for navigation
+      };
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,26 +221,79 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
             ],
           ),
           Expanded(
-            child: TabBarView(
-              children: [
-                _StoreList(
-                  stores: _filteredStores(stores),
-                  onTap: widget.onStoreSelect,
-                  showPromo: true,
-                ),
-                _StoreList(
-                  stores: _filteredStores([...stores]..sort((a, b) =>
-                      (b['rating'] as num).compareTo(a['rating'] as num))),
-                  onTap: widget.onStoreSelect,
-                ),
-                _StoreList(
-                  stores: _filteredStores(
-                      stores.where((s) => s['hasPromo'] == true).toList()),
-                  onTap: widget.onStoreSelect,
-                  showPromo: true,
-                ),
-              ],
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(_errorMessage!,
+                                style: const TextStyle(color: Colors.red)),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadMerchants,
+                              child: const Text('Réessayer'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _merchants.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.store_outlined, size: 64, color: YColors.muted),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Aucun commerce disponible',
+                                  style: TextStyle(color: YColors.muted),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: _loadMerchants,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Actualiser'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : TabBarView(
+                            children: [
+                              RefreshIndicator(
+                                onRefresh: _loadMerchants,
+                                child: _StoreList(
+                                  stores: _filteredStores(
+                                      _convertMerchantsToStores(_merchants)),
+                                  onTap: (merchantId) => widget.onStoreSelect(merchantId),
+                                  showPromo: true,
+                                ),
+                              ),
+                              RefreshIndicator(
+                                onRefresh: _loadMerchants,
+                                child: _StoreList(
+                                  stores: _filteredStores(
+                                      _convertMerchantsToStores([..._merchants]
+                                        ..sort((a, b) {
+                                          // Sort by name for now (rating can be added later)
+                                          return a.name.compareTo(b.name);
+                                        }))),
+                                  onTap: (merchantId) => widget.onStoreSelect(merchantId),
+                                ),
+                              ),
+                              RefreshIndicator(
+                                onRefresh: _loadMerchants,
+                                child: _StoreList(
+                                  stores: _filteredStores(
+                                      _convertMerchantsToStores(_merchants)
+                                          .where((s) => s['hasPromo'] == true)
+                                          .toList()),
+                                  onTap: (merchantId) => widget.onStoreSelect(merchantId),
+                                  showPromo: true,
+                                ),
+                              ),
+                            ],
+                          ),
           ),
         ],
       ),
@@ -170,6 +302,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 
   List<Map<String, dynamic>> _filteredStores(List<Map<String, dynamic>> list) {
     if (selectedCategory == 'Tous') return list;
+    // Filter by category display name
     return list
         .where((store) => store['category'] == selectedCategory)
         .toList();
@@ -177,11 +310,14 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 }
 
 class _StoreList extends StatelessWidget {
-  const _StoreList(
-      {required this.stores, required this.onTap, this.showPromo = false});
+  const _StoreList({
+    required this.stores,
+    required this.onTap,
+    this.showPromo = false,
+  });
 
   final List<Map<String, dynamic>> stores;
-  final VoidCallback onTap;
+  final ValueChanged<String> onTap; // Changed to pass merchantId
   final bool showPromo;
 
   @override
@@ -194,7 +330,7 @@ class _StoreList extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: InkWell(
-            onTap: onTap,
+            onTap: () => onTap(store['id'] as String),
             borderRadius: BorderRadius.circular(16),
             child: Card(
               clipBehavior: Clip.antiAlias,

@@ -84,6 +84,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
   String? _signupPassword;
   String? _signupCity;
   String? _otpUnavailableMessage;
+  String? _selectedMerchantId; // Merchant ID for store profile screen
 
   @override
   void initState() {
@@ -533,7 +534,12 @@ class _RootShellState extends ConsumerState<_RootShell> {
       case ScreenId.discovery:
         return DiscoveryScreen(
           onBack: _handleBackToBase,
-          onStoreSelect: () => setState(() => _nestedScreen = ScreenId.storeProfile),
+          onStoreSelect: (merchantId) {
+            setState(() {
+              _selectedMerchantId = merchantId;
+              _nestedScreen = ScreenId.storeProfile;
+            });
+          },
         );
       case ScreenId.qrScanner:
         return QRScannerScreen(
@@ -544,6 +550,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return LoyaltyCardsScreen(onBack: _handleBackToBase);
       case ScreenId.storeProfile:
         return StoreProfileScreen(
+          merchantId: _selectedMerchantId,
           onBack: _handleBackToBase,
           onMessage: () => setState(() => _nestedScreen = ScreenId.messages),
           onReserve: _handleBackToBase,
@@ -585,7 +592,11 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return MerchantBenefitsScreen(
           onBack: () => setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
           onStartFree: () {
-            // TODO: Handle start free - navigate to signup or next step
+            // Navigate to signup with merchant role
+            setState(() {
+              _role = UserRole.merchant;
+              _authScreen = ScreenId.signup;
+            });
           },
         );
       case ScreenId.merchantDashboard:

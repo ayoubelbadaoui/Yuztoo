@@ -262,6 +262,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             _isLoading = false;
             _isSubmitting = false;
           });
+          // Don't navigate to OTP page if there's an error
+          // Error is already shown in snackbar above
         }
       },
       (verificationId) {

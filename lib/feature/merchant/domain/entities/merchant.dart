@@ -111,14 +111,16 @@ class Merchant extends Equatable {
   }
 
   /// Validates that required fields are not empty
+  /// Note: This is a basic validation. Full validation with format checks
+  /// should be done in the use case layer using MerchantValidators.
   bool isValid() {
-    return id.isNotEmpty &&
-        ownerUid.isNotEmpty &&
-        name.isNotEmpty &&
-        email.isNotEmpty &&
-        phone.isNotEmpty &&
-        city.isNotEmpty &&
-        status.isNotEmpty;
+    return id.trim().isNotEmpty &&
+        ownerUid.trim().isNotEmpty &&
+        name.trim().isNotEmpty &&
+        email.trim().isNotEmpty &&
+        phone.trim().isNotEmpty &&
+        city.trim().isNotEmpty &&
+        status.trim().isNotEmpty;
   }
 }
 
