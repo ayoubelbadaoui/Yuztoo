@@ -1,123 +1,97 @@
 import 'package:flutter/material.dart';
-import '../../../theme.dart';
+import 'package:flutter/services.dart';
 import '../../../types.dart';
+import 'widgets/role_selection_colors.dart';
+import 'widgets/role_selection_header.dart';
+import 'widgets/merchant_view.dart';
+import 'widgets/client_view.dart';
+import 'widgets/login_link.dart';
 
-class RoleSelectionScreen extends StatelessWidget {
-  const RoleSelectionScreen({super.key, required this.onSelectRole});
-
-  final ValueChanged<UserRole> onSelectRole;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: YColors.background,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: YColors.secondary,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              alignment: Alignment.center,
-              child: const Text('Y', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700)),
-            ),
-            const SizedBox(height: 12),
-            Text('Bienvenue sur Yuztoo', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 6),
-            const Text(
-              'Choisissez votre profil pour continuer',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: YColors.muted),
-            ),
-            const SizedBox(height: 28),
-            _RoleCard(
-              icon: Icons.person_outline,
-              title: 'Client',
-              description: 'Découvrez les commerces, collectez des points et profitez des promotions',
-              onTap: () => onSelectRole(UserRole.client),
-              badgeColor: Colors.white,
-              iconColor: YColors.primary,
-            ),
-            const SizedBox(height: 14),
-            _RoleCard(
-              icon: Icons.store_mall_directory_outlined,
-              title: 'Commerçant',
-              description: 'Gérez votre commerce, fidélisez vos clients et augmentez vos ventes',
-              onTap: () => onSelectRole(UserRole.merchant),
-              badgeColor: YColors.secondary.withValues(alpha: 0.1),
-              iconColor: YColors.secondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RoleCard extends StatelessWidget {
-  const _RoleCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.onTap,
-    required this.badgeColor,
-    required this.iconColor,
+/// Role selection screen - first screen for unauthenticated users
+class RoleSelectionScreen extends StatefulWidget {
+  const RoleSelectionScreen({
+    super.key,
+    required this.onSelectRole,
+    this.initialRole,
+    this.onRoleChanged,
   });
 
-  final IconData icon;
-  final String title;
-  final String description;
-  final VoidCallback onTap;
-  final Color badgeColor;
-  final Color iconColor;
+  final ValueChanged<UserRole> onSelectRole;
+  final UserRole? initialRole;
+  final ValueChanged<UserRole>? onRoleChanged;
+
+  @override
+  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+}
+
+class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  late UserRole _selectedRole;
+  bool _isScanning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = widget.initialRole ?? UserRole.client;
+  }
+
+  void _handleScan() {
+    setState(() => _isScanning = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _isScanning = false);
+        widget.onSelectRole(UserRole.client);
+      }
+    });
+  }
+
+  void _handleDiscover() {
+    // Navigate to merchant onboarding instead of login
+    // This will be handled by main.dart navigation
+    widget.onSelectRole(UserRole.merchant);
+  }
+
+  void _handleLogin() {
+    widget.onSelectRole(_selectedRole);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Ink(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: YColors.border, width: 1.5),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 6)),
-          ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: badgeColor,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: iconColor, size: 28),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: RoleSelectionColors.bgDark1,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: RoleSelectionColors.bgDark1,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: RoleSelectionColors.bgDark1,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                RoleSelectionHeader(
+                  selectedRole: _selectedRole,
+                  onRoleChanged: (UserRole role) {
+                    setState(() => _selectedRole = role);
+                    // Sync with parent to preserve selection (without navigating)
+                    widget.onRoleChanged?.call(role);
+                  },
+                ),
+                const SizedBox(height: 32),
+                _selectedRole == UserRole.merchant
+                    ? MerchantView(onDiscover: _handleDiscover)
+                    : ClientView(
+                        isScanning: _isScanning,
+                        onScan: _handleScan,
+                      ),
+                const SizedBox(height: 40),
+                LoginLink(onTap: _handleLogin),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: const TextStyle(color: YColors.muted, fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
