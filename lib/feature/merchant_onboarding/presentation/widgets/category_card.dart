@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 import 'merchant_onboarding_colors.dart';
 import '../../../merchant_onboarding/domain/entities/merchant_category.dart';
 
-/// Helper to convert hex string to Color
-Color _hexToColor(String hex) {
-  return Color(int.parse(hex.replaceFirst('#', '0xFF')));
-}
-
 /// Category card widget for merchant onboarding
 class CategoryCard extends StatelessWidget {
   const CategoryCard({
@@ -72,7 +67,7 @@ class CategoryCard extends StatelessWidget {
                     topLeft: Radius.circular(16),
                     topRight: Radius.circular(16),
                   ),
-                  color: _hexToColor(category.placeholderColorHex).withOpacity(0.3),
+                  color: Color(int.parse(category.placeholderColorHex.replaceFirst('#', '0xFF'))).withOpacity(0.3),
                   border: Border(
                     bottom: BorderSide(
                       color: MerchantOnboardingColors.borderColor,

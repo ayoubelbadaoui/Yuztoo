@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 import 'subcategory_colors.dart';
 import '../../../domain/entities/merchant_subcategory.dart';
 
-/// Helper to convert hex string to Color
-Color _hexToColor(String hex) {
-  return Color(int.parse(hex.replaceFirst('#', '0xFF')));
-}
-
 /// Subcategory card widget
 class SubcategoryCard extends StatelessWidget {
   const SubcategoryCard({
@@ -72,7 +67,7 @@ class SubcategoryCard extends StatelessWidget {
                       topLeft: Radius.circular(16),
                       topRight: Radius.circular(16),
                     ),
-                    color: _hexToColor(subcategory.placeholderColorHex)
+                    color: Color(int.parse(subcategory.placeholderColorHex.replaceFirst('#', '0xFF')))
                         .withOpacity(0.3),
                   ),
                   child: Stack(
