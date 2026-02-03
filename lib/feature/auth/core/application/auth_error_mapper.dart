@@ -31,6 +31,9 @@ class AuthErrorMapper {
     if (failure is UserCancelledFailure) {
       return 'Opération annulée par l\'utilisateur.';
     }
+    if (failure is ProfileIncompleteFailure) {
+      return 'Profil incomplet';
+    }
     if (failure is AuthUnexpectedFailure) {
       // Use the message from the failure if it's already in French and specific
       final message = failure.message;

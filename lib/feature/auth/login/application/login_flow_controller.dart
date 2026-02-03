@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../core/domain/entities/auth_user.dart';
+import '../../core/domain/auth_failure.dart';
 import '../../../../../types.dart';
 import '../application/state/login_flow_state.dart';
 import 'providers.dart';
@@ -27,6 +28,37 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
         state = LoginFlowError(failure);
       },
       (authUser) async {
+        // Patch missing fields for legacy users (non-blocking - don't fail login if this fails)
+        try {
+          final patchUserDocUseCase = ref.read(auth_core.patchUserDocumentProvider);
+          await patchUserDocUseCase.call(authUser.id);
+          // Ignore errors - patching is best effort for legacy migration
+        } catch (_) {
+          // Continue login even if patching fails
+        }
+
+        // Update last_login_at timestamp (non-blocking - don't fail login if this fails)
+        try {
+          final updateLastLoginUseCase = ref.read(auth_core.updateLastLoginAtProvider);
+          await updateLastLoginUseCase.call(authUser.id);
+          // Ignore errors - last_login_at update is non-critical
+        } catch (_) {
+          // Continue login even if last_login_at update fails
+        }
+
+        // Check profile completeness after patching
+        final checkProfileCompleteUseCase = ref.read(auth_core.checkUserProfileCompleteProvider);
+        final profileCompleteResult = await checkProfileCompleteUseCase.call(authUser.id);
+        final isProfileComplete = profileCompleteResult.fold(
+          (_) => true, // On error, assume complete to not block login
+          (complete) => complete,
+        );
+
+        if (!isProfileComplete) {
+          state = const LoginFlowError(ProfileIncompleteFailure());
+          return;
+        }
+
         final rolesMap = await _resolveRoles(authUser);
         final getUserCityUseCase = ref.read(auth_core.getUserCityProvider);
         final cityResult = await getUserCityUseCase.call(authUser.id);
