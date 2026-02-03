@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_bootstrap.dart';
@@ -32,6 +33,7 @@ import 'feature/promotions/presentation/promotions_management_screen.dart';
 import 'feature/merchant_qr/presentation/merchant_qr_screen.dart';
 import 'feature/merchant_stats/presentation/merchant_stats_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart';
+import 'feature/storefront/presentation/storefront_screen.dart';
 import 'feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
 import 'feature/merchant_onboarding/presentation/widgets/subcategory/restaurant_subcategories.dart';
@@ -240,26 +242,9 @@ class _RootShellState extends ConsumerState<_RootShell> {
       if (effectiveRole == UserRole.client) {
         targetScreen = ScreenId.clientHome;
     } else {
-        // Merchant - check onboarding status
-        bool onboardingCompleted = false;
-        try {
-          final isOnboardingCompleted = ref.read(isMerchantOnboardingCompletedProvider);
-          final onboardingResult = await isOnboardingCompleted
-              .call(user.id)
-              .timeout(const Duration(seconds: 5));
-          onboardingCompleted = onboardingResult.fold(
-            (_) => false, // Error → assume incomplete
-            (completed) => completed ?? false, // null → incomplete
-          );
-        } catch (_) {
-          // Timeout or error → assume incomplete (non-fatal)
-          onboardingCompleted = false;
-        }
-        
-        // Route based on onboarding status
-        targetScreen = onboardingCompleted 
-            ? ScreenId.merchantDashboard 
-            : ScreenId.merchantOnboarding;
+        // Merchant - after signup, always go to dashboard (not onboarding)
+        // Merchants can access onboarding from within the dashboard if needed
+        targetScreen = ScreenId.merchantDashboard;
       }
       
       // Now navigate to home screen (we were on splash, so this is safe)
@@ -267,7 +252,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
         setState(() {
           _authScreen = targetScreen;
           _role = effectiveRole;
-          _activeTab = effectiveRole == UserRole.client ? 'home' : 'dashboard';
+          _activeTab = effectiveRole == UserRole.client ? 'home' : 'taches';
           _nestedScreen = null;
           _isNavigatingToHome = false; // Navigation complete
         });
@@ -311,7 +296,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
         setState(() {
           _role = fallbackRole;
           _authScreen = targetScreen;
-          _activeTab = fallbackRole == UserRole.merchant ? 'dashboard' : 'home';
+          _activeTab = fallbackRole == UserRole.merchant ? 'taches' : 'home';
           _nestedScreen = null;
           _isNavigatingToHome = false; // Navigation complete
         });
@@ -345,7 +330,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
         // Navigate to login for clients
         _authScreen = ScreenId.login;
       }
-      _activeTab = role == UserRole.client ? 'home' : 'dashboard';
+      _activeTab = role == UserRole.client ? 'home' : 'taches';
     });
   }
 
@@ -404,15 +389,15 @@ class _RootShellState extends ConsumerState<_RootShell> {
         }
       } else {
         final map = <String, ScreenId>{
-          'dashboard': ScreenId.merchantDashboard,
-          'clients': ScreenId.merchantClients,
-          'stats': ScreenId.merchantStats,
-          'messages': ScreenId.merchantMessages,
+          'communaute': ScreenId.merchantClients, // Map to clients screen
+          'taches': ScreenId.merchantDashboard, // Map to dashboard for tasks
+          'storefront': ScreenId.merchantStorefront,
+          'marketing': ScreenId.merchantPromotions, // Map to promotions for marketing
           'profile': ScreenId.merchantProfile,
         };
         final target = map[tab] ?? ScreenId.merchantDashboard;
         // If it's a main tab screen, update auth screen; otherwise nested
-        if (target == ScreenId.merchantDashboard || target == ScreenId.merchantProfile) {
+        if (target == ScreenId.merchantDashboard || target == ScreenId.merchantProfile || target == ScreenId.merchantStorefront) {
           _authScreen = target;
           _nestedScreen = null;
         } else {
@@ -433,7 +418,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
       setState(() {
         _authScreen = ScreenId.merchantDashboard;
         _nestedScreen = null;
-        _activeTab = 'dashboard';
+        _activeTab = 'taches';
       });
     }
   }
@@ -447,7 +432,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
       ScreenId.clientProfile,
       ScreenId.merchantDashboard,
       ScreenId.merchantClients,
-      ScreenId.merchantStats,
+      ScreenId.merchantStorefront,
+      ScreenId.merchantPromotions,
       ScreenId.merchantMessages,
       ScreenId.merchantProfile,
     };
@@ -465,11 +451,39 @@ class _RootShellState extends ConsumerState<_RootShell> {
       child: _buildScreen(),
     );
 
+    // Get current screen to set background color
+    final currentScreen = _nestedScreen ?? _authScreen;
+    final isStorefront = currentScreen == ScreenId.merchantStorefront;
+    final scaffoldBgColor = isStorefront 
+        ? const Color(0xFFFDFBF7) // Storefront background color
+        : Colors.white; // Default white
+    
+    // Set system navigation bar color to match bottom nav for all merchant pages with bottom nav
+    if (_role == UserRole.merchant && _showBottomNav) {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          systemNavigationBarColor: Color(0xFF0B162C), // StorefrontColors.navyDark
+          systemNavigationBarIconBrightness: Brightness.light,
+          systemNavigationBarDividerColor: Colors.transparent,
+        ),
+      );
+    } else {
+      // Reset to default for other screens
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          systemNavigationBarColor: Colors.white,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+      );
+    }
+
     return Scaffold(
+      backgroundColor: scaffoldBgColor,
       body: SafeArea(
         bottom: false,
         child: Padding(
-          padding: EdgeInsets.only(bottom: _showBottomNav ? 72 : 0),
+          // Don't add bottom padding for storefront - it handles its own spacing
+          padding: EdgeInsets.only(bottom: (_showBottomNav && !isStorefront) ? 72 : 0),
           child: body,
         ),
       ),
@@ -499,6 +513,12 @@ class _RootShellState extends ConsumerState<_RootShell> {
           onRoleChanged: (UserRole role) {
             // Update role without navigating (just preserve selection)
             setState(() => _role = role);
+          },
+          onLogin: () {
+            // Navigate to login page for the currently selected role
+            setState(() {
+              _authScreen = ScreenId.login;
+            });
           },
         );
       case ScreenId.login:
@@ -585,7 +605,11 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return MerchantBenefitsScreen(
           onBack: () => setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
           onStartFree: () {
-            // TODO: Handle start free - navigate to signup or next step
+            // Navigate to merchant signup page
+            setState(() {
+              _role = UserRole.merchant;
+              _authScreen = ScreenId.signup;
+            });
           },
         );
       case ScreenId.merchantDashboard:
@@ -612,6 +636,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return const ClientProfileScreen();
       case ScreenId.merchantStats:
         return MerchantStatsScreen(onBack: _handleBackToBase);
+      case ScreenId.merchantStorefront:
+        return const StorefrontScreen();
     }
   }
 }

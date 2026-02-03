@@ -98,22 +98,10 @@ Future<NavigationState> _computeNavigationStateForUser(Ref ref, AuthUser user) a
     return const NavigationAuthenticated(ScreenId.clientHome);
   }
   
-  // Merchant role → check onboarding status
+  // Merchant role → after signup, always go to dashboard (not onboarding)
+  // Merchants can access onboarding from within the dashboard if needed
   if (role == UserRole.merchant) {
-    final isOnboardingCompleted = ref.read(isMerchantOnboardingCompletedProvider);
-    final onboardingResult = await isOnboardingCompleted.call(user.id);
-    
-    final onboardingCompleted = onboardingResult.fold(
-      (_) => false, // Error → assume incomplete
-      (completed) => completed ?? false, // null → incomplete
-    );
-    
-    // Route based on onboarding status
-    return NavigationAuthenticated(
-      onboardingCompleted 
-          ? ScreenId.merchantDashboard 
-          : ScreenId.merchantOnboarding,
-    );
+    return const NavigationAuthenticated(ScreenId.merchantDashboard);
   }
   
   // Fallback - should not reach here

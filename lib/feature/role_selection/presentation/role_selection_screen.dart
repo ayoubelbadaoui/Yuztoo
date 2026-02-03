@@ -14,11 +14,13 @@ class RoleSelectionScreen extends StatefulWidget {
     required this.onSelectRole,
     this.initialRole,
     this.onRoleChanged,
+    this.onLogin,
   });
 
   final ValueChanged<UserRole> onSelectRole;
   final UserRole? initialRole;
   final ValueChanged<UserRole>? onRoleChanged;
+  final VoidCallback? onLogin;
 
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
@@ -51,7 +53,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   }
 
   void _handleLogin() {
-    widget.onSelectRole(_selectedRole);
+    // Navigate to login page for the selected role
+    widget.onLogin?.call();
   }
 
   @override
