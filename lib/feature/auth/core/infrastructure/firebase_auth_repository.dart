@@ -48,8 +48,12 @@ class FirebaseAuthRepository implements AuthRepository {
             .doc(user.uid)
             .get()
             .timeout(const Duration(seconds: 5));
+      } on FirebaseException catch (_) {
+        // Firestore error - log but use fallback (Firebase Auth user only)
+        // Error is logged but not shown to user to avoid disrupting auth flow
+        profileDoc = null;
       } catch (_) {
-        // Timeout or error - use fallback (Firebase Auth user only)
+        // Timeout or other error - use fallback (Firebase Auth user only)
         profileDoc = null;
       }
       
@@ -111,21 +115,10 @@ class FirebaseAuthRepository implements AuthRepository {
         },
         verificationFailed: (firebase.FirebaseAuthException e) {
           if (!completer.isCompleted) {
-            // Check for billing errors specifically
-            final errorMessage = e.message ?? '';
-            if (errorMessage.contains('BILLING_NOT_ENABLED') || 
-                errorMessage.toLowerCase().contains('billing')) {
-              // ignore: prefer_const_constructors
-              completer.complete(Left<AuthFailure, String>(
-                const AuthUnexpectedFailure(
-                  message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
-                ),
-              ));
-            } else {
-              completer.complete(Left<AuthFailure, String>(
-                _mapAuthException(e, StackTrace.current),
-              ));
-            }
+            // Use standard error mapping - billing errors are handled in _mapAuthException
+            completer.complete(Left<AuthFailure, String>(
+              _mapAuthException(e, StackTrace.current),
+            ));
           }
         },
         codeSent: (String verificationId, int? resendToken) {
@@ -325,6 +318,9 @@ class FirebaseAuthRepository implements AuthRepository {
               .timeout(const Duration(seconds: 5));
         } on TimeoutException {
           profileDoc = null;
+        } on FirebaseException catch (_) {
+          // Firestore error - use fallback
+          profileDoc = null;
         } catch (_) {
           profileDoc = null;
         }
@@ -375,8 +371,13 @@ class FirebaseAuthRepository implements AuthRepository {
         } on TimeoutException {
           // Timeout is not an error - just use fallback data
           profileDoc = null;
-        } catch (e) {
-          // Any Firestore error - use fallback data
+        } on FirebaseException catch (_) {
+          // Firestore error - use fallback data
+          // Error codes are handled by FirestoreErrorMapper but we don't show them here
+          // to avoid disrupting the auth flow
+          profileDoc = null;
+        } catch (_) {
+          // Any other error - use fallback data
           profileDoc = null;
         }
         
@@ -421,28 +422,24 @@ class FirebaseAuthRepository implements AuthRepository {
       case 'user-cancelled':
         return const UserCancelledFailure();
       case 'internal-error':
-        // Check if it's a billing error
-        if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
-            error.message?.toLowerCase().contains('billing') == true) {
+        // Firebase Auth uses 'internal-error' for billing issues
+        // Check for billing-specific message pattern (no standard error code exists)
+        final errorMessage = error.message?.toLowerCase() ?? '';
+        if (errorMessage.contains('billing_not_enabled') || 
+            errorMessage.contains('billing')) {
           return const AuthUnexpectedFailure(
             message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
           );
         }
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
+      case 'credential-already-in-use':
+        // Standard Firebase Auth error code for already linked credentials
+        return const AuthUnexpectedFailure(
+          message: 'Ce compte est déjà lié à un autre utilisateur.',
+        );
       default:
-        // Check error message for invalid credential keywords (fallback for edge cases)
-        if (error.message?.toLowerCase().contains('invalid') == true ||
-            error.message?.toLowerCase().contains('credential') == true ||
-            error.message?.toLowerCase().contains('password') == true) {
-          return const InvalidCredentialsFailure();
-        }
-        // Check error message for billing-related errors
-        if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
-            error.message?.toLowerCase().contains('billing') == true) {
-          return const AuthUnexpectedFailure(
-            message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
-          );
-        }
+        // All standard Firebase Auth error codes are handled above
+        // Return generic error for any unhandled error codes
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
     }
   }

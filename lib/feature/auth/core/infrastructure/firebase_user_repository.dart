@@ -5,6 +5,7 @@ import '../domain/repositories/user_repository.dart';
 import '../../../../../core/domain/core/either.dart';
 import '../../../../../core/domain/core/result.dart';
 import '../../../../../core/infrastructure/logger_service.dart';
+import '../../../../../core/utils/firestore_error_mapper.dart';
 import '../../../../../types.dart';
 
 /// Firebase implementation of UserRepository
@@ -47,6 +48,21 @@ class FirebaseUserRepository implements UserRepository {
       }, SetOptions(merge: false));
       LoggerService.logInfo('User document created successfully', context: {'uid': uid, 'email': email, 'city': city});
       return const Right<AuthFailure, Unit>(unit);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError(
+        'Firestore error creating user document',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid, 'email': email, 'phone': phone, 'city': city, 'code': e.code},
+      );
+      final frenchMessage = FirestoreErrorMapper.getFrenchMessage(e);
+      return Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de la création du profil utilisateur: $frenchMessage',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
     } catch (e, st) {
       LoggerService.logError(
         'Error creating user document',

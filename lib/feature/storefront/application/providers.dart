@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/storefront.dart';
 import '../domain/entities/business_hours.dart';
+import '../domain/entities/editable_profile.dart';
 
 /// Provider for storefront data
 /// In a real implementation, this would fetch from a repository
@@ -168,6 +169,63 @@ class BusinessHoursNotifier extends StateNotifier<BusinessHours> {
       sunday: state.sunday,
       hasExceptionalClosure: enabled,
     );
+  }
+}
+
+/// Initial editable profile data (derived from storefront)
+EditableProfile _initialEditableProfile(Storefront storefront) {
+  return EditableProfile(
+    bannerImageUrl: storefront.bannerImageUrl,
+    profileImageUrl: storefront.profileImageUrl,
+    businessName: storefront.merchantName,
+    category: storefront.businessActivity,
+    description: 'Artisan jewelry created with passion and high-quality materials. We specialize in custom gold-plated pieces for every occasion.',
+    phoneNumber: '+33 6 12 34 56 78',
+    websiteUrl: 'www.lepetitatelier.fr',
+    physicalAddress: '12 Rue de Rivoli, 75004 Paris',
+  );
+}
+
+/// Provider for editable profile data (stateful)
+final editableProfileProvider = StateNotifierProvider<EditableProfileNotifier, EditableProfile>((ref) {
+  final storefront = ref.watch(storefrontProvider);
+  return EditableProfileNotifier(_initialEditableProfile(storefront));
+});
+
+/// Notifier for managing editable profile state
+class EditableProfileNotifier extends StateNotifier<EditableProfile> {
+  EditableProfileNotifier(super.state);
+
+  void updateBannerImage(String url) {
+    state = state.copyWith(bannerImageUrl: url);
+  }
+
+  void updateProfileImage(String url) {
+    state = state.copyWith(profileImageUrl: url);
+  }
+
+  void updateBusinessName(String name) {
+    state = state.copyWith(businessName: name);
+  }
+
+  void updateCategory(String category) {
+    state = state.copyWith(category: category);
+  }
+
+  void updateDescription(String description) {
+    state = state.copyWith(description: description);
+  }
+
+  void updatePhoneNumber(String phone) {
+    state = state.copyWith(phoneNumber: phone);
+  }
+
+  void updateWebsiteUrl(String url) {
+    state = state.copyWith(websiteUrl: url);
+  }
+
+  void updatePhysicalAddress(String address) {
+    state = state.copyWith(physicalAddress: address);
   }
 }
 

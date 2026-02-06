@@ -34,6 +34,7 @@ import 'feature/merchant_qr/presentation/merchant_qr_screen.dart';
 import 'feature/merchant_stats/presentation/merchant_stats_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart';
 import 'feature/storefront/presentation/storefront_screen.dart';
+import 'feature/storefront/presentation/edit_profile_screen.dart';
 import 'feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
 import 'feature/merchant_onboarding/presentation/widgets/subcategory/restaurant_subcategories.dart';
@@ -638,6 +639,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return MerchantStatsScreen(onBack: _handleBackToBase);
       case ScreenId.merchantStorefront:
         return const StorefrontScreen();
+      case ScreenId.merchantEditProfile:
+        return const EditProfileScreen();
     }
   }
 }
