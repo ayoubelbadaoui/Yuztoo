@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "20266054150",
+    "project_id": "yuztoo",
+    "storage_bucket": "yuztoo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:20266054150:android:dbd7433817ec90a65a4987",
+        "android_client_info": {
+          "package_name": "com.yuztoo.synerteam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvsKq-3-HFXR7ODyIUfVDlMlYlWavu25U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

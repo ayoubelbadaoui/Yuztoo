@@ -1,6 +1,7 @@
 name: flutter_yuztoo
 description: Flutter UI recreation of the High-Fidelity Yuztoo design.
 publish_to: "none"
+version: 1.0.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -11,11 +12,28 @@ dependencies:
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1
   fl_chart: ^0.69.0
+  flutter_riverpod: ^2.5.1
+  firebase_core: ^2.31.0
+  firebase_auth: ^4.17.9
+  cloud_firestore: ^4.15.9
+  firebase_storage: ^11.6.9
+  equatable: ^2.0.5
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  intl_phone_field: ^3.2.0
+  shared_preferences: ^2.2.2
+  logger: ^2.0.2+1
+  image_picker: ^1.0.7
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.2
+  build_runner: ^2.4.12
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  mockito: ^5.4.4
+  mocktail: ^1.0.1
 
 flutter:
   uses-material-design: true

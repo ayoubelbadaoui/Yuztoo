@@ -14,6 +14,9 @@ enum ScreenId {
   notifications,
   messages,
   clientProfile,
+  merchantOnboarding,
+  merchantSubcategorySelection,
+  merchantBenefits,
   merchantDashboard,
   merchantClients,
   merchantPromotions,
@@ -21,4 +24,6 @@ enum ScreenId {
   merchantMessages,
   merchantProfile,
   merchantStats,
+  merchantStorefront,
+  merchantEditProfile,
 }
