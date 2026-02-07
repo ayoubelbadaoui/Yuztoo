@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
+import '../../../l10n/app_localizations.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key, required this.onBack});
+
+  static String get path => '/notifications';
 
   final VoidCallback onBack;
 
@@ -13,43 +16,48 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   late List<_Notification> notifications;
 
-  @override
-  void initState() {
-    super.initState();
-    notifications = [
-      const _Notification(
+  List<_Notification> _buildNotifications(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
+      _Notification(
         id: 1,
-        title: 'Nouvelle promotion !',
+        title: l10n.newPromotion,
         message: '20% de réduction chez Café Central',
-        time: 'Il y a 2h',
+        time: l10n.hoursAgo(2),
         type: NotificationType.promotion,
         isRead: false,
       ),
-      const _Notification(
+      _Notification(
         id: 2,
-        title: 'Points gagnés',
-        message: 'Vous avez gagné 10 points chez Pharmacie El Amane',
-        time: 'Il y a 5h',
+        title: l10n.pointsEarned,
+        message: l10n.pointsEarnedMessage(10, 'Pharmacie El Amane'),
+        time: l10n.hoursAgo(5),
         type: NotificationType.points,
         isRead: false,
       ),
-      const _Notification(
+      _Notification(
         id: 3,
-        title: 'Nouveau message',
-        message: 'Café Central vous a envoyé un message',
-        time: 'Hier',
+        title: l10n.newMessage,
+        message: l10n.messageFrom('Café Central'),
+        time: l10n.yesterday,
         type: NotificationType.message,
         isRead: true,
       ),
-      const _Notification(
+      _Notification(
         id: 4,
-        title: 'Rappel de réservation',
-        message: 'Votre réservation pour demain à 19h',
-        time: 'Hier',
+        title: l10n.reservationReminder,
+        message: l10n.reservationForTomorrow('19h'),
+        time: l10n.yesterday,
         type: NotificationType.reminder,
         isRead: true,
       ),
     ];
+  }
+  
+  @override
+  void initState() {
+    super.initState();
+    // Will be set in build method
   }
 
   void _markAllRead() {
@@ -61,6 +69,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (notifications.isEmpty) {
+      notifications = _buildNotifications(context);
+    }
     return Column(
       children: [
         Padding(
@@ -71,11 +82,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
               const SizedBox(width: 8),
               Expanded(
-                  child: Text('Notifications',
-                      style: Theme.of(context).textTheme.titleLarge)),
+                child: Text(
+                  'Notifications',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
               TextButton(
-                  onPressed: _markAllRead,
-                  child: const Text('Tout marquer lu')),
+                onPressed: _markAllRead,
+                child: Text(AppLocalizations.of(context)!.markAllRead),
+              ),
             ],
           ),
         ),

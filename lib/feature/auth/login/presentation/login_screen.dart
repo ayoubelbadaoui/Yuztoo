@@ -5,6 +5,7 @@ import '../../core/domain/value_objects/email_address.dart';
 import '../../../../core/utils/cities.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../application/providers.dart';
 import '../application/state/login_flow_state.dart';
 import 'widgets/input_field.dart';
@@ -25,6 +26,8 @@ class LoginScreen extends ConsumerStatefulWidget {
     required this.onBack,
     required this.onSignup,
   });
+
+  static String get path => '/login';
 
   final UserRole role;
   final VoidCallback onBack;
@@ -80,9 +83,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String? _validateEmail(String? value) {
+    final l10n = AppLocalizations.of(context)!;
     // Show "required" error only after submit attempt
     if (value == null || value.isEmpty) {
-      return _shouldValidateRequired ? 'L\'adresse e-mail est requise.' : null;
+      return _shouldValidateRequired ? l10n.emailRequired : null;
     }
     // Validate format:
     // - Show error on blur (when clicking another field) if format is wrong
@@ -91,7 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Only show error if field has been validated (blurred) or on submit
       // This allows real-time correction after first validation
       if (_emailHasBeenValidated || _shouldValidateRequired) {
-        return 'Adresse e-mail invalide.';
+        return l10n.invalidEmail;
       }
       return null;
     }
@@ -187,8 +191,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
                   Text(
-                    'Sélectionnez votre ville',
-                    style: TextStyle(
+                    AppLocalizations.of(context)!.selectCity,
+                    style: const TextStyle(
                       color: _textLight,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -199,22 +203,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: searchController,
                     style: const TextStyle(color: _textLight),
                     decoration: InputDecoration(
-                      hintText: 'Rechercher une ville...',
-                      hintStyle: TextStyle(color: _textGrey),
-                      prefixIcon: Icon(Icons.search, color: _primaryGold),
+                      hintText: AppLocalizations.of(context)!.searchCity,
+                      hintStyle: const TextStyle(color: _textGrey),
+                      prefixIcon: const Icon(Icons.search, color: _primaryGold),
                       filled: true,
                       fillColor: _bgDark1,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: _borderColor),
+                        borderSide: const BorderSide(color: _borderColor),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: _borderColor),
+                        borderSide: const BorderSide(color: _borderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: _primaryGold, width: 2),
+                        borderSide: const BorderSide(color: _primaryGold, width: 2),
                       ),
                     ),
                     onChanged: filterCities,
@@ -267,11 +271,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           backgroundColor: _bgDark2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: _borderColor, width: 1),
+            side: const BorderSide(color: _borderColor, width: 1),
           ),
           title: Text(
-            'Choisissez votre rôle',
-            style: TextStyle(
+            AppLocalizations.of(context)!.chooseRole,
+            style: const TextStyle(
               color: _textLight,
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -294,21 +298,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       vertical: 12,
                     ),
                     title: Text(
-                      'Client',
-                      style: TextStyle(
+                      AppLocalizations.of(context)!.client,
+                      style: const TextStyle(
                         color: _textLight,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     subtitle: Text(
-                      'Découvrir les commerces',
-                      style: TextStyle(
+                      AppLocalizations.of(context)!.discoverShops,
+                      style: const TextStyle(
                         color: _textGrey,
                         fontSize: 13,
                       ),
                     ),
-                    trailing: Icon(Icons.arrow_forward_ios,
+                    trailing: const Icon(Icons.arrow_forward_ios,
                         color: _primaryGold, size: 18),
                     onTap: () {
                       Navigator.pop(context);
@@ -335,21 +339,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       vertical: 12,
                     ),
                     title: Text(
-                      'Commerçant',
-                      style: TextStyle(
+                      AppLocalizations.of(context)!.merchant,
+                      style: const TextStyle(
                         color: _textLight,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     subtitle: Text(
-                      'Gérer votre commerce',
-                      style: TextStyle(
+                      AppLocalizations.of(context)!.manageBusiness,
+                      style: const TextStyle(
                         color: _textGrey,
                         fontSize: 13,
                       ),
                     ),
-                    trailing: Icon(Icons.arrow_forward_ios,
+                    trailing: const Icon(Icons.arrow_forward_ios,
                         color: _primaryGold, size: 18),
                     onTap: () {
                       Navigator.pop(context);
@@ -419,7 +423,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       },
       child: PopScope(
         canPop: false, // Use our custom navigation instead of route popping
-        onPopInvoked: (didPop) {
+        onPopInvokedWithResult: (didPop, result) {
           if (!didPop) {
             widget.onBack();
           }
@@ -447,8 +451,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   children: [
                     LoginInputField(
                   controller: _emailController,
-                      label: 'Adresse email',
-                  hint: 'votre@email.com',
+                      label: AppLocalizations.of(context)!.emailAddress,
+                  hint: AppLocalizations.of(context)!.emailPlaceholder,
                   icon: Icons.mail_outline,
                       validator: _validateEmail,
                       enabled: !isLoading,
@@ -462,8 +466,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 16),
                     LoginInputField(
                   controller: _passwordController,
-                  label: 'Mot de passe',
-                  hint: '••••••••',
+                  label: AppLocalizations.of(context)!.password,
+                  hint: AppLocalizations.of(context)!.passwordPlaceholder,
                   icon: Icons.lock_outline,
                       obscure: !_isPasswordVisible,
                       validator: _validatePassword,
@@ -496,7 +500,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextButton.styleFrom(
                           foregroundColor: _primaryGold,
                         ),
-                  child: const Text('Mot de passe oublié ?'),
+                  child: Text(AppLocalizations.of(context)!.forgotPasswordQuestion),
                       ),
                 ),
                 const SizedBox(height: 8),
@@ -510,7 +514,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          shadowColor: const Color(0xFFBF8719).withOpacity(0.3),
+                          shadowColor: const Color(0xFFBF8719).withValues(alpha: 0.3),
                           elevation: isLoading ? 4 : 2,
                         ),
                         onPressed: (isLoading || _isLoginSubmitting) ? null : _handleLogin,
@@ -521,13 +525,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.5,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    _bgDark1.withOpacity(0.8),
+                                    _bgDark1.withValues(alpha: 0.8),
                                   ),
                                 ),
                               )
-                            : const Text(
-                                'Se connecter',
-                                style: TextStyle(
+                            : Text(
+                                AppLocalizations.of(context)!.signIn,
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: _bgDark1,
@@ -566,7 +570,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             border: Border.all(color: _primaryGold, width: 3),
             boxShadow: [
               BoxShadow(
-                color: _primaryGold.withOpacity(0.2),
+                color: _primaryGold.withValues(alpha: 0.2),
                 blurRadius: 8,
                 spreadRadius: 2,
               ),
@@ -584,8 +588,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         const SizedBox(height: 18),
         Text(
-          'Connexion',
-          style: TextStyle(
+          AppLocalizations.of(context)!.login,
+          style: const TextStyle(
             color: _textLight,
             fontSize: 24,
             fontWeight: FontWeight.w600,
@@ -594,9 +598,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         const SizedBox(height: 6),
         Text(
           widget.role == UserRole.client
-              ? 'Connectez-vous pour découvrir les commerces'
-              : 'Accédez à votre espace professionnel',
-          style: TextStyle(
+              ? AppLocalizations.of(context)!.loginToDiscover
+              : AppLocalizations.of(context)!.accessProfessionalSpace,
+          style: const TextStyle(
             color: _textGrey,
             fontSize: 14,
           ),
@@ -610,15 +614,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       children: [
         Expanded(
           child: Divider(
-            color: _borderColor.withOpacity(0.5),
+            color: _borderColor.withValues(alpha: 0.5),
             thickness: 1,
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            'OU',
-            style: TextStyle(
+            AppLocalizations.of(context)!.or,
+            style: const TextStyle(
               fontSize: 11,
               color: _textGrey,
               fontWeight: FontWeight.w500,
@@ -627,7 +631,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         Expanded(
           child: Divider(
-            color: _borderColor.withOpacity(0.5),
+            color: _borderColor.withValues(alpha: 0.5),
             thickness: 1,
           ),
         ),
@@ -641,7 +645,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       children: [
         Expanded(
           child: _buildSocialButton(
-            label: 'Google',
+            label: AppLocalizations.of(context)!.google,
             iconWidget: _buildGoogleIcon(),
             onPressed: () => _handleSocialLogin('google'),
             isLoading: isLoading,
@@ -651,7 +655,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Expanded(
           child: _buildSocialButton(
             icon: Icons.facebook,
-            label: 'Facebook',
+            label: AppLocalizations.of(context)!.facebook,
             iconColor: const Color(0xFF1877F2),
             onPressed: () => _handleSocialLogin('facebook'),
             isLoading: isLoading,
@@ -661,7 +665,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Expanded(
           child: _buildSocialButton(
             icon: Icons.apple,
-            label: 'Apple',
+            label: AppLocalizations.of(context)!.apple,
             iconColor: _textLight,
             onPressed: () => _handleSocialLogin('apple'),
             isLoading: isLoading,
@@ -705,7 +709,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 4),
             Text(
               label ?? '',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10,
                 color: _textLight,
                 fontWeight: FontWeight.w500,
@@ -720,7 +724,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _handleSocialLogin(String provider) async {
     // TODO: Implement social login (Google, Facebook, Apple)
-    showErrorSnackbar(context, 'Connexion $provider bientôt disponible');
+    final l10n = AppLocalizations.of(context)!;
+    showErrorSnackbar(context, l10n.socialLoginSoon(provider));
   }
 
   Widget _buildFooter() {
@@ -730,12 +735,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           onTap: widget.onSignup,
           child: Text.rich(
             TextSpan(
-              text: 'Vous n\'avez pas de compte ? ',
-              style: TextStyle(color: _textGrey, fontSize: 13),
+              text: AppLocalizations.of(context)!.dontHaveAccountText,
+              style: const TextStyle(color: _textGrey, fontSize: 13),
               children: [
                 TextSpan(
-                  text: 'Créer un compte',
-                  style: TextStyle(
+                  text: AppLocalizations.of(context)!.createAccountText,
+                  style: const TextStyle(
                     color: _primaryGold,
                     fontWeight: FontWeight.w600,
                     decoration: TextDecoration.underline,
@@ -754,7 +759,7 @@ class _GoogleIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final scale = size.width / 24.0;
-    final matrix = Matrix4.identity()..scale(scale);
+    final matrix = Matrix4.identity()..scaleByDouble(scale, scale, scale, 1.0);
 
     // Red path
     final redPath = Path()

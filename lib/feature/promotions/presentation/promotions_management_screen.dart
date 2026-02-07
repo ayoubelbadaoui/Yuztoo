@@ -5,6 +5,8 @@ class PromotionsManagementScreen extends StatefulWidget {
   const PromotionsManagementScreen(
       {super.key, required this.onBack, required this.onCreatePromotion});
 
+  static String get path => '/merchant-promotions';
+
   final VoidCallback onBack;
   final VoidCallback onCreatePromotion;
 

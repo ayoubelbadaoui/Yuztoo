@@ -1,0 +1,249 @@
+{
+  "@@locale": "fr",
+  "appTitle": "Yuztoo",
+  "welcomeMessage": "Bienvenue",
+  "forThemForYou": "POUR EUX, POUR VOUS",
+  "allTheShops": "All the shops",
+  "youreUsedTo": "\"You're used\" to",
+  "welcomeQuestion": "Bienvenue, Vous êtes ?",
+  "client": "Client",
+  "merchant": "Commerçant",
+  "discoverShops": "Découvrir les commerces",
+  "manageBusiness": "Gérer votre commerce",
+  "login": "Connexion",
+  "signup": "Inscription",
+  "createAccount": "Créer un compte",
+  "dontHaveAccount": "Vous n'avez pas de compte ?",
+  "haveAccount": "Vous avez un compte ?",
+  "connect": "Connectez-vous",
+  "email": "Email",
+  "password": "Mot de passe",
+  "forgotPassword": "Mot de passe oublié ?",
+  "signIn": "Se connecter",
+  "signUp": "S'inscrire",
+  "phoneNumber": "Numéro de téléphone",
+  "city": "Ville",
+  "selectCity": "Sélectionnez votre ville",
+  "searchCity": "Rechercher une ville...",
+  "verification": "Vérification",
+  "enterCode": "Entrez le code envoyé au",
+  "incorrectNumber": "Numéro incorrect ?",
+  "resendCode": "Renvoyer le code",
+  "next": "Suivant",
+  "back": "Retour",
+  "home": "Accueil",
+  "discovery": "Découverte",
+  "loyalty": "Fidélité",
+  "messages": "Messages",
+  "profile": "Profil",
+  "dashboard": "Tableau de bord",
+  "clients": "Clients",
+  "stats": "Statistiques",
+  "promotions": "Promotions",
+  "qrCode": "Code QR",
+  "settings": "Paramètres",
+  "logout": "Déconnexion",
+  "or": "OU",
+  "continueWith": "Continuer avec",
+  "google": "Google",
+  "facebook": "Facebook",
+  "apple": "Apple",
+  "termsAcceptance": "En continuant, vous acceptez nos conditions d'utilisation",
+  "invalidCredentials": "Identifiants invalides. Vérifiez votre email et mot de passe.",
+  "accountDisabled": "Ce compte a été désactivé.",
+  "networkError": "Erreur de connexion réseau. Vérifiez votre connexion internet.",
+  "operationCancelled": "Opération annulée par l'utilisateur.",
+  "incompleteProfile": "Profil incomplet",
+  "unexpectedError": "Une erreur inattendue s'est produite",
+  "loginToDiscover": "Connectez-vous pour découvrir les commerces",
+  "accessProfessionalSpace": "Accédez à votre espace professionnel",
+  "connection": "Connexion",
+  "chooseRole": "Choisissez votre rôle",
+  "category": "Catégorie",
+  "subcategory": "Sous-catégorie",
+  "benefits": "Avantages",
+  "startFree": "Démarrer gratuitement",
+  "restaurant": "Restaurant",
+  "retail": "Commerce de détail",
+  "beauty": "Beauté & Bien-être",
+  "fitness": "Sport & Fitness",
+  "services": "Services",
+  "other": "Autre",
+  "message": "Message",
+  "reserve": "Réserver",
+  "rating": "Note",
+  "reviews": "avis",
+  "distance": "Distance",
+  "all": "Tous",
+  "restaurants": "Restaurants",
+  "cafes": "Cafés",
+  "health": "Santé",
+  "beautyCategory": "Beauté",
+  "shopping": "Shopping",
+  "currentPoints": "Points actuels",
+  "nextReward": "Prochain avantage",
+  "totalVisits": "Visites totales",
+  "freeCoffee": "Café offert",
+  "discount": "de réduction",
+  "freePastry": "Pâtisserie offerte",
+  "scanQRCode": "Scanne le",
+  "qrCode": "QR code",
+  "addToYuztoo": "Ajoute-le à ton carnet Yuztoo\net reçois ses infos utiles",
+  "scanning": "Scan en cours...",
+  "startScan": "Lancer le scan",
+  "emailRequired": "L'adresse e-mail est requise.",
+  "invalidEmail": "Adresse e-mail invalide.",
+  "emailAddress": "Adresse email",
+  "forgotPasswordQuestion": "Mot de passe oublié ?",
+  "connectToShops": "Connectez-vous à vos commerces",
+  "yuztooForYou": "Yuztoo, concrètement pour vous",
+  "passwordHint": "8+ caractères, majuscules, minuscules et chiffres",
+  "socialLoginSoon": "Connexion {provider} bientôt disponible",
+  "@socialLoginSoon": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "selectCategory": "Sélectionnez une catégorie",
+  "categorySelected": "Catégorie sélectionnée: {category}",
+  "@categorySelected": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "foodBusiness": "Métiers de bouche mais encore...",
+  "activeClients": "Clients actifs",
+  "visits": "Visites",
+  "revenue": "Chiffre d'affaires",
+  "newClients": "Nouveaux clients",
+  "thisWeek": "Cette semaine",
+  "thisMonth": "Ce mois",
+  "today": "Aujourd'hui",
+  "yesterday": "Hier",
+  "week": "Semaine",
+  "month": "Mois",
+  "year": "Année",
+  "dontHaveAccountText": "Vous n'avez pas de compte ? ",
+  "createAccountText": "Créer un compte",
+  "emailPlaceholder": "votre@email.com",
+  "passwordPlaceholder": "••••••••",
+  "phoneRequired": "Le numéro de téléphone est requis.",
+  "invalidPhoneFormat": "Numéro de téléphone invalide. Vérifiez le format.",
+  "cityRequired": "La ville est requise.",
+  "verificationCodeSent": "Code de vérification envoyé!",
+  "smsUnavailable": "SMS indisponible pour le moment. Veuillez contacter le support.",
+  "verificationIdMissing": "Erreur: ID de vérification manquant",
+  "signupSuccess": "Inscription réussie!",
+  "verificationCodeResent": "Code de vérification renvoyé!",
+  "enterCodeSentTo": "Entrez le code envoyé au\n",
+  "wrongNumber": "Numéro incorrect ?",
+  "resendCode": "Renvoyer le code",
+  "resendCodeWithTimer": "Renvoyer le code ({seconds}s)",
+  "@resendCodeWithTimer": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "forThemForYouLowercase": "pour eux, pour vous",
+  "hello": "Bonjour,",
+  "searchStore": "Rechercher un commerce...",
+  "scan": "Scanner",
+  "loyaltyLabel": "Fidélité",
+  "offers": "Offres",
+  "activePromotions": "Promotions actives",
+  "seeAll": "Tout voir",
+  "myBusiness": "Mon commerce",
+  "open": "Ouvert",
+  "quickActions": "Actions rapides",
+  "myQRCode": "Mon QR Code",
+  "showCode": "Afficher le code",
+  "manageOffers": "Gérer les offres",
+  "reservations": "Réservations",
+  "scanQR": "Scan QR",
+  "rewardUsed": "Récompense utilisée",
+  "minutesAgo": "Il y a {minutes} min",
+  "@minutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "visitsThisMonth": "Visites ce mois",
+  "pointsDistributed": "Points distribués",
+  "myLoyaltyCards": "Mes cartes de fidélité",
+  "totalPoints": "Points totaux",
+  "stores": "Commerces",
+  "rewards": "Récompenses",
+  "myProfile": "Mon profil",
+  "account": "COMPTE",
+  "personalInfo": "Informations personnelles",
+  "paymentMethods": "Moyens de paiement",
+  "preferences": "PRÉFÉRENCES",
+  "pushNotifications": "Notifications push",
+  "emailNotifications": "Notifications email",
+  "support": "SUPPORT",
+  "disconnect": "Se déconnecter",
+  "version": "Version {version}",
+  "@version": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "searchConversation": "Rechercher une conversation...",
+  "newPromotion": "Nouvelle promotion !",
+  "pointsEarned": "Points gagnés",
+  "pointsEarnedMessage": "Vous avez gagné {points} points chez {store}",
+  "@pointsEarnedMessage": {
+    "placeholders": {
+      "points": {
+        "type": "int"
+      },
+      "store": {
+        "type": "String"
+      }
+    }
+  },
+  "newMessage": "Nouveau message",
+  "messageFrom": "{store} vous a envoyé un message",
+  "@messageFrom": {
+    "placeholders": {
+      "store": {
+        "type": "String"
+      }
+    }
+  },
+  "reservationReminder": "Rappel de réservation",
+  "reservationForTomorrow": "Votre réservation pour demain à {time}",
+  "@reservationForTomorrow": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "markAllRead": "Tout marquer lu",
+  "hoursAgo": "Il y a {hours}h",
+  "@hoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "yesterday": "Hier",
+  "healthCategory": "Santé",
+  "beautyCategoryLowercase": "Beauté",
+  "bakery": "Boulangerie",
+  "helpCenter": "Centre d'aide",
+  "termsOfUse": "Conditions d'utilisation"
+}
+

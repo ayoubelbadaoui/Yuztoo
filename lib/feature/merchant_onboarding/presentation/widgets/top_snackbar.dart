@@ -95,7 +95,7 @@ class _TopSnackBarWidgetState extends State<_TopSnackBarWidget>
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: MerchantOnboardingColors.primaryGold.withOpacity(0.3),
+                    color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -103,7 +103,7 @@ class _TopSnackBarWidgetState extends State<_TopSnackBarWidget>
               ),
               child: Text(
                 widget.message,
-                style: TextStyle(
+                style: const TextStyle(
                   color: MerchantOnboardingColors.bgDark1,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,

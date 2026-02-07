@@ -18,6 +18,8 @@ class SubcategorySelectionScreen extends StatefulWidget {
     this.onNext,
   });
 
+  static String get path => '/merchant-subcategory-selection';
+
   final String categoryTitle;
   final List<MerchantSubcategory> subcategories;
   final ValueChanged<String>? onSubcategorySelected;
@@ -82,7 +84,7 @@ class _SubcategorySelectionScreenState
       value: statusBarStyle,
       child: PopScope(
         canPop: false, // Use our custom navigation instead of route popping
-        onPopInvoked: (didPop) {
+        onPopInvokedWithResult: (didPop, result) {
           if (!didPop && widget.onBack != null) {
             widget.onBack!();
           }
@@ -133,8 +135,8 @@ class _SubcategorySelectionScreenState
                   ),
 
                   // Footer with bottom padding for button
-                  SliverToBoxAdapter(
-                    child: const Padding(
+                  const SliverToBoxAdapter(
+                    child: Padding(
                       padding: EdgeInsets.only(bottom: 100),
                       child: SubcategoryFooter(),
                     ),
@@ -153,7 +155,7 @@ class _SubcategorySelectionScreenState
                     color: SubcategoryColors.bgDark1,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 10,
                         offset: const Offset(0, -2),
                       ),
@@ -171,12 +173,12 @@ class _SubcategorySelectionScreenState
                         style: ElevatedButton.styleFrom(
                           backgroundColor: SubcategoryColors.primaryGold,
                           disabledBackgroundColor:
-                              SubcategoryColors.primaryGold.withOpacity(0.3),
+                              SubcategoryColors.primaryGold.withValues(alpha: 0.3),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           shadowColor:
-                              SubcategoryColors.primaryGold.withOpacity(0.3),
+                              SubcategoryColors.primaryGold.withValues(alpha: 0.3),
                           elevation: _selectedSubcategoryId != null ? 6 : 0,
                         ),
                         child: Text(
@@ -186,7 +188,7 @@ class _SubcategorySelectionScreenState
                             fontWeight: FontWeight.w600,
                             color: _selectedSubcategoryId != null
                                 ? SubcategoryColors.bgDark1
-                                : SubcategoryColors.textGrey.withOpacity(0.5),
+                                : SubcategoryColors.textGrey.withValues(alpha: 0.5),
                           ),
                         ),
                       ),

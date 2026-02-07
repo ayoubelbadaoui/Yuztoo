@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
 import '../../../types.dart';
+import '../../../l10n/app_localizations.dart';
 
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen(
@@ -8,6 +9,8 @@ class MessagesScreen extends StatelessWidget {
       required this.role,
       required this.onBack,
       required this.onConversationSelect});
+
+  static String get path => '/messages';
 
   final UserRole role;
   final VoidCallback onBack;
@@ -26,16 +29,19 @@ class MessagesScreen extends StatelessWidget {
             children: [
               IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back)),
               const SizedBox(width: 8),
-              Text('Messages', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                AppLocalizations.of(context)!.messages,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ],
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: TextField(
             decoration: InputDecoration(
-              hintText: 'Rechercher une conversation...',
-              prefixIcon: Icon(Icons.search, color: YColors.muted),
+              hintText: AppLocalizations.of(context)!.searchConversation,
+              prefixIcon: const Icon(Icons.search, color: YColors.muted),
             ),
           ),
         ),

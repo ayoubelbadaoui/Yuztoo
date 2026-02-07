@@ -12,10 +12,10 @@ class OnboardingFooter extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: MerchantOnboardingColors.bgDark2.withOpacity(0.4),
+          color: MerchantOnboardingColors.bgDark2.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: MerchantOnboardingColors.primaryGold.withOpacity(0.1),
+            color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -27,7 +27,7 @@ class OnboardingFooter extends StatelessWidget {
               child: Icon(
                 Icons.info_outline_rounded,
                 size: 18,
-                color: MerchantOnboardingColors.primaryGold.withOpacity(0.7),
+                color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(width: 12),
@@ -36,7 +36,7 @@ class OnboardingFooter extends StatelessWidget {
                 'Ce choix nous permet d\'adapter nos services, vous pourrez le modifier à tout moment.',
                 style: TextStyle(
                   fontSize: 12,
-                  color: MerchantOnboardingColors.textGrey.withOpacity(0.9),
+                  color: MerchantOnboardingColors.textGrey.withValues(alpha: 0.9),
                   height: 1.5,
                   fontWeight: FontWeight.w400,
                 ),

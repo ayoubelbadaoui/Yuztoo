@@ -5,6 +5,8 @@ class ClientListScreen extends StatelessWidget {
   const ClientListScreen(
       {super.key, required this.onBack, required this.onClientSelect});
 
+  static String get path => '/merchant-clients';
+
   final VoidCallback onBack;
   final VoidCallback onClientSelect;
 

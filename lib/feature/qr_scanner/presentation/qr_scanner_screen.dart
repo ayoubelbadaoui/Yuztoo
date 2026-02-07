@@ -4,6 +4,8 @@ import '../../../theme.dart';
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key, required this.onBack, required this.onScanSuccess});
 
+  static String get path => '/qr-scanner';
+
   final VoidCallback onBack;
   final VoidCallback onScanSuccess;
 

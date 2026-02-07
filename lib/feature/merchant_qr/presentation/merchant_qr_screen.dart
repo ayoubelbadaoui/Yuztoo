@@ -5,6 +5,8 @@ import '../../../theme.dart';
 class MerchantQRCodeScreen extends StatelessWidget {
   const MerchantQRCodeScreen({super.key, required this.onBack});
 
+  static String get path => '/merchant-qr';
+
   final VoidCallback onBack;
 
   @override

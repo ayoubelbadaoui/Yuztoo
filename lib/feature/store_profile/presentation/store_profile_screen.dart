@@ -8,6 +8,8 @@ class StoreProfileScreen extends StatefulWidget {
       required this.onMessage,
       required this.onReserve});
 
+  static String get path => '/store-profile';
+
   final VoidCallback onBack;
   final VoidCallback onMessage;
   final VoidCallback onReserve;

@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
+import '../../../l10n/app_localizations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key, this.onComplete});
+
+  static String get path => '/splash';
 
   final VoidCallback? onComplete;
 
@@ -40,25 +43,25 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return Container(
       color: YColors.primary,
       child: Center(
-        child: ScaleTransition(
+          child: ScaleTransition(
           scale: CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _Logo(),
-              SizedBox(height: 16),
+              const _Logo(),
+              const SizedBox(height: 16),
               Text(
-                'Yuztoo',
-                style: TextStyle(
+                AppLocalizations.of(context)!.appTitle,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 32,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                'Connectez-vous à vos commerces',
-                style: TextStyle(color: Colors.white70),
+                AppLocalizations.of(context)!.connectToShops,
+                style: const TextStyle(color: Colors.white70),
               ),
             ],
           ),
