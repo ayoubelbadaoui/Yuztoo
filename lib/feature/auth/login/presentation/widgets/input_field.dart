@@ -66,7 +66,7 @@ class LoginInputField extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 color: _textLight,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -98,11 +98,11 @@ class LoginInputField extends StatelessWidget {
                   enableSuggestions: enableSuggestions,
                   enableInteractiveSelection: enableInteractiveSelection,
                   // Disables platform spellcheck underlines (Android/iOS) when supported.
-                  spellCheckConfiguration: SpellCheckConfiguration.disabled(),
+                  spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
                   autovalidateMode: AutovalidateMode.disabled, // Validation handled by outer FormField
                   cursorColor: const Color(0xFFBF8719),
                   style: TextStyle(
-                    color: enabled ? _textLight : _textLight.withOpacity(0.6),
+                    color: enabled ? _textLight : _textLight.withValues(alpha: 0.6),
                     fontSize: 14,
                   ),
                   onChanged: (value) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'role_selection_colors.dart';
 import '../../../../types.dart';
+import '../../../../l10n/app_localizations.dart';
 
 /// Header widget for role selection screen
 class RoleSelectionHeader extends StatelessWidget {
@@ -26,7 +27,7 @@ class RoleSelectionHeader extends StatelessWidget {
             border: Border.all(color: RoleSelectionColors.primaryGold, width: 4),
             boxShadow: [
               BoxShadow(
-                color: RoleSelectionColors.primaryGold.withOpacity(0.15),
+                color: RoleSelectionColors.primaryGold.withValues(alpha: 0.15),
                 blurRadius: 40,
                 spreadRadius: 2,
               ),
@@ -35,8 +36,8 @@ class RoleSelectionHeader extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF192D41).withOpacity(0.6),
-                RoleSelectionColors.bgDark2.withOpacity(0.8),
+                const Color(0xFF192D41).withValues(alpha: 0.6),
+                RoleSelectionColors.bgDark2.withValues(alpha: 0.8),
               ],
             ),
           ),
@@ -75,9 +76,9 @@ class RoleSelectionHeader extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        const Text(
-          'POUR EUX, POUR VOUS',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context)!.forThemForYou,
+          style: const TextStyle(
             fontSize: 12,
             color: RoleSelectionColors.textGrey,
             letterSpacing: 1,
@@ -87,9 +88,9 @@ class RoleSelectionHeader extends StatelessWidget {
         const SizedBox(height: 32),
 
         // Description
-        const Text(
-          'All the shops',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context)!.allTheShops,
+          style: const TextStyle(
             fontSize: 17,
             color: RoleSelectionColors.textLight,
             fontWeight: FontWeight.w300,
@@ -98,11 +99,11 @@ class RoleSelectionHeader extends StatelessWidget {
         const SizedBox(height: 8),
 
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
-                text: '"You\'re used" to',
-                style: TextStyle(
+                text: AppLocalizations.of(context)!.youreUsedTo,
+                style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: RoleSelectionColors.primaryGold,
@@ -114,9 +115,9 @@ class RoleSelectionHeader extends StatelessWidget {
         const SizedBox(height: 24),
 
         // Question
-        const Text(
-          'Bienvenue, Vous êtes ?',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context)!.welcomeQuestion,
+          style: const TextStyle(
             fontSize: 16,
             color: RoleSelectionColors.textLight,
             fontWeight: FontWeight.w400,
@@ -147,13 +148,14 @@ class RoleToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: RoleSelectionColors.bgDark2.withOpacity(0.4),
+        color: RoleSelectionColors.bgDark2.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(60),
         border: Border.all(
-          color: RoleSelectionColors.primaryGold.withOpacity(0.12),
+          color: RoleSelectionColors.primaryGold.withValues(alpha: 0.12),
           width: 1,
         ),
       ),
@@ -162,7 +164,7 @@ class RoleToggle extends StatelessWidget {
           Expanded(
             child: _RoleButton(
               role: UserRole.merchant,
-              label: 'Commerçant',
+              label: l10n.merchant,
               isSelected: selectedRole == UserRole.merchant,
               onTap: () => onRoleChanged(UserRole.merchant),
             ),
@@ -170,7 +172,7 @@ class RoleToggle extends StatelessWidget {
           Expanded(
             child: _RoleButton(
               role: UserRole.client,
-              label: 'Clients',
+              label: l10n.client,
               isSelected: selectedRole == UserRole.client,
               onTap: () => onRoleChanged(UserRole.client),
             ),

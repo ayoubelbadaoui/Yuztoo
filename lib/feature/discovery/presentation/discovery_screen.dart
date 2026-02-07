@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
+import '../../../l10n/app_localizations.dart';
 
 class DiscoveryScreen extends StatefulWidget {
   const DiscoveryScreen(
       {super.key, required this.onBack, required this.onStoreSelect});
+
+  static String get path => '/discovery';
 
   final VoidCallback onBack;
   final VoidCallback onStoreSelect;
@@ -14,15 +17,25 @@ class DiscoveryScreen extends StatefulWidget {
 
 class _DiscoveryScreenState extends State<DiscoveryScreen>
     with SingleTickerProviderStateMixin {
-  final categories = [
-    'Tous',
-    'Restaurants',
-    'Cafés',
-    'Santé',
-    'Beauté',
-    'Shopping'
-  ];
-  String selectedCategory = 'Tous';
+  late String selectedCategory;
+  
+  List<String> _buildCategories(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
+      l10n.all,
+      l10n.restaurants,
+      l10n.cafes,
+      l10n.healthCategory,
+      l10n.beautyCategoryLowercase,
+      l10n.shopping,
+    ];
+  }
+  
+  @override
+  void initState() {
+    super.initState();
+    // Will be set in build method
+  }
 
   final stores = [
     {
@@ -65,6 +78,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final categories = _buildCategories(context);
+    if (selectedCategory.isEmpty || !categories.contains(selectedCategory)) {
+      selectedCategory = categories[0];
+    }
     return DefaultTabController(
       length: 3,
       child: Column(
@@ -77,8 +94,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                     onPressed: widget.onBack,
                     icon: const Icon(Icons.arrow_back)),
                 const SizedBox(width: 8),
-                Text('Découvrir',
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  AppLocalizations.of(context)!.discovery,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ],
             ),
           ),
@@ -86,14 +105,14 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: Row(
               children: [
-                const Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher...',
-                      prefixIcon: Icon(Icons.search, color: YColors.muted),
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: AppLocalizations.of(context)!.searchStore,
+                        prefixIcon: const Icon(Icons.search, color: YColors.muted),
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(width: 8),
                 OutlinedButton(
                   onPressed: () {},

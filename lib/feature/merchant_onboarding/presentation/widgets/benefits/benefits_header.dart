@@ -16,9 +16,9 @@ class BenefitsHeader extends StatelessWidget {
       opacity: animationController,
       child: Column(
         children: [
-          Text(
+          const Text(
             'Yuztoo, concrètement pour vous',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w600,
               color: BenefitsColors.textLight,
@@ -34,7 +34,7 @@ class BenefitsHeader extends StatelessWidget {
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  BenefitsColors.primaryGold.withOpacity(0.5),
+                  BenefitsColors.primaryGold.withValues(alpha: 0.5),
                   Colors.transparent,
                 ],
               ),

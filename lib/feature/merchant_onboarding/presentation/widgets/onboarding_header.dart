@@ -35,7 +35,7 @@ class OnboardingHeader extends StatelessWidget {
                 height: 1,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: MerchantOnboardingColors.primaryGold.withOpacity(0.2),
+                  color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.2),
                 ),
               ),
             ],

@@ -6,6 +6,7 @@ import '../../core/application/auth_error_mapper.dart';
 import 'otp_screen.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
+import '../../../../l10n/app_localizations.dart';
 import 'constants/signup_constants.dart';
 import 'utils/phone_formatter.dart';
 import 'widgets/signup_form_fields.dart';
@@ -13,7 +14,7 @@ import 'widgets/signup_ui_widgets.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({
-    Key? key,
+    super.key,
     required this.role,
     required this.onBack,
     this.initialEmail,
@@ -21,7 +22,9 @@ class SignupScreen extends ConsumerStatefulWidget {
     this.initialPhone,
     this.initialCity,
     this.initialCountryCode,
-  }) : super(key: key);
+  });
+
+  static String get path => '/signup';
 
   final UserRole role;
   final VoidCallback onBack;
@@ -194,9 +197,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       return;
     }
 
+    final l10n = AppLocalizations.of(context)!;
     if (_phoneNumber == null || _phoneNumber!.isEmpty || _phoneController.text.isEmpty) {
       if (mounted) {
-        showErrorSnackbar(context, 'Le numéro de téléphone est requis.');
+        showErrorSnackbar(context, l10n.phoneRequired);
       }
       return;
     }
@@ -210,7 +214,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       if (mounted) {
         showErrorSnackbar(
           context,
-          'Numéro de téléphone invalide. Vérifiez le format.',
+          l10n.invalidPhoneFormat,
         );
       }
       return;
@@ -218,7 +222,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     if (_selectedCity == null || _selectedCity!.isEmpty) {
       if (mounted) {
-        showErrorSnackbar(context, 'La ville est requise.');
+        showErrorSnackbar(context, l10n.cityRequired);
       }
       return;
     }
@@ -271,7 +275,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             _isSubmitting = false;
           });
 
-          showSuccessSnackbar(context, 'Code de vérification envoyé!');
+          showSuccessSnackbar(context, AppLocalizations.of(context)!.verificationCodeSent);
           // Navigate to OTP screen and let auth stream handle navigation after verification
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -298,13 +302,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Future<void> _handleSocialLogin(String provider) async {
-    showErrorSnackbar(context, 'Connexion $provider bientôt disponible');
+    final l10n = AppLocalizations.of(context)!;
+    showErrorSnackbar(context, l10n.socialLoginSoon(provider));
   }
 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: const SystemUiOverlayStyle(
         statusBarColor: SignupConstants.bgDark1, // Same color as background
         statusBarIconBrightness: Brightness.light, // Light icons for dark background
         statusBarBrightness: Brightness.dark, // For iOS
@@ -313,7 +318,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       ),
       child: PopScope(
         canPop: false, // Use our custom navigation instead of route popping
-        onPopInvoked: (didPop) {
+        onPopInvokedWithResult: (didPop, result) {
           if (!didPop && !_isLoading) {
             widget.onBack();
           }

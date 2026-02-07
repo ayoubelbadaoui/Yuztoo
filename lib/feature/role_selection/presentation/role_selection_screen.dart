@@ -16,6 +16,8 @@ class RoleSelectionScreen extends StatefulWidget {
     this.onRoleChanged,
   });
 
+  static String get path => '/role-selection';
+
   final ValueChanged<UserRole> onSelectRole;
   final UserRole? initialRole;
   final ValueChanged<UserRole>? onRoleChanged;
@@ -57,7 +59,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: const SystemUiOverlayStyle(
         statusBarColor: RoleSelectionColors.bgDark1,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,

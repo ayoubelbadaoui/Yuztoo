@@ -17,6 +17,8 @@ class MerchantOnboardingScreen extends StatefulWidget {
     this.onNext,
   });
 
+  static String get path => '/merchant-onboarding';
+
   final ValueChanged<String>? onCategorySelected;
   final VoidCallback? onBack;
   final VoidCallback? onNext;
@@ -33,37 +35,37 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
 
   // Mock categories - in real app, these would come from domain/application layer
   static final List<MerchantCategory> _categories = [
-    MerchantCategory(
+    const MerchantCategory(
       id: 'restaurant',
       title: 'Restaurant',
       description: 'Restaurants, cafés, bars et établissements de restauration',
       placeholderColorHex: '#FF9800', // Orange
     ),
-    MerchantCategory(
+    const MerchantCategory(
       id: 'retail',
       title: 'Commerce de détail',
       description: 'Boutiques, magasins et points de vente',
       placeholderColorHex: '#2196F3', // Blue
     ),
-    MerchantCategory(
+    const MerchantCategory(
       id: 'beauty',
       title: 'Beauté & Bien-être',
       description: 'Salons, spas, instituts de beauté',
       placeholderColorHex: '#E91E63', // Pink
     ),
-    MerchantCategory(
+    const MerchantCategory(
       id: 'fitness',
       title: 'Sport & Fitness',
       description: 'Salles de sport, clubs sportifs',
       placeholderColorHex: '#4CAF50', // Green
     ),
-    MerchantCategory(
+    const MerchantCategory(
       id: 'services',
       title: 'Services',
       description: 'Services professionnels et personnels',
       placeholderColorHex: '#9C27B0', // Purple
     ),
-    MerchantCategory(
+    const MerchantCategory(
       id: 'other',
       title: 'Autre',
       description: 'Autres types de commerces',
@@ -116,7 +118,7 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
       value: statusBarStyle,
       child: PopScope(
         canPop: false, // Use our custom navigation instead of route popping
-        onPopInvoked: (didPop) {
+        onPopInvokedWithResult: (didPop, result) {
           if (!didPop && widget.onBack != null) {
             widget.onBack!();
           }
@@ -183,8 +185,8 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                   ),
 
                   // Footer with bottom padding for button
-                  SliverToBoxAdapter(
-                    child: const Padding(
+                  const SliverToBoxAdapter(
+                    child: Padding(
                       padding: EdgeInsets.only(bottom: 100),
                       child: OnboardingFooter(),
                     ),
@@ -203,7 +205,7 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                     color: MerchantOnboardingColors.bgDark1,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 10,
                         offset: const Offset(0, -2),
                       ),
@@ -221,11 +223,11 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: MerchantOnboardingColors.primaryGold,
                           disabledBackgroundColor:
-                              MerchantOnboardingColors.primaryGold.withOpacity(0.3),
+                              MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          shadowColor: MerchantOnboardingColors.primaryGold.withOpacity(0.3),
+                          shadowColor: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
                           elevation: _selectedCategoryId != null ? 6 : 0,
                         ),
                         child: Text(
@@ -235,7 +237,7 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                             fontWeight: FontWeight.w600,
                             color: _selectedCategoryId != null
                                 ? MerchantOnboardingColors.bgDark1
-                                : MerchantOnboardingColors.textGrey.withOpacity(0.5),
+                                : MerchantOnboardingColors.textGrey.withValues(alpha: 0.5),
                           ),
                         ),
                       ),

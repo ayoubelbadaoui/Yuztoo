@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ClientHomeScreen extends StatelessWidget {
   const ClientHomeScreen({super.key, required this.onNavigate});
+
+  static String get path => '/client-home';
 
   final ValueChanged<String> onNavigate;
 
@@ -42,13 +45,15 @@ class _Header extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Bonjour,',
-                      style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  SizedBox(height: 2),
-                  Text('Mohammed',
+                  Text(
+                    AppLocalizations.of(context)!.hello,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text('Mohammed',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -65,9 +70,9 @@ class _Header extends StatelessWidget {
           TextField(
             readOnly: true,
             onTap: () => onNavigate('discovery'),
-            decoration: const InputDecoration(
-              hintText: 'Rechercher un commerce...',
-              prefixIcon: Icon(Icons.search, color: YColors.muted),
+            decoration: InputDecoration(
+              hintText: AppLocalizations.of(context)!.searchStore,
+              prefixIcon: const Icon(Icons.search, color: YColors.muted),
               filled: true,
               fillColor: Colors.white,
             ),
@@ -93,21 +98,21 @@ class _QuickActions extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _QuickAction(
-                label: 'Scanner',
+                label: AppLocalizations.of(context)!.scan,
                 icon: Icons.qr_code_rounded,
                 background: YColors.secondary,
                 iconColor: Colors.white,
                 onTap: () => onNavigate('qr-scanner'),
               ),
               _QuickAction(
-                label: 'Fidélité',
+                label: AppLocalizations.of(context)!.loyaltyLabel,
                 icon: Icons.star_border,
                 background: YColors.accent,
                 iconColor: YColors.secondary,
                 onTap: () => onNavigate('loyalty'),
               ),
               _QuickAction(
-                label: 'Offres',
+                label: AppLocalizations.of(context)!.offers,
                 icon: Icons.card_giftcard,
                 background: YColors.accent,
                 iconColor: YColors.primary,
@@ -184,11 +189,13 @@ class _Promotions extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Promotions actives',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                AppLocalizations.of(context)!.activePromotions,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               TextButton(
                   onPressed: () => onNavigate('discovery'),
-                  child: const Text('Tout voir')),
+                  child: Text(AppLocalizations.of(context)!.seeAll)),
             ],
           ),
           const SizedBox(height: 8),

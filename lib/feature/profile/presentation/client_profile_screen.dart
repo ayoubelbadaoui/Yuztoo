@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/shared/widgets/logout_confirm_dialog.dart';
 import '../../auth/core/application/providers.dart';
 
 class ClientProfileScreen extends ConsumerStatefulWidget {
   const ClientProfileScreen({super.key});
+
+  static String get path => '/client-profile';
 
   @override
   ConsumerState<ClientProfileScreen> createState() =>
@@ -18,6 +21,7 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return ListView(
       padding: EdgeInsets.zero,
       children: [
@@ -27,11 +31,13 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Mon profil',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(color: Colors.white)),
+              Text(
+                AppLocalizations.of(context)!.myProfile,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(color: Colors.white),
+              ),
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -70,39 +76,51 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        const _Section(
-          title: 'COMPTE',
+        _Section(
+          title: AppLocalizations.of(context)!.account,
           children: [
             _NavRow(
-                icon: Icons.person_outline, label: 'Informations personnelles'),
-            _NavRow(icon: Icons.credit_card, label: 'Moyens de paiement'),
+              icon: Icons.person_outline,
+              label: AppLocalizations.of(context)!.personalInfo,
+            ),
+            _NavRow(
+              icon: Icons.credit_card,
+              label: AppLocalizations.of(context)!.paymentMethods,
+            ),
           ],
         ),
         _Section(
-          title: 'PRÉFÉRENCES',
+          title: AppLocalizations.of(context)!.preferences,
           children: [
             _SwitchRow(
               icon: Icons.notifications_none,
-              label: 'Notifications push',
+              label: AppLocalizations.of(context)!.pushNotifications,
               value: pushEnabled,
               onChanged: (val) => setState(() => pushEnabled = val),
             ),
             _SwitchRow(
               icon: Icons.email_outlined,
-              label: 'Notifications email',
+              label: AppLocalizations.of(context)!.emailNotifications,
               value: emailEnabled,
               onChanged: (val) => setState(() => emailEnabled = val),
             ),
-            const _NavRow(icon: Icons.settings_outlined, label: 'Paramètres'),
+            _NavRow(
+              icon: Icons.settings_outlined,
+              label: AppLocalizations.of(context)!.settings,
+            ),
           ],
         ),
-        const _Section(
-          title: 'SUPPORT',
+        _Section(
+          title: l10n.support,
           children: [
-            _NavRow(icon: Icons.help_outline, label: "Centre d'aide"),
             _NavRow(
-                icon: Icons.description_outlined,
-                label: "Conditions d'utilisation"),
+              icon: Icons.help_outline,
+              label: l10n.helpCenter,
+            ),
+            _NavRow(
+              icon: Icons.description_outlined,
+              label: l10n.termsOfUse,
+            ),
           ],
         ),
         Padding(
@@ -116,19 +134,23 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
               }
             },
             icon: const Icon(Icons.logout, color: Colors.red),
-            label: const Text('Se déconnecter',
-                style: TextStyle(color: Colors.red)),
+            label: Text(
+              AppLocalizations.of(context)!.disconnect,
+              style: const TextStyle(color: Colors.red),
+            ),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Colors.red),
               minimumSize: const Size.fromHeight(48),
             ),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 24),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 24),
           child: Center(
-            child:
-                Text('Version 1.0.0', style: TextStyle(color: YColors.muted)),
+            child: Text(
+              AppLocalizations.of(context)!.version('1.0.0'),
+              style: const TextStyle(color: YColors.muted),
+            ),
           ),
         ),
       ],

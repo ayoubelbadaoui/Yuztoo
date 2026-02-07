@@ -3,7 +3,7 @@ import '../constants/signup_constants.dart';
 
 /// Logo section widget
 class SignupLogoSection extends StatelessWidget {
-  const SignupLogoSection({Key? key}) : super(key: key);
+  const SignupLogoSection({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +17,7 @@ class SignupLogoSection extends StatelessWidget {
             border: Border.all(color: SignupConstants.primaryGold, width: 3),
             boxShadow: [
               BoxShadow(
-                color: SignupConstants.primaryGold.withOpacity(0.2),
+                color: SignupConstants.primaryGold.withValues(alpha: 0.2),
                 blurRadius: 20,
                 spreadRadius: 2,
               ),
@@ -72,10 +72,10 @@ class SignupButton extends StatelessWidget {
   final VoidCallback? onPressed;
 
   const SignupButton({
-    Key? key,
+    super.key,
     required this.isLoading,
     required this.onPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +89,7 @@ class SignupButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          shadowColor: const Color(0xFFBF8719).withOpacity(0.3),
+          shadowColor: const Color(0xFFBF8719).withValues(alpha: 0.3),
           elevation: isLoading ? 4 : 2,
         ),
         onPressed: isLoading ? null : onPressed,
@@ -100,7 +100,7 @@ class SignupButton extends StatelessWidget {
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                      SignupConstants.bgDark1.withOpacity(0.8)),
+                      SignupConstants.bgDark1.withValues(alpha: 0.8)),
                 ),
               )
             : const Text(
@@ -119,7 +119,7 @@ class SignupButton extends StatelessWidget {
 
 /// Social divider widget
 class SocialDivider extends StatelessWidget {
-  const SocialDivider({Key? key}) : super(key: key);
+  const SocialDivider({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -127,12 +127,12 @@ class SocialDivider extends StatelessWidget {
       children: [
         Expanded(
           child: Divider(
-            color: SignupConstants.borderColor.withOpacity(0.5),
+            color: SignupConstants.borderColor.withValues(alpha: 0.5),
             thickness: 1,
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'OU',
             style: TextStyle(
@@ -144,7 +144,7 @@ class SocialDivider extends StatelessWidget {
         ),
         Expanded(
           child: Divider(
-            color: SignupConstants.borderColor.withOpacity(0.5),
+            color: SignupConstants.borderColor.withValues(alpha: 0.5),
             thickness: 1,
           ),
         ),
@@ -158,7 +158,7 @@ class GoogleIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final scale = size.width / 24.0;
-    final matrix = Matrix4.identity()..scale(scale);
+    final matrix = Matrix4.identity()..scaleByDouble(scale, scale, scale, 1.0);
 
     // Red path
     final redPath = Path()
@@ -235,7 +235,7 @@ class GoogleIconPainter extends CustomPainter {
 
 /// Google icon widget
 class GoogleIcon extends StatelessWidget {
-  const GoogleIcon({Key? key}) : super(key: key);
+  const GoogleIcon({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -255,10 +255,10 @@ class SocialLoginButtons extends StatelessWidget {
   final Function(String) onSocialLogin;
 
   const SocialLoginButtons({
-    Key? key,
+    super.key,
     required this.isLoading,
     required this.onSocialLogin,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -303,13 +303,12 @@ class _SocialButton extends StatelessWidget {
   final VoidCallback? onPressed;
 
   const _SocialButton({
-    Key? key,
     this.icon,
     this.label,
     this.iconColor,
     this.iconWidget,
     required this.onPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -348,9 +347,9 @@ class SignupFooter extends StatelessWidget {
   final VoidCallback onBack;
 
   const SignupFooter({
-    Key? key,
+    super.key,
     required this.onBack,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -358,12 +357,12 @@ class SignupFooter extends StatelessWidget {
       children: [
         GestureDetector(
           onTap: onBack,
-          child: Text.rich(
+          child: const Text.rich(
             TextSpan(
               text: 'Vous avez un compte ? ',
-              style: const TextStyle(color: SignupConstants.textGrey, fontSize: 13),
+              style: TextStyle(color: SignupConstants.textGrey, fontSize: 13),
               children: [
-                const TextSpan(
+                TextSpan(
                   text: 'Connectez-vous',
                   style: TextStyle(
                     color: SignupConstants.primaryGold,
@@ -376,12 +375,12 @@ class SignupFooter extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        Opacity(
+        const Opacity(
           opacity: 0.6,
           child: Text(
             'En continuant, vous acceptez nos conditions d\'utilisation',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               color: SignupConstants.textGrey,
             ),

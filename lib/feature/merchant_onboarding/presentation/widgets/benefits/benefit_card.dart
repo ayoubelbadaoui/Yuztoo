@@ -31,10 +31,10 @@ class BenefitCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: BenefitsColors.bgDark2.withOpacity(0.6),
+          color: BenefitsColors.bgDark2.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: BenefitsColors.borderColor.withOpacity(0.6),
+            color: BenefitsColors.borderColor.withValues(alpha: 0.6),
             width: 1.5,
           ),
         ),

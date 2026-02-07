@@ -6,6 +6,7 @@ import '../application/providers.dart';
 import '../../core/application/auth_error_mapper.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
+import '../../../../l10n/app_localizations.dart';
 import 'utils/phone_formatter.dart';
 
 class OTPScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,8 @@ class OTPScreen extends ConsumerStatefulWidget {
     this.otpUnavailableMessage,
     this.verificationId,
   });
+
+  static String get path => '/otp';
 
   final VoidCallback onBack;
   final String userId; // User ID (empty until OTP verified and user created)
@@ -71,7 +74,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       _otpBlocked = true;
       if (_otpUnavailableMessage == null || _otpUnavailableMessage!.isEmpty) {
         _otpUnavailableMessage =
-            'SMS indisponible pour le moment. Veuillez contacter le support.';
+            AppLocalizations.of(context)!.smsUnavailable;
       }
       // Error message will be displayed in UI (red text in _buildLogoSection)
       return;
@@ -129,7 +132,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   Future<void> _verifyOTP(String smsCode) async {
     if (widget.verificationId == null || widget.verificationId!.isEmpty) {
       if (mounted) {
-        showErrorSnackbar(context, 'Erreur: ID de vérification manquant');
+        showErrorSnackbar(context, AppLocalizations.of(context)!.verificationIdMissing);
       }
       return;
     }
@@ -205,7 +208,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       (_) {
         // Firestore profile created successfully
         if (mounted) {
-          showSuccessSnackbar(context, 'Inscription réussie!');
+          showSuccessSnackbar(context, AppLocalizations.of(context)!.signupSuccess);
           // Navigation will be driven by auth state changes (AuthController + navigation provider)
           // Just pop OTP screen; auth stream will emit Authenticated and RootShell will navigate.
           Navigator.of(context).pop();
@@ -238,7 +241,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       },
       (verificationId) {
         if (mounted) {
-          showSuccessSnackbar(context, 'Code de vérification renvoyé!');
+          showSuccessSnackbar(context, AppLocalizations.of(context)!.verificationCodeResent);
           _startResendTimer();
           widget.onResend();
         }
@@ -249,7 +252,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: const SystemUiOverlayStyle(
         statusBarColor: bgDark1, // Same color as background
         statusBarIconBrightness: Brightness.light, // Light icons for dark background
         statusBarBrightness: Brightness.dark, // For iOS
@@ -258,7 +261,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       ),
       child: PopScope(
         canPop: false, // Use our custom navigation instead of route popping
-        onPopInvoked: (didPop) {
+        onPopInvokedWithResult: (didPop, result) {
           if (!didPop && !_isVerifying) {
             // Handle Android back button
             widget.onBack();
@@ -306,7 +309,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             border: Border.all(color: primaryGold, width: 3),
             boxShadow: [
               BoxShadow(
-                color: primaryGold.withOpacity(0.2),
+                color: primaryGold.withValues(alpha: 0.2),
                 blurRadius: 20,
                 spreadRadius: 2,
               ),
@@ -334,18 +337,18 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'pour eux, pour vous',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context)!.forThemForYouLowercase,
+          style: const TextStyle(
             fontSize: 12,
             color: textGrey,
             letterSpacing: 1,
           ),
         ),
         const SizedBox(height: 32),
-        const Text(
-          'Vérification',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context)!.verification,
+          style: const TextStyle(
             fontSize: 18,
             color: textLight,
             fontWeight: FontWeight.w500,
@@ -361,7 +364,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
               height: 1.5,
             ),
             children: [
-              const TextSpan(text: 'Entrez le code envoyé au\n'),
+              TextSpan(text: AppLocalizations.of(context)!.enterCodeSentTo),
               TextSpan(
                 text: PhoneFormatter.formatPhoneForDisplay(widget.phone),
                 style: const TextStyle(
@@ -377,13 +380,13 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
         GestureDetector(
           onTap: _isVerifying ? null : widget.onBack,
           child: Text(
-            'Numéro incorrect ?',
+            AppLocalizations.of(context)!.wrongNumber,
             style: TextStyle(
               fontSize: 13,
-              color: _isVerifying ? textGrey.withOpacity(0.5) : primaryGold,
+              color: _isVerifying ? textGrey.withValues(alpha: 0.5) : primaryGold,
               fontWeight: FontWeight.w500,
               decoration: TextDecoration.underline,
-              decorationColor: _isVerifying ? textGrey.withOpacity(0.5) : primaryGold,
+              decorationColor: _isVerifying ? textGrey.withValues(alpha: 0.5) : primaryGold,
             ),
           ),
         ),
@@ -392,9 +395,9 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: errorRed.withOpacity(0.1),
+              color: errorRed.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: errorRed.withOpacity(0.3), width: 1),
+              border: Border.all(color: errorRed.withValues(alpha: 0.3), width: 1),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -496,8 +499,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           ),
           child: Text(
             _canResend
-                ? 'Renvoyer le code'
-                : 'Renvoyer le code (${_resendTimer}s)',
+                ? AppLocalizations.of(context)!.resendCode
+                : AppLocalizations.of(context)!.resendCodeWithTimer(_resendTimer),
             style: TextStyle(
               color: _canResend ? primaryGold : textGrey,
               fontSize: 14,

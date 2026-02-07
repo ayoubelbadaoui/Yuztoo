@@ -1,58 +1,69 @@
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
+import '../../../l10n/app_localizations.dart';
 
 class MerchantDashboardScreen extends StatelessWidget {
   const MerchantDashboardScreen({super.key, required this.onNavigate});
 
+  static String get path => '/merchant-dashboard';
+
   final ValueChanged<String> onNavigate;
 
-  final stats = const [
-    _StatCard(
-        label: 'Clients actifs',
-        value: '248',
-        change: '+12',
-        icon: Icons.group_outlined,
-        color: Color(0xFF1E64D0)),
-    _StatCard(
-        label: 'Visites ce mois',
-        value: '1,432',
-        change: '+8%',
-        icon: Icons.trending_up,
-        color: Color(0xFF1E9E5B)),
-    _StatCard(
-        label: 'Points distribués',
-        value: '3,245',
-        change: '+156',
-        icon: Icons.star_border,
-        color: YColors.secondary),
-    _StatCard(
-        label: 'Promotions actives',
-        value: '5',
-        change: '2 exp.',
-        icon: Icons.card_giftcard,
-        color: Color(0xFF8B5CF6)),
-  ];
+  List<_StatCard> _buildStats(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
+      _StatCard(
+          label: l10n.activeClients,
+          value: '248',
+          change: '+12',
+          icon: Icons.group_outlined,
+          color: const Color(0xFF1E64D0)),
+      _StatCard(
+          label: l10n.visitsThisMonth,
+          value: '1,432',
+          change: '+8%',
+          icon: Icons.trending_up,
+          color: const Color(0xFF1E9E5B)),
+      _StatCard(
+          label: l10n.pointsDistributed,
+          value: '3,245',
+          change: '+156',
+          icon: Icons.star_border,
+          color: YColors.secondary),
+      _StatCard(
+          label: l10n.activePromotions,
+          value: '5',
+          change: '2 exp.',
+          icon: Icons.card_giftcard,
+          color: const Color(0xFF8B5CF6)),
+    ];
+  }
 
-  final List<Activity> recentActivity = const [
-    Activity(
-        customer: 'Mohammed A.',
-        action: 'Scan QR',
-        points: 10,
-        time: 'Il y a 5 min'),
-    Activity(
-        customer: 'Fatima Z.',
-        action: 'Récompense utilisée',
-        points: -50,
-        time: 'Il y a 12 min'),
-    Activity(
-        customer: 'Ahmed K.',
-        action: 'Scan QR',
-        points: 10,
-        time: 'Il y a 23 min'),
-  ];
+  List<Activity> _buildRecentActivity(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
+      Activity(
+          customer: 'Mohammed A.',
+          action: l10n.scanQR,
+          points: 10,
+          time: l10n.minutesAgo(5)),
+      Activity(
+          customer: 'Fatima Z.',
+          action: l10n.rewardUsed,
+          points: -50,
+          time: l10n.minutesAgo(12)),
+      Activity(
+          customer: 'Ahmed K.',
+          action: l10n.scanQR,
+          points: 10,
+          time: l10n.minutesAgo(23)),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final stats = _buildStats(context);
+    final recentActivity = _buildRecentActivity(context);
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,13 +78,15 @@ class MerchantDashboardScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Column(
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Mon commerce',
-                            style: TextStyle(color: Colors.white70)),
-                        SizedBox(height: 4),
-                        Text('Café Central',
+                        Text(
+                          AppLocalizations.of(context)!.myBusiness,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text('Café Central',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
@@ -88,11 +101,14 @@ class MerchantDashboardScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.circle, size: 10, color: Colors.greenAccent),
-                    SizedBox(width: 6),
-                    Text('Ouvert', style: TextStyle(color: Colors.white70)),
+                    const Icon(Icons.circle, size: 10, color: Colors.greenAccent),
+                    const SizedBox(width: 6),
+                    Text(
+                      AppLocalizations.of(context)!.open,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                   ],
                 ),
               ],
@@ -156,9 +172,10 @@ class MerchantDashboardScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Actions rapides',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text(
+                  AppLocalizations.of(context)!.quickActions,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 12),
                 GridView.count(
                   shrinkWrap: true,
@@ -168,23 +185,23 @@ class MerchantDashboardScreen extends StatelessWidget {
                   crossAxisSpacing: 10,
                   children: [
                     _QuickAction(
-                      title: 'Mon QR Code',
-                      subtitle: 'Afficher le code',
+                      title: AppLocalizations.of(context)!.myQRCode,
+                      subtitle: AppLocalizations.of(context)!.showCode,
                       icon: Icons.qr_code_2,
                       background: YColors.secondary.withValues(alpha: 0.1),
                       iconColor: YColors.secondary,
                       onTap: () => onNavigate('qr-code'),
                     ),
                     _QuickAction(
-                      title: 'Promotions',
-                      subtitle: 'Gérer les offres',
+                      title: AppLocalizations.of(context)!.promotions,
+                      subtitle: AppLocalizations.of(context)!.manageOffers,
                       icon: Icons.card_giftcard,
                       background: const Color(0xFFF3E8FF),
                       iconColor: const Color(0xFF8B5CF6),
                       onTap: () => onNavigate('promotions'),
                     ),
                     _QuickAction(
-                      title: 'Messages',
+                      title: AppLocalizations.of(context)!.messages,
                       subtitle: '3 non lus',
                       icon: Icons.chat_bubble_outline,
                       background: const Color(0xFFE8F1FF),
@@ -192,7 +209,7 @@ class MerchantDashboardScreen extends StatelessWidget {
                       onTap: () => onNavigate('messages'),
                     ),
                     _QuickAction(
-                      title: 'Réservations',
+                      title: AppLocalizations.of(context)!.reservations,
                       subtitle: '8 aujourd\'hui',
                       icon: Icons.calendar_today_outlined,
                       background: const Color(0xFFE9F5EE),
