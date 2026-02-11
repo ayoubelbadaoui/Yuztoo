@@ -22,12 +22,12 @@ class QrPatternPainter extends CustomPainter {
       // Outer square
       canvas.drawRect(
         Rect.fromLTWH(x, y, s, s),
-        paint..color = color.withOpacity(0.6),
+        paint..color = color.withValues(alpha: 0.6),
       );
       // Middle square
       canvas.drawRect(
         Rect.fromLTWH(x + 3 * scale, y + 3 * scale, s - 6 * scale, s - 6 * scale),
-        paint..color = color.withOpacity(0.4),
+        paint..color = color.withValues(alpha: 0.4),
       );
       // Inner square
       canvas.drawRect(
@@ -84,7 +84,7 @@ class QrPatternPainter extends CustomPainter {
           Rect.fromLTWH(x, y, cellSize * 0.8, cellSize * 0.8),
           Radius.circular(cellSize * 0.15),
         ),
-        paint..color = color.withOpacity(0.7),
+        paint..color = color.withValues(alpha: 0.7),
       );
     }
   }

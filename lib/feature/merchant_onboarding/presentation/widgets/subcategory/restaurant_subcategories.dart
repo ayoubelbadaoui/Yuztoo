@@ -5,77 +5,77 @@ class RestaurantSubcategories {
   RestaurantSubcategories._();
 
   static List<MerchantSubcategory> get all => [
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'cafe',
           title: 'Café\nBar',
           placeholderColorHex: '#8B4513',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'restaurant',
           title: 'Restaurant\nBrasserie',
           placeholderColorHex: '#6B7B8C',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'restauration',
           title: 'Restauration\nrapide',
           placeholderColorHex: '#D4A017',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'boulangerie',
           title: 'Boulangerie\nPatisserie',
           placeholderColorHex: '#D2691E',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'boucherie',
           title: 'Boucherie\nCharcuterie',
           placeholderColorHex: '#8B0000',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'poissonnerie',
           title: 'Poissonnerie',
           placeholderColorHex: '#4682B4',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'fromagerie',
           title: 'Fromagerie\nCrèmerie',
           placeholderColorHex: '#DAA520',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'confiserie',
           title: 'Confiserie\nChocolatier',
           placeholderColorHex: '#654321',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'glacier',
           title: 'Glacier',
           placeholderColorHex: '#FFE4B5',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'caviste',
           title: 'Caviste &\nEpicerie',
           placeholderColorHex: '#722F37',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'maraicher',
           title: 'Maraîcher',
           placeholderColorHex: '#228B22',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'ferme',
           title: 'Ferme\nProduit Locaux',
           placeholderColorHex: '#8FBC8F',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'artisans',
           title: 'Artisans\nmarché',
           placeholderColorHex: '#CD853F',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'boutique',
           title: 'Boutique BIO',
           placeholderColorHex: '#90EE90',
         ),
-        MerchantSubcategory(
+        const MerchantSubcategory(
           id: 'traiteur',
           title: 'Traiteur',
           placeholderColorHex: '#FF8C00',

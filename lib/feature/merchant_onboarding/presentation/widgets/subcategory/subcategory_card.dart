@@ -49,7 +49,7 @@ class SubcategoryCard extends StatelessWidget {
             boxShadow: [
               if (isSelected)
                 BoxShadow(
-                  color: SubcategoryColors.primaryGold.withOpacity(0.25),
+                  color: SubcategoryColors.primaryGold.withValues(alpha: 0.25),
                   blurRadius: 16,
                   spreadRadius: 0,
                   offset: const Offset(0, 4),
@@ -68,7 +68,7 @@ class SubcategoryCard extends StatelessWidget {
                       topRight: Radius.circular(16),
                     ),
                     color: Color(int.parse(subcategory.placeholderColorHex.replaceFirst('#', '0xFF')))
-                        .withOpacity(0.3),
+                        .withValues(alpha: 0.3),
                   ),
                   child: Stack(
                     children: [
@@ -77,7 +77,7 @@ class SubcategoryCard extends StatelessWidget {
                         child: Icon(
                           Icons.image_outlined,
                           size: 32,
-                          color: SubcategoryColors.textGrey.withOpacity(0.3),
+                          color: SubcategoryColors.textGrey.withValues(alpha: 0.3),
                         ),
                       ),
                       // Selection indicator
@@ -94,7 +94,7 @@ class SubcategoryCard extends StatelessWidget {
                               boxShadow: [
                                 BoxShadow(
                                   color: SubcategoryColors.primaryGold
-                                      .withOpacity(0.5),
+                                      .withValues(alpha: 0.5),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -115,7 +115,7 @@ class SubcategoryCard extends StatelessWidget {
               // Title
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   border: Border(
                     top: BorderSide(
                       color: SubcategoryColors.borderColor,

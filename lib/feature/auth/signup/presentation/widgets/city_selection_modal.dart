@@ -39,7 +39,7 @@ class CitySelectionModal {
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
-                            color: SignupConstants.borderColor.withOpacity(0.3),
+                            color: SignupConstants.borderColor.withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
@@ -144,7 +144,7 @@ class CitySelectionModal {
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(10),
                                       color: isSelected
-                                          ? SignupConstants.primaryGold.withOpacity(0.15)
+                                          ? SignupConstants.primaryGold.withValues(alpha: 0.15)
                                           : Colors.transparent,
                                       border: Border.all(
                                         color: isSelected

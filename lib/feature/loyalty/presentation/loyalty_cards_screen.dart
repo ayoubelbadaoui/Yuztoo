@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
+import '../../../l10n/app_localizations.dart';
 
 class LoyaltyCardsScreen extends StatelessWidget {
   const LoyaltyCardsScreen({super.key, required this.onBack});
+
+  static String get path => '/loyalty';
 
   final VoidCallback onBack;
 
@@ -48,8 +51,10 @@ class LoyaltyCardsScreen extends StatelessWidget {
                 IconButton(
                     onPressed: onBack, icon: const Icon(Icons.arrow_back)),
                 const SizedBox(width: 8),
-                Text('Mes cartes de fidélité',
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  AppLocalizations.of(context)!.myLoyaltyCards,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ],
             ),
           ),
@@ -61,8 +66,10 @@ class LoyaltyCardsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Points totaux',
-                    style: TextStyle(color: Colors.white70)),
+                Text(
+                  AppLocalizations.of(context)!.totalPoints,
+                  style: const TextStyle(color: Colors.white70),
+                ),
                 const SizedBox(height: 4),
                 Row(
                   children: [

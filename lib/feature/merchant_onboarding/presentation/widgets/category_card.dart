@@ -49,7 +49,7 @@ class CategoryCard extends StatelessWidget {
             boxShadow: [
               if (isSelected)
                 BoxShadow(
-                  color: MerchantOnboardingColors.primaryGold.withOpacity(0.25),
+                  color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.25),
                   blurRadius: 16,
                   spreadRadius: 0,
                   offset: const Offset(0, 4),
@@ -67,8 +67,8 @@ class CategoryCard extends StatelessWidget {
                     topLeft: Radius.circular(16),
                     topRight: Radius.circular(16),
                   ),
-                  color: Color(int.parse(category.placeholderColorHex.replaceFirst('#', '0xFF'))).withOpacity(0.3),
-                  border: Border(
+                  color: Color(int.parse(category.placeholderColorHex.replaceFirst('#', '0xFF'))).withValues(alpha: 0.3),
+                  border: const Border(
                     bottom: BorderSide(
                       color: MerchantOnboardingColors.borderColor,
                       width: 1,
@@ -82,7 +82,7 @@ class CategoryCard extends StatelessWidget {
                       child: Icon(
                         Icons.image_outlined,
                         size: 48,
-                        color: MerchantOnboardingColors.textGrey.withOpacity(0.3),
+                        color: MerchantOnboardingColors.textGrey.withValues(alpha: 0.3),
                       ),
                     ),
                     // Selection indicator
@@ -98,7 +98,7 @@ class CategoryCard extends StatelessWidget {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: MerchantOnboardingColors.primaryGold.withOpacity(0.5),
+                                color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.5),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),

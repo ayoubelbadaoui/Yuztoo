@@ -16,6 +16,8 @@ class MerchantBenefitsScreen extends StatefulWidget {
     this.onBack,
   });
 
+  static String get path => '/merchant-benefits';
+
   final VoidCallback? onStartFree;
   final VoidCallback? onBack;
 
@@ -58,7 +60,7 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
       value: statusBarStyle,
       child: PopScope(
         canPop: false, // Use our custom navigation instead of route popping
-        onPopInvoked: (didPop) {
+        onPopInvokedWithResult: (didPop, result) {
           if (!didPop && widget.onBack != null) {
             widget.onBack!();
           }
@@ -142,8 +144,8 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
           end: Alignment.topCenter,
           colors: [
             BenefitsColors.bgDark1,
-            BenefitsColors.bgDark1.withOpacity(0.95),
-            BenefitsColors.bgDark1.withOpacity(0.0),
+            BenefitsColors.bgDark1.withValues(alpha: 0.95),
+            BenefitsColors.bgDark1.withValues(alpha: 0.0),
           ],
         ),
       ),
@@ -160,7 +162,7 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
                 borderRadius: BorderRadius.circular(16),
               ),
               elevation: 8,
-              shadowColor: BenefitsColors.primaryGold.withOpacity(0.4),
+              shadowColor: BenefitsColors.primaryGold.withValues(alpha: 0.4),
             ),
             child: const Text(
               'Démarrer gratuitement',
