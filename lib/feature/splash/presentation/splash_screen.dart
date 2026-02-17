@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../theme.dart';
-import '../../../l10n/app_localizations.dart';
+import '../../../core/shared/widgets/app_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key, this.onComplete});
-
-  static String get path => '/splash';
 
   final VoidCallback? onComplete;
 
@@ -43,25 +41,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return Container(
       color: YColors.primary,
       child: Center(
-          child: ScaleTransition(
+        child: ScaleTransition(
           scale: CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-          child: Column(
+          child: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const _Logo(),
-              const SizedBox(height: 16),
-              Text(
-                AppLocalizations.of(context)!.appTitle,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w600,
+              _Logo(),
+              SizedBox(height: 22),
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                AppLocalizations.of(context)!.connectToShops,
-                style: const TextStyle(color: Colors.white70),
               ),
             ],
           ),
@@ -76,20 +69,20 @@ class _Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 96,
-      height: 96,
-      decoration: BoxDecoration(
-        color: YColors.secondary,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 18, offset: Offset(0, 8)),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: const Text(
+    // International standard: Splash logos use 40-50% of screen height
+    // Examples: Uber (45%), Airbnb (48%), Instagram (42%)
+    final screenH = MediaQuery.of(context).size.height;
+    final logoSize = (screenH * 0.50).clamp(320.0, 450.0);
+
+    return AppLogo(
+      size: logoSize,
+      fallback: Text(
         'Y',
-        style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: logoSize * 0.33,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

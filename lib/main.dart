@@ -3,13 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'l10n/app_localizations.dart';
 
 import 'core/app_bootstrap.dart';
 import 'core/domain/core/either.dart';
 import 'core/domain/core/failure.dart';
 import 'core/domain/core/result.dart';
-import 'core/navigation/app_router.dart';
 import 'feature/auth/core/application/providers.dart';
 import 'feature/auth/core/application/state/auth_state.dart';
 import 'feature/auth/core/domain/entities/auth_user.dart';
@@ -51,30 +49,16 @@ void main() {
   );
 }
 
-class YuztooApp extends ConsumerWidget {
+class YuztooApp extends StatelessWidget {
   const YuztooApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(appRouterProvider);
-    
-    return MaterialApp.router(
+  Widget build(BuildContext context) {
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Yuztoo',
       theme: buildTheme(),
-      // Enable localization
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('en', ''),
-        Locale('fr', ''),
-      ],
-      // Use go_router for navigation
-      routerConfig: router,
+      home: const _RootShell(),
     );
   }
 }

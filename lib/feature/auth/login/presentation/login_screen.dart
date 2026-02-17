@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/application/auth_error_mapper.dart';
 import '../../core/domain/value_objects/email_address.dart';
 import '../../../../core/utils/cities.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
-import '../../../../l10n/app_localizations.dart';
 import '../application/providers.dart';
 import '../application/state/login_flow_state.dart';
 import 'widgets/input_field.dart';
 import 'widgets/forgot_password_dialog.dart';
+import '../../../../../core/shared/widgets/app_logo.dart';
 
 // Dark theme colors matching signup screen
 const Color _bgDark1 = Color(0xFF0F1A29);
@@ -26,8 +27,6 @@ class LoginScreen extends ConsumerStatefulWidget {
     required this.onBack,
     required this.onSignup,
   });
-
-  static String get path => '/login';
 
   final UserRole role;
   final VoidCallback onBack;
@@ -83,10 +82,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String? _validateEmail(String? value) {
-    final l10n = AppLocalizations.of(context)!;
     // Show "required" error only after submit attempt
     if (value == null || value.isEmpty) {
-      return _shouldValidateRequired ? l10n.emailRequired : null;
+      return _shouldValidateRequired ? 'L\'adresse e-mail est requise.' : null;
     }
     // Validate format:
     // - Show error on blur (when clicking another field) if format is wrong
@@ -95,7 +93,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Only show error if field has been validated (blurred) or on submit
       // This allows real-time correction after first validation
       if (_emailHasBeenValidated || _shouldValidateRequired) {
-        return l10n.invalidEmail;
+        return 'Adresse e-mail invalide.';
       }
       return null;
     }
@@ -139,6 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await loginFlowController.signIn(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        preferredRole: widget.role, // Pass the selected role from UI
       );
     } finally {
       if (mounted) {
@@ -191,8 +190,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
                   Text(
-                    AppLocalizations.of(context)!.selectCity,
-                    style: const TextStyle(
+                    'Sélectionnez votre ville',
+                    style: TextStyle(
                       color: _textLight,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -203,22 +202,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: searchController,
                     style: const TextStyle(color: _textLight),
                     decoration: InputDecoration(
-                      hintText: AppLocalizations.of(context)!.searchCity,
-                      hintStyle: const TextStyle(color: _textGrey),
-                      prefixIcon: const Icon(Icons.search, color: _primaryGold),
+                      hintText: 'Rechercher une ville...',
+                      hintStyle: TextStyle(color: _textGrey),
+                      prefixIcon: Icon(Icons.search, color: _primaryGold),
                       filled: true,
                       fillColor: _bgDark1,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: _borderColor),
+                        borderSide: BorderSide(color: _borderColor),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: _borderColor),
+                        borderSide: BorderSide(color: _borderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: _primaryGold, width: 2),
+                        borderSide: BorderSide(color: _primaryGold, width: 2),
                       ),
                     ),
                     onChanged: filterCities,
@@ -262,6 +261,68 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
   }
 
+  void _showRoleMismatchDialog(LoginFlowRoleMismatch state) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (context) {
+        final roleName = state.requestedRole == UserRole.merchant ? 'commerçant' : 'client';
+        return AlertDialog(
+          backgroundColor: _bgDark2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: _borderColor, width: 1),
+          ),
+          title: Text(
+            'Compte non disponible',
+            style: TextStyle(
+              color: _textLight,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            'Vous n\'avez pas de compte $roleName avec cet email. Souhaitez-vous créer un compte $roleName ?',
+            style: TextStyle(
+              color: _textGrey,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ref.read(loginFlowControllerProvider.notifier).reset();
+              },
+              child: Text(
+                'Annuler',
+                style: TextStyle(color: _textGrey),
+              ),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ref.read(loginFlowControllerProvider.notifier).reset();
+                widget.onSignup(); // Navigate to signup
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: _primaryGold,
+              ),
+              child: Text(
+                'Créer un compte',
+                style: TextStyle(
+                  color: _bgDark1,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showMultiRoleSelectionDialog(LoginFlowMultiRoleRequired state) {
     showDialog(
       context: context,
@@ -271,11 +332,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           backgroundColor: _bgDark2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: _borderColor, width: 1),
+            side: BorderSide(color: _borderColor, width: 1),
           ),
           title: Text(
-            AppLocalizations.of(context)!.chooseRole,
-            style: const TextStyle(
+            'Choisissez votre rôle',
+            style: TextStyle(
               color: _textLight,
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -298,21 +359,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       vertical: 12,
                     ),
                     title: Text(
-                      AppLocalizations.of(context)!.client,
-                      style: const TextStyle(
+                      'Client',
+                      style: TextStyle(
                         color: _textLight,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     subtitle: Text(
-                      AppLocalizations.of(context)!.discoverShops,
-                      style: const TextStyle(
+                      'Découvrir les commerces',
+                      style: TextStyle(
                         color: _textGrey,
                         fontSize: 13,
                       ),
                     ),
-                    trailing: const Icon(Icons.arrow_forward_ios,
+                    trailing: Icon(Icons.arrow_forward_ios,
                         color: _primaryGold, size: 18),
                     onTap: () {
                       Navigator.pop(context);
@@ -339,21 +400,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       vertical: 12,
                     ),
                     title: Text(
-                      AppLocalizations.of(context)!.merchant,
-                      style: const TextStyle(
+                      'Commerçant',
+                      style: TextStyle(
                         color: _textLight,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     subtitle: Text(
-                      AppLocalizations.of(context)!.manageBusiness,
-                      style: const TextStyle(
+                      'Gérer votre commerce',
+                      style: TextStyle(
                         color: _textGrey,
                         fontSize: 13,
                       ),
                     ),
-                    trailing: const Icon(Icons.arrow_forward_ios,
+                    trailing: Icon(Icons.arrow_forward_ios,
                         color: _primaryGold, size: 18),
                     onTap: () {
                       Navigator.pop(context);
@@ -412,6 +473,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           if (previous is! LoginFlowMultiRoleRequired && mounted) {
             _showMultiRoleSelectionDialog(next);
           }
+        } else if (next is LoginFlowRoleMismatch) {
+          // User doesn't have the requested role - show error and offer signup
+          if (previous is! LoginFlowRoleMismatch && mounted) {
+            _showRoleMismatchDialog(next);
+          }
         }
       },
     );
@@ -421,191 +487,218 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // Dismiss keyboard when tapping outside
         FocusScope.of(context).unfocus();
       },
-      child: PopScope(
-        canPop: false, // Use our custom navigation instead of route popping
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop) {
-            widget.onBack();
-          }
-        },
-        child: Scaffold(
-        backgroundColor: _bgDark1,
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                IconButton(
-                  onPressed: widget.onBack,
-                  icon: const Icon(Icons.arrow_back),
-                  color: const Color(0xFFBF8719),
-                  iconSize: 24,
-                ),
-              const SizedBox(height: 16),
-              _buildLogoSection(),
-              const SizedBox(height: 32),
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    LoginInputField(
-                  controller: _emailController,
-                      label: AppLocalizations.of(context)!.emailAddress,
-                  hint: AppLocalizations.of(context)!.emailPlaceholder,
-                  icon: Icons.mail_outline,
-                      validator: _validateEmail,
-                      enabled: !isLoading,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          focusNode: _emailFocusNode,
-                          validateOnChange: _emailHasBeenValidated,
-                ),
-                const SizedBox(height: 16),
-                    LoginInputField(
-                  controller: _passwordController,
-                  label: AppLocalizations.of(context)!.password,
-                  hint: AppLocalizations.of(context)!.passwordPlaceholder,
-                  icon: Icons.lock_outline,
-                      obscure: !_isPasswordVisible,
-                      validator: _validatePassword,
-                      enabled: !isLoading,
-                          textInputAction: TextInputAction.done,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          focusNode: _passwordFocusNode,
-                      suffixIcon: _isPasswordVisible
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      onSuffixTap: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
-                ),
-                const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                  onPressed: isLoading
-                      ? null
-                      : () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => const ForgotPasswordDialog(),
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: _primaryGold,
-                        ),
-                  child: Text(AppLocalizations.of(context)!.forgotPasswordQuestion),
-                      ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                      height: 52,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFBF8719),
-                          disabledBackgroundColor: _borderColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: _bgDark1,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: _bgDark1,
+          systemNavigationBarIconBrightness: Brightness.light,
+        ),
+        child: PopScope(
+          canPop: false, // Use our custom navigation instead of route popping
+          onPopInvoked: (didPop) {
+            if (!didPop) {
+              widget.onBack();
+            }
+          },
+          child: Scaffold(
+            backgroundColor: _bgDark1,
+            body: SafeArea(
+              child: LayoutBuilder(
+            builder: (context, constraints) {
+              final screenH = constraints.maxHeight;
+              // International standard: Login screens use 15-20% of screen height
+              // Examples: Google (18%), Facebook (16%), Twitter (19%)
+              final logoSize = (screenH * 0.26).clamp(180.0, 260.0);
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: screenH),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // ── Top safe-area breathing room (8pt grid) ──
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: IconButton(
+                            onPressed: widget.onBack,
+                            icon: const Icon(Icons.arrow_back),
+                            color: const Color(0xFFBF8719),
+                            iconSize: 24,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
                           ),
-                          shadowColor: const Color(0xFFBF8719).withValues(alpha: 0.3),
-                          elevation: isLoading ? 4 : 2,
                         ),
-                        onPressed: (isLoading || _isLoginSubmitting) ? null : _handleLogin,
-                        child: isLoading
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    _bgDark1.withValues(alpha: 0.8),
+
+                        // ── Logo Section (8pt grid spacing) ──
+                        const SizedBox(height: 20),
+                        AppLogo(
+                          size: logoSize,
+                          fallback: Text(
+                            'Y',
+                            style: TextStyle(
+                              color: _bgDark1,
+                              fontSize: logoSize * 0.4,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24), // logo → title
+                        const Text(
+                          'Connexion',
+                          style: TextStyle(
+                            color: _textLight,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8), // title → subtitle
+                        Text(
+                          widget.role == UserRole.client
+                              ? 'Connectez-vous pour découvrir les commerces'
+                              : 'Accédez à votre espace professionnel',
+                          style: const TextStyle(
+                            color: _textGrey,
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+
+                        // ── Form (8pt grid: 32dp section break) ──
+                        const SizedBox(height: 32),
+                        Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              LoginInputField(
+                                controller: _emailController,
+                                label: 'Adresse email',
+                                hint: 'votre@email.com',
+                                icon: Icons.mail_outline,
+                                validator: _validateEmail,
+                                enabled: !isLoading,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                autocorrect: false,
+                                enableSuggestions: false,
+                                focusNode: _emailFocusNode,
+                                validateOnChange: _emailHasBeenValidated,
+                              ),
+                              const SizedBox(height: 20),
+                              LoginInputField(
+                                controller: _passwordController,
+                                label: 'Mot de passe',
+                                hint: '••••••••',
+                                icon: Icons.lock_outline,
+                                obscure: !_isPasswordVisible,
+                                validator: _validatePassword,
+                                enabled: !isLoading,
+                                textInputAction: TextInputAction.done,
+                                autocorrect: false,
+                                enableSuggestions: false,
+                                focusNode: _passwordFocusNode,
+                                suffixIcon: _isPasswordVisible
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                onSuffixTap: () {
+                                  setState(() {
+                                    _isPasswordVisible = !_isPasswordVisible;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: isLoading
+                                      ? null
+                                      : () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) => const ForgotPasswordDialog(),
+                                          );
+                                        },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: _primaryGold,
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text(
+                                    'Mot de passe oublié ?',
+                                    style: TextStyle(fontSize: 13),
                                   ),
                                 ),
-                              )
-                            : Text(
-                                AppLocalizations.of(context)!.signIn,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: _bgDark1,
-                                  letterSpacing: 0.3,
-                                ),
                               ),
+                              const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 50,
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFFBF8719),
+                                  disabledBackgroundColor: _borderColor,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  shadowColor: const Color(0xFFBF8719).withOpacity(0.3),
+                                  elevation: isLoading ? 4 : 2,
+                                ),
+                                onPressed: (isLoading || _isLoginSubmitting) ? null : _handleLogin,
+                                child: isLoading
+                                    ? SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            _bgDark1.withOpacity(0.8),
+                                          ),
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Se connecter',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: _bgDark1,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+
+                        // ── Flexible spacer pushes social / footer down ──
+                        const Spacer(),
+
+                        // ── Social login (8pt grid) ──
+                        const SizedBox(height: 40),
+                        _buildSocialDivider(),
+                        const SizedBox(height: 24),
+                        _buildSocialLoginButtons(),
+
+                        // ── Footer (8pt grid) ──
+                        const SizedBox(height: 32),
+                        _buildFooter(),
+                        const SizedBox(height: 32),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              _buildSocialDivider(),
-              const SizedBox(height: 16),
-              _buildSocialLoginButtons(),
-              const SizedBox(height: 24),
-              _buildFooter(),
-            ],
-          ),
-          ),
+              );
+            },
+        ),
         ),
       ),
-        ),
-    );
-  }
-
-  Widget _buildLogoSection() {
-    return Column(
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: _primaryGold,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _primaryGold, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: _primaryGold.withValues(alpha: 0.2),
-                blurRadius: 8,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: const Text(
-            'Y',
-            style: TextStyle(
-              color: _bgDark1,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        Text(
-          AppLocalizations.of(context)!.login,
-          style: const TextStyle(
-            color: _textLight,
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          widget.role == UserRole.client
-              ? AppLocalizations.of(context)!.loginToDiscover
-              : AppLocalizations.of(context)!.accessProfessionalSpace,
-          style: const TextStyle(
-            color: _textGrey,
-            fontSize: 14,
-          ),
-        ),
-      ],
+      ),
+      ),
     );
   }
 
@@ -614,15 +707,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       children: [
         Expanded(
           child: Divider(
-            color: _borderColor.withValues(alpha: 0.5),
+            color: _borderColor.withOpacity(0.5),
             thickness: 1,
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            AppLocalizations.of(context)!.or,
-            style: const TextStyle(
+            'OU',
+            style: TextStyle(
               fontSize: 11,
               color: _textGrey,
               fontWeight: FontWeight.w500,
@@ -631,7 +724,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         Expanded(
           child: Divider(
-            color: _borderColor.withValues(alpha: 0.5),
+            color: _borderColor.withOpacity(0.5),
             thickness: 1,
           ),
         ),
@@ -645,7 +738,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       children: [
         Expanded(
           child: _buildSocialButton(
-            label: AppLocalizations.of(context)!.google,
+            label: 'Google',
             iconWidget: _buildGoogleIcon(),
             onPressed: () => _handleSocialLogin('google'),
             isLoading: isLoading,
@@ -655,7 +748,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Expanded(
           child: _buildSocialButton(
             icon: Icons.facebook,
-            label: AppLocalizations.of(context)!.facebook,
+            label: 'Facebook',
             iconColor: const Color(0xFF1877F2),
             onPressed: () => _handleSocialLogin('facebook'),
             isLoading: isLoading,
@@ -665,7 +758,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Expanded(
           child: _buildSocialButton(
             icon: Icons.apple,
-            label: AppLocalizations.of(context)!.apple,
+            label: 'Apple',
             iconColor: _textLight,
             onPressed: () => _handleSocialLogin('apple'),
             isLoading: isLoading,
@@ -709,7 +802,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 4),
             Text(
               label ?? '',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 color: _textLight,
                 fontWeight: FontWeight.w500,
@@ -724,8 +817,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _handleSocialLogin(String provider) async {
     // TODO: Implement social login (Google, Facebook, Apple)
-    final l10n = AppLocalizations.of(context)!;
-    showErrorSnackbar(context, l10n.socialLoginSoon(provider));
+    showErrorSnackbar(context, 'Connexion $provider bientôt disponible');
   }
 
   Widget _buildFooter() {
@@ -735,12 +827,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           onTap: widget.onSignup,
           child: Text.rich(
             TextSpan(
-              text: AppLocalizations.of(context)!.dontHaveAccountText,
-              style: const TextStyle(color: _textGrey, fontSize: 13),
+              text: 'Vous n\'avez pas de compte ? ',
+              style: TextStyle(color: _textGrey, fontSize: 13),
               children: [
                 TextSpan(
-                  text: AppLocalizations.of(context)!.createAccountText,
-                  style: const TextStyle(
+                  text: 'Créer un compte',
+                  style: TextStyle(
                     color: _primaryGold,
                     fontWeight: FontWeight.w600,
                     decoration: TextDecoration.underline,
@@ -759,7 +851,7 @@ class _GoogleIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final scale = size.width / 24.0;
-    final matrix = Matrix4.identity()..scaleByDouble(scale, scale, scale, 1.0);
+    final matrix = Matrix4.identity()..scale(scale);
 
     // Red path
     final redPath = Path()

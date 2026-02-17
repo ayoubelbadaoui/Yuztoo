@@ -1,0 +1,87 @@
+---
+alwaysApply: true
+---
+
+# System UI Overlay Styling Rule
+
+## Overview
+All screens must ensure that the system status bar (top) and system navigation bar (bottom) visually integrate with the app's design by matching the closest color.
+
+## Rules
+
+### Status Bar (Top)
+- **Default**: Match the background color of the main scaffold/content area
+- **If content has multiple colors**: Match the color of the topmost/header section
+- **Icon brightness**: Light icons for dark backgrounds, dark icons for light backgrounds
+
+### Navigation Bar (Bottom)
+- **Default**: Match the background color of the main scaffold/content area  
+- **If content has multiple colors**: Match the color of the bottommost/navigation section
+- **Icon brightness**: Light icons for dark backgrounds, dark icons for light backgrounds
+
+## Implementation Pattern
+
+Use `AnnotatedRegion<SystemUiOverlayStyle>` wrapping the Scaffold:
+
+```dart
+AnnotatedRegion<SystemUiOverlayStyle>(
+  value: SystemUiOverlayStyle(
+    statusBarColor: Colors.black,           // Match top area
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.black, // Match bottom area
+    systemNavigationBarIconBrightness: Brightness.light,
+  ),
+  child: Scaffold(
+    backgroundColor: Colors.black,
+    // ... rest of screen
+  ),
+)
+```
+
+## Screen-Specific Guidelines
+
+### Auth Screens (Login, Signup, OTP, Role Selection)
+- Status bar + Navigation bar: **Dark Navy** (`#0F1A29` or `SignupConstants.bgDark1`)
+- This matches the dark background
+
+### Storefront & Merchant Pages
+- Status bar + Navigation bar: **Cream** (`StorefrontColors.cream`)
+- This matches the storefront background
+
+### Client Pages
+- Status bar + Navigation bar: **White** (`Colors.white`)
+- This matches light backgrounds
+
+### Screens with Bottom Navigation Bar
+- Status bar: Match header/content background
+- Navigation bar: Match bottom navigation bar background (usually **Navy** `StorefrontColors.navyDark`)
+
+## When Colors Don't Match
+If a screen has layered colors:
+1. Status bar → Match the **header/top section** color
+2. Navigation bar → Match the **bottom navigation or footer** color
+
+## Example: Login Screen
+```
+┌─ Status bar: Dark Navy (matches scaffold bg)
+├─ Header section: Dark Navy
+├─ Form section: Dark Navy
+└─ Navigation bar: Dark Navy (matches scaffold bg)
+```
+
+## Example: Merchant Storefront
+```
+┌─ Status bar: Cream (matches header)
+├─ Header with banner: Cream background
+├─ Content: Cream background
+├─ Bottom nav: Navy
+└─ Navigation bar: Navy (matches bottom nav)
+```
+
+## Testing Checklist
+- [ ] Status bar color visible on all screens
+- [ ] Navigation bar color visible on all screens
+- [ ] Icons are readable (proper brightness)
+- [ ] Colors match adjacent screen content
+- [ ] No jarring color transitions
+- [ ] Works on both light and dark backgrounds
