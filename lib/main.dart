@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'l10n/app_localizations.dart';
 
 import 'core/app_bootstrap.dart';
 import 'core/domain/core/either.dart';
@@ -58,6 +59,8 @@ class YuztooApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Yuztoo',
       theme: buildTheme(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const _RootShell(),
     );
   }
@@ -603,6 +606,14 @@ class _RootShellState extends ConsumerState<_RootShell> {
           onRoleChanged: (UserRole role) {
             // Update role without navigating (just preserve selection)
             setState(() => _role = role);
+            ref.read(roleCacheServiceProvider).saveLastSelectedRole(role);
+          },
+          onLogin: (UserRole role) {
+            // Navigate directly to login screen (for "Se connecter" button)
+            setState(() {
+              _role = role;
+              _authScreen = ScreenId.login;
+            });
             ref.read(roleCacheServiceProvider).saveLastSelectedRole(role);
           },
         );

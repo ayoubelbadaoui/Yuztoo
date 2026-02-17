@@ -14,11 +14,13 @@ class RoleSelectionScreen extends StatefulWidget {
     required this.onSelectRole,
     this.initialRole,
     this.onRoleChanged,
+    this.onLogin,
   });
 
   final ValueChanged<UserRole> onSelectRole;
   final UserRole? initialRole;
   final ValueChanged<UserRole>? onRoleChanged;
+  final ValueChanged<UserRole>? onLogin;
 
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
@@ -51,9 +53,20 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   }
 
   void _handleLogin() {
-    // In the original onboarding-wizard UI-only flow, "login" simply validates
-    // the selected role and lets the host decide what screen to show.
+    // Navigate to login with the currently selected role
+    // This is called from the bottom "Vous avez déjà un compte ?" link
     widget.onSelectRole(_selectedRole);
+  }
+
+  void _handleMerchantLogin() {
+    // Navigate to login specifically for merchant role
+    // This is called from the "Se connecter" button in merchant view
+    // Use onLogin callback if provided, otherwise fallback to onSelectRole
+    if (widget.onLogin != null) {
+      widget.onLogin!(UserRole.merchant);
+    } else {
+      widget.onSelectRole(UserRole.merchant);
+    }
   }
 
   @override
@@ -86,6 +99,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 _selectedRole == UserRole.merchant
                     ? MerchantView(
                         onDiscover: _handleDiscover,
+                        onLogin: _handleMerchantLogin,
                       )
                     : ClientView(
                         isScanning: _isScanning,
