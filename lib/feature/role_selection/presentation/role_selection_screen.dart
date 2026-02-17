@@ -5,7 +5,6 @@ import 'widgets/role_selection_colors.dart';
 import 'widgets/role_selection_header.dart';
 import 'widgets/merchant_view.dart';
 import 'widgets/client_view.dart';
-import 'widgets/login_link.dart';
 
 /// Role selection screen - first screen for unauthenticated users
 class RoleSelectionScreen extends StatefulWidget {
@@ -50,12 +49,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     // Navigate to merchant onboarding instead of login
     // This will be handled by main.dart navigation
     widget.onSelectRole(UserRole.merchant);
-  }
-
-  void _handleLogin() {
-    // Navigate to login with the currently selected role
-    // This is called from the bottom "Vous avez déjà un compte ?" link
-    widget.onSelectRole(_selectedRole);
   }
 
   void _handleMerchantLogin() {
@@ -105,8 +98,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                         isScanning: _isScanning,
                         onScan: _handleScan,
                       ),
-                const SizedBox(height: 40),
-                LoginLink(onTap: _handleLogin),
               ],
             ),
           ),
