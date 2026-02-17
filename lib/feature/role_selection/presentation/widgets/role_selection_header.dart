@@ -32,7 +32,7 @@ class RoleSelectionHeader extends StatelessWidget {
           ),
         ),
         SizedBox(height: (screenH * 0.04).clamp(24.0, 36.0)),
-
+        
         // Description
         Text(
           AppLocalizations.of(context)?.allTheShops ?? 'All the shops',
