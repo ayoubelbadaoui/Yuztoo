@@ -4,6 +4,9 @@
 *.pyc
 *.swp
 .DS_Store
+.cursor/
+.cursorignore
+flutter_*.png
 .atom/
 .build/
 .buildlog/

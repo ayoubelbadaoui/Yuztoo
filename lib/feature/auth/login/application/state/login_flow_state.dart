@@ -64,3 +64,17 @@ class LoginFlowMultiRoleRequired extends LoginFlowState {
   List<Object?> get props => [uid, roles, city];
 }
 
+class LoginFlowRoleMismatch extends LoginFlowState {
+  const LoginFlowRoleMismatch({
+    required this.uid,
+    required this.requestedRole,
+    required this.availableRoles,
+  });
+  final String uid;
+  final UserRole requestedRole;
+  final Map<String, bool> availableRoles;
+
+  @override
+  List<Object?> get props => [uid, requestedRole, availableRoles];
+}
+

@@ -6,7 +6,6 @@ import '../domain/repositories/merchant_repository.dart';
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
 import '../../../../core/infrastructure/logger_service.dart';
-import '../../../../core/utils/firestore_error_mapper.dart';
 import 'dto/merchant_dto.dart';
 
 /// Firebase Firestore implementation of MerchantRepository.
@@ -36,21 +35,6 @@ class FirestoreMerchantRepository implements MerchantRepository {
         context: {'ownerUid': ownerUid, 'exists': exists},
       );
       return Right<MerchantFailure, bool>(exists);
-    } on FirebaseException catch (e, st) {
-      LoggerService.logError(
-        'Firestore error checking merchant existence',
-        error: e,
-        stackTrace: st,
-        context: {'ownerUid': ownerUid, 'code': e.code},
-      );
-      final frenchMessage = FirestoreErrorMapper.getFrenchMessage(e);
-      return Left<MerchantFailure, bool>(
-        MerchantNetworkFailure(
-          message: frenchMessage,
-          cause: e,
-          stackTrace: st,
-        ),
-      );
     } catch (e, st) {
       LoggerService.logError(
         'Error checking merchant existence',
@@ -145,21 +129,17 @@ class FirestoreMerchantRepository implements MerchantRepository {
         },
       );
 
-      // Map Firestore error to French message
-      final frenchMessage = FirestoreErrorMapper.getFrenchMessage(e);
-
       // Check for specific Firebase errors
       if (e.code == 'permission-denied') {
-        return Left<MerchantFailure, Merchant>(
+        return const Left<MerchantFailure, Merchant>(
           UnableToCreateMerchantFailure(
-            message: frenchMessage,
+            message: 'Unable to create merchant / Impossible de créer le profil commerçant',
           ),
         );
       }
 
       return Left<MerchantFailure, Merchant>(
         MerchantNetworkFailure(
-          message: frenchMessage,
           cause: e,
           stackTrace: st,
         ),

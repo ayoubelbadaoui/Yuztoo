@@ -5,6 +5,7 @@ import '../application/providers.dart';
 import '../../core/application/auth_error_mapper.dart';
 import 'otp_screen.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
+import '../../core/application/providers.dart' as auth_core;
 import '../../../../types.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'constants/signup_constants.dart';
@@ -71,6 +72,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Persist role selection so we can route correctly even if Firestore is blocked.
+    // This is best-effort and intentionally non-blocking.
+    Future.microtask(() {
+      ref.read(auth_core.roleCacheServiceProvider).saveLastSelectedRole(widget.role);
+    });
     
     _emailController = TextEditingController(text: widget.initialEmail ?? '');
     _passwordController = TextEditingController(text: widget.initialPassword ?? '');
@@ -280,7 +287,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => OTPScreen(
-                onBack: () => Navigator.of(context).pop(),
                 userId: '', // Not needed until verification
                 phone: phoneNumber,
                 onResend: () {},
@@ -327,7 +333,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           backgroundColor: SignupConstants.bgDark1,
           body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -355,7 +361,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         enabled: !_isLoading,
                         onUnfocusAll: _unfocusAllFields,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       PasswordField(
                         controller: _passwordController,
                         focusNode: _passwordFocusNode,
@@ -371,7 +377,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         const SizedBox(height: 12),
                         const PasswordHint(),
                       ],
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       ConfirmPasswordField(
                         controller: _confirmPasswordController,
                         passwordController: _passwordController,
@@ -381,7 +387,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         enabled: !_isLoading,
                         onUnfocusAll: _unfocusAllFields,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       PhoneField(
                         controller: _phoneController,
                         focusNode: _phoneFocusNode,
@@ -411,7 +417,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           }
                         },
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       CityDropdown(
                         fieldKey: _cityFieldKey,
                         selectedCity: _selectedCity,
@@ -427,19 +433,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
                 SignupButton(
                   isLoading: _isLoading,
                   onPressed: (_isLoading || _isSubmitting) ? null : _handleSignup,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 32),
                 const SocialDivider(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 SocialLoginButtons(
                   isLoading: _isLoading,
                   onSocialLogin: _handleSocialLogin,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 40),
                 SignupFooter(
                   onBack: widget.onBack,
                 ),

@@ -27,6 +27,7 @@ dependencies:
   shared_preferences: ^2.2.2
   logger: ^2.0.2+1
   image_picker: ^1.0.7
+  flutter_svg: ^2.0.10
 
 dev_dependencies:
   flutter_test:
@@ -41,3 +42,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+  assets:
+    - assets/branding/logo.svg
+    - assets/branding/logo.png

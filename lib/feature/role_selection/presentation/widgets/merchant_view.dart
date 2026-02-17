@@ -6,9 +6,11 @@ class MerchantView extends StatelessWidget {
   const MerchantView({
     super.key,
     required this.onDiscover,
+    this.onLogin,
   });
 
   final VoidCallback onDiscover;
+  final VoidCallback? onLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +28,35 @@ class MerchantView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 40),
+
+        // Login Button (if user has account)
+        if (onLogin != null) ...[
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton(
+              onPressed: onLogin,
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: RoleSelectionColors.primaryGold,
+                  width: 1.5,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(50),
+                ),
+              ),
+              child: Text(
+                'Se connecter',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: RoleSelectionColors.primaryGold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // Discover Button
         SizedBox(

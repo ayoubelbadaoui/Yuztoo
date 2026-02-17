@@ -16,6 +16,7 @@ import 'use_cases/update_last_login_at.dart';
 import 'use_cases/check_user_profile_complete.dart';
 import '../infrastructure/auth_repository_provider.dart';
 import '../infrastructure/user_repository_provider.dart';
+import '../infrastructure/role_cache_service.dart';
 
 // Re-export infrastructure providers for use in application layer (for creating use cases)
 export '../infrastructure/auth_repository_provider.dart' show authRepositoryProvider;
@@ -51,6 +52,11 @@ final authControllerProvider =
 /// Exposes auth state as a convenience for UI widgets.
 final authStateProvider =
     Provider<AuthState>((ref) => ref.watch(authControllerProvider));
+
+/// Local cache for last selected role (fallback when Firestore role lookup fails).
+final roleCacheServiceProvider = Provider<RoleCacheService>((ref) {
+  return RoleCacheService();
+});
 
 /// Use case provider for getting user role
 final getUserRoleProvider = Provider<GetUserRole>((ref) {

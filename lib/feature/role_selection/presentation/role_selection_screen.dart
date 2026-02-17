@@ -14,7 +14,6 @@ class RoleSelectionScreen extends StatefulWidget {
     required this.onSelectRole,
     this.initialRole,
     this.onRoleChanged,
-    this.onLogin,
   });
 
   static String get path => '/role-selection';
@@ -22,7 +21,6 @@ class RoleSelectionScreen extends StatefulWidget {
   final ValueChanged<UserRole> onSelectRole;
   final UserRole? initialRole;
   final ValueChanged<UserRole>? onRoleChanged;
-  final VoidCallback? onLogin;
 
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
@@ -55,8 +53,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   }
 
   void _handleLogin() {
-    // Navigate to login page for the selected role
-    widget.onLogin?.call();
+    // In the original onboarding-wizard UI-only flow, "login" simply validates
+    // the selected role and lets the host decide what screen to show.
+    widget.onSelectRole(_selectedRole);
   }
 
   @override
@@ -73,7 +72,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         backgroundColor: RoleSelectionColors.bgDark1,
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -85,9 +84,11 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     widget.onRoleChanged?.call(role);
                   },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
                 _selectedRole == UserRole.merchant
-                    ? MerchantView(onDiscover: _handleDiscover)
+                    ? MerchantView(
+                        onDiscover: _handleDiscover,
+                      )
                     : ClientView(
                         isScanning: _isScanning,
                         onScan: _handleScan,

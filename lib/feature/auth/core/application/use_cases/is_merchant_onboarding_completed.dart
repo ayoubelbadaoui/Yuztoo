@@ -11,3 +11,6 @@ class IsMerchantOnboardingCompleted {
       _repository.isMerchantOnboardingCompleted(uid);
 }
 
+
+
+

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../application/providers.dart';
@@ -10,7 +9,8 @@ import 'widgets/stats_cards.dart';
 import 'widgets/navigation_tabs.dart';
 import 'widgets/news_section.dart';
 import 'widgets/hours_section.dart';
-import 'edit_profile_screen.dart';
+import 'storefront_edit_profile_screen.dart';
+import '../application/profile_edit_state.dart';
 
 /// Storefront screen - main UI for merchant storefront management
 class StorefrontScreen extends ConsumerStatefulWidget {
@@ -21,23 +21,6 @@ class StorefrontScreen extends ConsumerStatefulWidget {
 }
 
 class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // Set status bar color to match page background
-    // System navigation bar color is handled in main.dart to match bottom nav
-    SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
-        statusBarColor: StorefrontColors.backgroundLight,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-        systemNavigationBarColor: StorefrontColors.navyDark, // Match bottom nav
-        systemNavigationBarIconBrightness: Brightness.light,
-        systemNavigationBarDividerColor: Colors.transparent,
-      ),
-    );
-  }
-
   @override
   void dispose() {
     // Don't reset here - let main.dart handle it
@@ -226,9 +209,12 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                   businessActivity: storefront.businessActivity,
                   isVerified: storefront.isVerified,
                   onEdit: () {
+                    ref
+                        .read(storefrontProfileEditProvider.notifier)
+                        .initializeFrom(storefront);
                     Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const EditProfileScreen(),
+                      MaterialPageRoute<void>(
+                        builder: (_) => const StorefrontEditProfileScreen(),
                       ),
                     );
                   },

@@ -98,10 +98,10 @@ Future<NavigationState> _computeNavigationStateForUser(Ref ref, AuthUser user) a
     return const NavigationAuthenticated(ScreenId.clientHome);
   }
   
-  // Merchant role → after signup, always go to dashboard (not onboarding)
-  // Merchants can access onboarding from within the dashboard if needed
+  // Merchant role → check onboarding status before navigating
   if (role == UserRole.merchant) {
-    return const NavigationAuthenticated(ScreenId.merchantDashboard);
+    // Once authenticated, route merchants to storefront (store page).
+    return const NavigationAuthenticated(ScreenId.merchantStorefront);
   }
   
   // Fallback - should not reach here

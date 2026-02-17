@@ -36,7 +36,6 @@ import 'feature/merchant_qr/presentation/merchant_qr_screen.dart';
 import 'feature/merchant_stats/presentation/merchant_stats_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart';
 import 'feature/storefront/presentation/storefront_screen.dart';
-import 'feature/storefront/presentation/edit_profile_screen.dart';
 import 'feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
 import 'feature/merchant_onboarding/presentation/widgets/subcategory/restaurant_subcategories.dart';
@@ -163,7 +162,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
         // IMPORTANT: If we're navigating to home (just logged in), don't navigate away
         // This prevents race conditions where userChanges() emits null briefly
         final onHomeScreen = _authScreen == ScreenId.clientHome ||
-            _authScreen == ScreenId.merchantDashboard;
+            _authScreen == ScreenId.merchantDashboard ||
+            _authScreen == ScreenId.merchantStorefront;
         final inAuthFlow = _authScreen == ScreenId.login ||
             _authScreen == ScreenId.signup ||
             _authScreen == ScreenId.otp;
@@ -222,46 +222,75 @@ class _RootShellState extends ConsumerState<_RootShell> {
       setState(() => _authScreen = ScreenId.splash);
     }
     
-    // Use fallback role immediately (from user.role) to prevent delays
-    final fallbackRole = _mapUserRoleString(user.role) ?? UserRole.client;
+    // Use the best available fallback role:
+    // - current in-memory selection (role selection / signup flow)
+    // - last locally saved selection (survives app restarts)
+    // - authUser.role (legacy fallback)
+    final cachedRole =
+        await ref.read(roleCacheServiceProvider).readLastSelectedRole();
+    final fallbackRole =
+        _role ?? cachedRole ?? _mapUserRoleString(user.role) ?? UserRole.client;
     
     try {
-      // Get user role with timeout to handle network delays gracefully
+      // Get user role with retry logic
+      // For newly created accounts (signup), Firestore might need a moment to write the document
+      // For existing accounts (login), this ensures we get the role even if there's a brief delay
       final getUserRole = ref.read(getUserRoleProvider);
       Result<UserRole?> roleResult;
-      try {
-        roleResult = await getUserRole
-            .call(user.id)
-            .timeout(const Duration(seconds: 5));
-      } on TimeoutException catch (_) {
-        // Timeout is not an error - return fallback role wrapped in Result
-        roleResult = Right<AppFailure, UserRole?>(fallbackRole);
-      } catch (_) {
-        // Any error - use fallback role wrapped in Result
-        roleResult = Right<AppFailure, UserRole?>(fallbackRole);
+      UserRole? role;
+      
+      // Retry up to 3 times with increasing delays (200ms, 500ms)
+      for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) {
+            // Wait before retry: 200ms, 500ms
+            await Future.delayed(Duration(milliseconds: 200 * attempt));
+          }
+          
+          roleResult = await getUserRole
+              .call(user.id)
+              .timeout(const Duration(seconds: 5));
+          
+          role = roleResult.fold(
+            (_) => null, // network/firestore failure → null, will retry
+            (r) => r, // success → use the role
+          );
+          
+          // If we got a valid role, break out of retry loop
+          if (role != null) break;
+        } on TimeoutException catch (_) {
+          // Timeout → will retry if attempts remain
+          if (attempt == 2) {
+            // Last attempt failed → use fallback
+            roleResult = Right<AppFailure, UserRole?>(fallbackRole);
+            role = fallbackRole;
+          }
+        } catch (_) {
+          // Any error → will retry if attempts remain
+          if (attempt == 2) {
+            // Last attempt failed → use fallback
+            roleResult = Right<AppFailure, UserRole?>(fallbackRole);
+            role = fallbackRole;
+          }
+        }
       }
       
-      final role = roleResult.fold(
-        (_) => fallbackRole, // network/firestore failure → fall back to authUser role
-        (r) => r ?? fallbackRole, // missing doc/roles → fall back to authUser role
-      );
+      // Use the role we got, or fallback if Firestore is unavailable (e.g. permission-denied).
+      final effectiveRole = role ?? fallbackRole;
       
       if (!mounted) {
         _isNavigatingToHome = false;
         return;
       }
       
-      // Use the role (fallbackRole is already set, so role will never be null)
-      final effectiveRole = role;
-      
       // Determine target screen based on role and onboarding status
       ScreenId targetScreen;
       if (effectiveRole == UserRole.client) {
         targetScreen = ScreenId.clientHome;
-    } else {
-        // Merchant - after signup, always go to dashboard (not onboarding)
-        // Merchants can access onboarding from within the dashboard if needed
-        targetScreen = ScreenId.merchantDashboard;
+      } else {
+        // Merchant - once authenticated, go straight to storefront (store page).
+        // Onboarding wizard is an acquisition/education flow, not a post-signup loop.
+        targetScreen = ScreenId.merchantStorefront;
       }
       
       // Now navigate to home screen (we were on splash, so this is safe)
@@ -269,10 +298,11 @@ class _RootShellState extends ConsumerState<_RootShell> {
         setState(() {
           _authScreen = targetScreen;
           _role = effectiveRole;
-          _activeTab = effectiveRole == UserRole.client ? 'home' : 'taches';
+          _activeTab = effectiveRole == UserRole.client ? 'home' : 'storefront';
           _nestedScreen = null;
           _isNavigatingToHome = false; // Navigation complete
         });
+        // UI updates handled by setState above
       }
     } catch (e) {
       // On any unexpected error, fall back to authUser role without signing out
@@ -282,29 +312,15 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return;
       }
       
-      final fallbackRole = _mapUserRoleString(user.role) ?? UserRole.client;
+      final cachedRole =
+          await ref.read(roleCacheServiceProvider).readLastSelectedRole();
+      final fallbackRole =
+          _role ?? cachedRole ?? _mapUserRoleString(user.role) ?? UserRole.client;
       
       // Determine target screen with onboarding check for merchants
       ScreenId targetScreen;
       if (fallbackRole == UserRole.merchant) {
-        // Check onboarding status with timeout
-        bool onboardingCompleted = false;
-        try {
-          final isOnboardingCompleted = ref.read(isMerchantOnboardingCompletedProvider);
-          final onboardingResult = await isOnboardingCompleted
-              .call(user.id)
-              .timeout(const Duration(seconds: 5));
-          onboardingCompleted = onboardingResult.fold(
-            (_) => false, // Error → assume incomplete
-            (completed) => completed ?? false, // null → incomplete
-          );
-        } catch (_) {
-          // Timeout or error → assume incomplete (non-fatal)
-          onboardingCompleted = false;
-        }
-        targetScreen = onboardingCompleted
-            ? ScreenId.merchantDashboard
-            : ScreenId.merchantOnboarding;
+        targetScreen = ScreenId.merchantStorefront;
       } else {
         targetScreen = ScreenId.clientHome;
       }
@@ -313,7 +329,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
         setState(() {
           _role = fallbackRole;
           _authScreen = targetScreen;
-          _activeTab = fallbackRole == UserRole.merchant ? 'taches' : 'home';
+          _activeTab = fallbackRole == UserRole.merchant ? 'storefront' : 'home';
           _nestedScreen = null;
           _isNavigatingToHome = false; // Navigation complete
         });
@@ -347,8 +363,11 @@ class _RootShellState extends ConsumerState<_RootShell> {
         // Navigate to login for clients
         _authScreen = ScreenId.login;
       }
-      _activeTab = role == UserRole.client ? 'home' : 'taches';
+      _activeTab = role == UserRole.client ? 'home' : 'storefront';
     });
+
+    // Persist role so we can route correctly even if Firestore rules block reads/writes.
+    ref.read(roleCacheServiceProvider).saveLastSelectedRole(role);
   }
 
   void _handleBackToLogin() {
@@ -388,6 +407,12 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
     setState(() {
       _activeTab = tab;
+      // For merchants, if storefront tab is selected, ensure we're on storefront screen
+      if (_role == UserRole.merchant && tab == 'storefront') {
+        _authScreen = ScreenId.merchantStorefront;
+        _nestedScreen = null;
+        return;
+      }
       if (_role == UserRole.client) {
         final map = <String, ScreenId>{
           'home': ScreenId.clientHome,
@@ -412,7 +437,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
           'marketing': ScreenId.merchantPromotions, // Map to promotions for marketing
           'profile': ScreenId.merchantProfile,
         };
-        final target = map[tab] ?? ScreenId.merchantDashboard;
+        final target = map[tab] ?? ScreenId.merchantStorefront; // Default to storefront
         // If it's a main tab screen, update auth screen; otherwise nested
         if (target == ScreenId.merchantDashboard || target == ScreenId.merchantProfile || target == ScreenId.merchantStorefront) {
           _authScreen = target;
@@ -433,9 +458,9 @@ class _RootShellState extends ConsumerState<_RootShell> {
       });
     } else {
       setState(() {
-        _authScreen = ScreenId.merchantDashboard;
+        _authScreen = ScreenId.merchantStorefront;
         _nestedScreen = null;
-        _activeTab = 'taches';
+        _activeTab = 'storefront';
       });
     }
   }
@@ -471,46 +496,110 @@ class _RootShellState extends ConsumerState<_RootShell> {
     // Get current screen to set background color
     final currentScreen = _nestedScreen ?? _authScreen;
     final isStorefront = currentScreen == ScreenId.merchantStorefront;
-    final scaffoldBgColor = isStorefront 
-        ? const Color(0xFFFDFBF7) // Storefront background color
-        : Colors.white; // Default white
-    
-    // Set system navigation bar color to match bottom nav for all merchant pages with bottom nav
-    if (_role == UserRole.merchant && _showBottomNav) {
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          systemNavigationBarColor: Color(0xFF0B162C), // StorefrontColors.navyDark
-          systemNavigationBarIconBrightness: Brightness.light,
-          systemNavigationBarDividerColor: Colors.transparent,
-        ),
-      );
-    } else {
-      // Reset to default for other screens
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          systemNavigationBarColor: Colors.white,
-          systemNavigationBarIconBrightness: Brightness.dark,
-        ),
-      );
-    }
+    const authBgDark = Color(0xFF0F1A29); // matches Login/Signup/OTP/RoleSelection screens
+    final isAuthDarkScreen = currentScreen == ScreenId.roleSelection ||
+        currentScreen == ScreenId.login ||
+        currentScreen == ScreenId.signup ||
+        currentScreen == ScreenId.otp ||
+        currentScreen == ScreenId.merchantOnboarding ||
+        currentScreen == ScreenId.merchantSubcategorySelection ||
+        currentScreen == ScreenId.merchantBenefits;
 
-    return Scaffold(
-      backgroundColor: scaffoldBgColor,
-      body: SafeArea(
-        bottom: false,
-        child: Padding(
-          // Don't add bottom padding for storefront - it handles its own spacing
-          padding: EdgeInsets.only(bottom: (_showBottomNav && !isStorefront) ? 72 : 0),
-          child: body,
+    // Screens whose topmost section/header is the app primary color (dark),
+    // so the status bar should match that header for a seamless look.
+    final hasPrimaryHeaderTop = currentScreen == ScreenId.splash ||
+        currentScreen == ScreenId.clientHome ||
+        currentScreen == ScreenId.merchantDashboard ||
+        currentScreen == ScreenId.clientProfile ||
+        currentScreen == ScreenId.merchantProfile;
+
+    final scaffoldBgColor = isStorefront
+        ? const Color(0xFFFDFBF7) // Storefront background color
+        : (isAuthDarkScreen ? authBgDark : Colors.white);
+    
+    // Default rule: system bars follow the current background (and bottom nav if present).
+    // IMPORTANT: Use AnnotatedRegion (not SystemChrome.setSystemUIOverlayStyle in build),
+    // so screens that provide their own overlay style (e.g. OTP/Login dark screens)
+    // are not overridden.
+    final statusBarColor = isAuthDarkScreen
+        ? authBgDark
+        : (isStorefront
+            ? scaffoldBgColor
+            : (hasPrimaryHeaderTop ? YColors.primary : scaffoldBgColor));
+    final systemNavBarColor = (_showBottomNav && _role == UserRole.merchant)
+        ? const Color(0xFF0B162C) // merchant bottom nav background
+        : scaffoldBgColor;
+
+    final statusIsLight = statusBarColor.computeLuminance() > 0.5;
+    final navIsLight = systemNavBarColor.computeLuminance() > 0.5;
+
+    final overlayStyle = SystemUiOverlayStyle(
+      statusBarColor: statusBarColor,
+      statusBarIconBrightness:
+          statusIsLight ? Brightness.dark : Brightness.light,
+      // iOS: "brightness of the status bar" == brightness of the *background*
+      statusBarBrightness: statusIsLight ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: systemNavBarColor,
+      systemNavigationBarIconBrightness:
+          navIsLight ? Brightness.dark : Brightness.light,
+      systemNavigationBarDividerColor: Colors.transparent,
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: Scaffold(
+        backgroundColor: scaffoldBgColor,
+        body: Builder(
+          builder: (context) {
+            final topInset = MediaQuery.of(context).padding.top;
+
+            // Some screens already include their own SafeArea (auth + onboarding + storefront),
+            // so we avoid applying SafeArea twice.
+            final screenHandlesSafeArea = currentScreen == ScreenId.roleSelection ||
+                currentScreen == ScreenId.login ||
+                currentScreen == ScreenId.signup ||
+                currentScreen == ScreenId.otp ||
+                currentScreen == ScreenId.merchantOnboarding ||
+                currentScreen == ScreenId.merchantSubcategorySelection ||
+                currentScreen == ScreenId.merchantBenefits ||
+                currentScreen == ScreenId.merchantStorefront;
+
+            final content = Padding(
+              // Don't add bottom padding for storefront - it handles its own spacing
+              padding: EdgeInsets.only(
+                bottom: (_showBottomNav && !isStorefront) ? 72 : 0,
+              ),
+              child: body,
+            );
+
+            return Stack(
+              children: [
+                if (topInset > 0)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: topInset,
+                    child: Container(color: statusBarColor),
+                  ),
+                screenHandlesSafeArea
+                    ? content
+                    : SafeArea(
+                        bottom: false,
+                        child: content,
+                      ),
+              ],
+            );
+          },
         ),
+        bottomNavigationBar: _showBottomNav && _role != null
+            ? YBottomNav(
+                role: _role!,
+                activeTab: _activeTab,
+                onTabChange: _handleTabChange,
+              )
+            : null,
       ),
-      bottomNavigationBar: _showBottomNav && _role != null
-          ? YBottomNav(
-              role: _role!,
-              activeTab: _activeTab,
-              onTabChange: _handleTabChange,
-            )
-          : null,
     );
   }
 
@@ -530,12 +619,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
           onRoleChanged: (UserRole role) {
             // Update role without navigating (just preserve selection)
             setState(() => _role = role);
-          },
-          onLogin: () {
-            // Navigate to login page for the currently selected role
-            setState(() {
-              _authScreen = ScreenId.login;
-            });
+            ref.read(roleCacheServiceProvider).saveLastSelectedRole(role);
           },
         );
       case ScreenId.login:
@@ -627,6 +711,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
               _role = UserRole.merchant;
               _authScreen = ScreenId.signup;
             });
+            ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.merchant);
           },
         );
       case ScreenId.merchantDashboard:
@@ -655,8 +740,6 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return MerchantStatsScreen(onBack: _handleBackToBase);
       case ScreenId.merchantStorefront:
         return const StorefrontScreen();
-      case ScreenId.merchantEditProfile:
-        return const EditProfileScreen();
     }
   }
 }

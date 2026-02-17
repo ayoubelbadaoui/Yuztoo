@@ -5,7 +5,6 @@ import '../domain/repositories/user_repository.dart';
 import '../../../../../core/domain/core/either.dart';
 import '../../../../../core/domain/core/result.dart';
 import '../../../../../core/infrastructure/logger_service.dart';
-import '../../../../../core/utils/firestore_error_mapper.dart';
 import '../../../../../types.dart';
 
 /// Firebase implementation of UserRepository
@@ -48,22 +47,18 @@ class FirebaseUserRepository implements UserRepository {
       }, SetOptions(merge: false));
       LoggerService.logInfo('User document created successfully', context: {'uid': uid, 'email': email, 'city': city});
       return const Right<AuthFailure, Unit>(unit);
-    } on FirebaseException catch (e, st) {
-      LoggerService.logError(
-        'Firestore error creating user document',
-        error: e,
-        stackTrace: st,
-        context: {'uid': uid, 'email': email, 'phone': phone, 'city': city, 'code': e.code},
-      );
-      final frenchMessage = FirestoreErrorMapper.getFrenchMessage(e);
-      return Left<AuthFailure, Unit>(
-        AuthUnexpectedFailure(
-          message: 'Erreur lors de la création du profil utilisateur: $frenchMessage',
-          cause: e,
-          stackTrace: st,
-        ),
-      );
     } catch (e, st) {
+      // If Firestore rules are misconfigured (common on dev projects), Auth may still succeed
+      // but profile writes will be denied. Don't block the user from continuing in the app.
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied creating user document (non-fatal)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid, 'email': email, 'phone': phone, 'city': city},
+        );
+        return const Right<AuthFailure, Unit>(unit);
+      }
       LoggerService.logError(
         'Error creating user document',
         error: e,
@@ -93,8 +88,22 @@ class FirebaseUserRepository implements UserRepository {
         return const Right<AuthFailure, UserRole?>(null);
       }
 
+      // Check legacy role FIRST (for old users)
+      final legacyRole = data['role'] as String?;
+      if (legacyRole != null) {
+        final normalized = legacyRole.toLowerCase();
+        if (normalized == 'merchant') {
+          return const Right<AuthFailure, UserRole?>(UserRole.merchant);
+        }
+        if (normalized == 'client') {
+          return const Right<AuthFailure, UserRole?>(UserRole.client);
+        }
+      }
+
+      // Then check new roles map
       final roles = data['roles'] as Map<String, dynamic>?;
       if (roles != null) {
+        // Check merchant first (merchant takes priority)
         if (roles['merchant'] == true) {
           return const Right<AuthFailure, UserRole?>(UserRole.merchant);
         }
@@ -103,19 +112,19 @@ class FirebaseUserRepository implements UserRepository {
         }
       }
 
-      // Fallback for legacy schema using a single "role" string
-      final legacyRole = data['role'] as String?;
-      if (legacyRole != null) {
-        final normalized = legacyRole.toLowerCase();
-        if (normalized == 'merchant') {
-          return const Right<AuthFailure, UserRole?>(UserRole.merchant);
-        }
-        return const Right<AuthFailure, UserRole?>(UserRole.client);
-      }
-
       // Default to client when nothing else is present
       return const Right<AuthFailure, UserRole?>(UserRole.client);
     } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied getting user role (non-fatal)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid},
+        );
+        // Returning null lets upper layers fall back to locally selected/cached role.
+        return const Right<AuthFailure, UserRole?>(null);
+      }
       LoggerService.logError(
         'Error getting user role',
         error: e,
@@ -153,6 +162,15 @@ class FirebaseUserRepository implements UserRepository {
 
       return Right<AuthFailure, String?>(city);
     } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied getting user city (non-fatal)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid},
+        );
+        return const Right<AuthFailure, String?>(null);
+      }
       LoggerService.logError(
         'Error getting user city',
         error: e,
@@ -193,6 +211,15 @@ class FirebaseUserRepository implements UserRepository {
       LoggerService.logInfo('User city updated successfully', context: {'uid': uid, 'city': city});
       return const Right<AuthFailure, Unit>(unit);
     } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied updating user city (non-fatal)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid, 'city': city},
+        );
+        return const Right<AuthFailure, Unit>(unit);
+      }
       LoggerService.logError(
         'Error updating user city',
         error: e,
@@ -248,6 +275,15 @@ class FirebaseUserRepository implements UserRepository {
       // Nothing found
       return const Right<AuthFailure, Map<String, bool>?>(null);
     } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied getting user roles (non-fatal)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid},
+        );
+        return const Right<AuthFailure, Map<String, bool>?>(null);
+      }
       LoggerService.logError(
         'Error getting user roles',
         error: e,
@@ -289,6 +325,15 @@ class FirebaseUserRepository implements UserRepository {
       final onboardingCompleted = onboarding?['merchant'] as bool? ?? false;
       return Right<AuthFailure, bool?>(onboardingCompleted);
     } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied checking onboarding status (non-fatal)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid},
+        );
+        return const Right<AuthFailure, bool?>(null);
+      }
       LoggerService.logError(
         'Error checking onboarding status',
         error: e,
