@@ -1,6 +1,5 @@
 /// Business hours domain entity
 /// Pure Dart - no Flutter dependencies
-
 /// Represents a time slot (e.g., "8h - 12h")
 class TimeSlot {
   const TimeSlot({

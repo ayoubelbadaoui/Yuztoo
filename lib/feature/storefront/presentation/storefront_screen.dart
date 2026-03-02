@@ -115,7 +115,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
               Container(
                 width: 56,
                 height: 56,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: StorefrontColors.primaryGold,
                   shape: BoxShape.circle,
                 ),

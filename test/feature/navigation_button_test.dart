@@ -4,7 +4,6 @@ import 'package:flutter_yuztoo/feature/role_selection/presentation/role_selectio
 import 'package:flutter_yuztoo/feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart';
 import 'package:flutter_yuztoo/feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
 import 'package:flutter_yuztoo/feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
-import 'package:flutter_yuztoo/types.dart';
 import 'package:flutter_yuztoo/l10n/app_localizations.dart';
 
 void main() {

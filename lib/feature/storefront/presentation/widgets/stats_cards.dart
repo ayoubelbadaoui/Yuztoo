@@ -184,7 +184,7 @@ class _WeeklyViewsCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '${isPositive ? '+' : ''}${change.toStringAsFixed(0)}%',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: StorefrontColors.successGreen,

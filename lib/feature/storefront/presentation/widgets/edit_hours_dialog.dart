@@ -165,24 +165,24 @@ class _EditHoursDialogState extends State<EditHoursDialog> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Modifier les horaires',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: StorefrontColors.textPrimary,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
                           children: [
-                            Text(
-                              widget.dayHours.dayName,
+                            const Text(
+                              'Modifier les horaires',
                               style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: StorefrontColors.textPrimary,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(
+                                  widget.dayHours.dayName,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
                                 color: StorefrontColors.textSecondary,
                               ),
                             ),
@@ -276,7 +276,7 @@ class _EditHoursDialogState extends State<EditHoursDialog> {
                               style: BorderStyle.solid,
                             ),
                           ),
-                          child: Row(
+                          child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
@@ -324,7 +324,7 @@ class _EditHoursDialogState extends State<EditHoursDialog> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: Text(
+                    child: const Text(
                       'Annuler',
                       style: TextStyle(
                         fontSize: 15,

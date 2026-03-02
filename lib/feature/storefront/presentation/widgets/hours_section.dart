@@ -279,14 +279,14 @@ class HoursSection extends ConsumerWidget {
                   width: 1,
                 ),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.info_outline,
                     size: 18,
                     color: StorefrontColors.primaryGold,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Des horaires par défaut (8h - 12h et 14h - 18h) seront ajoutés. Vous pourrez les modifier ensuite.',
@@ -628,7 +628,7 @@ class _ExceptionalClosureToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.only(top: 24),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
           top: BorderSide(
             color: StorefrontColors.borderLight,
@@ -646,7 +646,7 @@ class _ExceptionalClosureToggle extends StatelessWidget {
                 onChanged: onToggle,
               ),
               const SizedBox(width: 12),
-              Text(
+              const Text(
                 'Fermeture exceptionnelle',
                 style: TextStyle(
                   fontSize: 14,

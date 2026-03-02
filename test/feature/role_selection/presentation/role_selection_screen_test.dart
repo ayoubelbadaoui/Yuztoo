@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/feature/role_selection/presentation/role_selection_screen.dart';
-import 'package:flutter_yuztoo/feature/role_selection/presentation/widgets/login_link.dart';
 import 'package:flutter_yuztoo/types.dart';
 import 'package:flutter_yuztoo/l10n/app_localizations.dart';
 

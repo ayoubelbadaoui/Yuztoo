@@ -396,7 +396,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: const SystemUiOverlayStyle(
         statusBarColor: bgDark1, // Same color as background
         statusBarIconBrightness: Brightness.light, // Light icons for dark background
         statusBarBrightness: Brightness.dark, // For iOS
@@ -405,7 +405,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       ),
       child: PopScope(
         canPop: false, // Use our custom navigation instead of route popping
-        onPopInvoked: (didPop) {
+        onPopInvokedWithResult: (didPop, result) {
           if (!didPop && !_isVerifying) {
             // Handle Android back button
             _handleBack();
@@ -519,9 +519,9 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: errorRed.withOpacity(0.1),
+              color: errorRed.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: errorRed.withOpacity(0.3), width: 1),
+              border: Border.all(color: errorRed.withValues(alpha: 0.3), width: 1),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

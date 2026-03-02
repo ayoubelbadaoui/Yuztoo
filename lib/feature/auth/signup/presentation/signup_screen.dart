@@ -14,7 +14,7 @@ import 'widgets/signup_ui_widgets.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({
-    Key? key,
+    super.key,
     required this.role,
     required this.onBack,
     this.initialEmail,
@@ -22,7 +22,7 @@ class SignupScreen extends ConsumerStatefulWidget {
     this.initialPhone,
     this.initialCity,
     this.initialCountryCode,
-  }) : super(key: key);
+  });
 
   final UserRole role;
   final VoidCallback onBack;
@@ -310,7 +310,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: const SystemUiOverlayStyle(
         statusBarColor: SignupConstants.bgDark1, // Same color as background
         statusBarIconBrightness: Brightness.light, // Light icons for dark background
         statusBarBrightness: Brightness.dark, // For iOS
@@ -319,7 +319,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       ),
       child: PopScope(
         canPop: false, // Use our custom navigation instead of route popping
-        onPopInvoked: (didPop) {
+        onPopInvokedWithResult: (didPop, result) {
           if (!didPop && !_isLoading) {
             widget.onBack();
           }

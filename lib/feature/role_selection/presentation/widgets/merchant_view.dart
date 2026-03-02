@@ -37,15 +37,15 @@ class MerchantView extends StatelessWidget {
             child: OutlinedButton(
               onPressed: onLogin,
               style: OutlinedButton.styleFrom(
-                side: BorderSide(
+                side: const BorderSide(
                   color: RoleSelectionColors.primaryGold,
                   width: 1.5,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(50),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(50)),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'Se connecter',
                 style: TextStyle(
                   fontSize: 15,
