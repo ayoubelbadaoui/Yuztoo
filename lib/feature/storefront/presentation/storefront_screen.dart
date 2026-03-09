@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../application/providers.dart';
@@ -160,103 +161,129 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     );
   }
 
+  // ── header (same structure/spacing as other tab pages, cream colors) ────
+
+  Widget _buildHeader() {
+    return Container(
+      color: StorefrontColors.backgroundLight,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: StorefrontColors.backgroundLight,
+            border: Border(
+              bottom: BorderSide(
+                color: StorefrontColors.primaryGold.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Center(
+            child: Text(
+              'Votre vitrine',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: StorefrontColors.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final storefront = ref.watch(storefrontProvider);
     final activeTab = ref.watch(storefrontTabProvider);
 
-    return Container(
-      color: StorefrontColors.backgroundLight, // Match background to prevent white block
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: StorefrontColors.backgroundLight,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: StorefrontColors.backgroundLight,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
       child: Scaffold(
-        backgroundColor: Colors.transparent, // Transparent so container color shows
-        body: SafeArea(
-          top: true, // Keep safe area for status bar
-          bottom: false,
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                // Header title
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  child: Text(
-                    'Votre vitrine en ligne',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                      color: StorefrontColors.textPrimary.withValues(alpha: 0.9),
+        backgroundColor: StorefrontColors.backgroundLight,
+        body: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    // Banner with profile picture
+                    BannerSection(
+                      bannerImageUrl: storefront.bannerImageUrl,
+                      profileImageUrl: storefront.profileImageUrl,
+                      onBannerEdit: () {
+                        _showImagePickerDialog(context, isBanner: true);
+                      },
+                      onProfileEdit: () {
+                        _showImagePickerDialog(context, isBanner: false);
+                      },
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                // Banner with profile picture
-                BannerSection(
-                  bannerImageUrl: storefront.bannerImageUrl,
-                  profileImageUrl: storefront.profileImageUrl,
-                  onBannerEdit: () {
-                    _showImagePickerDialog(context, isBanner: true);
-                  },
-                  onProfileEdit: () {
-                    _showImagePickerDialog(context, isBanner: false);
-                  },
-                ),
-                const SizedBox(height: 56), // More space after profile picture
-                // Merchant info
-                MerchantInfoSection(
-                  merchantName: storefront.merchantName,
-                  businessActivity: storefront.businessActivity,
-                  isVerified: storefront.isVerified,
-                  onEdit: () {
-                    ref
-                        .read(storefrontProfileEditProvider.notifier)
-                        .initializeFrom(storefront);
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const StorefrontEditProfileScreen(),
+                    const SizedBox(height: 56), // More space after profile picture
+                    // Merchant info
+                    MerchantInfoSection(
+                      merchantName: storefront.merchantName,
+                      businessActivity: storefront.businessActivity,
+                      isVerified: storefront.isVerified,
+                      onEdit: () {
+                        ref
+                            .read(storefrontProfileEditProvider.notifier)
+                            .initializeFrom(storefront);
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const StorefrontEditProfileScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    // Stats cards
+                    StatsCards(
+                      profileCompletionPercentage:
+                          storefront.profileCompletionPercentage,
+                      weeklyViews: storefront.weeklyViews,
+                      weeklyViewsChange: storefront.weeklyViewsChange,
+                    ),
+                    const SizedBox(height: 24),
+                    // Navigation tabs
+                    NavigationTabs(
+                      activeTab: activeTab,
+                      onTabChanged: (tab) {
+                        ref.read(storefrontTabProvider.notifier).state = tab;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    // Content based on active tab
+                    if (activeTab == 'horaires')
+                      const HoursSection()
+                    else if (activeTab == 'accueil' || activeTab == 'actualite')
+                      NewsSection(
+                        content: storefront.newsContent,
+                        onSettings: () {
+                          // Handle settings
+                        },
+                      )
+                    else
+                      NewsSection(
+                        content: storefront.newsContent,
+                        onSettings: () {
+                          // Handle settings
+                        },
                       ),
-                    );
-                  },
+                    const SizedBox(height: 100), // Space for main app bottom nav
+                  ],
                 ),
-                const SizedBox(height: 24),
-                // Stats cards
-                StatsCards(
-                  profileCompletionPercentage:
-                      storefront.profileCompletionPercentage,
-                  weeklyViews: storefront.weeklyViews,
-                  weeklyViewsChange: storefront.weeklyViewsChange,
-                ),
-                const SizedBox(height: 40),
-                // Navigation tabs
-                NavigationTabs(
-                  activeTab: activeTab,
-                  onTabChanged: (tab) {
-                    ref.read(storefrontTabProvider.notifier).state = tab;
-                  },
-                ),
-                const SizedBox(height: 32),
-                // Content based on active tab
-                if (activeTab == 'horaires')
-                  const HoursSection()
-                else if (activeTab == 'accueil' || activeTab == 'actualite')
-                  NewsSection(
-                    content: storefront.newsContent,
-                    onSettings: () {
-                      // Handle settings
-                    },
-                  )
-                else
-                  NewsSection(
-                    content: storefront.newsContent,
-                    onSettings: () {
-                      // Handle settings
-                    },
-                  ),
-                const SizedBox(height: 100), // Space for main app bottom nav
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

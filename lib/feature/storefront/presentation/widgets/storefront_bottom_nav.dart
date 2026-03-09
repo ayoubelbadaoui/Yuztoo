@@ -37,14 +37,14 @@ class StorefrontBottomNav extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             _NavItem(
-              icon: Icons.diversity_3_outlined,
-              label: 'Communauté',
+              icon: Icons.people_outline,
+              label: 'Vos clients',
               onTap: () => onTabSelected?.call('communaute'),
             ),
             _NavItem(
-              icon: Icons.assignment_outlined,
-              label: 'Tâches',
-              onTap: () => onTabSelected?.call('taches'),
+              icon: Icons.notifications_outlined,
+              label: 'Rappels',
+              onTap: () => onTabSelected?.call('rappels'),
             ),
             _NavItem(
               icon: Icons.storefront,
@@ -53,9 +53,9 @@ class StorefrontBottomNav extends StatelessWidget {
               onTap: () => onTabSelected?.call('vitrine'),
             ),
             _NavItem(
-              icon: Icons.campaign_outlined,
-              label: 'Marketing',
-              onTap: () => onTabSelected?.call('marketing'),
+              icon: Icons.local_offer_outlined,
+              label: 'Promotions',
+              onTap: () => onTabSelected?.call('promotions'),
             ),
             _NavItem(
               icon: Icons.person_outline,

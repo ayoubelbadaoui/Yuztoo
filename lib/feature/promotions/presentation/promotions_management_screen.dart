@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
-import '../../../theme.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../core/shared/constants/merchant_colors.dart';
+import '../domain/entities/promotion.dart';
+import 'widgets/add_promo_sheet.dart';
+import 'widgets/promo_analytics.dart';
+import 'widgets/promo_card.dart';
+
+/// Promotions management screen – thin orchestrator that delegates
+/// rendering to extracted widgets.
 class PromotionsManagementScreen extends StatefulWidget {
-  const PromotionsManagementScreen(
-      {super.key, required this.onBack, required this.onCreatePromotion});
+  final void Function(String)? onNavigate;
+  final VoidCallback? onBack;
 
-  static String get path => '/merchant-promotions';
-
-  final VoidCallback onBack;
-  final VoidCallback onCreatePromotion;
+  const PromotionsManagementScreen({super.key, this.onNavigate, this.onBack});
 
   @override
   State<PromotionsManagementScreen> createState() =>
@@ -17,225 +24,329 @@ class PromotionsManagementScreen extends StatefulWidget {
 
 class _PromotionsManagementScreenState
     extends State<PromotionsManagementScreen> {
-  late List<_Promotion> promotions;
+  final ImagePicker _picker = ImagePicker();
 
-  @override
-  void initState() {
-    super.initState();
-    promotions = const [
-      _Promotion(
-          title: '20% de réduction',
-          description: 'Sur tous les plats',
-          validUntil: '31 Jan 2026',
-          usedBy: 45,
-          isActive: true),
-      _Promotion(
-          title: 'Café offert',
-          description: 'Pour toute commande',
-          validUntil: '15 Feb 2026',
-          usedBy: 28,
-          isActive: true),
-      _Promotion(
-          title: 'Menu complet -10%',
-          description: 'Déjeuner uniquement',
-          validUntil: '10 Jan 2026',
-          usedBy: 12,
-          isActive: false),
-    ];
+  // Dummy promotions
+  final List<Promotion> _promotions = [
+    Promotion(
+      title: 'Menu déjeuner -15%',
+      subtitle: 'Valide du 10/11 au 19/11 - Exclusif VIP',
+      dateFrom: DateTime(2025, 11, 10),
+      dateTo: DateTime(2025, 11, 19),
+      selectedClientType: ClientType.gratuit,
+      isOnline: true,
+    ),
+    Promotion(
+      title: 'Café offert',
+      subtitle: 'Valide du 01/12 au 31/12 - Tous clients',
+      dateFrom: DateTime(2025, 12, 1),
+      dateTo: DateTime(2025, 12, 31),
+      selectedClientType: ClientType.premium,
+      isOnline: false,
+    ),
+  ];
+
+  // ── actions ────────────────────────────────────────────────────────────────
+
+  Future<void> _showAddPromoSheet() async {
+    final result = await showModalBottomSheet<Promotion>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const AddPromoSheet(),
+    );
+    if (result != null && mounted) {
+      setState(() => _promotions.insert(0, result));
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final activeCount = promotions.where((p) => p.isActive).length;
+  Future<void> _confirmDelete(int index) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: MerchantColors.navyCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Supprimer la promotion',
+          style: GoogleFonts.outfit(
+              fontWeight: FontWeight.w600, color: Colors.white),
+        ),
+        content: Text(
+          'Êtes-vous sûr de vouloir supprimer « ${_promotions[index].title} » ?',
+          style: GoogleFonts.outfit(color: MerchantColors.textLightGrey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Annuler',
+                style: GoogleFonts.outfit(color: MerchantColors.textGrey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Supprimer',
+                style: GoogleFonts.outfit(
+                    color: Colors.redAccent, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() => _promotions.removeAt(index));
+    }
+  }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: Row(
+  Future<void> _pickImageForPromo(int index) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: MerchantColors.navyCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                  onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text('Promotions',
-                      style: Theme.of(context).textTheme.titleLarge)),
-              ElevatedButton.icon(
-                onPressed: widget.onCreatePromotion,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Créer'),
-                style: ElevatedButton.styleFrom(minimumSize: const Size(0, 40)),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined,
+                    color: MerchantColors.gold),
+                title: Text('Galerie',
+                    style: GoogleFonts.outfit(color: Colors.white)),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined,
+                    color: MerchantColors.gold),
+                title: Text('Caméra',
+                    style: GoogleFonts.outfit(color: Colors.white)),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
               ),
             ],
           ),
         ),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          color: YColors.accent,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _Stat(label: 'Actives', value: '$activeCount'),
-              const _Stat(label: 'Utilisations', value: '85'),
-              const _Stat(label: 'Clients atteints', value: '248'),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: promotions.length,
-            itemBuilder: (context, index) {
-              final promo = promotions[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: YColors.secondary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.card_giftcard,
-                                  color: YColors.secondary),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(promo.title,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium),
-                                      Switch(
-                                        value: promo.isActive,
-                                        activeThumbColor: YColors.secondary,
-                                        onChanged: (val) => setState(() =>
-                                            promotions[index] =
-                                                promo.copyWith(isActive: val)),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(promo.description,
-                                      style: const TextStyle(
-                                          color: YColors.muted)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.calendar_today_outlined,
-                                    size: 16, color: YColors.muted),
-                                const SizedBox(width: 6),
-                                Text(promo.validUntil,
-                                    style:
-                                        const TextStyle(color: YColors.muted)),
-                              ],
-                            ),
-                            const SizedBox(width: 16),
-                            Row(
-                              children: [
-                                const Icon(Icons.group_outlined,
-                                    size: 16, color: YColors.muted),
-                                const SizedBox(width: 6),
-                                Text('${promo.usedBy} utilisations',
-                                    style:
-                                        const TextStyle(color: YColors.muted)),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {},
-                                child: const Text('Modifier'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {},
-                                child: const Text('Envoyer push'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+      ),
     );
-  }
-}
-
-class _Promotion {
-  const _Promotion({
-    required this.title,
-    required this.description,
-    required this.validUntil,
-    required this.usedBy,
-    required this.isActive,
-  });
-
-  final String title;
-  final String description;
-  final String validUntil;
-  final int usedBy;
-  final bool isActive;
-
-  _Promotion copyWith({bool? isActive}) => _Promotion(
-        title: title,
-        description: description,
-        validUntil: validUntil,
-        usedBy: usedBy,
-        isActive: isActive ?? this.isActive,
+    if (source == null || !mounted) return;
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 80,
       );
-}
+      if (picked != null && mounted) {
+        setState(() {
+          _promotions[index] =
+              _promotions[index].copyWith(imagePath: picked.path);
+        });
+      }
+    } catch (_) {}
+  }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
-  final String label;
-  final String value;
+  // ── build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(value,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: YColors.muted, fontSize: 12)),
-      ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: MerchantColors.bgHeader,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: MerchantColors.bgMain,
+        body: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Column(
+                  children: [
+                    _buildAddPromoSection(),
+                    if (_promotions.isNotEmpty) _buildPromoList(),
+                    const PromoAnalytics(),
+                    _buildNotificationsAutoButton(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── header ─────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
+    return Container(
+      color: MerchantColors.bgHeader,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: MerchantColors.bgHeader,
+            border: Border(
+              bottom: BorderSide(
+                color: MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Center(
+            child: Text(
+              'Promotions',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── add promo tap area ─────────────────────────────────────────────────────
+
+  Widget _buildAddPromoSection() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: GestureDetector(
+        onTap: _showAddPromoSheet,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: MerchantColors.navyCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: MerchantColors.gold.withValues(alpha: 0.5),
+              width: 2,
+              strokeAlign: BorderSide.strokeAlignCenter,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MerchantColors.gold,
+                ),
+                child: const Center(
+                  child: Icon(Icons.add,
+                      color: MerchantColors.darkOverlay, size: 20),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Ajoutez une promotion',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── notifications auto button (dashed card, same style as add-promo) ──────
+
+  Widget _buildNotificationsAutoButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: GestureDetector(
+        onTap: () => widget.onNavigate?.call('notifications-auto'),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: MerchantColors.navyCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: MerchantColors.gold.withValues(alpha: 0.5),
+              width: 2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MerchantColors.gold,
+                ),
+                child: const Center(
+                  child: Icon(Icons.notifications_active_outlined,
+                      color: MerchantColors.darkOverlay, size: 20),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Notifications automatiques',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right,
+                  color: MerchantColors.gold, size: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── promo list ─────────────────────────────────────────────────────────────
+
+  Widget _buildPromoList() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: Column(
+        children: [
+          ..._promotions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final promo = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: PromoCard(
+                promo: promo,
+                onToggle: (v) => setState(
+                  () => _promotions[index] = promo.copyWith(isOnline: v),
+                ),
+                onDelete: () => _confirmDelete(index),
+                onPickImage: () => _pickImageForPromo(index),
+              ),
+            );
+          }),
+          Text(
+            'Créez et publiez des promotions pour vos clients mais aussi pour la communauté Yuztoo locale',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              color: MerchantColors.textLightGrey,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

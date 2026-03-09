@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../feature/auth/core/application/providers.dart';
+import '../feature/loading/presentation/loading_screen.dart';
 import 'infrastructure/firebase_providers.dart';
 
 /// Ensures Firebase is initialized and wires base providers before rendering the UI.
@@ -21,9 +22,7 @@ class AppBootstrap extends ConsumerWidget {
         return child;
       },
       loading: () => const MaterialApp(
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: LoadingScreen(),
       ),
       error: (error, _) => MaterialApp(
         home: Scaffold(

@@ -38,6 +38,11 @@ import 'feature/storefront/presentation/storefront_screen.dart';
 import 'feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
 import 'feature/merchant_onboarding/presentation/widgets/subcategory/restaurant_subcategories.dart';
+import 'feature/rappels/presentation/rappels_screen.dart';
+import 'feature/rappels/presentation/notifications_auto_screen.dart';
+import 'feature/merchant_settings/presentation/merchant_settings_screen.dart';
+import 'feature/e_fidelite/presentation/e_fidelite_screen.dart';
+import 'feature/account_preferences/presentation/account_preferences_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -381,6 +386,9 @@ class _RootShellState extends ConsumerState<_RootShell> {
       'stats': ScreenId.merchantStats,
       'reservations': ScreenId.clientHome,
       'settings': ScreenId.merchantProfile,
+      'notifications-auto': ScreenId.merchantNotificationsAuto,
+      'e-fidelite': ScreenId.merchantEFidelite,
+      'account-preferences': ScreenId.merchantAccountPreferences,
     };
 
     final target = map[screen];
@@ -419,14 +427,14 @@ class _RootShellState extends ConsumerState<_RootShell> {
       } else {
         final map = <String, ScreenId>{
           'communaute': ScreenId.merchantClients, // Map to clients screen
-          'taches': ScreenId.merchantDashboard, // Map to dashboard for tasks
+          'rappels': ScreenId.merchantRappels, // Map to rappels screen
           'storefront': ScreenId.merchantStorefront,
-          'marketing': ScreenId.merchantPromotions, // Map to promotions for marketing
+          'promotions': ScreenId.merchantPromotions, // Map to promotions
           'profile': ScreenId.merchantProfile,
         };
         final target = map[tab] ?? ScreenId.merchantStorefront; // Default to storefront
         // If it's a main tab screen, update auth screen; otherwise nested
-        if (target == ScreenId.merchantDashboard || target == ScreenId.merchantProfile || target == ScreenId.merchantStorefront) {
+        if (target == ScreenId.merchantClients || target == ScreenId.merchantRappels || target == ScreenId.merchantPromotions || target == ScreenId.merchantProfile || target == ScreenId.merchantStorefront) {
           _authScreen = target;
           _nestedScreen = null;
         } else {
@@ -452,6 +460,79 @@ class _RootShellState extends ConsumerState<_RootShell> {
     }
   }
 
+  /// Go back from a nested screen to its parent (the current _authScreen).
+  /// Unlike _handleBackToBase, this does NOT reset to the root home/storefront.
+  void _handleBackFromNested() {
+    if (_nestedScreen != null) {
+      setState(() => _nestedScreen = null);
+    } else {
+      _handleBackToBase();
+    }
+  }
+
+  /// Handles the Android system back button and the iOS swipe-back gesture.
+  /// NEVER exits the app – always navigates backwards or stays put.
+  void _handleSystemBack(bool didPop) {
+    if (didPop) return; // Already handled by a nested Navigator
+
+    final currentScreen = _nestedScreen ?? _authScreen;
+
+    // 1) If we're on a nested sub-screen, go back to the parent tab screen.
+    if (_nestedScreen != null) {
+      setState(() => _nestedScreen = null);
+      return;
+    }
+
+    // 2) Auth flow – go back through the auth screens.
+    if (currentScreen == ScreenId.login) {
+      setState(() => _authScreen = ScreenId.roleSelection);
+      return;
+    }
+    if (currentScreen == ScreenId.signup) {
+      setState(() => _authScreen = ScreenId.login);
+      return;
+    }
+    if (currentScreen == ScreenId.otp) {
+      setState(() => _authScreen = ScreenId.login);
+      return;
+    }
+    if (currentScreen == ScreenId.merchantOnboarding) {
+      setState(() => _authScreen = ScreenId.roleSelection);
+      return;
+    }
+    if (currentScreen == ScreenId.merchantSubcategorySelection) {
+      setState(() => _authScreen = ScreenId.merchantOnboarding);
+      return;
+    }
+    if (currentScreen == ScreenId.merchantBenefits) {
+      setState(() => _authScreen = ScreenId.merchantSubcategorySelection);
+      return;
+    }
+
+    // 3) Merchant tab screens – go back to storefront (home) unless already there.
+    if (_role == UserRole.merchant &&
+        currentScreen != ScreenId.merchantStorefront) {
+      setState(() {
+        _authScreen = ScreenId.merchantStorefront;
+        _nestedScreen = null;
+        _activeTab = 'storefront';
+      });
+      return;
+    }
+
+    // 4) Client tab screens – go back to home unless already there.
+    if (_role == UserRole.client && currentScreen != ScreenId.clientHome) {
+      setState(() {
+        _authScreen = ScreenId.clientHome;
+        _nestedScreen = null;
+        _activeTab = 'home';
+      });
+      return;
+    }
+
+    // 5) Already on root home / role selection – do nothing. Never exit the app.
+  }
+
   bool get _showBottomNav {
     final allowed = <ScreenId>{
       ScreenId.clientHome,
@@ -462,6 +543,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
       ScreenId.merchantDashboard,
       ScreenId.merchantClients,
       ScreenId.merchantStorefront,
+      ScreenId.merchantRappels,
       ScreenId.merchantPromotions,
       ScreenId.merchantMessages,
       ScreenId.merchantProfile,
@@ -497,12 +579,21 @@ class _RootShellState extends ConsumerState<_RootShell> {
     final hasPrimaryHeaderTop = currentScreen == ScreenId.splash ||
         currentScreen == ScreenId.clientHome ||
         currentScreen == ScreenId.merchantDashboard ||
-        currentScreen == ScreenId.clientProfile ||
-        currentScreen == ScreenId.merchantProfile;
+        currentScreen == ScreenId.clientProfile;
 
+    final isRappels = currentScreen == ScreenId.merchantRappels;
+    final isPromotions = currentScreen == ScreenId.merchantPromotions;
+    final isNotificationsAuto = currentScreen == ScreenId.merchantNotificationsAuto;
+    final isMerchantProfile = currentScreen == ScreenId.merchantProfile;
+    final isEFidelite = currentScreen == ScreenId.merchantEFidelite;
+    final isAccountPrefs = currentScreen == ScreenId.merchantAccountPreferences;
+    final isMerchantClients = currentScreen == ScreenId.merchantClients;
+    final isDarkMerchantScreen = isRappels || isPromotions || isNotificationsAuto || isMerchantProfile || isEFidelite || isAccountPrefs || isMerchantClients;
     final scaffoldBgColor = isStorefront
         ? const Color(0xFFFDFBF7) // Storefront background color
-        : (isAuthDarkScreen ? authBgDark : Colors.white);
+        : isDarkMerchantScreen
+            ? const Color(0xFF0E2A44) // Dark merchant screen background
+            : (isAuthDarkScreen ? authBgDark : Colors.white);
     
     // Default rule: system bars follow the current background (and bottom nav if present).
     // IMPORTANT: Use AnnotatedRegion (not SystemChrome.setSystemUIOverlayStyle in build),
@@ -514,7 +605,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
             ? scaffoldBgColor
             : (hasPrimaryHeaderTop ? YColors.primary : scaffoldBgColor));
     final systemNavBarColor = (_showBottomNav && _role == UserRole.merchant)
-        ? const Color(0xFF0B162C) // merchant bottom nav background
+        ? const Color(0xFF0B1F33) // merchant bottom nav background (matches header)
         : scaffoldBgColor;
 
     final statusIsLight = statusBarColor.computeLuminance() > 0.5;
@@ -534,9 +625,12 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlayStyle,
-      child: Scaffold(
-        backgroundColor: scaffoldBgColor,
-        body: Builder(
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) => _handleSystemBack(didPop),
+        child: Scaffold(
+          backgroundColor: scaffoldBgColor,
+          body: Builder(
           builder: (context) {
             final topInset = MediaQuery.of(context).padding.top;
 
@@ -549,12 +643,19 @@ class _RootShellState extends ConsumerState<_RootShell> {
                 currentScreen == ScreenId.merchantOnboarding ||
                 currentScreen == ScreenId.merchantSubcategorySelection ||
                 currentScreen == ScreenId.merchantBenefits ||
-                currentScreen == ScreenId.merchantStorefront;
+                currentScreen == ScreenId.merchantStorefront ||
+                currentScreen == ScreenId.merchantRappels ||
+                currentScreen == ScreenId.merchantPromotions ||
+                currentScreen == ScreenId.merchantNotificationsAuto ||
+                currentScreen == ScreenId.merchantProfile ||
+                currentScreen == ScreenId.merchantEFidelite ||
+                currentScreen == ScreenId.merchantAccountPreferences ||
+                currentScreen == ScreenId.merchantClients;
 
             final content = Padding(
-              // Don't add bottom padding for storefront - it handles its own spacing
+              // Don't add bottom padding for storefront/rappels - they handle their own spacing
               padding: EdgeInsets.only(
-                bottom: (_showBottomNav && !isStorefront) ? 72 : 0,
+                bottom: (_showBottomNav && !isStorefront && !isDarkMerchantScreen) ? 72 : 0,
               ),
               child: body,
             );
@@ -579,13 +680,14 @@ class _RootShellState extends ConsumerState<_RootShell> {
             );
           },
         ),
-        bottomNavigationBar: _showBottomNav && _role != null
-            ? YBottomNav(
-                role: _role!,
-                activeTab: _activeTab,
-                onTabChange: _handleTabChange,
-              )
-            : null,
+          bottomNavigationBar: _showBottomNav && _role != null
+              ? YBottomNav(
+                  role: _role!,
+                  activeTab: _activeTab,
+                  onTabChange: _handleTabChange,
+                )
+              : null,
+        ),
       ),
     );
   }
@@ -718,8 +820,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
         );
       case ScreenId.merchantPromotions:
         return PromotionsManagementScreen(
+          onNavigate: _handleNavigate,
           onBack: _handleBackToBase,
-          onCreatePromotion: () {},
         );
       case ScreenId.merchantQr:
         return MerchantQRCodeScreen(onBack: _handleBackToBase);
@@ -730,11 +832,29 @@ class _RootShellState extends ConsumerState<_RootShell> {
           onConversationSelect: () {},
         );
       case ScreenId.merchantProfile:
-        return const ClientProfileScreen();
+        return MerchantSettingsScreen(
+          onNavigate: _handleNavigate,
+        );
+      case ScreenId.merchantEFidelite:
+        return EFideliteScreen(
+          onBack: _handleBackFromNested,
+        );
+      case ScreenId.merchantAccountPreferences:
+        return AccountPreferencesScreen(
+          onBack: _handleBackFromNested,
+        );
       case ScreenId.merchantStats:
         return MerchantStatsScreen(onBack: _handleBackToBase);
       case ScreenId.merchantStorefront:
         return const StorefrontScreen();
+      case ScreenId.merchantRappels:
+        return RappelsScreen(
+          onNavigate: _handleNavigate,
+        );
+      case ScreenId.merchantNotificationsAuto:
+        return NotificationsAutoScreen(
+          onBack: _handleBackFromNested,
+        );
     }
   }
 }

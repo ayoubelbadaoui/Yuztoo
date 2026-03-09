@@ -25,4 +25,8 @@ enum ScreenId {
   merchantProfile,
   merchantStats,
   merchantStorefront,
+  merchantRappels,
+  merchantNotificationsAuto,
+  merchantEFidelite,
+  merchantAccountPreferences,
 }
