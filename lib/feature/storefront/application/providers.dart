@@ -26,11 +26,11 @@ final storefrontTabProvider = StateProvider<String>((ref) => 'actualite');
 
 /// Initial business hours data
 BusinessHours _initialBusinessHours() {
-  return BusinessHours(
+  return const BusinessHours(
     monday: DayHours(
       dayName: 'Lundi',
       isEnabled: true,
-      timeSlots: const [
+      timeSlots: [
         TimeSlot(start: '8h', end: '12h'),
         TimeSlot(start: '14h', end: '18h'),
       ],
@@ -38,7 +38,7 @@ BusinessHours _initialBusinessHours() {
     tuesday: DayHours(
       dayName: 'Mardi',
       isEnabled: true,
-      timeSlots: const [
+      timeSlots: [
         TimeSlot(start: '8h', end: '12h'),
         TimeSlot(start: '14h', end: '18h'),
       ],
@@ -46,7 +46,7 @@ BusinessHours _initialBusinessHours() {
     wednesday: DayHours(
       dayName: 'Mercredi',
       isEnabled: true,
-      timeSlots: const [
+      timeSlots: [
         TimeSlot(start: '8h', end: '12h'),
         TimeSlot(start: '14h', end: '18h'),
       ],
@@ -54,7 +54,7 @@ BusinessHours _initialBusinessHours() {
     thursday: DayHours(
       dayName: 'Jeudi',
       isEnabled: true,
-      timeSlots: const [
+      timeSlots: [
         TimeSlot(start: '8h', end: '12h'),
         TimeSlot(start: '14h', end: '18h'),
       ],
@@ -62,7 +62,7 @@ BusinessHours _initialBusinessHours() {
     friday: DayHours(
       dayName: 'Vendredi',
       isEnabled: true,
-      timeSlots: const [
+      timeSlots: [
         TimeSlot(start: '8h', end: '12h'),
         TimeSlot(start: '14h', end: '18h'),
       ],
@@ -70,7 +70,7 @@ BusinessHours _initialBusinessHours() {
     saturday: DayHours(
       dayName: 'Samedi',
       isEnabled: true,
-      timeSlots: const [
+      timeSlots: [
         TimeSlot(start: '8h', end: '12h'),
         TimeSlot(start: '14h', end: '18h'),
       ],
@@ -78,7 +78,7 @@ BusinessHours _initialBusinessHours() {
     sunday: DayHours(
       dayName: 'Dimanche',
       isEnabled: false,
-      timeSlots: const [],
+      timeSlots: [],
     ),
     hasExceptionalClosure: false,
   );
@@ -95,7 +95,7 @@ class BusinessHoursNotifier extends StateNotifier<BusinessHours> {
 
   void toggleDay(String dayName, bool enabled) {
     // Helper to get the day hours with default time slots if enabling a closed day
-    DayHours _getUpdatedDay(DayHours currentDay, bool enabled) {
+    DayHours getUpdatedDay(DayHours currentDay, bool enabled) {
       if (currentDay.dayName == dayName) {
         // If enabling and has no time slots, add default ones (symmetric with other days)
         if (enabled && currentDay.timeSlots.isEmpty) {
@@ -119,13 +119,13 @@ class BusinessHoursNotifier extends StateNotifier<BusinessHours> {
     }
 
     state = BusinessHours(
-      monday: _getUpdatedDay(state.monday, enabled),
-      tuesday: _getUpdatedDay(state.tuesday, enabled),
-      wednesday: _getUpdatedDay(state.wednesday, enabled),
-      thursday: _getUpdatedDay(state.thursday, enabled),
-      friday: _getUpdatedDay(state.friday, enabled),
-      saturday: _getUpdatedDay(state.saturday, enabled),
-      sunday: _getUpdatedDay(state.sunday, enabled),
+      monday: getUpdatedDay(state.monday, enabled),
+      tuesday: getUpdatedDay(state.tuesday, enabled),
+      wednesday: getUpdatedDay(state.wednesday, enabled),
+      thursday: getUpdatedDay(state.thursday, enabled),
+      friday: getUpdatedDay(state.friday, enabled),
+      saturday: getUpdatedDay(state.saturday, enabled),
+      sunday: getUpdatedDay(state.sunday, enabled),
       hasExceptionalClosure: state.hasExceptionalClosure,
     );
   }

@@ -189,7 +189,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-                  Text(
+                  const Text(
                     'Sélectionnez votre ville',
                     style: TextStyle(
                       color: _textLight,
@@ -203,21 +203,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: const TextStyle(color: _textLight),
                     decoration: InputDecoration(
                       hintText: 'Rechercher une ville...',
-                      hintStyle: TextStyle(color: _textGrey),
-                      prefixIcon: Icon(Icons.search, color: _primaryGold),
+                      hintStyle: const TextStyle(color: _textGrey),
+                      prefixIcon: const Icon(Icons.search, color: _primaryGold),
                       filled: true,
                       fillColor: _bgDark1,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: _borderColor),
+                        borderSide: const BorderSide(color: _borderColor),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: _borderColor),
+                        borderSide: const BorderSide(color: _borderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: _primaryGold, width: 2),
+                        borderSide: const BorderSide(color: _primaryGold, width: 2),
                       ),
                     ),
                     onChanged: filterCities,
@@ -271,9 +271,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           backgroundColor: _bgDark2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: _borderColor, width: 1),
+            side: const BorderSide(color: _borderColor, width: 1),
           ),
-          title: Text(
+          title: const Text(
             'Compte non disponible',
             style: TextStyle(
               color: _textLight,
@@ -283,7 +283,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           content: Text(
             'Vous n\'avez pas de compte $roleName avec cet email. Souhaitez-vous créer un compte $roleName ?',
-            style: TextStyle(
+            style: const TextStyle(
               color: _textGrey,
               fontSize: 14,
               height: 1.5,
@@ -295,7 +295,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Navigator.pop(context);
                 ref.read(loginFlowControllerProvider.notifier).reset();
               },
-              child: Text(
+              child: const Text(
                 'Annuler',
                 style: TextStyle(color: _textGrey),
               ),
@@ -309,7 +309,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: _primaryGold,
               ),
-              child: Text(
+              child: const Text(
                 'Créer un compte',
                 style: TextStyle(
                   color: _bgDark1,
@@ -332,9 +332,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           backgroundColor: _bgDark2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: _borderColor, width: 1),
+            side: const BorderSide(color: _borderColor, width: 1),
           ),
-          title: Text(
+          title: const Text(
             'Choisissez votre rôle',
             style: TextStyle(
               color: _textLight,
@@ -358,7 +358,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    title: Text(
+                    title: const Text(
                       'Client',
                       style: TextStyle(
                         color: _textLight,
@@ -366,14 +366,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    subtitle: Text(
+                    subtitle: const Text(
                       'Découvrir les commerces',
                       style: TextStyle(
                         color: _textGrey,
                         fontSize: 13,
                       ),
                     ),
-                    trailing: Icon(Icons.arrow_forward_ios,
+                    trailing: const Icon(Icons.arrow_forward_ios,
                         color: _primaryGold, size: 18),
                     onTap: () {
                       Navigator.pop(context);
@@ -399,7 +399,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    title: Text(
+                    title: const Text(
                       'Commerçant',
                       style: TextStyle(
                         color: _textLight,
@@ -407,14 +407,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    subtitle: Text(
+                    subtitle: const Text(
                       'Gérer votre commerce',
                       style: TextStyle(
                         color: _textGrey,
                         fontSize: 13,
                       ),
                     ),
-                    trailing: Icon(Icons.arrow_forward_ios,
+                    trailing: const Icon(Icons.arrow_forward_ios,
                         color: _primaryGold, size: 18),
                     onTap: () {
                       Navigator.pop(context);
@@ -497,7 +497,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         child: PopScope(
           canPop: false, // Use our custom navigation instead of route popping
-          onPopInvoked: (didPop) {
+          onPopInvokedWithResult: (didPop, result) {
             if (!didPop) {
               widget.onBack();
             }
@@ -642,10 +642,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 style: FilledButton.styleFrom(
                                   backgroundColor: const Color(0xFFBF8719),
                                   disabledBackgroundColor: _borderColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.all(Radius.circular(10)),
                                   ),
-                                  shadowColor: const Color(0xFFBF8719).withOpacity(0.3),
+                                  shadowColor: const Color(0xFFBF8719).withValues(alpha: 0.3),
                                   elevation: isLoading ? 4 : 2,
                                 ),
                                 onPressed: (isLoading || _isLoginSubmitting) ? null : _handleLogin,
@@ -656,7 +656,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2.5,
                                           valueColor: AlwaysStoppedAnimation<Color>(
-                                            _bgDark1.withOpacity(0.8),
+                                            _bgDark1.withValues(alpha: 0.8),
                                           ),
                                         ),
                                       )
@@ -707,12 +707,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       children: [
         Expanded(
           child: Divider(
-            color: _borderColor.withOpacity(0.5),
+            color: _borderColor.withValues(alpha: 0.5),
             thickness: 1,
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'OU',
             style: TextStyle(
@@ -724,7 +724,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         Expanded(
           child: Divider(
-            color: _borderColor.withOpacity(0.5),
+            color: _borderColor.withValues(alpha: 0.5),
             thickness: 1,
           ),
         ),
@@ -802,7 +802,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 4),
             Text(
               label ?? '',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10,
                 color: _textLight,
                 fontWeight: FontWeight.w500,
@@ -825,7 +825,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       children: [
         GestureDetector(
           onTap: widget.onSignup,
-          child: Text.rich(
+          child: const Text.rich(
             TextSpan(
               text: 'Vous n\'avez pas de compte ? ',
               style: TextStyle(color: _textGrey, fontSize: 13),

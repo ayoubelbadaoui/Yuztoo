@@ -36,13 +36,13 @@ class YBottomNav extends StatelessWidget {
         : const [
             _TabItem(
               id: 'communaute',
-              label: 'Communauté',
-              icon: Icons.diversity_3_outlined,
+              label: 'Vos clients',
+              icon: Icons.people_outline,
             ),
             _TabItem(
-              id: 'taches',
-              label: 'Tâches',
-              icon: Icons.assignment_outlined,
+              id: 'rappels',
+              label: 'Rappels',
+              icon: Icons.notifications_outlined,
             ),
             _TabItem(
               id: 'storefront',
@@ -50,9 +50,9 @@ class YBottomNav extends StatelessWidget {
               icon: Icons.storefront,
             ),
             _TabItem(
-              id: 'marketing',
-              label: 'Marketing',
-              icon: Icons.campaign_outlined,
+              id: 'promotions',
+              label: 'Promotions',
+              icon: Icons.local_offer_outlined,
             ),
             _TabItem(
               id: 'profile',
@@ -68,7 +68,7 @@ class YBottomNav extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.only(top: 6, bottom: 6),
         decoration: BoxDecoration(
-          color: StorefrontColors.navyDark,
+          color: const Color(0xFF0B1F33), // matches header
           border: Border(
             top: BorderSide(
               color: Colors.white.withValues(alpha: 0.05),

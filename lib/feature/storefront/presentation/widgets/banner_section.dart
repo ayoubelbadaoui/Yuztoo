@@ -86,9 +86,9 @@ class BannerSection extends StatelessWidget {
         ),
         child: Container(
           padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: GoldGradient.colors,
@@ -231,7 +231,7 @@ class _ProfilePictureTapWidgetState extends State<_ProfilePictureTapWidget>
       onTapUp: _handleTapUp,
       onTapCancel: _handleTapCancel,
       behavior: HitTestBehavior.opaque,
-      child: Container(
+      child: SizedBox(
         width: 96,
         height: 96,
         child: Stack(
