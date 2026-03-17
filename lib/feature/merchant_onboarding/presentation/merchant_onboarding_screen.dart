@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets/merchant_onboarding_colors.dart';
 import 'widgets/onboarding_header.dart';
 import 'widgets/onboarding_footer.dart';
@@ -7,6 +8,7 @@ import 'widgets/category_card.dart';
 import 'widgets/top_snackbar.dart';
 import '../../../core/shared/widgets/back_button.dart';
 import '../domain/entities/merchant_category.dart';
+import '../application/providers.dart';
 
 /// Merchant onboarding screen - category selection
 class MerchantOnboardingScreen extends StatefulWidget {
@@ -96,6 +98,15 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
 
     // Show SnackBar feedback from top
     final category = _categories.firstWhere((c) => c.id == categoryId);
+    // Persist selection so we can prefill the merchant profile form later.
+    // Best-effort: some widget tests mount this screen without a ProviderScope.
+    try {
+      ProviderScope.containerOf(context)
+          .read(selectedMerchantCategoryTitleProvider.notifier)
+          .state = category.title;
+    } catch (_) {
+      // Ignore: no ProviderScope in tree (test environment).
+    }
     showTopSnackBar(
       context,
       'Catégorie sélectionnée: ${category.title}',
@@ -217,8 +228,10 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _selectedCategoryId != null
-                            ? () => widget.onNext?.call()
+                        // Allow continuing even if no category is selected.
+                        // Category selection improves personalization, but should not block onboarding completion.
+                        onPressed: widget.onNext != null
+                            ? () => widget.onNext!.call()
                             : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: MerchantOnboardingColors.primaryGold,
@@ -228,14 +241,14 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
                             borderRadius: BorderRadius.circular(12),
                           ),
                           shadowColor: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
-                          elevation: _selectedCategoryId != null ? 6 : 0,
+                          elevation: widget.onNext != null ? 6 : 0,
                         ),
                         child: Text(
                           'Suivant',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: _selectedCategoryId != null
+                            color: widget.onNext != null
                                 ? MerchantOnboardingColors.bgDark1
                                 : MerchantOnboardingColors.textGrey.withValues(alpha: 0.5),
                           ),

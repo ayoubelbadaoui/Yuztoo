@@ -20,33 +20,11 @@ class StoreProfileScreen extends StatefulWidget {
 
 class _StoreProfileScreenState extends State<StoreProfileScreen>
     with SingleTickerProviderStateMixin {
-  final promotions = const [
-    {
-      'title': '20% de réduction',
-      'description': 'Sur tous les plats',
-      'validUntil': '31 Jan 2026'
-    },
-    {
-      'title': 'Café offert',
-      'description': 'Pour toute commande',
-      'validUntil': '15 Feb 2026'
-    },
-  ];
+  /// Promotions – load from Firestore (merchant's promotions) when viewing a store.
+  final List<Map<String, String>> promotions = [];
 
-  final reviews = const [
-    {
-      'author': 'Sarah M.',
-      'rating': 5,
-      'comment': 'Excellent service et produits de qualité !',
-      'date': '3 Jan 2026'
-    },
-    {
-      'author': 'Ahmed K.',
-      'rating': 4,
-      'comment': 'Très bon rapport qualité-prix',
-      'date': '1 Jan 2026'
-    },
-  ];
+  /// Reviews – load from Firestore when reviews feature is added.
+  final List<Map<String, dynamic>> reviews = [];
 
   @override
   Widget build(BuildContext context) {

@@ -49,5 +49,39 @@ abstract class MerchantRepository {
     required String merchantId,
     required String userId,
   });
+
+  /// Update merchant storefront fields.
+  ///
+  /// Updates display_name, description, categories, logo_url, phone, address,
+  /// website_url, banner_url, and hours in Firestore.
+  ///
+  /// [merchantId] - ID of the merchant to update
+  /// [displayName] - Display name for storefront (optional)
+  /// [description] - Business description (optional)
+  /// [categories] - List of categories (optional)
+  /// [logoUrl] - Logo URL from Firebase Storage (optional)
+  /// [phone] - Business phone (optional)
+  /// [address] - Business address (optional)
+  /// [websiteUrl] - Website URL (optional)
+  /// [bannerUrl] - Banner image URL from Firebase Storage (optional)
+  /// [hours] - Business hours map (optional)
+  /// [rappelsAutoClientValidation] - Rappels: auto-validate new clients (optional)
+  /// [rappelsAutoPassageValidation] - Rappels: auto-validate passage (optional)
+  ///
+  /// Returns Result<Merchant> on success, Result with failure on error
+  Future<Result<Merchant>> updateMerchant({
+    required String merchantId,
+    String? displayName,
+    String? description,
+    List<String>? categories,
+    String? logoUrl,
+    String? phone,
+    String? address,
+    String? websiteUrl,
+    String? bannerUrl,
+    Map<String, dynamic>? hours,
+    bool? rappelsAutoClientValidation,
+    bool? rappelsAutoPassageValidation,
+  });
 }
 

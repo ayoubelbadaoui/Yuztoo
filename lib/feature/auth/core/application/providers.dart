@@ -9,7 +9,10 @@ import 'use_cases/watch_auth_state.dart';
 import 'use_cases/get_user_role.dart';
 import 'use_cases/get_user_roles.dart';
 import 'use_cases/get_user_city.dart';
+import 'use_cases/get_user_profile_basics.dart';
 import 'use_cases/update_user_city.dart';
+import 'use_cases/get_connected_cities.dart';
+import 'use_cases/set_connected_cities.dart';
 import 'use_cases/is_merchant_onboarding_completed.dart';
 import 'use_cases/patch_user_document.dart';
 import 'use_cases/update_last_login_at.dart';
@@ -76,10 +79,36 @@ final getUserCityProvider = Provider<GetUserCity>((ref) {
   return GetUserCity(repository);
 });
 
+/// Use case provider for getting user email/phone/city (for merchant onboarding).
+final getUserProfileBasicsProvider = Provider<GetUserProfileBasics>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return GetUserProfileBasics(repository);
+});
+
 /// Use case provider for updating user city
 final updateUserCityProvider = Provider<UpdateUserCity>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return UpdateUserCity(repository);
+});
+
+/// Use case provider for getting connected cities
+final getConnectedCitiesProvider = Provider<GetConnectedCities>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return GetConnectedCities(repository);
+});
+
+/// Use case provider for setting connected cities
+final setConnectedCitiesProvider = Provider<SetConnectedCities>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return SetConnectedCities(repository);
+});
+
+/// Connected cities for a user (from Firestore). Invalidate to refresh.
+final connectedCitiesProvider =
+    FutureProvider.family<List<String>, String>((ref, uid) async {
+  final getCities = ref.read(getConnectedCitiesProvider);
+  final result = await getCities.call(uid);
+  return result.fold((_) => <String>[], (list) => list);
 });
 
 /// Use case provider for checking merchant onboarding status

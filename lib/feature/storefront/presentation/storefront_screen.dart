@@ -22,9 +22,10 @@ class StorefrontScreen extends ConsumerStatefulWidget {
 }
 
 class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
+  bool _hoursHydratedFromStorefront = false;
+
   @override
   void dispose() {
-    // Don't reset here - let main.dart handle it
     super.dispose();
   }
 
@@ -196,7 +197,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final storefront = ref.watch(storefrontProvider);
+    final storefrontAsync = ref.watch(storefrontProvider);
     final activeTab = ref.watch(storefrontTabProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -208,82 +209,186 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
       ),
       child: Scaffold(
         backgroundColor: StorefrontColors.backgroundLight,
-        body: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    // Banner with profile picture
-                    BannerSection(
-                      bannerImageUrl: storefront.bannerImageUrl,
-                      profileImageUrl: storefront.profileImageUrl,
-                      onBannerEdit: () {
-                        _showImagePickerDialog(context, isBanner: true);
-                      },
-                      onProfileEdit: () {
-                        _showImagePickerDialog(context, isBanner: false);
-                      },
-                    ),
-                    const SizedBox(height: 56), // More space after profile picture
-                    // Merchant info
-                    MerchantInfoSection(
-                      merchantName: storefront.merchantName,
-                      businessActivity: storefront.businessActivity,
-                      isVerified: storefront.isVerified,
-                      onEdit: () {
-                        ref
-                            .read(storefrontProfileEditProvider.notifier)
-                            .initializeFrom(storefront);
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const StorefrontEditProfileScreen(),
+        body: storefrontAsync.when(
+          data: (storefront) {
+            if (storefront == null) {
+              // No merchant profile yet - show empty state
+              return Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.store_outlined,
+                            size: 64,
+                            color: StorefrontColors.textSecondary,
                           ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    // Stats cards
-                    StatsCards(
-                      profileCompletionPercentage:
-                          storefront.profileCompletionPercentage,
-                      weeklyViews: storefront.weeklyViews,
-                      weeklyViewsChange: storefront.weeklyViewsChange,
-                    ),
-                    const SizedBox(height: 24),
-                    // Navigation tabs
-                    NavigationTabs(
-                      activeTab: activeTab,
-                      onTabChanged: (tab) {
-                        ref.read(storefrontTabProvider.notifier).state = tab;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    // Content based on active tab
-                    if (activeTab == 'horaires')
-                      const HoursSection()
-                    else if (activeTab == 'accueil' || activeTab == 'actualite')
-                      NewsSection(
-                        content: storefront.newsContent,
-                        onSettings: () {
-                          // Handle settings
-                        },
-                      )
-                    else
-                      NewsSection(
-                        content: storefront.newsContent,
-                        onSettings: () {
-                          // Handle settings
-                        },
+                          const SizedBox(height: 16),
+                          Text(
+                            'Aucun profil commerçant',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: StorefrontColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Créez votre profil pour commencer',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: StorefrontColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
-                    const SizedBox(height: 100), // Space for main app bottom nav
-                  ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // Hydrate business hours from Firestore once when storefront has saved hours
+            if (storefront.hours != null && !_hoursHydratedFromStorefront) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!_hoursHydratedFromStorefront && storefront.hours != null) {
+                  ref.read(businessHoursProvider.notifier).loadFromMap(storefront.hours);
+                  _hoursHydratedFromStorefront = true;
+                  if (mounted) setState(() {});
+                }
+              });
+            }
+
+            // Merchant profile exists - show storefront
+            return Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      children: [
+                        // Banner with profile picture
+                        BannerSection(
+                          bannerImageUrl: storefront.bannerImageUrl,
+                          profileImageUrl: storefront.profileImageUrl,
+                          onBannerEdit: () {
+                            _showImagePickerDialog(context, isBanner: true);
+                          },
+                          onProfileEdit: () {
+                            _showImagePickerDialog(context, isBanner: false);
+                          },
+                        ),
+                        const SizedBox(height: 56), // More space after profile picture
+                        // Merchant info
+                        MerchantInfoSection(
+                          merchantName: storefront.merchantName,
+                          businessActivity: storefront.businessActivity,
+                          isVerified: storefront.isVerified,
+                              onEdit: () async {
+                                await ref
+                                    .read(storefrontProfileEditProvider.notifier)
+                                    .initializeFrom(storefront);
+                                if (!context.mounted) return;
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const StorefrontEditProfileScreen(),
+                                  ),
+                                );
+                              },
+                        ),
+                        const SizedBox(height: 24),
+                        // Stats cards
+                        StatsCards(
+                          profileCompletionPercentage:
+                              storefront.profileCompletionPercentage,
+                          weeklyViews: storefront.weeklyViews,
+                          weeklyViewsChange: storefront.weeklyViewsChange,
+                        ),
+                        const SizedBox(height: 24),
+                        // Navigation tabs
+                        NavigationTabs(
+                          activeTab: activeTab,
+                          onTabChanged: (tab) {
+                            ref.read(storefrontTabProvider.notifier).state = tab;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        // Content based on active tab
+                        if (activeTab == 'horaires')
+                          const HoursSection()
+                        else if (activeTab == 'accueil' || activeTab == 'actualite')
+                          NewsSection(
+                            content: storefront.newsContent,
+                            onSettings: () {
+                              // Handle settings
+                            },
+                          )
+                        else
+                          NewsSection(
+                            content: storefront.newsContent,
+                            onSettings: () {
+                              // Handle settings
+                            },
+                          ),
+                        const SizedBox(height: 100), // Space for main app bottom nav
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => Column(
+            children: [
+              _buildHeader(),
+              const Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          error: (error, stack) => Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: StorefrontColors.textSecondary,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Erreur de chargement',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: StorefrontColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        error.toString(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: StorefrontColors.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

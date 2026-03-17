@@ -1,5 +1,6 @@
 import '../../../../../core/domain/core/result.dart';
 import '../../../../../types.dart';
+import '../entities/user_profile_basics.dart';
 
 /// Repository interface for user profile operations in Firestore
 /// 
@@ -54,6 +55,14 @@ abstract class UserRepository {
   /// Returns Result<String?> - City if found, null if document doesn't exist or city is empty
   Future<Result<String?>> getUserCity(String uid);
 
+  /// Get user email/phone/city from Firestore.
+  ///
+  /// Used to avoid asking the user to re-enter signup information when
+  /// completing merchant onboarding.
+  ///
+  /// Returns Result<UserProfileBasics?> - null if doc missing or fields unavailable.
+  Future<Result<UserProfileBasics?>> getUserProfileBasics(String uid);
+
   /// Get all user roles from Firestore
   /// 
   /// [uid] - User's unique identifier
@@ -77,6 +86,16 @@ abstract class UserRepository {
   Future<Result<Unit>> updateUserCity({
     required String uid,
     required String city,
+  });
+
+  /// Get connected cities for the user (from Firestore).
+  /// Returns [city] if no cities array, else the cities array.
+  Future<Result<List<String>>> getConnectedCities(String uid);
+
+  /// Set connected cities in Firestore (replaces the list and updates city to first).
+  Future<Result<Unit>> setConnectedCities({
+    required String uid,
+    required List<String> cities,
   });
 
   /// Patch missing fields in user document for legacy users

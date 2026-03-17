@@ -5,6 +5,7 @@ import 'widgets/role_selection_colors.dart';
 import 'widgets/role_selection_header.dart';
 import 'widgets/merchant_view.dart';
 import 'widgets/client_view.dart';
+import 'widgets/login_link.dart';
 
 /// Role selection screen - first screen for unauthenticated users
 class RoleSelectionScreen extends StatefulWidget {
@@ -76,7 +77,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         backgroundColor: RoleSelectionColors.bgDark1,
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            // Keep primary CTA visible on smaller screens (and widget tests default to 600px tall).
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -88,7 +90,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     widget.onRoleChanged?.call(role);
                   },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 _selectedRole == UserRole.merchant
                     ? MerchantView(
                         onDiscover: _handleDiscover,
@@ -98,6 +100,18 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                         isScanning: _isScanning,
                         onScan: _handleScan,
                       ),
+                const SizedBox(height: 20),
+                LoginLink(
+                  onTap: () {
+                    // Route to login while preserving the currently selected role.
+                    // If a dedicated login callback is provided, use it.
+                    if (widget.onLogin != null) {
+                      widget.onLogin!(_selectedRole);
+                      return;
+                    }
+                    widget.onSelectRole(_selectedRole);
+                  },
+                ),
               ],
             ),
           ),

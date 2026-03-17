@@ -14,6 +14,8 @@ class MerchantView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenH = MediaQuery.sizeOf(context).height;
+    final gapAfterDescription = (screenH * 0.03).clamp(12.0, 28.0);
     return Column(
       children: [
         // Description Text
@@ -27,7 +29,7 @@ class MerchantView extends StatelessWidget {
             height: 1.6,
           ),
         ),
-        const SizedBox(height: 40),
+        SizedBox(height: gapAfterDescription),
 
         // Login Button (if user has account)
         if (onLogin != null) ...[

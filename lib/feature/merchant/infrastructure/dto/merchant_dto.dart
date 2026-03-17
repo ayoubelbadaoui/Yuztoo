@@ -18,6 +18,12 @@ class MerchantDto {
     this.status = 'active',
     this.createdAt,
     this.updatedAt,
+    this.displayName,
+    this.logoUrl,
+    this.websiteUrl,
+    this.bannerUrl,
+    this.rappelsAutoClientValidation,
+    this.rappelsAutoPassageValidation,
   });
 
   final String id;
@@ -33,6 +39,12 @@ class MerchantDto {
   final String status;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? displayName;
+  final String? logoUrl;
+  final String? websiteUrl;
+  final String? bannerUrl;
+  final bool? rappelsAutoClientValidation;
+  final bool? rappelsAutoPassageValidation;
 
   /// Create DTO from Firestore document snapshot.
   factory MerchantDto.fromFirestore(
@@ -71,6 +83,12 @@ class MerchantDto {
       status: data['status'] as String? ?? 'active',
       createdAt: parseTimestamp(data['created_at']),
       updatedAt: parseTimestamp(data['updated_at']),
+      displayName: data['display_name'] as String?,
+      logoUrl: data['logo_url'] as String?,
+      websiteUrl: data['website_url'] as String?,
+      bannerUrl: data['banner_url'] as String?,
+      rappelsAutoClientValidation: data['rappels_auto_client_validation'] as bool?,
+      rappelsAutoPassageValidation: data['rappels_auto_passage_validation'] as bool?,
     );
   }
 
@@ -89,6 +107,12 @@ class MerchantDto {
         status: status,
         createdAt: createdAt,
         updatedAt: updatedAt,
+        displayName: displayName,
+        logoUrl: logoUrl,
+        websiteUrl: websiteUrl,
+        bannerUrl: bannerUrl,
+        rappelsAutoClientValidation: rappelsAutoClientValidation,
+        rappelsAutoPassageValidation: rappelsAutoPassageValidation,
       );
 
   /// Convert domain entity to DTO.
@@ -106,6 +130,12 @@ class MerchantDto {
         status: merchant.status,
         createdAt: merchant.createdAt,
         updatedAt: merchant.updatedAt,
+        displayName: merchant.displayName,
+        logoUrl: merchant.logoUrl,
+        websiteUrl: merchant.websiteUrl,
+        bannerUrl: merchant.bannerUrl,
+        rappelsAutoClientValidation: merchant.rappelsAutoClientValidation,
+        rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation,
       );
 
   /// Convert DTO to Firestore map.
@@ -120,6 +150,12 @@ class MerchantDto {
         if (categories != null) 'categories': categories,
         if (description != null) 'description': description,
         if (hours != null) 'hours': hours,
+        if (displayName != null) 'display_name': displayName,
+        if (logoUrl != null) 'logo_url': logoUrl,
+        if (websiteUrl != null) 'website_url': websiteUrl,
+        if (bannerUrl != null) 'banner_url': bannerUrl,
+        if (rappelsAutoClientValidation != null) 'rappels_auto_client_validation': rappelsAutoClientValidation,
+        if (rappelsAutoPassageValidation != null) 'rappels_auto_passage_validation': rappelsAutoPassageValidation,
         'status': status,
         'created_at': createdAt != null
             ? Timestamp.fromDate(createdAt!)

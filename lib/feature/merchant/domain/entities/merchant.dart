@@ -19,6 +19,12 @@ class Merchant extends Equatable {
     this.status = 'active',
     this.createdAt,
     this.updatedAt,
+    this.displayName,
+    this.logoUrl,
+    this.websiteUrl,
+    this.bannerUrl,
+    this.rappelsAutoClientValidation,
+    this.rappelsAutoPassageValidation,
   });
 
   /// Unique identifier for the merchant document
@@ -51,6 +57,24 @@ class Merchant extends Equatable {
   /// Business hours (optional, typically a map or structured data)
   final Map<String, dynamic>? hours;
 
+  /// Display name for storefront (optional, defaults to name if not set)
+  final String? displayName;
+
+  /// Logo URL from Firebase Storage (optional)
+  final String? logoUrl;
+
+  /// Website URL (optional)
+  final String? websiteUrl;
+
+  /// Banner image URL from Firebase Storage (optional)
+  final String? bannerUrl;
+
+  /// Rappels: auto-validate new clients (default true)
+  final bool? rappelsAutoClientValidation;
+
+  /// Rappels: auto-validate passage (default true)
+  final bool? rappelsAutoPassageValidation;
+
   /// Merchant status (default: 'active')
   final String status;
 
@@ -75,6 +99,12 @@ class Merchant extends Equatable {
         status,
         createdAt,
         updatedAt,
+        displayName,
+        logoUrl,
+        websiteUrl,
+        bannerUrl,
+        rappelsAutoClientValidation,
+        rappelsAutoPassageValidation,
       ];
 
   /// Creates a copy of the merchant with updated fields
@@ -92,6 +122,12 @@ class Merchant extends Equatable {
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? displayName,
+    String? logoUrl,
+    String? websiteUrl,
+    String? bannerUrl,
+    bool? rappelsAutoClientValidation,
+    bool? rappelsAutoPassageValidation,
   }) {
     return Merchant(
       id: id ?? this.id,
@@ -107,6 +143,14 @@ class Merchant extends Equatable {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      displayName: displayName ?? this.displayName,
+      logoUrl: logoUrl ?? this.logoUrl,
+      websiteUrl: websiteUrl ?? this.websiteUrl,
+      bannerUrl: bannerUrl ?? this.bannerUrl,
+      rappelsAutoClientValidation:
+          rappelsAutoClientValidation ?? this.rappelsAutoClientValidation,
+      rappelsAutoPassageValidation:
+          rappelsAutoPassageValidation ?? this.rappelsAutoPassageValidation,
     );
   }
 

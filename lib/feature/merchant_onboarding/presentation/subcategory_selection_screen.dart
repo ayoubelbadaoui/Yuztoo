@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets/subcategory/subcategory_colors.dart';
 import 'widgets/subcategory/subcategory_header.dart';
 import 'widgets/subcategory/subcategory_footer.dart';
 import 'widgets/subcategory/subcategory_card.dart';
 import 'widgets/top_snackbar.dart';
 import '../domain/entities/merchant_subcategory.dart';
+import '../application/providers.dart';
 
 /// Subcategory selection screen - shows subcategories for selected category
 class SubcategorySelectionScreen extends StatefulWidget {
@@ -62,6 +64,15 @@ class _SubcategorySelectionScreenState
     final subcategory = widget.subcategories.firstWhere(
       (c) => c.id == subcategoryId,
     );
+    // Persist selection so we can prefill the merchant profile form later.
+    // Best-effort: some widget tests mount this screen without a ProviderScope.
+    try {
+      ProviderScope.containerOf(context)
+          .read(selectedMerchantSubcategoryTitleProvider.notifier)
+          .state = subcategory.title.replaceAll('\n', ' ');
+    } catch (_) {
+      // Ignore: no ProviderScope in tree (test environment).
+    }
     showTopSnackBar(
       context,
       'Sous-catégorie sélectionnée: ${subcategory.title.replaceAll('\n', ' ')}',
@@ -167,7 +178,8 @@ class _SubcategorySelectionScreenState
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _selectedSubcategoryId != null
+                        onPressed: (widget.subcategories.isEmpty ||
+                                _selectedSubcategoryId != null)
                             ? () => widget.onNext?.call()
                             : null,
                         style: ElevatedButton.styleFrom(
@@ -179,14 +191,18 @@ class _SubcategorySelectionScreenState
                           ),
                           shadowColor:
                               SubcategoryColors.primaryGold.withValues(alpha: 0.3),
-                          elevation: _selectedSubcategoryId != null ? 6 : 0,
+                          elevation: (widget.subcategories.isEmpty ||
+                                  _selectedSubcategoryId != null)
+                              ? 6
+                              : 0,
                         ),
                         child: Text(
                           'Suivant',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: _selectedSubcategoryId != null
+                            color: (widget.subcategories.isEmpty ||
+                                    _selectedSubcategoryId != null)
                                 ? SubcategoryColors.bgDark1
                                 : SubcategoryColors.textGrey.withValues(alpha: 0.5),
                           ),

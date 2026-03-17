@@ -1,28 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../auth/core/application/state/auth_state.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../storefront/application/providers.dart' as storefront_providers;
 import 'widgets/cities_section.dart';
 import 'widgets/profile_avatar_section.dart';
 import 'widgets/yuztoo_card_box.dart';
 
 /// "Profil" / account preferences screen.
-///
-/// Thin orchestrator composing:
-///  • [ProfileAvatarSection] – avatar + user details
-///  • [CitiesSection] – selectable city pills + add
-///  • [YuztooCardBox] – gold card box
-///
-/// Simple sections (connections, completion, disconnect, info, CTA)
-/// are small enough to live inline.
-class AccountPreferencesScreen extends StatelessWidget {
+/// All data from Firestore/auth: profile, completion %, cities.
+class AccountPreferencesScreen extends ConsumerStatefulWidget {
   const AccountPreferencesScreen({super.key, this.onBack});
 
   final VoidCallback? onBack;
 
   @override
+  ConsumerState<AccountPreferencesScreen> createState() =>
+      _AccountPreferencesScreenState();
+}
+
+class _AccountPreferencesScreenState extends ConsumerState<AccountPreferencesScreen> {
+  @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(auth_providers.authStateProvider);
+    final storefrontAsync = ref.watch(storefront_providers.storefrontProvider);
+    final isMerchant = authState is Authenticated &&
+        authState.user.role == 'merchant';
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -40,12 +48,12 @@ class AccountPreferencesScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     const ProfileAvatarSection(),
-                    _buildConnectionsSection(),
+                    _buildConnectionsSection(0),
                     const CitiesSection(),
                     const YuztooCardBox(),
-                    _buildCompletionSection(),
+                    _buildCompletionSection(storefrontAsync.valueOrNull?.profileCompletionPercentage ?? 0),
                     _buildInfoSection(),
-                    _buildCreateAccountButton(),
+                    if (!isMerchant) _buildCreateAccountButton(),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -79,7 +87,7 @@ class AccountPreferencesScreen extends StatelessWidget {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => onBack?.call(),
+                onTap: () => widget.onBack?.call(),
                 child: Container(
                   width: 36,
                   height: 36,
@@ -111,7 +119,7 @@ class AccountPreferencesScreen extends StatelessWidget {
 
   // ── connections section ───────────────────────────────────────────────────
 
-  Widget _buildConnectionsSection() {
+  Widget _buildConnectionsSection(int partnerCount) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -135,7 +143,9 @@ class AccountPreferencesScreen extends StatelessWidget {
               ),
             ),
             TextSpan(
-              text: '6 professionnels partenaires Yuztoo',
+              text: partnerCount == 0
+                  ? 'Aucun partenaire pour l\'instant'
+                  : '$partnerCount professionnel${partnerCount > 1 ? 's' : ''} partenaire${partnerCount > 1 ? 's' : ''} Yuztoo',
               style: GoogleFonts.outfit(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -151,7 +161,7 @@ class AccountPreferencesScreen extends StatelessWidget {
 
   // ── completion section ────────────────────────────────────────────────────
 
-  Widget _buildCompletionSection() {
+  Widget _buildCompletionSection(int percentage) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -180,7 +190,7 @@ class AccountPreferencesScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
-              '100%',
+              '$percentage%',
               style: GoogleFonts.outfit(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

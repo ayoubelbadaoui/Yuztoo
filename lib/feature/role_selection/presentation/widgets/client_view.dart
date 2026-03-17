@@ -44,7 +44,7 @@ class _ClientViewState extends State<ClientView>
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         border: Border.all(
           color: RoleSelectionColors.primaryGold.withValues(alpha: 0.35),
@@ -99,7 +99,7 @@ class _ClientViewState extends State<ClientView>
               );
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
 
           // Description Text - more compact
           RichText(
@@ -165,7 +165,7 @@ class _ClientViewState extends State<ClientView>
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
 
           // Scan Button - more compact
           AnimatedContainer(
@@ -184,7 +184,7 @@ class _ClientViewState extends State<ClientView>
                     ],
                   )
                 : null,
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
               onPressed: widget.isScanning ? null : widget.onScan,
               style: ElevatedButton.styleFrom(
                 backgroundColor: RoleSelectionColors.primaryGold,
@@ -196,8 +196,12 @@ class _ClientViewState extends State<ClientView>
                 shadowColor: RoleSelectionColors.primaryGold.withValues(alpha: 0.2),
                 elevation: widget.isScanning ? 8 : 6,
               ),
-              icon: widget.isScanning
-                  ? const SizedBox(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.isScanning)
+                    const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
@@ -207,21 +211,25 @@ class _ClientViewState extends State<ClientView>
                         ),
                       ),
                     )
-                  : const Icon(
+                  else
+                    const Icon(
                       Icons.qr_code_scanner_rounded,
                       color: RoleSelectionColors.bgDark1,
                       size: 20,
                     ),
-              label: Text(
-                widget.isScanning
-                    ? AppLocalizations.of(context)!.scanning
-                    : AppLocalizations.of(context)!.startScan,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: RoleSelectionColors.bgDark1,
-                  letterSpacing: 0.3,
-                ),
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.isScanning
+                        ? AppLocalizations.of(context)!.scanning
+                        : AppLocalizations.of(context)!.startScan,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: RoleSelectionColors.bgDark1,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -1,66 +1,79 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../auth/core/application/state/auth_state.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../application/providers.dart' as promo_providers;
 import '../domain/entities/promotion.dart';
 import 'widgets/add_promo_sheet.dart';
 import 'widgets/promo_analytics.dart';
 import 'widgets/promo_card.dart';
 
-/// Promotions management screen – thin orchestrator that delegates
-/// rendering to extracted widgets.
-class PromotionsManagementScreen extends StatefulWidget {
+/// Promotions management screen – loads from Firestore, saves add/delete/toggle.
+class PromotionsManagementScreen extends ConsumerStatefulWidget {
   final void Function(String)? onNavigate;
   final VoidCallback? onBack;
 
   const PromotionsManagementScreen({super.key, this.onNavigate, this.onBack});
 
   @override
-  State<PromotionsManagementScreen> createState() =>
+  ConsumerState<PromotionsManagementScreen> createState() =>
       _PromotionsManagementScreenState();
 }
 
 class _PromotionsManagementScreenState
-    extends State<PromotionsManagementScreen> {
+    extends ConsumerState<PromotionsManagementScreen> {
   final ImagePicker _picker = ImagePicker();
-
-  // Dummy promotions
-  final List<Promotion> _promotions = [
-    Promotion(
-      title: 'Menu déjeuner -15%',
-      subtitle: 'Valide du 10/11 au 19/11 - Exclusif VIP',
-      dateFrom: DateTime(2025, 11, 10),
-      dateTo: DateTime(2025, 11, 19),
-      selectedClientType: ClientType.gratuit,
-      isOnline: true,
-    ),
-    Promotion(
-      title: 'Café offert',
-      subtitle: 'Valide du 01/12 au 31/12 - Tous clients',
-      dateFrom: DateTime(2025, 12, 1),
-      dateTo: DateTime(2025, 12, 31),
-      selectedClientType: ClientType.premium,
-      isOnline: false,
-    ),
-  ];
-
-  // ── actions ────────────────────────────────────────────────────────────────
+  bool _isCreating = false;
 
   Future<void> _showAddPromoSheet() async {
+    final authState = ref.read(auth_providers.authStateProvider);
+    if (authState is! Authenticated) return;
+
     final result = await showModalBottomSheet<Promotion>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const AddPromoSheet(),
     );
-    if (result != null && mounted) {
-      setState(() => _promotions.insert(0, result));
-    }
+    if (result == null || !mounted) return;
+
+    setState(() => _isCreating = true);
+    final createPromotion = ref.read(promo_providers.createPromotionProvider);
+    final createResult = await createPromotion.call(
+      merchantId: authState.user.id,
+      promotion: result.copyWith(merchantId: authState.user.id),
+      imageFilePath: result.imagePath,
+    );
+    if (!mounted) return;
+    setState(() => _isCreating = false);
+
+    createResult.fold(
+      (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      },
+      (_) {
+        ref.invalidate(promo_providers.merchantPromotionsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Promotion créée'),
+            backgroundColor: MerchantColors.gold,
+          ),
+        );
+      },
+    );
   }
 
-  Future<void> _confirmDelete(int index) async {
+  Future<void> _confirmDelete(Promotion promo) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -72,7 +85,7 @@ class _PromotionsManagementScreenState
               fontWeight: FontWeight.w600, color: Colors.white),
         ),
         content: Text(
-          'Êtes-vous sûr de vouloir supprimer « ${_promotions[index].title} » ?',
+          'Êtes-vous sûr de vouloir supprimer « ${promo.title} » ?',
           style: GoogleFonts.outfit(color: MerchantColors.textLightGrey),
         ),
         actions: [
@@ -90,12 +103,48 @@ class _PromotionsManagementScreenState
         ],
       ),
     );
-    if (confirmed == true && mounted) {
-      setState(() => _promotions.removeAt(index));
-    }
+    if (confirmed != true || !mounted) return;
+
+    final deletePromotion = ref.read(promo_providers.deletePromotionProvider);
+    final deleteResult = await deletePromotion.call(
+      merchantId: promo.merchantId,
+      promotionId: promo.id,
+    );
+    if (!mounted) return;
+    deleteResult.fold(
+      (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(failure.message), backgroundColor: Colors.red.shade700),
+        );
+      },
+      (_) {
+        ref.invalidate(promo_providers.merchantPromotionsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Promotion supprimée'),
+            backgroundColor: MerchantColors.gold,
+          ),
+        );
+      },
+    );
   }
 
-  Future<void> _pickImageForPromo(int index) async {
+  Future<void> _onToggle(Promotion promo, bool isOnline) async {
+    final updated = promo.copyWith(isOnline: isOnline);
+    final updatePromotion = ref.read(promo_providers.updatePromotionProvider);
+    final result = await updatePromotion.call(updated);
+    if (!mounted) return;
+    result.fold(
+      (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(failure.message), backgroundColor: Colors.red.shade700),
+        );
+      },
+      (_) => ref.invalidate(promo_providers.merchantPromotionsProvider),
+    );
+  }
+
+  Future<void> _pickImageForPromo(int index, List<Promotion> promotions) async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: MerchantColors.navyCard,
@@ -136,18 +185,18 @@ class _PromotionsManagementScreenState
         imageQuality: 80,
       );
       if (picked != null && mounted) {
-        setState(() {
-          _promotions[index] =
-              _promotions[index].copyWith(imagePath: picked.path);
-        });
+        // TODO: upload image and update promotion in Firestore
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Modification de l\'image à venir')),
+        );
       }
     } catch (_) {}
   }
 
-  // ── build ──────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
+    final promotionsAsync = ref.watch(promo_providers.merchantPromotionsProvider);
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -161,15 +210,30 @@ class _PromotionsManagementScreenState
           children: [
             _buildHeader(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: Column(
-                  children: [
-                    _buildAddPromoSection(),
-                    if (_promotions.isNotEmpty) _buildPromoList(),
-                    const PromoAnalytics(),
-                    _buildNotificationsAutoButton(),
-                  ],
+              child: promotionsAsync.when(
+                data: (promotions) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      children: [
+                        _buildAddPromoSection(),
+                        if (promotions.isNotEmpty) _buildPromoList(promotions),
+                        const PromoAnalytics(),
+                        _buildNotificationsAutoButton(),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator(color: MerchantColors.gold)),
+                error: (err, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'Erreur: $err',
+                      style: GoogleFonts.outfit(color: MerchantColors.textLightGrey),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -219,7 +283,7 @@ class _PromotionsManagementScreenState
     return Padding(
       padding: const EdgeInsets.all(24),
       child: GestureDetector(
-        onTap: _showAddPromoSheet,
+        onTap: _isCreating ? null : _showAddPromoSheet,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -314,25 +378,21 @@ class _PromotionsManagementScreenState
     );
   }
 
-  // ── promo list ─────────────────────────────────────────────────────────────
-
-  Widget _buildPromoList() {
+  Widget _buildPromoList(List<Promotion> promotions) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Column(
         children: [
-          ..._promotions.asMap().entries.map((entry) {
+          ...promotions.asMap().entries.map((entry) {
             final index = entry.key;
             final promo = entry.value;
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: PromoCard(
                 promo: promo,
-                onToggle: (v) => setState(
-                  () => _promotions[index] = promo.copyWith(isOnline: v),
-                ),
-                onDelete: () => _confirmDelete(index),
-                onPickImage: () => _pickImageForPromo(index),
+                onToggle: (v) => _onToggle(promo, v),
+                onDelete: () => _confirmDelete(promo),
+                onPickImage: () => _pickImageForPromo(index, promotions),
               ),
             );
           }),

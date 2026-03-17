@@ -18,7 +18,8 @@ class RoleSelectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenH = MediaQuery.of(context).size.height;
-    final logoSize = (screenH * 0.35).clamp(250.0, 350.0);
+    // Keep the header usable on smaller screens (and widget tests default to 600px tall).
+    final logoSize = (screenH * 0.28).clamp(160.0, 350.0);
     
     return Column(
       children: [
@@ -31,7 +32,7 @@ class RoleSelectionHeader extends StatelessWidget {
             color: RoleSelectionColors.primaryGold,
           ),
         ),
-        SizedBox(height: (screenH * 0.04).clamp(24.0, 36.0)),
+        SizedBox(height: (screenH * 0.04).clamp(16.0, 36.0)),
         
         // Description
         Text(
@@ -58,7 +59,7 @@ class RoleSelectionHeader extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
 
         // Question
         Text(
@@ -69,7 +70,7 @@ class RoleSelectionHeader extends StatelessWidget {
             fontWeight: FontWeight.w400,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
 
         // Role Toggle
         RoleToggle(

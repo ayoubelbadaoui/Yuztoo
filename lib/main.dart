@@ -37,12 +37,14 @@ import 'feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart
 import 'feature/storefront/presentation/storefront_screen.dart';
 import 'feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
+import 'feature/merchant/presentation/merchant_profile_form_screen.dart';
 import 'feature/merchant_onboarding/presentation/widgets/subcategory/restaurant_subcategories.dart';
 import 'feature/rappels/presentation/rappels_screen.dart';
 import 'feature/rappels/presentation/notifications_auto_screen.dart';
 import 'feature/merchant_settings/presentation/merchant_settings_screen.dart';
 import 'feature/e_fidelite/presentation/e_fidelite_screen.dart';
 import 'feature/account_preferences/presentation/account_preferences_screen.dart';
+import 'feature/merchant/application/providers.dart' as merchant_providers;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -280,9 +282,39 @@ class _RootShellState extends ConsumerState<_RootShell> {
       if (effectiveRole == UserRole.client) {
         targetScreen = ScreenId.clientHome;
       } else {
-        // Merchant - once authenticated, go straight to storefront (store page).
-        // Onboarding wizard is an acquisition/education flow, not a post-signup loop.
-        targetScreen = ScreenId.merchantStorefront;
+        // Merchant - check if onboarding is complete
+        // Check cache FIRST (works even if Firestore fails)
+        bool onboardingCompleted = false;
+        try {
+          final cacheService = ref.read(merchant_providers.merchantProfileCacheServiceProvider);
+          final cachedData = await cacheService.loadProfile();
+          // If cache has merchant name, consider onboarding complete
+          if (cachedData['userId'] == user.id && cachedData['name'] != null && cachedData['name']!.isNotEmpty) {
+            onboardingCompleted = true;
+          }
+        } catch (_) {
+          // Cache check failed - continue to Firestore check
+        }
+        
+        // If cache didn't have data, check Firestore (optional)
+        if (!onboardingCompleted) {
+          try {
+            final isOnboardingCompleted = ref.read(isMerchantOnboardingCompletedProvider);
+            final onboardingResult = await isOnboardingCompleted.call(user.id);
+            onboardingCompleted = onboardingResult.fold(
+              (_) => false, // Firestore failed - keep false, show form
+              (completed) => completed ?? false,
+            );
+          } catch (_) {
+            // Firestore check failed - keep false, show form
+            onboardingCompleted = false;
+          }
+        }
+        
+        // If onboarding not complete, show profile form
+        targetScreen = onboardingCompleted 
+            ? ScreenId.merchantStorefront 
+            : ScreenId.merchantProfileForm;
       }
       
       // Now navigate to home screen (we were on splash, so this is safe)
@@ -312,7 +344,18 @@ class _RootShellState extends ConsumerState<_RootShell> {
       // Determine target screen with onboarding check for merchants
       ScreenId targetScreen;
       if (fallbackRole == UserRole.merchant) {
-        targetScreen = ScreenId.merchantStorefront;
+        // Check cache to see if merchant profile exists
+        bool hasProfile = false;
+        try {
+          final cacheService = ref.read(merchant_providers.merchantProfileCacheServiceProvider);
+          final cachedData = await cacheService.loadProfile();
+          if (cachedData['userId'] == user.id && cachedData['name'] != null && cachedData['name']!.isNotEmpty) {
+            hasProfile = true;
+          }
+        } catch (_) {
+          // Cache check failed - assume no profile
+        }
+        targetScreen = hasProfile ? ScreenId.merchantStorefront : ScreenId.merchantProfileForm;
       } else {
         targetScreen = ScreenId.clientHome;
       }
@@ -847,6 +890,24 @@ class _RootShellState extends ConsumerState<_RootShell> {
         return MerchantStatsScreen(onBack: _handleBackToBase);
       case ScreenId.merchantStorefront:
         return const StorefrontScreen();
+      case ScreenId.merchantProfileForm:
+        return MerchantProfileFormScreen(
+          onBack: () {
+            // If user goes back, navigate to storefront (don't disconnect)
+            // Storefront will show empty state if profile is incomplete
+            setState(() {
+              _authScreen = ScreenId.merchantStorefront;
+              _activeTab = 'storefront';
+            });
+          },
+          onComplete: () {
+            // After completing profile, navigate to storefront
+            setState(() {
+              _authScreen = ScreenId.merchantStorefront;
+              _activeTab = 'storefront';
+            });
+          },
+        );
       case ScreenId.merchantRappels:
         return RappelsScreen(
           onNavigate: _handleNavigate,

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../auth/core/application/providers.dart' as auth_providers;
+import '../../../auth/core/application/state/auth_state.dart';
+import '../../../merchant/application/providers.dart' as merchant_providers;
 import '../../application/providers.dart';
 import '../../domain/entities/business_hours.dart';
 import 'day_row.dart';
@@ -37,6 +40,8 @@ class HoursSection extends ConsumerWidget {
             onToggle: (enabled) => _showExceptionalClosureConfirmation(
                 context, enabled, () => notifier.toggleExceptionalClosure(enabled)),
           ),
+          const SizedBox(height: 24),
+          _SaveHoursButton(ref: ref),
         ],
       ),
     );
@@ -266,6 +271,88 @@ class HoursSection extends ConsumerWidget {
                     fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Button to save business hours to Firestore.
+class _SaveHoursButton extends ConsumerStatefulWidget {
+  const _SaveHoursButton({required this.ref});
+
+  final WidgetRef ref;
+
+  @override
+  ConsumerState<_SaveHoursButton> createState() => _SaveHoursButtonState();
+}
+
+class _SaveHoursButtonState extends ConsumerState<_SaveHoursButton> {
+  bool _saving = false;
+
+  Future<void> _saveHours() async {
+    final authState = widget.ref.read(auth_providers.authStateProvider);
+    if (authState is! Authenticated) return;
+
+    setState(() => _saving = true);
+    final merchantId = authState.user.id;
+    final businessHours = widget.ref.read(businessHoursProvider);
+    final hoursMap = businessHours.toMap();
+
+    final updateStorefront = widget.ref.read(merchant_providers.updateStorefrontProvider);
+    final result = await updateStorefront.call(
+      merchantId: merchantId,
+      hours: hoursMap,
+    );
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    result.fold(
+      (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+      (_) {
+        widget.ref.invalidate(storefrontProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Horaires enregistrés'),
+            backgroundColor: StorefrontColors.primaryGold,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _saving ? null : _saveHours,
+        icon: _saving
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.save_outlined, size: 20),
+        label: Text(_saving ? 'Enregistrement...' : 'Enregistrer les horaires'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: StorefrontColors.primaryGold,
+          foregroundColor: StorefrontColors.navyDark,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+        ),
       ),
     );
   }
