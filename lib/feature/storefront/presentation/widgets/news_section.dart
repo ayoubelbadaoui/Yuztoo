@@ -14,10 +14,14 @@ class NewsSection extends StatefulWidget {
     this.showMedia = true,
     this.showUploadButton = true,
     this.onSettings,
+    /// When [content] is null, shown instead of the merchant-editor default (e.g. client vitrine).
+    this.contentPlaceholder,
   });
 
   final String? content;
   final List<String> imageUrls;
+  /// Shown when [content] is null; falls back to merchant default copy if also null.
+  final String? contentPlaceholder;
   final bool isUploading;
   final VoidCallback? onUploadImage;
   final bool showMedia;
@@ -227,6 +231,7 @@ class _NewsSectionState extends State<NewsSection> {
                 Expanded(
                   child: Text(
                     widget.content ??
+                        widget.contentPlaceholder ??
                         'Présentez vos actualités en quelques lignes pour informer vos clients en temps réel.',
                     style: const TextStyle(
                       fontSize: 15,

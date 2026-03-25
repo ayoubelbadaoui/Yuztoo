@@ -11,6 +11,7 @@ import '../../../feature/merchant/domain/entities/merchant.dart';
 import '../../../feature/promotions/domain/entities/promotion.dart';
 import '../../../feature/storefront/domain/entities/business_hours.dart';
 import '../../../feature/storefront/presentation/widgets/navigation_tabs.dart';
+import '../../../feature/storefront/presentation/widgets/news_section.dart';
 import '../../../feature/storefront/presentation/widgets/storefront_colors.dart';
 import 'widgets/store_profile_banner_section.dart';
 import '../application/providers.dart';
@@ -62,6 +63,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
               precacheHttpImages(context, [
                 merchant.bannerUrl,
                 merchant.logoUrl,
+                ...?merchant.newsImageUrls,
               ]);
             });
             return _buildContent(context, merchant, data.promotions);
@@ -232,11 +234,23 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                     Icons.place_outlined,
                     merchant.address ?? merchant.city,
                   ),
+                  if (promotions.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('Promotions'),
+                    const SizedBox(height: 4),
+                    _buildPromotionsList(promotions),
+                  ],
                 ] else if (_activeTab == 'horaires') ...[
                   _buildSectionTitle('Horaires d\'ouverture'),
                   _buildHoursSection(hours),
-                ] else ...[
-                  _buildPromotionsList(promotions),
+                ] else if (_activeTab == 'actualite') ...[
+                  NewsSection(
+                    content: merchant.description,
+                    imageUrls: merchant.newsImageUrls ?? const [],
+                    showMedia: merchant.newsImageUrls?.isNotEmpty ?? false,
+                    showUploadButton: false,
+                    contentPlaceholder: 'Aucune actualité pour le moment.',
+                  ),
                 ],
                 const SizedBox(height: 24),
               ],

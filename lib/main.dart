@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,6 +47,7 @@ import 'feature/merchant_settings/presentation/merchant_settings_screen.dart';
 import 'feature/e_fidelite/presentation/e_fidelite_screen.dart';
 import 'feature/account_preferences/presentation/account_preferences_screen.dart';
 import 'feature/merchant/application/providers.dart' as merchant_providers;
+import 'core/config/vitrine_qr_config.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -98,6 +100,11 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
   String? _signupCity;
   String? _otpUnavailableMessage;
 
+  final AppLinks _appLinks = AppLinks();
+  StreamSubscription<Uri>? _appLinkSubscription;
+  /// Vitrine deep link received before auth / main shell is ready (cold start or login).
+  String? _pendingVitrineMerchantId;
+
   @override
   void initState() {
     super.initState();
@@ -116,14 +123,78 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       (previous, next) => _handleAuthStateChange(next),
       fireImmediately: true,
     );
+
+    _appLinkSubscription = _appLinks.uriLinkStream.listen((Uri uri) {
+      if (!mounted) return;
+      _onAppLinkUri(uri);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_consumeInitialAppLink());
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(WakelockPlus.disable());
+    _appLinkSubscription?.cancel();
     _authStateSub?.close();
     super.dispose();
+  }
+
+  Future<void> _consumeInitialAppLink() async {
+    try {
+      final uri = await _appLinks.getInitialLink();
+      if (!mounted || uri == null) return;
+      _onAppLinkUri(uri);
+    } catch (_) {}
+  }
+
+  void _onAppLinkUri(Uri uri) {
+    final merchantId = VitrineQrConfig.tryParseMerchantId(uri.toString());
+    if (merchantId == null || merchantId.isEmpty) return;
+
+    if (_canApplyVitrineDeepLinkNow()) {
+      _openVitrineForMerchant(merchantId);
+    } else {
+      _pendingVitrineMerchantId = merchantId;
+    }
+  }
+
+  bool _canApplyVitrineDeepLinkNow() {
+    final authState = ref.read(authControllerProvider);
+    if (authState is! Authenticated) return false;
+    final screen = _nestedScreen ?? _authScreen;
+    if (screen == null) return false;
+    const defer = <ScreenId>{
+      ScreenId.splash,
+      ScreenId.roleSelection,
+      ScreenId.login,
+      ScreenId.signup,
+      ScreenId.otp,
+      ScreenId.merchantOnboarding,
+      ScreenId.merchantSubcategorySelection,
+      ScreenId.merchantBenefits,
+      ScreenId.merchantProfileForm,
+    };
+    return !defer.contains(screen);
+  }
+
+  void _openVitrineForMerchant(String merchantId) {
+    if (!mounted) return;
+    ref.read(store_profile_providers.selectedStoreMerchantIdProvider.notifier).state =
+        merchantId;
+    setState(() {
+      _nestedScreen = ScreenId.storeProfile;
+    });
+  }
+
+  void _tryConsumePendingVitrineLink() {
+    final id = _pendingVitrineMerchantId;
+    if (id == null || id.isEmpty) return;
+    if (!_canApplyVitrineDeepLinkNow()) return;
+    _pendingVitrineMerchantId = null;
+    _openVitrineForMerchant(id);
   }
 
   @override
@@ -364,6 +435,10 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
           _nestedScreen = null;
           _isNavigatingToHome = false; // Navigation complete
         });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _tryConsumePendingVitrineLink();
+        });
         // UI updates handled by setState above
       }
     } catch (e) {
@@ -405,6 +480,10 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
           _activeTab = fallbackRole == UserRole.merchant ? 'storefront' : 'home';
           _nestedScreen = null;
           _isNavigatingToHome = false; // Navigation complete
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _tryConsumePendingVitrineLink();
         });
       }
     }
