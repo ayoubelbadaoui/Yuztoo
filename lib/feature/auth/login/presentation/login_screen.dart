@@ -510,20 +510,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: LayoutBuilder(
             builder: (context, constraints) {
               final screenH = constraints.maxHeight;
-              // International standard: Login screens use 15-20% of screen height
-              // Examples: Google (18%), Facebook (16%), Twitter (19%)
-              final logoSize = (screenH * 0.26).clamp(180.0, 260.0);
+              final isClient = widget.role == UserRole.client;
+              // Client: smaller logo + tighter vertical rhythm so the form isn’t pushed down
+              // by a huge spacer (avoid minHeight + Spacer in scroll).
+              final logoSize = isClient
+                  ? (screenH * 0.17).clamp(110.0, 168.0)
+                  : (screenH * 0.24).clamp(170.0, 240.0);
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: screenH),
-                  child: IntrinsicHeight(
-                    child: Column(
+                child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // ── Top safe-area breathing room (8pt grid) ──
-                        const SizedBox(height: 8),
+                        SizedBox(height: isClient ? 4 : 8),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: IconButton(
@@ -536,8 +535,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
 
-                        // ── Logo Section (8pt grid spacing) ──
-                        const SizedBox(height: 20),
+                        SizedBox(height: isClient ? 8 : 16),
                         AppLogo(
                           size: logoSize,
                           fallback: Text(
@@ -549,7 +547,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24), // logo → title
+                        SizedBox(height: isClient ? 14 : 22),
                         const Text(
                           'Connexion',
                           style: TextStyle(
@@ -558,7 +556,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 8), // title → subtitle
+                        SizedBox(height: isClient ? 6 : 8),
                         Text(
                           widget.role == UserRole.client
                               ? 'Connectez-vous pour découvrir les commerces'
@@ -570,8 +568,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           textAlign: TextAlign.center,
                         ),
 
-                        // ── Form (8pt grid: 32dp section break) ──
-                        const SizedBox(height: 32),
+                        SizedBox(height: isClient ? 20 : 28),
                         Form(
                           key: _formKey,
                           child: Column(
@@ -677,23 +674,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
 
-                        // ── Flexible spacer pushes social / footer down ──
-                        const Spacer(),
-
-                        // ── Social login (8pt grid) ──
-                        const SizedBox(height: 40),
+                        SizedBox(height: isClient ? 22 : 32),
                         _buildSocialDivider(),
-                        const SizedBox(height: 24),
+                        SizedBox(height: isClient ? 16 : 22),
                         _buildSocialLoginButtons(),
 
-                        // ── Footer (8pt grid) ──
-                        const SizedBox(height: 32),
+                        SizedBox(height: isClient ? 20 : 28),
                         _buildFooter(),
-                        const SizedBox(height: 32),
+                        SizedBox(height: isClient ? 16 : 28),
                       ],
                     ),
-                  ),
-                ),
               );
             },
         ),

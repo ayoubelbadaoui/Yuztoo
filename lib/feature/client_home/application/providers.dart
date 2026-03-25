@@ -17,55 +17,55 @@ final followedMerchantIdsForCurrentUserProvider =
   return result.fold((_) => [], (list) => list);
 });
 
-/// List of merchants for client Accueil: followed merchants when logged in,
-/// otherwise fallback to listMerchants (discovery-style) for empty state.
-final clientHomeMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
-  final userId = ref.watch(auth_providers.currentUserIdProvider);
-  final followRepo = ref.watch(followedMerchantsRepositoryProvider);
-  final merchantRepo = ref.watch(merchantRepositoryProvider);
-
-  if (userId != null) {
-    final idsResult = await followRepo.getFollowedIds(userId);
-    final ids = idsResult.fold((_) => <String>[], (list) => list);
-    if (ids.isNotEmpty) {
-      final result = await merchantRepo.getMerchantsByIds(ids);
-      return result.fold((_) => <Merchant>[], (list) => list);
-    }
-    // Logged in but no followed: return empty so Accueil shows "Suivez des commerces"
-    return [];
-  }
-
-  // Not logged in: show all merchants (discovery-style)
-  final result = await merchantRepo.listMerchants(limit: 20);
-  return result.fold((_) => <Merchant>[], (list) => list);
+/// Single load for Accueil: merchants + promotions together (parallel promo fetches).
+/// Avoids duplicate [getFollowedIds] calls and sequential provider chains.
+typedef ClientHomeFeed = ({
+  List<Merchant> merchants,
+  List<Promotion> promotions,
 });
 
-/// Promotions from all followed merchants (for Accueil). When no followed, from first of list.
-final clientHomePromotionsProvider = FutureProvider<List<Promotion>>((ref) async {
-  final merchantsAsync = ref.watch(clientHomeMerchantsProvider);
-  final merchants = merchantsAsync.valueOrNull ?? [];
+final clientHomeFeedProvider = FutureProvider<ClientHomeFeed>((ref) async {
+  final userId = ref.watch(auth_providers.currentUserIdProvider);
+  final merchantRepo = ref.watch(merchantRepositoryProvider);
   final promoRepo = ref.watch(promotionRepositoryProvider);
 
-  if (merchants.isEmpty) return <Promotion>[];
-
-  final userId = ref.watch(auth_providers.currentUserIdProvider);
-  final followRepo = ref.watch(followedMerchantsRepositoryProvider);
-
-  List<String> merchantIds;
-  if (userId != null) {
-    final idsResult = await followRepo.getFollowedIds(userId);
-    merchantIds = idsResult.fold((_) => <String>[], (list) => list);
-    if (merchantIds.isEmpty) merchantIds = merchants.map((m) => m.id).toList();
-  } else {
-    merchantIds = merchants.map((m) => m.id).toList();
+  // Only followed merchants after sign-in — no guest preview list (real carnet data only).
+  if (userId == null) {
+    return (merchants: <Merchant>[], promotions: <Promotion>[]);
   }
 
+  final ids = await ref.watch(followedMerchantIdsForCurrentUserProvider.future);
+  if (ids.isEmpty) {
+    return (merchants: <Merchant>[], promotions: <Promotion>[]);
+  }
+
+  final merchantsResult = await merchantRepo.getMerchantsByIds(ids);
+  final merchants = merchantsResult.fold((_) => <Merchant>[], (list) => list);
+
+  if (merchants.isEmpty) {
+    return (merchants: <Merchant>[], promotions: <Promotion>[]);
+  }
+
+  final merchantIds = merchants.map((m) => m.id).toList();
+  final promoResults = await Future.wait(
+    merchantIds.map((mid) => promoRepo.listByMerchantId(mid)),
+  );
   final allPromos = <Promotion>[];
-  for (final mid in merchantIds) {
-    final result = await promoRepo.listByMerchantId(mid);
+  for (final result in promoResults) {
     result.fold((_) => null, (list) => allPromos.addAll(list));
   }
-  // Sort by dateTo descending (newest first)
   allPromos.sort((a, b) => b.dateTo.compareTo(a.dateTo));
-  return allPromos;
+  return (merchants: merchants, promotions: allPromos);
+});
+
+/// Derived — resolves from [clientHomeFeedProvider] (same underlying future).
+final clientHomeMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
+  final feed = await ref.watch(clientHomeFeedProvider.future);
+  return feed.merchants;
+});
+
+/// Derived — resolves from [clientHomeFeedProvider] (same underlying future).
+final clientHomePromotionsProvider = FutureProvider<List<Promotion>>((ref) async {
+  final feed = await ref.watch(clientHomeFeedProvider.future);
+  return feed.promotions;
 });

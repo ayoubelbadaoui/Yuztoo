@@ -43,7 +43,8 @@ class CompleteMerchantOnboarding {
       hours: hours,
       logoUrl: logoUrl,
       bannerUrl: bannerUrl,
-      status: 'inactive',
+      // Visible in Découvrir / listMerchants (query expects discoverable merchants).
+      status: 'active',
     );
 
     // Create merchant and link to user (atomic batch write)

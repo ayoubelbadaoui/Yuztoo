@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/presentation/precache_network_images.dart';
 import '../../../feature/auth/core/application/providers.dart' as auth_providers;
 import '../../../feature/client_home/application/providers.dart' as client_home_providers;
 import '../../../feature/followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
@@ -39,8 +40,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final merchantAsync = ref.watch(storeProfileMerchantProvider);
-    final promotionsAsync = ref.watch(storeProfilePromotionsProvider);
+    final pageAsync = ref.watch(storeProfilePageDataProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -51,12 +51,20 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
       ),
       child: Scaffold(
         backgroundColor: StorefrontColors.backgroundLight,
-        body: merchantAsync.when(
-          data: (merchant) {
+        body: pageAsync.when(
+          data: (data) {
+            final merchant = data.merchant;
             if (merchant == null) {
               return _buildErrorBack(context);
             }
-            return _buildContent(context, merchant, promotionsAsync);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!context.mounted) return;
+              precacheHttpImages(context, [
+                merchant.bannerUrl,
+                merchant.logoUrl,
+              ]);
+            });
+            return _buildContent(context, merchant, data.promotions);
           },
           loading: () => const Center(
             child: SizedBox(
@@ -106,7 +114,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   Widget _buildContent(
     BuildContext context,
     Merchant merchant,
-    AsyncValue<List<Promotion>> promotionsAsync,
+    List<Promotion> promotions,
   ) {
     final name = merchant.displayName ?? merchant.name;
     final activity = merchant.categories?.isNotEmpty == true
@@ -228,23 +236,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                   _buildSectionTitle('Horaires d\'ouverture'),
                   _buildHoursSection(hours),
                 ] else ...[
-                  promotionsAsync.when(
-                    data: (promotions) => _buildPromotionsList(promotions),
-                    loading: () => const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: StorefrontColors.primaryGold,
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                    error: (_, __) => _buildEmptyPromotions(),
-                  ),
+                  _buildPromotionsList(promotions),
                 ],
                 const SizedBox(height: 24),
               ],
@@ -298,22 +290,20 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                   await repo.add(userId, merchantId);
                 }
                 ref.invalidate(client_home_providers.followedMerchantIdsForCurrentUserProvider);
-                ref.invalidate(client_home_providers.clientHomeMerchantsProvider);
-                ref.invalidate(client_home_providers.clientHomePromotionsProvider);
-                if (mounted) setState(() => _isFollowToggling = false);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isFollowing
-                            ? 'Vous ne suivez plus ce commerce'
-                            : 'Commerce ajouté à votre carnet',
-                      ),
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: StorefrontColors.primaryGold,
+                ref.invalidate(client_home_providers.clientHomeFeedProvider);
+                if (!context.mounted) return;
+                setState(() => _isFollowToggling = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isFollowing
+                          ? 'Vous ne suivez plus ce commerce'
+                          : 'Commerce ajouté à votre carnet',
                     ),
-                  );
-                }
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: StorefrontColors.primaryGold,
+                  ),
+                );
               },
         style: OutlinedButton.styleFrom(
           foregroundColor: StorefrontColors.primaryGold,

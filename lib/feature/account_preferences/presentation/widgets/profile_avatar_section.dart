@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../auth/core/application/providers.dart' as auth_providers;
 import '../../../auth/core/application/state/auth_state.dart';
-import '../../../auth/core/domain/entities/user_profile_basics.dart';
 
 /// Profile avatar (gold-bordered circle) + personal user info text.
 /// Loads personal user data from Firestore (email, phone, city, displayName).
@@ -182,7 +181,7 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
     
     // Load user profile basics from Firestore (email, phone, city)
     final profileBasicsAsync = ref.watch(
-      _userProfileBasicsProvider(userId),
+      auth_providers.userProfileBasicsProvider(userId),
     );
     
     // Load personal profile image (separate from merchant business profile)
@@ -464,17 +463,6 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
     );
   }
 }
-
-/// Provider for loading user profile basics from Firestore
-final _userProfileBasicsProvider = FutureProvider.family<
-    UserProfileBasics?, String>((ref, userId) async {
-  final getBasics = ref.read(auth_providers.getUserProfileBasicsProvider);
-  final result = await getBasics.call(userId);
-  return result.fold(
-    (_) => null, // On error, return null (will show fallback)
-    (basics) => basics,
-  );
-});
 
 /// Provider for loading personal profile image (separate from merchant business profile)
 final _personalProfileImageProvider = FutureProvider.family<String?, String>(

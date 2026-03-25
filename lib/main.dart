@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'l10n/app_localizations.dart';
 
 import 'core/app_bootstrap.dart';
@@ -80,7 +81,7 @@ class _RootShell extends ConsumerStatefulWidget {
   ConsumerState<_RootShell> createState() => _RootShellState();
 }
 
-class _RootShellState extends ConsumerState<_RootShell> {
+class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObserver {
   ProviderSubscription<AuthState>? _authStateSub;
   // Main navigation screen from provider (auth flow)
   ScreenId? _authScreen; // null = loading
@@ -100,6 +101,10 @@ class _RootShellState extends ConsumerState<_RootShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Keep display awake while the app is in the foreground (OS may still suspend in background).
+    unawaited(WakelockPlus.enable());
+
     // Initialize to splash screen immediately
     _authScreen = ScreenId.splash;
     _hasReceivedFirstAuthState = false;
@@ -115,8 +120,19 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(WakelockPlus.disable());
     _authStateSub?.close();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(WakelockPlus.enable());
+    } else {
+      unawaited(WakelockPlus.disable());
+    }
   }
 
   bool _hasReceivedFirstAuthState = false;

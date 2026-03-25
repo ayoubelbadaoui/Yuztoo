@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/entities/auth_user.dart';
+import '../domain/entities/user_profile_basics.dart';
 import '../../../../core/domain/core/result.dart';
 import 'auth_controller.dart';
 import 'state/auth_state.dart';
@@ -89,6 +90,14 @@ final getUserCityProvider = Provider<GetUserCity>((ref) {
 final getUserProfileBasicsProvider = Provider<GetUserProfileBasics>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return GetUserProfileBasics(repository);
+});
+
+/// Email / phone / city from Firestore (`/users/{uid}`) for client profile, fidélité, etc.
+final userProfileBasicsProvider =
+    FutureProvider.family<UserProfileBasics?, String>((ref, uid) async {
+  final getBasics = ref.read(getUserProfileBasicsProvider);
+  final result = await getBasics.call(uid);
+  return result.fold((_) => null, (b) => b);
 });
 
 /// Use case provider for updating user city

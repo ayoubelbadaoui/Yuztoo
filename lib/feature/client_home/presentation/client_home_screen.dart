@@ -25,7 +25,7 @@ class ClientHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final merchantsAsync = ref.watch(clientHomeMerchantsProvider);
+    final feedAsync = ref.watch(clientHomeFeedProvider);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -46,15 +46,24 @@ class ClientHomeScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     _buildTagline(context),
-                    merchantsAsync.when(
-                      data: (merchants) => _buildBusinessCard(context, merchants),
+                    feedAsync.when(
+                      data: (feed) =>
+                          _buildBusinessCard(context, feed.merchants),
                       loading: () => _buildBusinessCardLoading(context),
                       error: (_, __) => _buildBusinessCardLoading(context),
                     ),
                     const SizedBox(height: 24),
                     _buildQuickActions(context),
                     const SizedBox(height: 24),
-                    _buildPromotions(context, ref),
+                    feedAsync.when(
+                      data: (feed) => _buildPromotionsContent(
+                        context,
+                        feed.promotions,
+                        feed.merchants,
+                      ),
+                      loading: () => _buildPromotionsLoading(context),
+                      error: (_, __) => _buildPromotionsError(context),
+                    ),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -435,11 +444,12 @@ class ClientHomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPromotions(BuildContext context, WidgetRef ref) {
+  Widget _buildPromotionsContent(
+    BuildContext context,
+    List<Promotion> promotions,
+    List<Merchant> merchants,
+  ) {
     final l10n = AppLocalizations.of(context)!;
-    final promotionsAsync = ref.watch(clientHomePromotionsProvider);
-    final merchantsAsync = ref.watch(clientHomeMerchantsProvider);
-    final merchants = merchantsAsync.valueOrNull ?? [];
     final merchantNames = {
       for (final m in merchants) m.id: (m.displayName ?? m.name),
     };
@@ -475,47 +485,119 @@ class ClientHomeScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          promotionsAsync.when(
-            data: (promotions) {
-              if (promotions.isEmpty) {
-                return Text(
-                  'Aucune promotion pour le moment',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    color: MerchantColors.textLightGrey,
-                  ),
-                );
-              }
-              return Column(
-                children: promotions
-                    .map((promo) => _buildPromoRow(
-                          context,
-                          promo,
-                          merchantNames[promo.merchantId] ?? promo.subtitle,
-                          promo.merchantId,
-                        ))
-                    .toList(),
-              );
-            },
-            loading: () => const SizedBox(
-              height: 24,
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: MerchantColors.gold,
-                  ),
-                ),
-              ),
-            ),
-            error: (_, __) => Text(
-              'Aucune promotion',
+          if (promotions.isEmpty)
+            Text(
+              'Aucune promotion pour le moment',
               style: GoogleFonts.outfit(
                 fontSize: 13,
                 color: MerchantColors.textLightGrey,
               ),
+            )
+          else
+            Column(
+              children: promotions
+                  .map((promo) => _buildPromoRow(
+                        context,
+                        promo,
+                        merchantNames[promo.merchantId] ?? promo.subtitle,
+                        promo.merchantId,
+                      ))
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromotionsLoading(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                l10n.activePromotions,
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.textGrey,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              TextButton(
+                onPressed: () => onNavigate('discovery'),
+                child: Text(
+                  l10n.seeAll,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantColors.gold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const SizedBox(
+            height: 24,
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: MerchantColors.gold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromotionsError(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                l10n.activePromotions,
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.textGrey,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              TextButton(
+                onPressed: () => onNavigate('discovery'),
+                child: Text(
+                  l10n.seeAll,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantColors.gold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Aucune promotion',
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: MerchantColors.textLightGrey,
             ),
           ),
         ],

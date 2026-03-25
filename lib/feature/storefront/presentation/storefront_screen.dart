@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import '../../../core/presentation/precache_network_images.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -32,6 +34,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
   bool _hoursHydratedFromStorefront = false;
   bool _isUploadingNewsImage = false;
   bool _isPublishingToggle = false;
+  String? _precachedImageKey;
   final _imagePicker = ImagePicker();
 
   @override
@@ -359,6 +362,20 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                   _hoursHydratedFromStorefront = true;
                   if (mounted) setState(() {});
                 }
+              });
+            }
+
+            final precacheKey =
+                '${storefront.bannerImageUrl}|${storefront.profileImageUrl}|${storefront.newsImageUrls.join(',')}';
+            if (_precachedImageKey != precacheKey) {
+              _precachedImageKey = precacheKey;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                precacheHttpImages(context, [
+                  storefront.bannerImageUrl,
+                  storefront.profileImageUrl,
+                  ...storefront.newsImageUrls,
+                ]);
               });
             }
 

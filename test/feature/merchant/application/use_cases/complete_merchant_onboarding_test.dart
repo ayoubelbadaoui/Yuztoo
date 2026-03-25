@@ -86,7 +86,7 @@ void main() {
           expect(merchant.email, 'test@business.com');
           expect(merchant.phone, '+33123456789');
           expect(merchant.city, 'Paris');
-          expect(merchant.status, 'inactive');
+          expect(merchant.status, 'active');
           expect(repository.getLinkedUserId(), 'user-123');
         },
       );

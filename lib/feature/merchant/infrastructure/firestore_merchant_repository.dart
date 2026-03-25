@@ -491,9 +491,10 @@ class FirestoreMerchantRepository implements MerchantRepository {
   @override
   Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async {
     try {
+      // List all merchants with a recent updated_at (no status filter) so Découvrir
+      // shows newly created commerces (they were previously excluded when status was only 'inactive').
       final querySnapshot = await _firestore
           .collection('merchants')
-          .where('status', isEqualTo: 'active')
           .orderBy('updated_at', descending: true)
           .limit(limit)
           .get();
@@ -558,7 +559,6 @@ class FirestoreMerchantRepository implements MerchantRepository {
             .get();
         final merchants = snapshot.docs
             .map((doc) => MerchantDto.fromFirestore(doc).toDomain())
-            .where((m) => m.status == 'active')
             .toList();
         all.addAll(merchants);
       }

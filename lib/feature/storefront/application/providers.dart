@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/domain/core/result.dart';
 import '../domain/entities/storefront.dart';
 import '../domain/entities/business_hours.dart';
 import '../../merchant/domain/entities/merchant.dart';
@@ -221,7 +223,14 @@ final storefrontProvider = FutureProvider<Storefront?>((ref) async {
   final cacheService = ref.read(merchant_providers.merchantProfileCacheServiceProvider);
   final merchantRepo = ref.read(merchantRepositoryProvider);
 
-  final merchantResult = await merchantRepo.getMerchantByOwnerUid(userId);
+  final results = await Future.wait([
+    merchantRepo.getMerchantByOwnerUid(userId),
+    cacheService.loadProfile(),
+  ]);
+
+  final merchantResult = results[0] as Result<Merchant?>;
+  final cachedData = results[1] as Map<String, String?>;
+
   final fromFirestore = merchantResult.fold(
     (_) => null as Merchant?,
     (m) => m,
@@ -230,7 +239,6 @@ final storefrontProvider = FutureProvider<Storefront?>((ref) async {
     return _storefrontFromMerchant(fromFirestore);
   }
 
-  final cachedData = await cacheService.loadProfile();
   return _storefrontFromCachedProfile(cachedData, userId);
 });
 

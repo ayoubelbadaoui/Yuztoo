@@ -7,6 +7,8 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/logout_confirm_dialog.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/core/application/providers.dart';
+import '../../auth/core/application/state/auth_state.dart';
+import '../../auth/core/presentation/user_display_helpers.dart';
 
 /// Client profile / settings – same colors and minimalist layout as merchant settings.
 class ClientProfileScreen extends ConsumerStatefulWidget {
@@ -46,7 +48,7 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
                 child: Column(
                   children: [
                     _buildDescription(l10n),
-                    _buildProfileBlock(context),
+                    _buildProfileBlock(),
                     _buildSection(
                       sectionLabel: l10n.account,
                       items: [
@@ -173,7 +175,17 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
     );
   }
 
-  Widget _buildProfileBlock(BuildContext context) {
+  Widget _buildProfileBlock() {
+    final authState = ref.watch(authStateProvider);
+    if (authState is! Authenticated) {
+      return const SizedBox.shrink();
+    }
+    final user = authState.user;
+    final basics = ref.watch(userProfileBasicsProvider(user.id)).valueOrNull;
+    final name = resolveDisplayName(user, basics);
+    final email = resolveEmail(user, basics);
+    final phone = resolvePhone(user, basics);
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -200,7 +212,7 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
             ),
             alignment: Alignment.center,
             child: Text(
-              'M',
+              avatarInitial(name),
               style: GoogleFonts.outfit(
                 color: MerchantColors.textWhite,
                 fontSize: 22,
@@ -214,7 +226,7 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mohammed Ali',
+                  name,
                   style: GoogleFonts.outfit(
                     color: MerchantColors.textWhite,
                     fontSize: 16,
@@ -223,7 +235,7 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'mohammed@email.com',
+                  email,
                   style: GoogleFonts.outfit(
                     color: MerchantColors.textLightGrey,
                     fontSize: 13,
@@ -231,7 +243,7 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '+212 6XX XXX XXX',
+                  phone,
                   style: GoogleFonts.outfit(
                     color: MerchantColors.textLightGrey,
                     fontSize: 13,

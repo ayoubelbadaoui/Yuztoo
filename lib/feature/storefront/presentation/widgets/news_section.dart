@@ -29,10 +29,16 @@ class NewsSection extends StatefulWidget {
 }
 
 class _NewsSectionState extends State<NewsSection> {
-  final _pageController = PageController();
-  int _currentPage = 0;
+  /// Space between the two portrait images on one row.
+  static const double _pairGap = 12;
 
-  static const double _pairGap = 10;
+  /// Extra width after each pair when there is another page — real scroll gap so
+  /// slides do not look stuck together (viewportFraction cannot do this alone).
+  static const double _interSlideGap = 14;
+
+  late final PageController _pageController = PageController();
+
+  int _currentPage = 0;
 
   /// Portrait tiles: width : height = 3 : 4 (vertical, not wide landscape).
   static const double _portraitAspect = 3 / 4;
@@ -90,7 +96,11 @@ class _NewsSectionState extends State<NewsSection> {
   }
 
   Widget _buildPairedPortraitGallery(double maxWidth) {
-    final tileW = (maxWidth - _pairGap) / 2;
+    final hasMultiplePages = _pageCount > 1;
+    // Single page: two images use full row. Multiple pages: reserve a cream strip
+    // after each pair so the next slide starts after visible breathing room.
+    final trailing = hasMultiplePages ? _interSlideGap : 0.0;
+    final tileW = (maxWidth - _pairGap - trailing) / 2;
     final tileH = tileW / _portraitAspect;
 
     return Column(
@@ -106,29 +116,31 @@ class _NewsSectionState extends State<NewsSection> {
               final i0 = pageIndex * 2;
               final i1 = i0 + 1;
               final urls = widget.imageUrls;
-              // Full-width row so each page keeps the same spacing when swiping (e.g. 2 → 3 images).
-              return SizedBox(
-                width: maxWidth,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: tileH,
-                        child: _portraitImageTile(urls[i0]),
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: tileW,
+                    height: tileH,
+                    child: _portraitImageTile(urls[i0]),
+                  ),
+                  SizedBox(width: _pairGap),
+                  SizedBox(
+                    width: tileW,
+                    height: tileH,
+                    child: i1 < urls.length
+                        ? _portraitImageTile(urls[i1])
+                        : _emptyPortraitSlot(),
+                  ),
+                  if (hasMultiplePages)
+                    SizedBox(
+                      width: _interSlideGap,
+                      height: tileH,
+                      child: const ColoredBox(
+                        color: StorefrontColors.creamLight,
                       ),
                     ),
-                    SizedBox(width: _pairGap),
-                    Expanded(
-                      child: SizedBox(
-                        height: tileH,
-                        child: i1 < urls.length
-                            ? _portraitImageTile(urls[i1])
-                            : _emptyPortraitSlot(),
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               );
             },
           ),
