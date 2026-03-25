@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../theme.dart';
+import 'package:flutter/services.dart';
+
+import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../theme.dart';
 
 class LoyaltyCardsScreen extends StatelessWidget {
   const LoyaltyCardsScreen({super.key, required this.onBack});
@@ -40,29 +43,48 @@ class LoyaltyCardsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Row(
-              children: [
-                IconButton(
-                    onPressed: onBack, icon: const Icon(Icons.arrow_back)),
-                const SizedBox(width: 8),
-                Text(
-                  AppLocalizations.of(context)!.myLoyaltyCards,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: MerchantColors.bgHeader,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: MerchantColors.bgMain,
+      body: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom + 80,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: onBack,
+                    icon: const Icon(Icons.arrow_back),
+                    color: MerchantColors.gold,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    AppLocalizations.of(context)!.myLoyaltyCards,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: MerchantColors.textWhite,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Container(
+            const SizedBox(height: 12),
+            Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
-            color: YColors.primary,
+            color: MerchantColors.bgHeader,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -122,6 +144,8 @@ class LoyaltyCardsScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+      ),
       ),
     );
   }

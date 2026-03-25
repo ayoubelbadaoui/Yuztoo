@@ -1,52 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'widgets/subcategory/subcategory_colors.dart';
-import 'widgets/subcategory/subcategory_header.dart';
-import 'widgets/subcategory/subcategory_footer.dart';
-import 'widgets/subcategory/subcategory_card.dart';
-import 'widgets/top_snackbar.dart';
-import '../domain/entities/merchant_subcategory.dart';
-import '../application/providers.dart';
 
-/// Subcategory selection screen - shows subcategories for selected category
-class SubcategorySelectionScreen extends StatefulWidget {
+import '../application/providers.dart';
+import '../domain/entities/merchant_subcategory.dart';
+import 'widgets/subcategory/subcategory_card.dart';
+import 'widgets/subcategory/subcategory_colors.dart';
+import 'widgets/subcategory/subcategory_footer.dart';
+import 'widgets/subcategory/restaurant_subcategories.dart';
+
+class SubcategorySelectionScreen extends ConsumerStatefulWidget {
   const SubcategorySelectionScreen({
     super.key,
-    required this.categoryTitle,
-    required this.subcategories,
-    this.onSubcategorySelected,
-    this.onBack,
-    this.onNext,
+    required this.onBack,
+    required this.onNext,
   });
 
-  static String get path => '/merchant-subcategory-selection';
-
-  final String categoryTitle;
-  final List<MerchantSubcategory> subcategories;
-  final ValueChanged<String>? onSubcategorySelected;
-  final VoidCallback? onBack;
-  final VoidCallback? onNext;
+  final VoidCallback onBack;
+  final VoidCallback onNext;
 
   @override
-  State<SubcategorySelectionScreen> createState() =>
+  ConsumerState<SubcategorySelectionScreen> createState() =>
       _SubcategorySelectionScreenState();
 }
 
 class _SubcategorySelectionScreenState
-    extends State<SubcategorySelectionScreen>
+    extends ConsumerState<SubcategorySelectionScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
+  late final AnimationController _animationController;
   String? _selectedSubcategoryId;
+
+  List<MerchantSubcategory> get _subcategories => RestaurantSubcategories.all;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _animationController.forward();
+      duration: const Duration(milliseconds: 500),
+    )..forward();
   }
 
   @override
@@ -55,169 +47,138 @@ class _SubcategorySelectionScreenState
     super.dispose();
   }
 
-  void _onSubcategoryTap(String subcategoryId) {
-    setState(() {
-      _selectedSubcategoryId = subcategoryId;
-    });
+  void _continue() {
+    if (_selectedSubcategoryId == null) return;
+    final selected =
+        _subcategories.firstWhere((s) => s.id == _selectedSubcategoryId);
+    ref.read(selectedMerchantSubcategoryTitleProvider.notifier).state =
+        selected.title;
+    widget.onNext();
+  }
 
-    // Show SnackBar feedback from top
-    final subcategory = widget.subcategories.firstWhere(
-      (c) => c.id == subcategoryId,
+  Widget _buildProgressBar(int current, int total) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: widget.onBack,
+            icon: const Icon(Icons.arrow_back_ios),
+            color: SubcategoryColors.primaryGold,
+            iconSize: 20,
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: current / total,
+                backgroundColor: SubcategoryColors.bgDark2,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  SubcategoryColors.primaryGold,
+                ),
+                minHeight: 6,
+              ),
+            ),
+          ),
+          const SizedBox(width: 44),
+        ],
+      ),
     );
-    // Persist selection so we can prefill the merchant profile form later.
-    // Best-effort: some widget tests mount this screen without a ProviderScope.
-    try {
-      ProviderScope.containerOf(context)
-          .read(selectedMerchantSubcategoryTitleProvider.notifier)
-          .state = subcategory.title.replaceAll('\n', ' ');
-    } catch (_) {
-      // Ignore: no ProviderScope in tree (test environment).
-    }
-    showTopSnackBar(
-      context,
-      'Sous-catégorie sélectionnée: ${subcategory.title.replaceAll('\n', ' ')}',
-    );
+  }
 
-    widget.onSubcategorySelected?.call(subcategoryId);
+  Widget _buildHeader(String title) {
+    return FadeTransition(
+      opacity: _animationController,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: SubcategoryColors.textLight,
+                height: 1.3,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 1,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: SubcategoryColors.primaryGold.withValues(alpha: 0.2),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    const statusBarStyle = SystemUiOverlayStyle(
-      statusBarColor: SubcategoryColors.bgDark1,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-      systemNavigationBarColor: SubcategoryColors.bgDark1,
-      systemNavigationBarIconBrightness: Brightness.light,
-    );
+    final title = ref.watch(selectedMerchantCategoryTitleProvider) ??
+        'Choisissez votre type de commerce';
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: statusBarStyle,
-      child: PopScope(
-        canPop: false, // Use our custom navigation instead of route popping
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && widget.onBack != null) {
-            widget.onBack!();
-          }
-        },
-        child: Scaffold(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: SubcategoryColors.bgDark1,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: SubcategoryColors.bgDark1,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
         backgroundColor: SubcategoryColors.bgDark1,
         body: SafeArea(
           bottom: false,
-          child: Stack(
+          child: Column(
             children: [
-              // Scrollable content
-              CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  // Header
-                  SliverToBoxAdapter(
-                    child: SubcategoryHeader(
-                      animationController: _animationController,
-                      onBack: widget.onBack ?? () {},
-                      title: widget.categoryTitle,
-                    ),
+              _buildProgressBar(2, 3),
+              _buildHeader(title),
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 0.66,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
                   ),
-
-                  // Subcategory Grid
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 0.85,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 16,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final subcategory = widget.subcategories[index];
-                          return SubcategoryCard(
-                            subcategory: subcategory,
-                            isSelected: _selectedSubcategoryId == subcategory.id,
-                            onTap: () => _onSubcategoryTap(subcategory.id),
-                            animationDelay: index * 40,
-                          );
-                        },
-                        childCount: widget.subcategories.length,
-                      ),
-                    ),
-                  ),
-
-                  // Footer with bottom padding for button
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: 100),
-                      child: SubcategoryFooter(),
-                    ),
-                  ),
-                ],
+                  itemCount: _subcategories.length,
+                  itemBuilder: (context, index) {
+                    final subcategory = _subcategories[index];
+                    return SubcategoryCard(
+                      subcategory: subcategory,
+                      isSelected: _selectedSubcategoryId == subcategory.id,
+                      animationDelay: index * 35,
+                      onTap: () =>
+                          setState(() => _selectedSubcategoryId = subcategory.id),
+                    );
+                  },
+                ),
               ),
-
-              // Fixed "Suivant" button at bottom
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                  decoration: BoxDecoration(
-                    color: SubcategoryColors.bgDark1,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 10,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
+              const SubcategoryFooter(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: ElevatedButton(
+                  onPressed: _selectedSubcategoryId == null ? null : _continue,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: SubcategoryColors.primaryGold,
+                    foregroundColor: SubcategoryColors.bgDark1,
+                    disabledBackgroundColor:
+                        SubcategoryColors.primaryGold.withValues(alpha: 0.3),
+                    minimumSize: const Size.fromHeight(48),
                   ),
-                  child: SafeArea(
-                    top: false,
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: (widget.subcategories.isEmpty ||
-                                _selectedSubcategoryId != null)
-                            ? () => widget.onNext?.call()
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: SubcategoryColors.primaryGold,
-                          disabledBackgroundColor:
-                              SubcategoryColors.primaryGold.withValues(alpha: 0.3),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          shadowColor:
-                              SubcategoryColors.primaryGold.withValues(alpha: 0.3),
-                          elevation: (widget.subcategories.isEmpty ||
-                                  _selectedSubcategoryId != null)
-                              ? 6
-                              : 0,
-                        ),
-                        child: Text(
-                          'Suivant',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: (widget.subcategories.isEmpty ||
-                                    _selectedSubcategoryId != null)
-                                ? SubcategoryColors.bgDark1
-                                : SubcategoryColors.textGrey.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: const Text('Continuer'),
                 ),
               ),
             ],
           ),
         ),
       ),
-        ),
     );
   }
 }
-

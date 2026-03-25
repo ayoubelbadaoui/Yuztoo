@@ -25,6 +25,7 @@ import 'feature/client_home/presentation/client_home_screen.dart';
 import 'feature/discovery/presentation/discovery_screen.dart';
 import 'feature/qr_scanner/presentation/qr_scanner_screen.dart';
 import 'feature/loyalty/presentation/loyalty_cards_screen.dart';
+import 'feature/store_profile/application/providers.dart' as store_profile_providers;
 import 'feature/store_profile/presentation/store_profile_screen.dart';
 import 'feature/notifications/presentation/notifications_screen.dart';
 import 'feature/messages/presentation/messages_screen.dart';
@@ -34,11 +35,10 @@ import 'feature/promotions/presentation/promotions_management_screen.dart';
 import 'feature/merchant_qr/presentation/merchant_qr_screen.dart';
 import 'feature/merchant_stats/presentation/merchant_stats_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart';
-import 'feature/storefront/presentation/storefront_screen.dart';
 import 'feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
+import 'feature/storefront/presentation/storefront_screen.dart';
 import 'feature/merchant/presentation/merchant_profile_form_screen.dart';
-import 'feature/merchant_onboarding/presentation/widgets/subcategory/restaurant_subcategories.dart';
 import 'feature/rappels/presentation/rappels_screen.dart';
 import 'feature/rappels/presentation/notifications_auto_screen.dart';
 import 'feature/merchant_settings/presentation/merchant_settings_screen.dart';
@@ -165,8 +165,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
         // Don't navigate if we're in the middle of navigating to home (prevents logout during login)
         if (!onHomeScreen && !inAuthFlow && !_isNavigatingToHome) {
           setState(() {
+            // Onboarding is only after signup for merchants (see merchantProfileForm)
             _authScreen = ScreenId.roleSelection;
-            // Don't reset _role - preserve last selection
             _nestedScreen = null;
           });
         }
@@ -180,7 +180,6 @@ class _RootShellState extends ConsumerState<_RootShell> {
           // First real state is an error - likely temporary, treat as unauthenticated
           setState(() {
             _authScreen = ScreenId.roleSelection;
-            _role = null;
             _nestedScreen = null;
           });
         }
@@ -270,13 +269,36 @@ class _RootShellState extends ConsumerState<_RootShell> {
       }
       
       // Use the role we got, or fallback if Firestore is unavailable (e.g. permission-denied).
-      final effectiveRole = role ?? fallbackRole;
-      
+      UserRole effectiveRole = role ?? fallbackRole;
+
+      // Users with BOTH client and merchant: getUserRole() in Firestore returns merchant first.
+      // Respect the role the user chose on the login screen / cached intent.
+      try {
+        final getUserRoles = ref.read(getUserRolesProvider);
+        final rolesResult = await getUserRoles.call(user.id);
+        final rolesMap = rolesResult.fold((_) => null, (m) => m);
+        final hasClient = rolesMap?['client'] == true;
+        final hasMerchant = rolesMap?['merchant'] == true;
+        if (hasClient && hasMerchant) {
+          final intent = _role ?? cachedRole;
+          if (intent == UserRole.client || intent == UserRole.merchant) {
+            effectiveRole = intent!;
+          }
+        }
+      } catch (_) {
+        // Keep effectiveRole
+      }
+
       if (!mounted) {
         _isNavigatingToHome = false;
         return;
       }
-      
+
+      // Persist resolved role so next cold start matches last session
+      try {
+        await ref.read(roleCacheServiceProvider).saveLastSelectedRole(effectiveRole);
+      } catch (_) {}
+
       // Determine target screen based on role and onboarding status
       ScreenId targetScreen;
       if (effectiveRole == UserRole.client) {
@@ -391,13 +413,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
     // so we should always navigate
     setState(() {
       _role = role;
-      if (role == UserRole.merchant) {
-        // Navigate to merchant onboarding for discovery
-        _authScreen = ScreenId.merchantOnboarding;
-      } else {
-        // Navigate to login for clients
-        _authScreen = ScreenId.login;
-      }
+      _authScreen =
+          role == UserRole.merchant ? ScreenId.merchantOnboarding : ScreenId.login;
       _activeTab = role == UserRole.client ? 'home' : 'storefront';
     });
 
@@ -411,6 +428,16 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
   void _handleBackToRole() {
     setState(() => _authScreen = ScreenId.roleSelection);
+  }
+
+  /// Discovery back: unauthenticated (e.g. merchant guest browse) → role selection.
+  void _handleBackFromDiscovery() {
+    final authState = ref.read(authControllerProvider);
+    if (authState is Unauthenticated) {
+      setState(() => _authScreen = ScreenId.roleSelection);
+      return;
+    }
+    _handleBackToBase();
   }
 
   void _handleNavigate(String screen) {
@@ -436,7 +463,16 @@ class _RootShellState extends ConsumerState<_RootShell> {
 
     final target = map[screen];
     if (target != null) {
-      setState(() => _nestedScreen = target);
+      setState(() {
+        // Client QR scanner is a tab – switch to it instead of nesting
+        if (_role == UserRole.client && target == ScreenId.qrScanner) {
+          _activeTab = 'qr-scanner';
+          _authScreen = ScreenId.qrScanner;
+          _nestedScreen = null;
+        } else {
+          _nestedScreen = target;
+        }
+      });
     }
   }
 
@@ -455,18 +491,14 @@ class _RootShellState extends ConsumerState<_RootShell> {
         final map = <String, ScreenId>{
           'home': ScreenId.clientHome,
           'discovery': ScreenId.discovery,
+          'qr-scanner': ScreenId.qrScanner,
           'loyalty': ScreenId.loyalty,
-          'messages': ScreenId.messages,
           'profile': ScreenId.clientProfile,
         };
         final target = map[tab] ?? ScreenId.clientHome;
-        // If it's a main tab screen, update auth screen; otherwise nested
-        if (target == ScreenId.clientHome || target == ScreenId.clientProfile) {
-          _authScreen = target;
-          _nestedScreen = null;
-        } else {
-          _nestedScreen = target;
-        }
+        // All client tabs are top-level: set auth screen and clear nested
+        _authScreen = target;
+        _nestedScreen = null;
       } else {
         final map = <String, ScreenId>{
           'communaute': ScreenId.merchantClients, // Map to clients screen
@@ -543,14 +575,6 @@ class _RootShellState extends ConsumerState<_RootShell> {
       setState(() => _authScreen = ScreenId.roleSelection);
       return;
     }
-    if (currentScreen == ScreenId.merchantSubcategorySelection) {
-      setState(() => _authScreen = ScreenId.merchantOnboarding);
-      return;
-    }
-    if (currentScreen == ScreenId.merchantBenefits) {
-      setState(() => _authScreen = ScreenId.merchantSubcategorySelection);
-      return;
-    }
 
     // 3) Merchant tab screens – go back to storefront (home) unless already there.
     if (_role == UserRole.merchant &&
@@ -580,8 +604,8 @@ class _RootShellState extends ConsumerState<_RootShell> {
     final allowed = <ScreenId>{
       ScreenId.clientHome,
       ScreenId.discovery,
+      ScreenId.qrScanner,
       ScreenId.loyalty,
-      ScreenId.messages,
       ScreenId.clientProfile,
       ScreenId.merchantDashboard,
       ScreenId.merchantClients,
@@ -592,37 +616,68 @@ class _RootShellState extends ConsumerState<_RootShell> {
       ScreenId.merchantProfile,
     };
     final currentScreen = _nestedScreen ?? _authScreen;
-    return _role != null && currentScreen != null && allowed.contains(currentScreen);
+    if (_role == null || currentScreen == null) return false;
+    if (!allowed.contains(currentScreen)) return false;
+    // Merchant browsing discovery grid (guest): no bottom nav — not a merchant tab.
+    if (_role == UserRole.merchant && currentScreen == ScreenId.discovery) {
+      return false;
+    }
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     // Keep provider alive (listening is in initState via listenManual)
     ref.watch(authControllerProvider);
-    
-    final body = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
-      child: _buildScreen(),
-    );
 
-    // Get current screen to set background color
-    final currentScreen = _nestedScreen ?? _authScreen;
+    // Get current screen for key and styling
+    final currentScreen = _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
+
+    // Sharper transitions: key forces AnimatedSwitcher to run transition when screen changes,
+    // shorter duration reduces fuzzy crossfade, no layout scaling.
+    final body = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+      layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      child: KeyedSubtree(
+        key: ValueKey<ScreenId>(currentScreen),
+        child: _buildScreen(),
+      ),
+    );
     final isStorefront = currentScreen == ScreenId.merchantStorefront;
-    const authBgDark = Color(0xFF0F1A29); // matches Login/Signup/OTP/RoleSelection screens
-    final isAuthDarkScreen = currentScreen == ScreenId.roleSelection ||
+    const authBgDark = Color(0xFF0E2A44); // MerchantColors.bgMain – auth + discover pages
+    final isAuthDarkScreen = currentScreen == ScreenId.splash ||
+        currentScreen == ScreenId.roleSelection ||
         currentScreen == ScreenId.login ||
         currentScreen == ScreenId.signup ||
         currentScreen == ScreenId.otp ||
+        currentScreen == ScreenId.merchantProfileForm ||
         currentScreen == ScreenId.merchantOnboarding ||
         currentScreen == ScreenId.merchantSubcategorySelection ||
         currentScreen == ScreenId.merchantBenefits;
 
     // Screens whose topmost section/header is the app primary color (dark),
     // so the status bar should match that header for a seamless look.
-    final hasPrimaryHeaderTop = currentScreen == ScreenId.splash ||
-        currentScreen == ScreenId.clientHome ||
+    final hasPrimaryHeaderTop = currentScreen == ScreenId.clientHome ||
         currentScreen == ScreenId.merchantDashboard ||
-        currentScreen == ScreenId.clientProfile;
+        currentScreen == ScreenId.clientProfile ||
+        currentScreen == ScreenId.qrScanner ||
+        currentScreen == ScreenId.loyalty;
 
     final isRappels = currentScreen == ScreenId.merchantRappels;
     final isPromotions = currentScreen == ScreenId.merchantPromotions;
@@ -631,12 +686,20 @@ class _RootShellState extends ConsumerState<_RootShell> {
     final isEFidelite = currentScreen == ScreenId.merchantEFidelite;
     final isAccountPrefs = currentScreen == ScreenId.merchantAccountPreferences;
     final isMerchantClients = currentScreen == ScreenId.merchantClients;
+    final isClientProfile = currentScreen == ScreenId.clientProfile;
+    final isClientHome = currentScreen == ScreenId.clientHome;
+    final isDiscovery = currentScreen == ScreenId.discovery;
+    final isQrScanner = currentScreen == ScreenId.qrScanner;
+    final isStoreProfile = currentScreen == ScreenId.storeProfile;
     final isDarkMerchantScreen = isRappels || isPromotions || isNotificationsAuto || isMerchantProfile || isEFidelite || isAccountPrefs || isMerchantClients;
+    final isClientDarkScreen = isClientProfile || isClientHome || isDiscovery || isQrScanner || isStoreProfile || currentScreen == ScreenId.loyalty;
     final scaffoldBgColor = isStorefront
         ? const Color(0xFFFDFBF7) // Storefront background color
         : isDarkMerchantScreen
-            ? const Color(0xFF0E2A44) // Dark merchant screen background
-            : (isAuthDarkScreen ? authBgDark : Colors.white);
+            ? const Color(0xFF0E2A44) // MerchantColors.bgMain
+            : isClientDarkScreen
+                ? const Color(0xFF0E2A44) // MerchantColors.bgMain – client home, profile, discovery
+                : (isAuthDarkScreen ? authBgDark : Colors.white);
     
     // Default rule: system bars follow the current background (and bottom nav if present).
     // IMPORTANT: Use AnnotatedRegion (not SystemChrome.setSystemUIOverlayStyle in build),
@@ -646,10 +709,12 @@ class _RootShellState extends ConsumerState<_RootShell> {
         ? authBgDark
         : (isStorefront
             ? scaffoldBgColor
-            : (hasPrimaryHeaderTop ? YColors.primary : scaffoldBgColor));
+            : (hasPrimaryHeaderTop || isDiscovery || isStoreProfile ? YColors.primary : scaffoldBgColor));
     final systemNavBarColor = (_showBottomNav && _role == UserRole.merchant)
-        ? const Color(0xFF0B1F33) // merchant bottom nav background (matches header)
-        : scaffoldBgColor;
+        ? const Color(0xFF0B1F33) // MerchantColors.bgHeader
+        : (_showBottomNav && _role == UserRole.client)
+            ? const Color(0xFF0B1F33) // same dark nav for client (no white square)
+            : scaffoldBgColor;
 
     final statusIsLight = statusBarColor.computeLuminance() > 0.5;
     final navIsLight = systemNavBarColor.computeLuminance() > 0.5;
@@ -683,6 +748,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
                 currentScreen == ScreenId.login ||
                 currentScreen == ScreenId.signup ||
                 currentScreen == ScreenId.otp ||
+                currentScreen == ScreenId.merchantProfileForm ||
                 currentScreen == ScreenId.merchantOnboarding ||
                 currentScreen == ScreenId.merchantSubcategorySelection ||
                 currentScreen == ScreenId.merchantBenefits ||
@@ -693,15 +759,17 @@ class _RootShellState extends ConsumerState<_RootShell> {
                 currentScreen == ScreenId.merchantProfile ||
                 currentScreen == ScreenId.merchantEFidelite ||
                 currentScreen == ScreenId.merchantAccountPreferences ||
-                currentScreen == ScreenId.merchantClients;
+                currentScreen == ScreenId.merchantClients ||
+                currentScreen == ScreenId.clientProfile ||
+                currentScreen == ScreenId.clientHome ||
+                currentScreen == ScreenId.discovery ||
+                currentScreen == ScreenId.qrScanner ||
+                currentScreen == ScreenId.storeProfile ||
+                currentScreen == ScreenId.loyalty;
 
-            final content = Padding(
-              // Don't add bottom padding for storefront/rappels - they handle their own spacing
-              padding: EdgeInsets.only(
-                bottom: (_showBottomNav && !isStorefront && !isDarkMerchantScreen) ? 72 : 0,
-              ),
-              child: body,
-            );
+            // No bottom padding here – same as profile. Each screen adds its own scroll padding
+            // so content stays above the nav. Avoids the visible square/band at the bottom.
+            final content = body;
 
             return Stack(
               children: [
@@ -762,6 +830,27 @@ class _RootShellState extends ConsumerState<_RootShell> {
             ref.read(roleCacheServiceProvider).saveLastSelectedRole(role);
           },
         );
+      case ScreenId.merchantOnboarding:
+        return MerchantOnboardingScreen(
+          onBack: () => setState(() => _authScreen = ScreenId.roleSelection),
+          onNext: () => setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
+        );
+      case ScreenId.merchantSubcategorySelection:
+        return SubcategorySelectionScreen(
+          onBack: () => setState(() => _authScreen = ScreenId.merchantOnboarding),
+          onNext: () => setState(() => _authScreen = ScreenId.merchantBenefits),
+        );
+      case ScreenId.merchantBenefits:
+        return MerchantBenefitsScreen(
+          onBack: () => setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
+          onNext: () {
+            setState(() {
+              _role = UserRole.merchant;
+              _authScreen = ScreenId.signup;
+            });
+            ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.merchant);
+          },
+        );
       case ScreenId.login:
         return LoginScreen(
           role: _role ?? UserRole.client,
@@ -790,16 +879,29 @@ class _RootShellState extends ConsumerState<_RootShell> {
           },
         );
       case ScreenId.clientHome:
-        return ClientHomeScreen(onNavigate: _handleNavigate);
+        return ClientHomeScreen(
+          onNavigate: _handleNavigate,
+          onStoreSelect: (merchantId) {
+            ref.read(store_profile_providers.selectedStoreMerchantIdProvider.notifier).state = merchantId;
+            setState(() => _nestedScreen = ScreenId.storeProfile);
+          },
+        );
       case ScreenId.discovery:
         return DiscoveryScreen(
-          onBack: _handleBackToBase,
-          onStoreSelect: () => setState(() => _nestedScreen = ScreenId.storeProfile),
+          onBack: _handleBackFromDiscovery,
+          onStoreSelect: (merchantId) {
+            ref.read(store_profile_providers.selectedStoreMerchantIdProvider.notifier).state = merchantId;
+            setState(() => _nestedScreen = ScreenId.storeProfile);
+          },
         );
       case ScreenId.qrScanner:
         return QRScannerScreen(
           onBack: _handleBackToBase,
-          onScanSuccess: () => setState(() => _nestedScreen = ScreenId.storeProfile),
+          onVitrineMerchantFound: (merchantId) {
+            ref.read(store_profile_providers.selectedStoreMerchantIdProvider.notifier).state =
+                merchantId;
+            setState(() => _nestedScreen = ScreenId.storeProfile);
+          },
         );
       case ScreenId.loyalty:
         return LoyaltyCardsScreen(onBack: _handleBackToBase);
@@ -819,41 +921,6 @@ class _RootShellState extends ConsumerState<_RootShell> {
         );
       case ScreenId.clientProfile:
         return const ClientProfileScreen();
-      case ScreenId.merchantOnboarding:
-        return MerchantOnboardingScreen(
-          onCategorySelected: (categoryId) {
-            // Category selection handled internally
-          },
-          onBack: () => setState(() => _authScreen = ScreenId.roleSelection),
-          onNext: () {
-            // Navigate to subcategory selection for restaurant (for now, only restaurant has subcategories)
-            setState(() => _authScreen = ScreenId.merchantSubcategorySelection);
-          },
-        );
-      case ScreenId.merchantSubcategorySelection:
-        return SubcategorySelectionScreen(
-          categoryTitle: 'Métiers de bouche mais encore...',
-          subcategories: RestaurantSubcategories.all,
-          onSubcategorySelected: (subcategoryId) {
-            // Handle subcategory selection
-          },
-          onBack: () => setState(() => _authScreen = ScreenId.merchantOnboarding),
-          onNext: () {
-            setState(() => _authScreen = ScreenId.merchantBenefits);
-          },
-        );
-      case ScreenId.merchantBenefits:
-        return MerchantBenefitsScreen(
-          onBack: () => setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
-          onStartFree: () {
-            // Navigate to merchant signup page
-            setState(() {
-              _role = UserRole.merchant;
-              _authScreen = ScreenId.signup;
-            });
-            ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.merchant);
-          },
-        );
       case ScreenId.merchantDashboard:
         return MerchantDashboardScreen(onNavigate: _handleNavigate);
       case ScreenId.merchantClients:

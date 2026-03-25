@@ -90,7 +90,7 @@ void main() {
       expect(merchant.email, 'test@example.com');
       expect(merchant.phone, '+33612345678');
       expect(merchant.city, 'Paris');
-      expect(merchant.status, 'active');
+      expect(merchant.status, 'inactive');
     });
 
     test('should create merchant with optional fields', () async {

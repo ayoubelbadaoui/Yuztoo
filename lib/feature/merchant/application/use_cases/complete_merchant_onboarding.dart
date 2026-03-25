@@ -22,7 +22,10 @@ class CompleteMerchantOnboarding {
     String? address,
     List<String>? categories,
     String? description,
+    String? websiteUrl,
     Map<String, dynamic>? hours,
+    String? logoUrl,
+    String? bannerUrl,
   }) async {
     // Create merchant entity
     // MVP: merchantId == user.uid (repository will use userId if id is empty)
@@ -36,8 +39,11 @@ class CompleteMerchantOnboarding {
       address: address,
       categories: categories,
       description: description,
+      websiteUrl: websiteUrl,
       hours: hours,
-      status: 'active',
+      logoUrl: logoUrl,
+      bannerUrl: bannerUrl,
+      status: 'inactive',
     );
 
     // Create merchant and link to user (atomic batch write)

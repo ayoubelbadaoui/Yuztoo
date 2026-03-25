@@ -51,7 +51,7 @@ class EmailField extends StatelessWidget {
           keyboardType: TextInputType.emailAddress,
           validator: SignupValidators.validateEmail,
           autovalidateMode: AutovalidateMode.disabled,
-          cursorColor: const Color(0xFFBF8719),
+          cursorColor: SignupConstants.primaryGold,
           onTap: onTap ?? () {
             onUnfocusAll();
             focusNode.requestFocus();
@@ -173,7 +173,7 @@ class _PasswordFieldState extends State<PasswordField> {
           obscureText: !_isPasswordVisible,
           validator: SignupValidators.validatePassword,
           autovalidateMode: AutovalidateMode.disabled,
-          cursorColor: const Color(0xFFBF8719),
+          cursorColor: SignupConstants.primaryGold,
           onTap: widget.onTap ?? () {
             widget.onUnfocusAll();
             widget.focusNode.requestFocus();
@@ -321,7 +321,7 @@ class _ConfirmPasswordFieldState extends State<ConfirmPasswordField> {
           obscureText: !_isPasswordVisible,
           validator: (value) => SignupValidators.validateConfirmPassword(value, widget.passwordController.text),
           autovalidateMode: AutovalidateMode.disabled,
-          cursorColor: const Color(0xFFBF8719),
+          cursorColor: SignupConstants.primaryGold,
           onTap: widget.onTap ?? () {
             widget.onUnfocusAll();
             widget.focusNode.requestFocus();
@@ -523,7 +523,7 @@ class PhoneField extends StatelessWidget {
                           inputFormatters: [
                             PhoneNumberFormatter(countryCode: selectedCountryCode),
                           ],
-                          cursorColor: const Color(0xFFBF8719),
+                          cursorColor: SignupConstants.primaryGold,
                           onTap: () {
                             onUnfocusAll();
                             focusNode.requestFocus();

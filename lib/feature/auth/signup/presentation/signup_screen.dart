@@ -7,6 +7,7 @@ import 'otp_screen.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../../../types.dart';
+import '../../../../core/shared/constants/merchant_colors.dart';
 import 'constants/signup_constants.dart';
 import 'utils/phone_formatter.dart';
 import 'widgets/signup_form_fields.dart';
@@ -311,10 +312,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: SignupConstants.bgDark1, // Same color as background
-        statusBarIconBrightness: Brightness.light, // Light icons for dark background
-        statusBarBrightness: Brightness.dark, // For iOS
-        systemNavigationBarColor: SignupConstants.bgDark1, // Same color as background
+        // Match LoadingScreen system chrome
+        statusBarColor: MerchantColors.bgHeader,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: MerchantColors.bgMain,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: PopScope(
@@ -325,9 +327,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           }
         },
         child: Scaffold(
-          backgroundColor: SignupConstants.bgDark1,
+          backgroundColor: MerchantColors.bgMain,
           body: SafeArea(
-          child: SingleChildScrollView(
+            child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -337,7 +339,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   child: IconButton(
                     onPressed: widget.onBack,
                     icon: const Icon(Icons.arrow_back),
-                    color: const Color(0xFFBF8719),
+                    color: SignupConstants.primaryGold,
                     iconSize: 24,
                   ),
                 ),
@@ -444,11 +446,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 SignupFooter(
                   onBack: widget.onBack,
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

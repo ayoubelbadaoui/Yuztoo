@@ -1,124 +1,621 @@
 import 'package:flutter/material.dart';
-import '../../../theme.dart';
-import '../../../l10n/app_localizations.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class ClientHomeScreen extends StatelessWidget {
-  const ClientHomeScreen({super.key, required this.onNavigate});
+import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../l10n/app_localizations.dart';
+import '../application/providers.dart';
+import '../../merchant/domain/entities/merchant.dart';
+import '../../promotions/domain/entities/promotion.dart';
+
+/// Client Accueil – "Mon carnet Yuztoo". Shows real merchants from the database.
+class ClientHomeScreen extends ConsumerWidget {
+  const ClientHomeScreen({
+    super.key,
+    required this.onNavigate,
+    this.onStoreSelect,
+  });
 
   static String get path => '/client-home';
 
   final ValueChanged<String> onNavigate;
+  /// When user taps a business, call with merchant id so store profile loads that merchant.
+  final ValueChanged<String>? onStoreSelect;
 
   @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Header(onNavigate: onNavigate),
-          const SizedBox(height: 12),
-          _QuickActions(onNavigate: onNavigate),
-          const SizedBox(height: 16),
-          _Promotions(onNavigate: onNavigate),
-          const SizedBox(height: 16),
-          _NearbyStores(onNavigate: onNavigate),
-          const SizedBox(height: 12),
-        ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final merchantsAsync = ref.watch(clientHomeMerchantsProvider);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: MerchantColors.bgHeader,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: MerchantColors.bgMain,
+        body: Column(
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).padding.bottom + 80,
+                ),
+                child: Column(
+                  children: [
+                    _buildTagline(context),
+                    merchantsAsync.when(
+                      data: (merchants) => _buildBusinessCard(context, merchants),
+                      loading: () => _buildBusinessCardLoading(context),
+                      error: (_, __) => _buildBusinessCardLoading(context),
+                    ),
+                    const SizedBox(height: 24),
+                    _buildQuickActions(context),
+                    const SizedBox(height: 24),
+                    _buildPromotions(context, ref),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-class _Header extends StatelessWidget {
-  const _Header({required this.onNavigate});
-  final ValueChanged<String> onNavigate;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildHeader(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-      decoration: const BoxDecoration(color: YColors.primary),
+      color: MerchantColors.bgHeader,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: MerchantColors.bgHeader,
+            border: Border(
+              bottom: BorderSide(
+                color: MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderStronger),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: MerchantColors.gold, width: 2),
+                  color: MerchantColors.gold.withValues(alpha: 0.1),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.person_outline,
+                  color: MerchantColors.gold,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Mon carnet Yuztoo',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantColors.textWhite,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => onNavigate('notifications'),
+                icon: Icon(
+                  Icons.notifications_outlined,
+                  color: MerchantColors.gold,
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTagline(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: Text(
+        'Tous les commerces que tu aimes au même endroit !',
+        textAlign: TextAlign.center,
+        style: GoogleFonts.outfit(
+          fontSize: 15,
+          height: 1.6,
+          color: MerchantColors.textLightGrey,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBusinessCard(BuildContext context, List<Merchant> merchants) {
+    if (merchants.isEmpty) {
+      return _buildEmptyCarnet(context);
+    }
+    final merchant = merchants.first;
+    final displayName = merchant.displayName ?? merchant.name;
+    final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AppLocalizations.of(context)!.hello,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+              Expanded(
+                child: Text(
+                  displayName,
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantColors.textWhite,
                   ),
-                  const SizedBox(height: 2),
-                  const Text('Mohammed',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Row(
+                children: [
+                  Icon(Icons.favorite, color: MerchantColors.gold, size: 18),
+                  const SizedBox(width: 4),
+                  Icon(Icons.favorite, color: MerchantColors.gold, size: 18),
                 ],
               ),
-              IconButton(
-                onPressed: () => onNavigate('notifications'),
-                icon: const Icon(Icons.notifications_none, color: Colors.white),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: imageUrl != null && imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        width: double.infinity,
+                        height: 160,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
+                      )
+                    : _buildPlaceholderImage(),
+              ),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: MerchantColors.gold, width: 2),
+                    color: Colors.black.withValues(alpha: 0.3),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.star, color: MerchantColors.gold, size: 20),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          TextField(
-            readOnly: true,
-            onTap: () => onNavigate('discovery'),
-            decoration: InputDecoration(
-              hintText: AppLocalizations.of(context)!.searchStore,
-              prefixIcon: const Icon(Icons.search, color: YColors.muted),
-              filled: true,
-              fillColor: Colors.white,
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {
+                if (onStoreSelect != null) {
+                  onStoreSelect!(merchant.id);
+                } else {
+                  onNavigate('store-profile');
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: MerchantColors.gold,
+                side: const BorderSide(color: MerchantColors.gold, width: 2),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: Text(
+                'Bienvenue sur Yuztoo',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.onNavigate});
-  final ValueChanged<String> onNavigate;
+  Widget _buildPlaceholderImage() {
+    return Container(
+      width: double.infinity,
+      height: 160,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            MerchantColors.gold,
+            MerchantColors.cream,
+          ],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          'Image commerce',
+          style: GoogleFonts.outfit(
+            fontSize: 14,
+            color: MerchantColors.textGrey,
+          ),
+        ),
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  /// Clear loading state: no fake card or dummy text, avoids flash on app open.
+  Widget _buildBusinessCardLoading(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: SizedBox(
+        height: 200,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _QuickAction(
-                label: AppLocalizations.of(context)!.scan,
-                icon: Icons.qr_code_rounded,
-                background: YColors.secondary,
-                iconColor: Colors.white,
-                onTap: () => onNavigate('qr-scanner'),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: MerchantColors.gold,
+                ),
               ),
-              _QuickAction(
-                label: AppLocalizations.of(context)!.loyaltyLabel,
-                icon: Icons.star_border,
-                background: YColors.accent,
-                iconColor: YColors.secondary,
-                onTap: () => onNavigate('loyalty'),
-              ),
-              _QuickAction(
-                label: AppLocalizations.of(context)!.offers,
-                icon: Icons.card_giftcard,
-                background: YColors.accent,
-                iconColor: YColors.primary,
-                onTap: () => onNavigate('discovery'),
+              const SizedBox(height: 12),
+              Text(
+                'Chargement...',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: MerchantColors.textLightGrey,
+                ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCarnet(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            AppLocalizations.of(context)!.stores,
+            style: GoogleFonts.outfit(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: MerchantColors.textWhite,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: MerchantColors.gold.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.storefront_outlined,
+                  color: MerchantColors.gold.withValues(alpha: 0.7),
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Suivez des commerces pour voir ici leurs offres, promotions et actualités.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: MerchantColors.textLightGrey,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Scanne un QR code ou découvre des commerces.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: MerchantColors.textGrey,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => onNavigate('qr-scanner'),
+                      icon: const Icon(Icons.qr_code_scanner, color: MerchantColors.gold, size: 20),
+                      label: Text(
+                        AppLocalizations.of(context)!.scan,
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.w600,
+                          color: MerchantColors.gold,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: MerchantColors.gold),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: () => onNavigate('discovery'),
+                      icon: const Icon(Icons.explore_outlined, color: MerchantColors.gold, size: 20),
+                      label: Text(
+                        'Découvrir',
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.w600,
+                          color: MerchantColors.gold,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: MerchantColors.gold),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: MerchantColors.gold
+                  .withValues(alpha: MerchantColors.goldBorderAlpha),
+              width: 1,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _QuickAction(
+              icon: Icons.qr_code_rounded,
+              label: l10n.scan,
+              onTap: () => onNavigate('qr-scanner'),
+            ),
+            _QuickAction(
+              icon: Icons.star_border,
+              label: l10n.loyaltyLabel,
+              onTap: () => onNavigate('loyalty'),
+            ),
+            _QuickAction(
+              icon: Icons.card_giftcard_outlined,
+              label: l10n.offers,
+              onTap: () => onNavigate('discovery'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPromotions(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final promotionsAsync = ref.watch(clientHomePromotionsProvider);
+    final merchantsAsync = ref.watch(clientHomeMerchantsProvider);
+    final merchants = merchantsAsync.valueOrNull ?? [];
+    final merchantNames = {
+      for (final m in merchants) m.id: (m.displayName ?? m.name),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                l10n.activePromotions,
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.textGrey,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              TextButton(
+                onPressed: () => onNavigate('discovery'),
+                child: Text(
+                  l10n.seeAll,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantColors.gold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          promotionsAsync.when(
+            data: (promotions) {
+              if (promotions.isEmpty) {
+                return Text(
+                  'Aucune promotion pour le moment',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: MerchantColors.textLightGrey,
+                  ),
+                );
+              }
+              return Column(
+                children: promotions
+                    .map((promo) => _buildPromoRow(
+                          context,
+                          promo,
+                          merchantNames[promo.merchantId] ?? promo.subtitle,
+                          promo.merchantId,
+                        ))
+                    .toList(),
+              );
+            },
+            loading: () => const SizedBox(
+              height: 24,
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: MerchantColors.gold,
+                  ),
+                ),
+              ),
+            ),
+            error: (_, __) => Text(
+              'Aucune promotion',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: MerchantColors.textLightGrey,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromoRow(
+    BuildContext context,
+    Promotion promo,
+    String storeName,
+    String? merchantId,
+  ) {
+    final now = DateTime.now();
+    final daysLeft = promo.dateTo.isAfter(now)
+        ? promo.dateTo.difference(now).inDays
+        : 0;
+    final expiresText = daysLeft > 0 ? '$daysLeft jours' : 'Expiré';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            if (merchantId != null && onStoreSelect != null) {
+              onStoreSelect!(merchantId);
+            } else {
+              onNavigate('store-profile');
+            }
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: MerchantColors.gold.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.local_offer_outlined,
+                    color: MerchantColors.gold,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        promo.title,
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: MerchantColors.textWhite,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        storeName.isNotEmpty ? storeName : promo.subtitle,
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: MerchantColors.textLightGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: MerchantColors.gold.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    expiresText,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: MerchantColors.gold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -128,296 +625,39 @@ class _QuickActions extends StatelessWidget {
 
 class _QuickAction extends StatelessWidget {
   const _QuickAction({
-    required this.label,
     required this.icon,
-    required this.background,
-    required this.iconColor,
+    required this.label,
     required this.onTap,
   });
 
-  final String label;
   final IconData icon;
-  final Color background;
-  final Color iconColor;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Column(
         children: [
           Container(
-            width: 54,
-            height: 54,
-            decoration:
-                BoxDecoration(color: background, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 26),
-          ),
-          const SizedBox(height: 6),
-          Text(label,
-              style: const TextStyle(color: YColors.muted, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-}
-
-class _Promotions extends StatelessWidget {
-  const _Promotions({required this.onNavigate});
-  final ValueChanged<String> onNavigate;
-
-  static final promos = [
-    {
-      'title': '20% de réduction',
-      'store': 'Café Central',
-      'expires': '2 jours'
-    },
-    {
-      'title': 'Café offert',
-      'store': 'Pâtisserie Délice',
-      'expires': '5 jours'
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                AppLocalizations.of(context)!.activePromotions,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              TextButton(
-                  onPressed: () => onNavigate('discovery'),
-                  child: Text(AppLocalizations.of(context)!.seeAll)),
-            ],
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: MerchantColors.gold, width: 2),
+              color: MerchantColors.gold.withValues(alpha: 0.1),
+            ),
+            child: Icon(icon, color: MerchantColors.gold, size: 26),
           ),
           const SizedBox(height: 8),
-          Column(
-            children: promos
-                .map(
-                  (promo) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Card(
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () => onNavigate('store-profile'),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: YColors.secondary.withAlpha(26),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Icon(Icons.card_giftcard,
-                                        color: YColors.secondary),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(promo['title']!,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium),
-                                      const SizedBox(height: 2),
-                                      Text(promo['store']!,
-                                          style: const TextStyle(
-                                              color: YColors.muted,
-                                              fontSize: 13)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: YColors.secondary.withAlpha(26),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(promo['expires']!,
-                                    style: const TextStyle(
-                                        color: YColors.secondary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Store {
-  final String name;
-  final String category;
-  final int points;
-  final String image;
-  final String distance;
-
-  const _Store({
-    required this.name,
-    required this.category,
-    required this.points,
-    required this.image,
-    required this.distance,
-  });
-}
-
-class _NearbyStores extends StatelessWidget {
-  const _NearbyStores({required this.onNavigate});
-  final ValueChanged<String> onNavigate;
-
-  static const stores = [
-    _Store(
-      name: 'Café Central',
-      category: 'Restaurant',
-      points: 120,
-      image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400',
-      distance: '0.5 km',
-    ),
-    _Store(
-      name: 'Pharmacie El Amane',
-      category: 'Santé',
-      points: 80,
-      image:
-          'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400',
-      distance: '1.2 km',
-    ),
-    _Store(
-      name: 'Pâtisserie Délice',
-      category: 'Boulangerie',
-      points: 45,
-      image:
-          'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=400',
-      distance: '0.8 km',
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Commerces à proximité',
-                  style: Theme.of(context).textTheme.titleMedium),
-              TextButton(
-                  onPressed: () => onNavigate('discovery'),
-                  child: const Text('Tout voir')),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Column(
-            children: stores
-                .map(
-                  (store) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: GestureDetector(
-                      onTap: () => onNavigate('store-profile'),
-                      child: Card(
-                        clipBehavior: Clip.antiAlias,
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 96,
-                              height: 96,
-                              child:
-                                  Image.network(store.image, fit: BoxFit.cover),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(store.name,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleMedium),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                            color: Colors.grey.shade100,
-                                            border: Border.all(
-                                                color: YColors.border),
-                                          ),
-                                          child: Text(store.category,
-                                              style: const TextStyle(
-                                                  fontSize: 12)),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.place,
-                                            size: 14, color: YColors.muted),
-                                        const SizedBox(width: 4),
-                                        Text(store.distance,
-                                            style: const TextStyle(
-                                                color: YColors.muted,
-                                                fontSize: 13)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.star,
-                                            size: 16, color: YColors.secondary),
-                                        const SizedBox(width: 4),
-                                        Text('${store.points} points',
-                                            style: const TextStyle(
-                                                color: YColors.secondary,
-                                                fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              color: MerchantColors.textLightGrey,
+            ),
           ),
         ],
       ),

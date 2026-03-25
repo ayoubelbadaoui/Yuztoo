@@ -80,7 +80,7 @@ void main() {
       expect(firestoreMap['email'], 'test@example.com');
       expect(firestoreMap['phone'], '+33612345678');
       expect(firestoreMap['city'], 'Paris');
-      expect(firestoreMap['status'], 'active');
+      expect(firestoreMap['status'], 'inactive');
     });
 
     test('should include optional fields in Firestore map when present', () {

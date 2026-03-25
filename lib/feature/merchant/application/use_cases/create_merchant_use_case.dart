@@ -100,7 +100,7 @@ class CreateMerchantUseCase {
           categories: categories,
           description: description,
           hours: hours,
-          status: 'active',
+          status: 'inactive',
         );
 
         // Create merchant and link to user atomically

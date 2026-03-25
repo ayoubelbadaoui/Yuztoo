@@ -56,6 +56,12 @@ final authControllerProvider =
 final authStateProvider =
     Provider<AuthState>((ref) => ref.watch(authControllerProvider));
 
+/// Current user ID when authenticated, null otherwise (for client features like followed merchants).
+final currentUserIdProvider = Provider<String?>((ref) {
+  final state = ref.watch(authControllerProvider);
+  return state is Authenticated ? state.user.id : null;
+});
+
 /// Local cache for last selected role (fallback when Firestore role lookup fails).
 final roleCacheServiceProvider = Provider<RoleCacheService>((ref) {
   return RoleCacheService();

@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/storefront.dart';
 import '../domain/entities/business_hours.dart';
+import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../auth/core/application/providers.dart' as auth_providers;
@@ -58,8 +61,10 @@ int _calculateProfileCompletionPercentage({
   
   // Optional fields (60% total) - exclude placeholder text
   if (address != null && address.trim().isNotEmpty && !_isPlaceholderText(address)) percentage += 8;
-  if ((category != null && category.trim().isNotEmpty && !_isPlaceholderText(category)) || 
-      (categories != null && categories.isNotEmpty)) percentage += 8;
+  if ((category != null && category.trim().isNotEmpty && !_isPlaceholderText(category)) ||
+      (categories != null && categories.isNotEmpty)) {
+    percentage += 8;
+  }
   if (description != null && description.trim().isNotEmpty && !_isPlaceholderText(description)) percentage += 8;
   if (websiteUrl != null && websiteUrl.trim().isNotEmpty && !_isPlaceholderText(websiteUrl)) percentage += 6;
   
@@ -82,11 +87,132 @@ int _calculateProfileCompletionPercentage({
   return percentage.clamp(0, 100);
 }
 
-/// Provider for storefront data - loads from merchant repository or cache (demo mode)
+const _defaultBannerUrl =
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuCMRYodi3mrgFiB-D7skoz_Vp4pdzXj6zGVn0N3Watm60Uf5VLLMMzHpaiBGF2f8xoK3OeoNPJBtoFlDotGTh9BhR8zy89eK24Ue4rwsw7MWckotcD2Ypx2cGVsW9LQYT76tPzTR6swqDBJ6bSsLoTNlfj34s2tGy-5SZy7E6RwoEgCSKZ7-wsYce96xmBrVkWA_r1DF8VLijg2sEwEnY4jAjrsaSfJg-KG_nG_MladLXO0IdDyViA27IUSzlcMxvyH6bOUPLWYVyE';
+const _defaultProfileUrl =
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuCTLaEJ8AFxR2p5xuu8yYCmg1wmsql1OrrW2Mqio8J1IsnGB4MF6_3NYEdHwY5NbYxEoNVfkHgwNMryIdgbQlLD-k6-svWARXEhi_tZBVHaeWeDzWhhpRTWrWCYknSBD9rp5doapij1YWZOtkEcSzTDF216pCPAeVpAKQDjK6by8js_8zoJVnI__u6bK7FieD_JITXKM8WBEl5JDapR2AstyymOncoJyekOyuFrv89NauGC1QgK60yymBCwCVg72naKuzJs9eK_WgI';
+
+Storefront _storefrontFromMerchant(Merchant merchant) {
+  final bannerImageUrl = merchant.bannerUrl ?? _defaultBannerUrl;
+  final profileImageUrl = merchant.logoUrl ?? _defaultProfileUrl;
+  final merchantName = merchant.displayName ?? merchant.name;
+  final businessActivity = (merchant.categories != null &&
+          merchant.categories!.isNotEmpty)
+      ? merchant.categories!.join(', ')
+      : (merchant.description ?? 'Activité du commerce');
+
+  final completionPercentage = _calculateProfileCompletionPercentage(
+    name: merchant.name,
+    email: merchant.email,
+    phone: merchant.phone,
+    city: merchant.city,
+    address: merchant.address,
+    categories: merchant.categories,
+    description: merchant.description,
+    websiteUrl: merchant.websiteUrl,
+    bannerImageUrl: bannerImageUrl,
+    profileImageUrl: profileImageUrl,
+  );
+
+  return Storefront(
+    id: merchant.id,
+    merchantName: merchantName,
+    businessActivity: businessActivity,
+    bannerImageUrl: bannerImageUrl,
+    profileImageUrl: profileImageUrl,
+    isVerified: true,
+    isPublished: merchant.status == 'active',
+    profileCompletionPercentage: completionPercentage,
+    weeklyViews: 0,
+    weeklyViewsChange: 0.0,
+    newsContent: merchant.description,
+    newsImageUrls: merchant.newsImageUrls ?? const [],
+    phone: merchant.phone,
+    address: merchant.address,
+    websiteUrl: merchant.websiteUrl,
+    hours: merchant.hours,
+    rappelsAutoClientValidation: merchant.rappelsAutoClientValidation ?? true,
+    rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation ?? true,
+    rappelsMonthlyConnectedClients: merchant.rappelsMonthlyConnectedClients,
+    rappelsMonthlyValidatedPassages: merchant.rappelsMonthlyValidatedPassages,
+  );
+}
+
+Storefront? _storefrontFromCachedProfile(
+  Map<String, String?> cachedData,
+  String userId,
+) {
+  if (cachedData['userId'] != userId || cachedData['name'] == null) {
+    return null;
+  }
+
+  final businessActivity = cachedData['category'] ??
+      cachedData['description'] ??
+      'Activité du commerce';
+
+  final bannerPath = cachedData['bannerImagePath'];
+  final profilePath = cachedData['profileImagePath'];
+  final bannerUrl = bannerPath != null && bannerPath.isNotEmpty
+      ? 'file://$bannerPath'
+      : _defaultBannerUrl;
+  final profileUrl = profilePath != null && profilePath.isNotEmpty
+      ? 'file://$profilePath'
+      : _defaultProfileUrl;
+
+  Map<String, dynamic>? hoursFromCache;
+  final rawHours = cachedData['hoursJson'];
+  if (rawHours != null && rawHours.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(rawHours);
+      if (decoded is Map<String, dynamic>) {
+        hoursFromCache = decoded;
+      }
+    } catch (_) {}
+  }
+
+  final completionPercentage = _calculateProfileCompletionPercentage(
+    name: cachedData['name'],
+    email: cachedData['email'],
+    phone: cachedData['phone'],
+    city: cachedData['city'],
+    address: cachedData['address'],
+    category: cachedData['category'],
+    description: cachedData['description'],
+    websiteUrl: cachedData['websiteUrl'],
+    bannerImagePath: bannerPath,
+    profileImagePath: profilePath,
+    bannerImageUrl: bannerUrl,
+    profileImageUrl: profileUrl,
+  );
+
+  return Storefront(
+    id: 'cached-$userId',
+    merchantName: cachedData['name'] ?? 'Nom du commerce',
+    businessActivity: businessActivity,
+    bannerImageUrl: bannerUrl,
+    profileImageUrl: profileUrl,
+    isVerified: true,
+    isPublished: false,
+    profileCompletionPercentage: completionPercentage,
+    weeklyViews: 0,
+    weeklyViewsChange: 0.0,
+    newsContent: cachedData['description'],
+    newsImageUrls: const [],
+    phone: cachedData['phone'],
+    address: cachedData['address'],
+    websiteUrl: cachedData['websiteUrl'],
+    hours: hoursFromCache,
+    rappelsAutoClientValidation: true,
+    rappelsAutoPassageValidation: true,
+    rappelsMonthlyConnectedClients: 0,
+    rappelsMonthlyValidatedPassages: 0,
+  );
+}
+
+/// Provider for storefront data — Firestore first, then local cache (offline / demo).
 final storefrontProvider = FutureProvider<Storefront?>((ref) async {
   final authState = ref.watch(auth_providers.authStateProvider);
-  
-  // Only load if user is authenticated
+
   if (authState is! Authenticated) {
     return null;
   }
@@ -95,111 +221,17 @@ final storefrontProvider = FutureProvider<Storefront?>((ref) async {
   final cacheService = ref.read(merchant_providers.merchantProfileCacheServiceProvider);
   final merchantRepo = ref.read(merchantRepositoryProvider);
 
-  // Try cache first (demo mode)
-  final cachedData = await cacheService.loadProfile();
-  if (cachedData['userId'] == userId && cachedData['name'] != null) {
-    // Convert cached data to Storefront
-    // Use category if available, otherwise use description, otherwise default
-    final businessActivity = cachedData['category'] ?? 
-                           cachedData['description'] ?? 
-                           'Activité du commerce';
-    
-    // Use cached image paths if available, otherwise use default URLs
-    final bannerPath = cachedData['bannerImagePath'];
-    final profilePath = cachedData['profileImagePath'];
-    final bannerUrl = bannerPath != null && bannerPath.isNotEmpty
-        ? 'file://$bannerPath'
-        : 'https://lh3.googleusercontent.com/aida-public/AB6AXuCMRYodi3mrgFiB-D7skoz_Vp4pdzXj6zGVn0N3Watm60Uf5VLLMMzHpaiBGF2f8xoK3OeoNPJBtoFlDotGTh9BhR8zy89eK24Ue4rwsw7MWckotcD2Ypx2cGVsW9LQYT76tPzTR6swqDBJ6bSsLoTNlfj34s2tGy-5SZy7E6RwoEgCSKZ7-wsYce96xmBrVkWA_r1DF8VLijg2sEwEnY4jAjrsaSfJg-KG_nG_MladLXO0IdDyViA27IUSzlcMxvyH6bOUPLWYVyE';
-    final profileUrl = profilePath != null && profilePath.isNotEmpty
-        ? 'file://$profilePath'
-        : 'https://lh3.googleusercontent.com/aida-public/AB6AXuCTLaEJ8AFxR2p5xuu8yYCmg1wmsql1OrrW2Mqio8J1IsnGB4MF6_3NYEdHwY5NbYxEoNVfkHgwNMryIdgbQlLD-k6-svWARXEhi_tZBVHaeWeDzWhhpRTWrWCYknSBD9rp5doapij1YWZOtkEcSzTDF216pCPAeVpAKQDjK6by8js_8zoJVnI__u6bK7FieD_JITXKM8WBEl5JDapR2AstyymOncoJyekOyuFrv89NauGC1QgK60yymBCwCVg72naKuzJs9eK_WgI';
-    
-    // Calculate accurate completion percentage
-    final completionPercentage = _calculateProfileCompletionPercentage(
-      name: cachedData['name'],
-      email: cachedData['email'],
-      phone: cachedData['phone'],
-      city: cachedData['city'],
-      address: cachedData['address'],
-      category: cachedData['category'],
-      description: cachedData['description'],
-      websiteUrl: cachedData['websiteUrl'],
-      bannerImagePath: bannerPath,
-      profileImagePath: profilePath,
-      bannerImageUrl: bannerUrl,
-      profileImageUrl: profileUrl,
-    );
-    
-    return Storefront(
-      id: 'cached-${userId}',
-      merchantName: cachedData['name'] ?? 'Nom du commerce',
-      businessActivity: businessActivity,
-      bannerImageUrl: bannerUrl,
-      profileImageUrl: profileUrl,
-      isVerified: true,
-      profileCompletionPercentage: completionPercentage,
-      weeklyViews: 0,
-      weeklyViewsChange: 0.0,
-      phone: cachedData['phone'],
-      address: cachedData['address'],
-      websiteUrl: cachedData['websiteUrl'],
-      hours: null,
-      rappelsAutoClientValidation: true,
-      rappelsAutoPassageValidation: true,
-    );
+  final merchantResult = await merchantRepo.getMerchantByOwnerUid(userId);
+  final fromFirestore = merchantResult.fold(
+    (_) => null as Merchant?,
+    (m) => m,
+  );
+  if (fromFirestore != null) {
+    return _storefrontFromMerchant(fromFirestore);
   }
 
-  // Fallback: Try Firestore (may fail due to permission-denied, that's OK)
-  final merchantResult = await merchantRepo.getMerchantByOwnerUid(userId);
-  return merchantResult.fold(
-    (_) {
-      // Firestore failed - return null (storefront will show empty state)
-      return null;
-    },
-    (merchant) {
-      if (merchant == null) {
-        return null;
-      }
-      
-      const defaultBannerUrl = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCMRYodi3mrgFiB-D7skoz_Vp4pdzXj6zGVn0N3Watm60Uf5VLLMMzHpaiBGF2f8xoK3OeoNPJBtoFlDotGTh9BhR8zy89eK24Ue4rwsw7MWckotcD2Ypx2cGVsW9LQYT76tPzTR6swqDBJ6bSsLoTNlfj34s2tGy-5SZy7E6RwoEgCSKZ7-wsYce96xmBrVkWA_r1DF8VLijg2sEwEnY4jAjrsaSfJg-KG_nG_MladLXO0IdDyViA27IUSzlcMxvyH6bOUPLWYVyE';
-      const defaultProfileUrl = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCTLaEJ8AFxR2p5xuu8yYCmg1wmsql1OrrW2Mqio8J1IsnGB4MF6_3NYEdHwY5NbYxEoNVfkHgwNMryIdgbQlLD-k6-svWARXEhi_tZBVHaeWeDzWhhpRTWrWCYknSBD9rp5doapij1YWZOtkEcSzTDF216pCPAeVpAKQDjK6by8js_8zoJVnI__u6bK7FieD_JITXKM8WBEl5JDapR2AstyymOncoJyekOyuFrv89NauGC1QgK60yymBCwCVg72naKuzJs9eK_WgI';
-
-      final bannerImageUrl = merchant.bannerUrl ?? defaultBannerUrl;
-      final profileImageUrl = merchant.logoUrl ?? defaultProfileUrl;
-      final merchantName = merchant.displayName ?? merchant.name;
-
-      final completionPercentage = _calculateProfileCompletionPercentage(
-        name: merchant.name,
-        email: merchant.email,
-        phone: merchant.phone,
-        city: merchant.city,
-        address: merchant.address,
-        categories: merchant.categories,
-        description: merchant.description,
-        websiteUrl: merchant.websiteUrl,
-        bannerImageUrl: bannerImageUrl,
-        profileImageUrl: profileImageUrl,
-      );
-
-      return Storefront(
-        id: merchant.id,
-        merchantName: merchantName,
-        businessActivity: merchant.categories?.join(', ') ?? merchant.description ?? 'Activité du commerce',
-        bannerImageUrl: bannerImageUrl,
-        profileImageUrl: profileImageUrl,
-        isVerified: true,
-        profileCompletionPercentage: completionPercentage,
-        weeklyViews: 0,
-        weeklyViewsChange: 0.0,
-        phone: merchant.phone,
-        address: merchant.address,
-        websiteUrl: merchant.websiteUrl,
-        hours: merchant.hours,
-        rappelsAutoClientValidation: merchant.rappelsAutoClientValidation ?? true,
-        rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation ?? true,
-      );
-    },
-  );
+  final cachedData = await cacheService.loadProfile();
+  return _storefrontFromCachedProfile(cachedData, userId);
 });
 
 /// Provider for selected tab in storefront navigation

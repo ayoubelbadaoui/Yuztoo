@@ -206,6 +206,38 @@ class FirestoreMerchantRepository implements MerchantRepository {
   }
 
   @override
+  Future<Result<Merchant?>> getMerchantById(String merchantId) async {
+    if (merchantId.isEmpty) {
+      return const Right<MerchantFailure, Merchant?>(null);
+    }
+    try {
+      final doc = await _firestore.collection('merchants').doc(merchantId).get();
+      if (!doc.exists) {
+        return const Right<MerchantFailure, Merchant?>(null);
+      }
+      final merchant = MerchantDto.fromFirestore(doc).toDomain();
+      LoggerService.logInfo(
+        'Merchant retrieved by ID',
+        context: {'merchantId': merchantId},
+      );
+      return Right<MerchantFailure, Merchant?>(merchant);
+    } catch (e, st) {
+      LoggerService.logError(
+        'Error getting merchant by ID',
+        error: e,
+        stackTrace: st,
+        context: {'merchantId': merchantId},
+      );
+      return Left<MerchantFailure, Merchant?>(
+        MerchantNetworkFailure(
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<Unit>> linkExistingMerchantToUser({
     required String merchantId,
     required String userId,
@@ -324,6 +356,8 @@ class FirestoreMerchantRepository implements MerchantRepository {
     String? address,
     String? websiteUrl,
     String? bannerUrl,
+    List<String>? newsImageUrls,
+    String? status,
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
@@ -367,6 +401,12 @@ class FirestoreMerchantRepository implements MerchantRepository {
       }
       if (bannerUrl != null) {
         updateData['banner_url'] = bannerUrl;
+      }
+      if (newsImageUrls != null) {
+        updateData['news_image_urls'] = newsImageUrls;
+      }
+      if (status != null) {
+        updateData['status'] = status;
       }
       if (hours != null) {
         updateData['hours'] = hours;
@@ -441,6 +481,122 @@ class FirestoreMerchantRepository implements MerchantRepository {
       return Left<MerchantFailure, Merchant>(
         MerchantUnexpectedFailure(
           message: 'Could not save storefront / Impossible d\'enregistrer la vitrine',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('merchants')
+          .where('status', isEqualTo: 'active')
+          .orderBy('updated_at', descending: true)
+          .limit(limit)
+          .get();
+
+      final merchants = querySnapshot.docs
+          .map((doc) => MerchantDto.fromFirestore(doc).toDomain())
+          .toList();
+
+      LoggerService.logInfo(
+        'List merchants for client home',
+        context: {'count': merchants.length, 'limit': limit},
+      );
+      return Right<MerchantFailure, List<Merchant>>(merchants);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError(
+        'Firebase error listing merchants',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code},
+      );
+      if (e.code == 'permission-denied') {
+        return const Left<MerchantFailure, List<Merchant>>(
+          MerchantUnexpectedFailure(
+            message: 'Permission denied reading merchants / Permission refusée.',
+          ),
+        );
+      }
+      return Left<MerchantFailure, List<Merchant>>(
+        MerchantNetworkFailure(cause: e, stackTrace: st),
+      );
+    } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error listing merchants',
+        error: e,
+        stackTrace: st,
+      );
+      return Left<MerchantFailure, List<Merchant>>(
+        MerchantUnexpectedFailure(
+          message: 'Unable to load merchants / Impossible de charger les commerces',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  static const int _whereInLimit = 10;
+
+  @override
+  Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async {
+    if (ids.isEmpty) {
+      return const Right<MerchantFailure, List<Merchant>>([]);
+    }
+    final distinctIds = ids.toSet().toList();
+    try {
+      final all = <Merchant>[];
+      for (var i = 0; i < distinctIds.length; i += _whereInLimit) {
+        final chunk = distinctIds.skip(i).take(_whereInLimit).toList();
+        final snapshot = await _firestore
+            .collection('merchants')
+            .where(FieldPath.documentId, whereIn: chunk)
+            .get();
+        final merchants = snapshot.docs
+            .map((doc) => MerchantDto.fromFirestore(doc).toDomain())
+            .where((m) => m.status == 'active')
+            .toList();
+        all.addAll(merchants);
+      }
+      // Preserve order of [ids] where possible
+      final byId = {for (final m in all) m.id: m};
+      final ordered = <Merchant>[];
+      for (final id in ids) {
+        final m = byId[id];
+        if (m != null && !ordered.any((e) => e.id == m.id)) {
+          ordered.add(m);
+        }
+      }
+      for (final m in all) {
+        if (!ordered.any((e) => e.id == m.id)) ordered.add(m);
+      }
+      LoggerService.logInfo(
+        'getMerchantsByIds',
+        context: {'requested': ids.length, 'found': ordered.length},
+      );
+      return Right<MerchantFailure, List<Merchant>>(ordered);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError(
+        'Firebase error getMerchantsByIds',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code},
+      );
+      if (e.code == 'permission-denied') {
+        return const Right<MerchantFailure, List<Merchant>>([]);
+      }
+      return Left<MerchantFailure, List<Merchant>>(
+        MerchantNetworkFailure(cause: e, stackTrace: st),
+      );
+    } catch (e, st) {
+      LoggerService.logError('Error getMerchantsByIds', error: e, stackTrace: st);
+      return Left<MerchantFailure, List<Merchant>>(
+        MerchantUnexpectedFailure(
+          message: 'Impossible de charger les commerces',
           cause: e,
           stackTrace: st,
         ),

@@ -33,34 +33,37 @@ class ComposeSection extends StatelessWidget {
           const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: MerchantColors.navyCard,
               borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              border: Border.all(
+                color: MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+                width: 1,
+              ),
             ),
             child: TextField(
               controller: controller,
               maxLines: 4,
               minLines: 3,
               maxLength: 200,
+              cursorColor: MerchantColors.gold,
               style: GoogleFonts.outfit(
-                  fontSize: 14, color: const Color(0xFF333333)),
+                fontSize: 14,
+                color: MerchantColors.textLightGrey,
+              ),
               decoration: InputDecoration(
                 hintText: isEditing
                     ? 'Modifiez votre notification...'
                     : 'Écrivez votre notification ici...',
                 hintStyle: GoogleFonts.outfit(
-                    fontSize: 14, color: const Color(0xFFAAAAAA)),
+                  fontSize: 14,
+                  color: MerchantColors.textGrey,
+                ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 counterStyle: GoogleFonts.outfit(
                   fontSize: 11,
-                  color: const Color(0xFF999999),
+                  color: MerchantColors.textGrey,
                 ),
               ),
             ),

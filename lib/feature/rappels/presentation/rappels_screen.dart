@@ -41,10 +41,27 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
             _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 24),
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).padding.bottom + 80,
+                ),
                 child: Column(
                   children: [
-                    const RappelsClientsSection(),
+                    storefrontAsync.when(
+                      data: (storefront) => RappelsClientsSection(
+                        connectedClientsThisMonth:
+                            storefront?.rappelsMonthlyConnectedClients ?? 0,
+                        validatedPassagesThisMonth:
+                            storefront?.rappelsMonthlyValidatedPassages ?? 0,
+                      ),
+                      loading: () => const RappelsClientsSection(
+                        connectedClientsThisMonth: 0,
+                        validatedPassagesThisMonth: 0,
+                      ),
+                      error: (_, __) => const RappelsClientsSection(
+                        connectedClientsThisMonth: 0,
+                        validatedPassagesThisMonth: 0,
+                      ),
+                    ),
                     const RappelsProductSection(),
                     storefrontAsync.when(
                       data: (storefront) {

@@ -8,6 +8,9 @@ import '../../core/application/providers.dart' as auth_core;
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../core/shared/widgets/app_logo.dart';
 import '../../../../types.dart';
+import '../domain/signup_roles_map.dart';
+import '../../../../core/shared/constants/merchant_colors.dart';
+import 'constants/signup_constants.dart';
 import 'utils/phone_formatter.dart';
 
 class OTPScreen extends ConsumerStatefulWidget {
@@ -56,15 +59,6 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   bool _otpBlocked = false;
   String? _otpUnavailableMessage;
   Timer? _timer;
-
-  // Colors - Match signup screen dark theme
-  static const Color bgDark1 = Color(0xFF0F1A29);
-  static const Color bgDark2 = Color(0xFF111A2A);
-  static const Color primaryGold = Color(0xFFD4A017);
-  static const Color textLight = Color(0xFFF5F5F5);
-  static const Color textGrey = Color(0xFFB0B0B0);
-  static const Color borderColor = Color(0xFF2A3F5F);
-  static const Color errorRed = Color(0xFFE74C3C);
 
   @override
   void initState() {
@@ -288,12 +282,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   Future<void> _createFirestoreProfile(String userId) async {
     // Use user ID from created user (after OTP verification)
 
-    // Build roles map based on widget.role
-    final Map<String, bool> roles = {
-      'client': widget.role == UserRole.client,
-      'merchant': widget.role == UserRole.merchant,
-      'provider': false, // Not used in signup flow
-    };
+    // Client = client only. Merchant = merchant + provider + client (see signup_roles_map).
+    final Map<String, bool> roles = signupRolesMap(widget.role);
 
     final createUserDocUseCase = ref.read(createUserDocumentProvider);
     final createResult = await createUserDocUseCase.call(
@@ -317,7 +307,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
         }
       },
       (_) async {
-        // Firestore profile created successfully
+        // Firestore profile created successfully — align cache with signup intent (client vs merchant).
+        try {
+          await ref.read(auth_core.roleCacheServiceProvider).saveLastSelectedRole(widget.role);
+        } catch (_) {}
         // Verify the write by reading it back once to ensure eventual consistency
         // This is the proper way to handle Firestore's eventual consistency
         if (mounted) {
@@ -397,10 +390,11 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: bgDark1, // Same color as background
-        statusBarIconBrightness: Brightness.light, // Light icons for dark background
-        statusBarBrightness: Brightness.dark, // For iOS
-        systemNavigationBarColor: bgDark1, // Same color as background
+        // Match LoadingScreen system chrome
+        statusBarColor: MerchantColors.bgHeader,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: MerchantColors.bgMain,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: PopScope(
@@ -412,32 +406,32 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           }
         },
         child: Scaffold(
-          backgroundColor: bgDark1,
-        body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  onPressed: _handleBack,
-                  icon: const Icon(Icons.arrow_back),
-                  color: const Color(0xFFBF8719),
-                  iconSize: 24,
-                ),
-              ),
-              _buildLogoSection(),
-              const SizedBox(height: 32), // 8pt grid: section break
-              _buildOTPFields(),
-              const SizedBox(height: 40), // 8pt grid: larger gap after OTP
-              _buildResendButton(),
+          backgroundColor: MerchantColors.bgMain,
+          body: SafeArea(
+            child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          onPressed: _handleBack,
+                          icon: const Icon(Icons.arrow_back),
+                          color: SignupConstants.primaryGold,
+                          iconSize: 24,
+                        ),
+                      ),
+                      _buildLogoSection(),
+                      const SizedBox(height: 32), // 8pt grid: section break
+                      _buildOTPFields(),
+                      const SizedBox(height: 40), // 8pt grid: larger gap after OTP
+                      _buildResendButton(),
             ],
           ),
         ),
+          ),
         ),
-      ),
       ),
     );
   }
@@ -454,7 +448,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           size: logoSize,
           fallback: Icon(
             Icons.location_on,
-            color: primaryGold,
+            color: SignupConstants.primaryGold,
             size: logoSize * 0.4,
           ),
         ),
@@ -463,7 +457,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           'Vérification',
           style: TextStyle(
             fontSize: 18,
-            color: textLight,
+            color: SignupConstants.textLight,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -473,7 +467,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           text: TextSpan(
             style: const TextStyle(
               fontSize: 14,
-              color: textGrey,
+              color: SignupConstants.textGrey,
               height: 1.5,
             ),
             children: [
@@ -481,7 +475,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
               TextSpan(
                 text: PhoneFormatter.formatPhoneForDisplay(widget.phone),
                 style: const TextStyle(
-                  color: primaryGold,
+                  color: SignupConstants.primaryGold,
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
                 ),
@@ -500,17 +494,17 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             minimumSize: const Size(180, 40),
-            foregroundColor: primaryGold,
+            foregroundColor: SignupConstants.primaryGold,
           ),
           child: Text(
             'Numéro incorrect ?',
             style: TextStyle(
               fontSize: 13,
-              color: _isVerifying ? textGrey.withValues(alpha: 0.6) : primaryGold,
+              color: _isVerifying ? SignupConstants.textGrey.withValues(alpha: 0.6) : SignupConstants.primaryGold,
               fontWeight: FontWeight.w600,
               decoration: TextDecoration.underline,
               decorationColor:
-                  _isVerifying ? textGrey.withValues(alpha: 0.6) : primaryGold,
+                  _isVerifying ? SignupConstants.textGrey.withValues(alpha: 0.6) : SignupConstants.primaryGold,
             ),
           ),
         ),
@@ -519,14 +513,14 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: errorRed.withValues(alpha: 0.1),
+              color: SignupConstants.errorRed.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: errorRed.withValues(alpha: 0.3), width: 1),
+              border: Border.all(color: SignupConstants.errorRed.withValues(alpha: 0.3), width: 1),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, color: errorRed, size: 18),
+                const Icon(Icons.error_outline, color: SignupConstants.errorRed, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -534,7 +528,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 13,
-                      color: errorRed,
+                      color: SignupConstants.errorRed,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -591,9 +585,9 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
                       keyboardType: TextInputType.number,
                       textInputAction:
                           index == 5 ? TextInputAction.done : TextInputAction.next,
-                      cursorColor: primaryGold,
+                      cursorColor: SignupConstants.primaryGold,
                       style: const TextStyle(
-                        color: textLight,
+                        color: SignupConstants.textLight,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -616,22 +610,22 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
                       decoration: InputDecoration(
                         counterText: '',
                         filled: true,
-                        fillColor: bgDark2,
+                        fillColor: SignupConstants.bgDark2,
                         contentPadding: const EdgeInsets.symmetric(vertical: 18),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              const BorderSide(color: borderColor, width: 1),
+                              const BorderSide(color: SignupConstants.borderColor, width: 1),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              const BorderSide(color: borderColor, width: 1),
+                              const BorderSide(color: SignupConstants.borderColor, width: 1),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
-                            color: primaryGold,
+                            color: SignupConstants.primaryGold,
                             width: 2,
                           ),
                         ),
@@ -650,7 +644,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2.5,
-              valueColor: AlwaysStoppedAnimation<Color>(primaryGold),
+              valueColor: AlwaysStoppedAnimation<Color>(SignupConstants.primaryGold),
             ),
           ),
         ],
@@ -664,14 +658,14 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
         TextButton(
           onPressed: (_canResend && !_isVerifying) ? _handleResend : null,
           style: TextButton.styleFrom(
-            foregroundColor: _canResend ? primaryGold : textGrey,
+            foregroundColor: _canResend ? SignupConstants.primaryGold : SignupConstants.textGrey,
           ),
           child: Text(
             _canResend
                 ? 'Renvoyer le code'
                 : 'Renvoyer le code (${_resendTimer}s)',
             style: TextStyle(
-              color: _canResend ? primaryGold : textGrey,
+              color: _canResend ? SignupConstants.primaryGold : SignupConstants.textGrey,
               fontSize: 14,
             ),
           ),

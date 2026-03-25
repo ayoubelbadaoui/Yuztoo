@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -217,10 +218,18 @@ class _StorefrontEditProfileScreenState
       _loadImageFilesFromState(state);
     });
 
-    return Scaffold(
-      backgroundColor: StorefrontColors.backgroundLight,
-      appBar: AppBar(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: StorefrontColors.backgroundLight,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: StorefrontColors.backgroundLight,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: Scaffold(
         backgroundColor: StorefrontColors.backgroundLight,
+        appBar: AppBar(
+          backgroundColor: StorefrontColors.backgroundLight,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -292,8 +301,8 @@ class _StorefrontEditProfileScreenState
               style: ElevatedButton.styleFrom(
                 backgroundColor: StorefrontColors.primaryGold,
                 foregroundColor: StorefrontColors.navyDark,
-                elevation: 10,
-                shadowColor: StorefrontColors.primaryGold.withValues(alpha: 0.25),
+                elevation: 0,
+                shadowColor: Colors.transparent,
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(999),
@@ -481,6 +490,7 @@ class _StorefrontEditProfileScreenState
             ],
           ),
         ),
+      ),
       ),
     );
   }

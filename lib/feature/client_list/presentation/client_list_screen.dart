@@ -43,6 +43,9 @@ class ClientListScreen extends StatelessWidget {
             _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).padding.bottom + 80,
+                ),
                 child: Column(
                   children: [
                     const ClientSearchBar(),

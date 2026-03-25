@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Local cache for merchant profile data (demo mode).
@@ -17,6 +19,7 @@ class MerchantProfileCacheService {
   static const _keyProfileImagePath = '${_keyPrefix}profile_image_path';
   static const _keyWebsiteUrl = '${_keyPrefix}website_url';
   static const _keyUserId = '${_keyPrefix}user_id';
+  static const _keyHoursJson = '${_keyPrefix}hours_json';
 
   /// Save merchant profile data to local cache
   Future<void> saveProfile({
@@ -31,6 +34,7 @@ class MerchantProfileCacheService {
     String? bannerImagePath,
     String? profileImagePath,
     String? websiteUrl,
+    Map<String, dynamic>? hoursJson,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await Future.wait([
@@ -45,6 +49,10 @@ class MerchantProfileCacheService {
       if (bannerImagePath != null && bannerImagePath.trim().isNotEmpty) prefs.setString(_keyBannerImagePath, bannerImagePath.trim()) else prefs.remove(_keyBannerImagePath),
       if (profileImagePath != null && profileImagePath.trim().isNotEmpty) prefs.setString(_keyProfileImagePath, profileImagePath.trim()) else prefs.remove(_keyProfileImagePath),
       if (websiteUrl != null && websiteUrl.trim().isNotEmpty) prefs.setString(_keyWebsiteUrl, websiteUrl.trim()) else prefs.remove(_keyWebsiteUrl),
+      if (hoursJson != null && hoursJson.isNotEmpty)
+        prefs.setString(_keyHoursJson, jsonEncode(hoursJson))
+      else
+        prefs.remove(_keyHoursJson),
     ]);
   }
 
@@ -63,6 +71,7 @@ class MerchantProfileCacheService {
       'bannerImagePath': prefs.getString(_keyBannerImagePath),
       'profileImagePath': prefs.getString(_keyProfileImagePath),
       'websiteUrl': prefs.getString(_keyWebsiteUrl),
+      'hoursJson': prefs.getString(_keyHoursJson),
     };
   }
 
@@ -88,6 +97,7 @@ class MerchantProfileCacheService {
       prefs.remove(_keyBannerImagePath),
       prefs.remove(_keyProfileImagePath),
       prefs.remove(_keyWebsiteUrl),
+      prefs.remove(_keyHoursJson),
     ]);
   }
 }

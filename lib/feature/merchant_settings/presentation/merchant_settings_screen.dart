@@ -47,7 +47,9 @@ class _MerchantSettingsScreenState
             _buildHeader(),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 24),
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).padding.bottom + 80,
+                ),
                 child: Column(
                   children: [
                     _buildDescriptionSection(),

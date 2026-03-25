@@ -13,6 +13,7 @@ import '../entities/user_profile_basics.dart';
 /// - phone: String (required)
 /// - city: String (required)
 /// - roles: Map<String, bool> (required) - {"client": bool, "merchant": bool, "provider": bool}
+///   Signup: client-only users have only client=true; merchants get client+merchant+provider=true.
 /// - merchant_id: String? (nullable, set when merchant completes onboarding)
 /// - status: String (default: "active")
 /// - onboarding: Map<String, bool> (default: {"merchant": false})

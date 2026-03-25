@@ -16,15 +16,18 @@ class Merchant extends Equatable {
     this.categories,
     this.description,
     this.hours,
-    this.status = 'active',
+    this.status = 'inactive',
     this.createdAt,
     this.updatedAt,
     this.displayName,
     this.logoUrl,
     this.websiteUrl,
     this.bannerUrl,
+    this.newsImageUrls,
     this.rappelsAutoClientValidation,
     this.rappelsAutoPassageValidation,
+    this.rappelsMonthlyConnectedClients = 0,
+    this.rappelsMonthlyValidatedPassages = 0,
   });
 
   /// Unique identifier for the merchant document
@@ -69,13 +72,22 @@ class Merchant extends Equatable {
   /// Banner image URL from Firebase Storage (optional)
   final String? bannerUrl;
 
+  /// Actualite image URLs for storefront slider (optional)
+  final List<String>? newsImageUrls;
+
   /// Rappels: auto-validate new clients (default true)
   final bool? rappelsAutoClientValidation;
 
   /// Rappels: auto-validate passage (default true)
   final bool? rappelsAutoPassageValidation;
 
-  /// Merchant status (default: 'active')
+  /// Rappels: clients connectés ce mois (agrégat Firestore, défaut 0)
+  final int rappelsMonthlyConnectedClients;
+
+  /// Rappels: passages validés ce mois (agrégat Firestore, défaut 0)
+  final int rappelsMonthlyValidatedPassages;
+
+  /// Merchant visibility: `active` = en ligne, `inactive` = hors ligne (défaut)
   final String status;
 
   /// Timestamp when the merchant was created
@@ -103,8 +115,11 @@ class Merchant extends Equatable {
         logoUrl,
         websiteUrl,
         bannerUrl,
+        newsImageUrls,
         rappelsAutoClientValidation,
         rappelsAutoPassageValidation,
+        rappelsMonthlyConnectedClients,
+        rappelsMonthlyValidatedPassages,
       ];
 
   /// Creates a copy of the merchant with updated fields
@@ -126,8 +141,11 @@ class Merchant extends Equatable {
     String? logoUrl,
     String? websiteUrl,
     String? bannerUrl,
+    List<String>? newsImageUrls,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    int? rappelsMonthlyConnectedClients,
+    int? rappelsMonthlyValidatedPassages,
   }) {
     return Merchant(
       id: id ?? this.id,
@@ -147,10 +165,15 @@ class Merchant extends Equatable {
       logoUrl: logoUrl ?? this.logoUrl,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       bannerUrl: bannerUrl ?? this.bannerUrl,
+      newsImageUrls: newsImageUrls ?? this.newsImageUrls,
       rappelsAutoClientValidation:
           rappelsAutoClientValidation ?? this.rappelsAutoClientValidation,
       rappelsAutoPassageValidation:
           rappelsAutoPassageValidation ?? this.rappelsAutoPassageValidation,
+      rappelsMonthlyConnectedClients:
+          rappelsMonthlyConnectedClients ?? this.rappelsMonthlyConnectedClients,
+      rappelsMonthlyValidatedPassages:
+          rappelsMonthlyValidatedPassages ?? this.rappelsMonthlyValidatedPassages,
     );
   }
 

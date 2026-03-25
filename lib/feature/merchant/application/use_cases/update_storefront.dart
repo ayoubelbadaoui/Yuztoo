@@ -33,6 +33,8 @@ class UpdateStorefront {
   /// [phone] - Business phone (optional)
   /// [address] - Business address (optional)
   /// [websiteUrl] - Website URL (optional)
+  /// [newsImageUrls] - Actualite slider image URLs (optional)
+  /// [status] - Merchant visibility status ('active'/'inactive')
   /// [hours] - Business hours map (optional)
   ///
   /// Returns Result<Merchant> - Updated merchant on success, failure on error
@@ -46,6 +48,8 @@ class UpdateStorefront {
     String? phone,
     String? address,
     String? websiteUrl,
+    List<String>? newsImageUrls,
+    String? status,
     Map<String, dynamic>? hours,
   }) async {
     if (merchantId.isEmpty) {
@@ -130,6 +134,8 @@ class UpdateStorefront {
       address: address,
       websiteUrl: websiteUrl,
       bannerUrl: bannerUrl,
+      newsImageUrls: newsImageUrls,
+      status: status,
       hours: hours,
     );
 
