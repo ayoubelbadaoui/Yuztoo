@@ -46,10 +46,10 @@ void main() {
       expect(minimalMerchant.categories, isNull);
       expect(minimalMerchant.description, isNull);
       expect(minimalMerchant.hours, isNull);
-      expect(minimalMerchant.status, 'active'); // default value
+      expect(minimalMerchant.status, 'inactive'); // default: hors ligne
     });
 
-    test('should have default status as active', () {
+    test('should have default status as inactive (hors ligne)', () {
       const merchant = Merchant(
         id: 'merchant-1',
         ownerUid: 'user-1',
@@ -59,7 +59,7 @@ void main() {
         city: 'Paris',
       );
 
-      expect(merchant.status, 'active');
+      expect(merchant.status, 'inactive');
     });
 
     test('should validate required fields correctly', () {

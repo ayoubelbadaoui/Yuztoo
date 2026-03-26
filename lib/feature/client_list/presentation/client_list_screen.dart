@@ -27,14 +27,6 @@ class ClientListScreen extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onClientSelect;
 
-  // ── dummy data ──
-  static const _clients = [
-    _ClientData(
-      name: 'M Guyomar Pascal',
-      subtitle: 'Conseiller Yuztoo pour bien démarrer',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -51,16 +43,13 @@ class ClientListScreen extends StatelessWidget {
             _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).padding.bottom + 80,
+                ),
                 child: Column(
                   children: [
                     const ClientSearchBar(),
-                    ..._clients.map(
-                      (c) => ClientItemCard(
-                        name: c.name,
-                        subtitle: c.subtitle,
-                        onTap: onClientSelect,
-                      ),
-                    ),
+                    // Client list will be loaded from Firestore/backend when available
                     const ClientInfoBox(),
                     const ClientQrBox(),
                   ],
@@ -106,12 +95,4 @@ class ClientListScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-// ── dummy model ─────────────────────────────────────────────────────────────
-
-class _ClientData {
-  const _ClientData({required this.name, required this.subtitle});
-  final String name;
-  final String subtitle;
 }

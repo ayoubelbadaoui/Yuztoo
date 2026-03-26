@@ -47,7 +47,11 @@ class MessagesScreen extends StatelessWidget {
         ),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).padding.bottom + 80,
+            ),
             itemCount: conversations.length,
             itemBuilder: (context, index) {
               final conv = conversations[index];

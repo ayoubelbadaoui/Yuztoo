@@ -26,7 +26,7 @@ class LoadingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
-        statusBarColor: MerchantColors.bgHeader,
+        statusBarColor: MerchantColors.bgMain,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
         systemNavigationBarColor: MerchantColors.bgMain,

@@ -6,7 +6,17 @@ import 'rappels_section_header.dart';
 
 /// "Nouveaux clients et Passage" section of the Rappels screen.
 class RappelsClientsSection extends StatelessWidget {
-  const RappelsClientsSection({super.key});
+  const RappelsClientsSection({
+    super.key,
+    required this.connectedClientsThisMonth,
+    required this.validatedPassagesThisMonth,
+  });
+
+  /// Clients connectés ce mois (Firestore `rappels_monthly_connected_clients`).
+  final int connectedClientsThisMonth;
+
+  /// Passages validés ce mois (Firestore `rappels_monthly_validated_passages`).
+  final int validatedPassagesThisMonth;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +51,10 @@ class RappelsClientsSection extends StatelessWidget {
   }
 
   Widget _buildClientsRow() {
+    final previewCount = connectedClientsThisMonth > 4
+        ? 4
+        : connectedClientsThisMonth;
+
     return Wrap(
       spacing: 12,
       runSpacing: 12,
@@ -59,8 +73,7 @@ class RappelsClientsSection extends StatelessWidget {
             child: Icon(Icons.emoji_events, color: MerchantColors.gold, size: 26),
           ),
         ),
-        // 4 client avatars
-        ...List.generate(4, (_) => _avatar()),
+        ...List.generate(previewCount, (_) => _avatar()),
         // Confirm button
         ElevatedButton(
           onPressed: () {},
@@ -121,9 +134,9 @@ class RappelsClientsSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          _statItem('12 clients connectés'),
+          _statItem('$connectedClientsThisMonth clients connectés'),
           const SizedBox(height: 4),
-          _statItem('8 passages validés'),
+          _statItem('$validatedPassagesThisMonth passages validés'),
         ],
       ),
     );

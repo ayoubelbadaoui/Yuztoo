@@ -1,24 +1,245 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/domain/core/result.dart';
 import '../domain/entities/storefront.dart';
 import '../domain/entities/business_hours.dart';
+import '../../merchant/domain/entities/merchant.dart';
+import '../../merchant/infrastructure/merchant_repository_provider.dart';
+import '../../merchant/application/providers.dart' as merchant_providers;
+import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../auth/core/application/state/auth_state.dart';
 
-/// Provider for storefront data
-/// In a real implementation, this would fetch from a repository
-final storefrontProvider = Provider<Storefront>((ref) {
-  // Mock data - in real app, this would come from a use case that calls a repository
-  return const Storefront(
-    id: 'storefront-1',
-    merchantName: 'Nom du commerce',
-    businessActivity: 'Activité du commerce',
-    bannerImageUrl:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuCMRYodi3mrgFiB-D7skoz_Vp4pdzXj6zGVn0N3Watm60Uf5VLLMMzHpaiBGF2f8xoK3OeoNPJBtoFlDotGTh9BhR8zy89eK24Ue4rwsw7MWckotcD2Ypx2cGVsW9LQYT76tPzTR6swqDBJ6bSsLoTNlfj34s2tGy-5SZy7E6RwoEgCSKZ7-wsYce96xmBrVkWA_r1DF8VLijg2sEwEnY4jAjrsaSfJg-KG_nG_MladLXO0IdDyViA27IUSzlcMxvyH6bOUPLWYVyE',
-    profileImageUrl:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuCTLaEJ8AFxR2p5xuu8yYCmg1wmsql1OrrW2Mqio8J1IsnGB4MF6_3NYEdHwY5NbYxEoNVfkHgwNMryIdgbQlLD-k6-svWARXEhi_tZBVHaeWeDzWhhpRTWrWCYknSBD9rp5doapij1YWZOtkEcSzTDF216pCPAeVpAKQDjK6by8js_8zoJVnI__u6bK7FieD_JITXKM8WBEl5JDapR2AstyymOncoJyekOyuFrv89NauGC1QgK60yymBCwCVg72naKuzJs9eK_WgI',
-    isVerified: true,
-    profileCompletionPercentage: 10,
-    weeklyViews: 248,
-    weeklyViewsChange: 12.0,
+/// Check if a value is a placeholder/default text (DDD: domain logic)
+bool _isPlaceholderText(String? value) {
+  if (value == null || value.trim().isEmpty) return true;
+  final trimmed = value.trim();
+  return trimmed == 'Décrivez votre activité en quelques lignes.' ||
+         trimmed == '+33 6 12 34 56 78' ||
+         trimmed == 'www.votresite.com' ||
+         trimmed == 'Votre adresse' ||
+         trimmed == 'Nom du commerce' ||
+         trimmed.isEmpty;
+}
+
+/// Calculate profile completion percentage based on filled fields (DDD: domain logic)
+/// 
+/// Required fields (40%):
+/// - name: 10%
+/// - email: 10%
+/// - phone: 10%
+/// - city: 10%
+/// 
+/// Optional fields (60%):
+/// - address: 8%
+/// - category: 8%
+/// - description: 8%
+/// - websiteUrl: 6%
+/// - banner image: 15%
+/// - profile image: 15%
+int _calculateProfileCompletionPercentage({
+  required String? name,
+  required String? email,
+  required String? phone,
+  required String? city,
+  String? address,
+  String? category,
+  List<String>? categories,
+  String? description,
+  String? websiteUrl,
+  String? bannerImagePath,
+  String? profileImagePath,
+  String? bannerImageUrl,
+  String? profileImageUrl,
+}) {
+  int percentage = 0;
+  
+  // Required fields (40% total) - exclude placeholder text
+  if (name != null && name.trim().isNotEmpty && !_isPlaceholderText(name)) percentage += 10;
+  if (email != null && email.trim().isNotEmpty && !_isPlaceholderText(email)) percentage += 10;
+  if (phone != null && phone.trim().isNotEmpty && !_isPlaceholderText(phone)) percentage += 10;
+  if (city != null && city.trim().isNotEmpty && !_isPlaceholderText(city)) percentage += 10;
+  
+  // Optional fields (60% total) - exclude placeholder text
+  if (address != null && address.trim().isNotEmpty && !_isPlaceholderText(address)) percentage += 8;
+  if ((category != null && category.trim().isNotEmpty && !_isPlaceholderText(category)) ||
+      (categories != null && categories.isNotEmpty)) {
+    percentage += 8;
+  }
+  if (description != null && description.trim().isNotEmpty && !_isPlaceholderText(description)) percentage += 8;
+  if (websiteUrl != null && websiteUrl.trim().isNotEmpty && !_isPlaceholderText(websiteUrl)) percentage += 6;
+  
+  // Check for images (banner and profile) - images count as completed
+  // Image is valid if: has local file path OR has URL that's not default placeholder
+  final hasBannerImage = (bannerImagePath != null && bannerImagePath.trim().isNotEmpty) ||
+                         (bannerImageUrl != null && 
+                          bannerImageUrl.trim().isNotEmpty && 
+                          !bannerImageUrl.contains('aida-public') &&
+                          (bannerImageUrl.startsWith('file://') || bannerImageUrl.startsWith('http'))); // Custom image
+  final hasProfileImage = (profileImagePath != null && profileImagePath.trim().isNotEmpty) ||
+                          (profileImageUrl != null && 
+                           profileImageUrl.trim().isNotEmpty && 
+                           !profileImageUrl.contains('aida-public') &&
+                           (profileImageUrl.startsWith('file://') || profileImageUrl.startsWith('http'))); // Custom image
+  
+  if (hasBannerImage) percentage += 15;
+  if (hasProfileImage) percentage += 15;
+  
+  return percentage.clamp(0, 100);
+}
+
+const _defaultBannerUrl =
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuCMRYodi3mrgFiB-D7skoz_Vp4pdzXj6zGVn0N3Watm60Uf5VLLMMzHpaiBGF2f8xoK3OeoNPJBtoFlDotGTh9BhR8zy89eK24Ue4rwsw7MWckotcD2Ypx2cGVsW9LQYT76tPzTR6swqDBJ6bSsLoTNlfj34s2tGy-5SZy7E6RwoEgCSKZ7-wsYce96xmBrVkWA_r1DF8VLijg2sEwEnY4jAjrsaSfJg-KG_nG_MladLXO0IdDyViA27IUSzlcMxvyH6bOUPLWYVyE';
+const _defaultProfileUrl =
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuCTLaEJ8AFxR2p5xuu8yYCmg1wmsql1OrrW2Mqio8J1IsnGB4MF6_3NYEdHwY5NbYxEoNVfkHgwNMryIdgbQlLD-k6-svWARXEhi_tZBVHaeWeDzWhhpRTWrWCYknSBD9rp5doapij1YWZOtkEcSzTDF216pCPAeVpAKQDjK6by8js_8zoJVnI__u6bK7FieD_JITXKM8WBEl5JDapR2AstyymOncoJyekOyuFrv89NauGC1QgK60yymBCwCVg72naKuzJs9eK_WgI';
+
+Storefront _storefrontFromMerchant(Merchant merchant) {
+  final bannerImageUrl = merchant.bannerUrl ?? _defaultBannerUrl;
+  final profileImageUrl = merchant.logoUrl ?? _defaultProfileUrl;
+  final merchantName = merchant.displayName ?? merchant.name;
+  final businessActivity = (merchant.categories != null &&
+          merchant.categories!.isNotEmpty)
+      ? merchant.categories!.join(', ')
+      : (merchant.description ?? 'Activité du commerce');
+
+  final completionPercentage = _calculateProfileCompletionPercentage(
+    name: merchant.name,
+    email: merchant.email,
+    phone: merchant.phone,
+    city: merchant.city,
+    address: merchant.address,
+    categories: merchant.categories,
+    description: merchant.description,
+    websiteUrl: merchant.websiteUrl,
+    bannerImageUrl: bannerImageUrl,
+    profileImageUrl: profileImageUrl,
   );
+
+  return Storefront(
+    id: merchant.id,
+    merchantName: merchantName,
+    businessActivity: businessActivity,
+    bannerImageUrl: bannerImageUrl,
+    profileImageUrl: profileImageUrl,
+    isVerified: true,
+    isPublished: merchant.status == 'active',
+    profileCompletionPercentage: completionPercentage,
+    weeklyViews: 0,
+    weeklyViewsChange: 0.0,
+    newsContent: merchant.description,
+    newsImageUrls: merchant.newsImageUrls ?? const [],
+    phone: merchant.phone,
+    address: merchant.address,
+    websiteUrl: merchant.websiteUrl,
+    hours: merchant.hours,
+    rappelsAutoClientValidation: merchant.rappelsAutoClientValidation ?? true,
+    rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation ?? true,
+    rappelsMonthlyConnectedClients: merchant.rappelsMonthlyConnectedClients,
+    rappelsMonthlyValidatedPassages: merchant.rappelsMonthlyValidatedPassages,
+  );
+}
+
+Storefront? _storefrontFromCachedProfile(
+  Map<String, String?> cachedData,
+  String userId,
+) {
+  if (cachedData['userId'] != userId || cachedData['name'] == null) {
+    return null;
+  }
+
+  final businessActivity = cachedData['category'] ??
+      cachedData['description'] ??
+      'Activité du commerce';
+
+  final bannerPath = cachedData['bannerImagePath'];
+  final profilePath = cachedData['profileImagePath'];
+  final bannerUrl = bannerPath != null && bannerPath.isNotEmpty
+      ? 'file://$bannerPath'
+      : _defaultBannerUrl;
+  final profileUrl = profilePath != null && profilePath.isNotEmpty
+      ? 'file://$profilePath'
+      : _defaultProfileUrl;
+
+  Map<String, dynamic>? hoursFromCache;
+  final rawHours = cachedData['hoursJson'];
+  if (rawHours != null && rawHours.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(rawHours);
+      if (decoded is Map<String, dynamic>) {
+        hoursFromCache = decoded;
+      }
+    } catch (_) {}
+  }
+
+  final completionPercentage = _calculateProfileCompletionPercentage(
+    name: cachedData['name'],
+    email: cachedData['email'],
+    phone: cachedData['phone'],
+    city: cachedData['city'],
+    address: cachedData['address'],
+    category: cachedData['category'],
+    description: cachedData['description'],
+    websiteUrl: cachedData['websiteUrl'],
+    bannerImagePath: bannerPath,
+    profileImagePath: profilePath,
+    bannerImageUrl: bannerUrl,
+    profileImageUrl: profileUrl,
+  );
+
+  return Storefront(
+    id: 'cached-$userId',
+    merchantName: cachedData['name'] ?? 'Nom du commerce',
+    businessActivity: businessActivity,
+    bannerImageUrl: bannerUrl,
+    profileImageUrl: profileUrl,
+    isVerified: true,
+    isPublished: false,
+    profileCompletionPercentage: completionPercentage,
+    weeklyViews: 0,
+    weeklyViewsChange: 0.0,
+    newsContent: cachedData['description'],
+    newsImageUrls: const [],
+    phone: cachedData['phone'],
+    address: cachedData['address'],
+    websiteUrl: cachedData['websiteUrl'],
+    hours: hoursFromCache,
+    rappelsAutoClientValidation: true,
+    rappelsAutoPassageValidation: true,
+    rappelsMonthlyConnectedClients: 0,
+    rappelsMonthlyValidatedPassages: 0,
+  );
+}
+
+/// Provider for storefront data — Firestore first, then local cache (offline / demo).
+final storefrontProvider = FutureProvider<Storefront?>((ref) async {
+  final authState = ref.watch(auth_providers.authStateProvider);
+
+  if (authState is! Authenticated) {
+    return null;
+  }
+
+  final userId = authState.user.id;
+  final cacheService = ref.read(merchant_providers.merchantProfileCacheServiceProvider);
+  final merchantRepo = ref.read(merchantRepositoryProvider);
+
+  final results = await Future.wait([
+    merchantRepo.getMerchantByOwnerUid(userId),
+    cacheService.loadProfile(),
+  ]);
+
+  final merchantResult = results[0] as Result<Merchant?>;
+  final cachedData = results[1] as Map<String, String?>;
+
+  final fromFirestore = merchantResult.fold(
+    (_) => null as Merchant?,
+    (m) => m,
+  );
+  if (fromFirestore != null) {
+    return _storefrontFromMerchant(fromFirestore);
+  }
+
+  return _storefrontFromCachedProfile(cachedData, userId);
 });
 
 /// Provider for selected tab in storefront navigation
@@ -168,6 +389,11 @@ class BusinessHoursNotifier extends StateNotifier<BusinessHours> {
       sunday: state.sunday,
       hasExceptionalClosure: enabled,
     );
+  }
+
+  /// Load state from Firestore map (e.g. when storefront loads with saved hours).
+  void loadFromMap(Map<String, dynamic>? map) {
+    state = BusinessHours.fromMap(map);
   }
 }
 

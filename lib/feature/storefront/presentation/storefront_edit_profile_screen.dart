@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../application/profile_edit_state.dart';
+import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
 
 class StorefrontEditProfileScreen extends ConsumerStatefulWidget {
@@ -19,8 +24,11 @@ class _StorefrontEditProfileScreenState
   final _phoneCtrl = TextEditingController();
   final _webCtrl = TextEditingController();
   final _addrCtrl = TextEditingController();
+  final _picker = ImagePicker();
 
   bool _controllersInitialized = false;
+  File? _bannerImageFile;
+  File? _profileImageFile;
 
   @override
   void dispose() {
@@ -33,13 +41,170 @@ class _StorefrontEditProfileScreenState
   }
 
   void _ensureControllers(StorefrontProfileEditState s) {
-    if (_controllersInitialized) return;
-    _nameCtrl.text = s.businessName;
-    _descCtrl.text = s.description;
-    _phoneCtrl.text = s.phoneNumber;
-    _webCtrl.text = s.websiteUrl;
-    _addrCtrl.text = s.address;
-    _controllersInitialized = true;
+    // Always sync controllers with state (in case state updates after initialization)
+    try {
+      if (_nameCtrl.text != s.businessName) _nameCtrl.text = s.businessName;
+      if (_descCtrl.text != s.description) _descCtrl.text = s.description;
+      if (_phoneCtrl.text != s.phoneNumber) _phoneCtrl.text = s.phoneNumber;
+      if (_webCtrl.text != s.websiteUrl) _webCtrl.text = s.websiteUrl;
+      if (_addrCtrl.text != s.address) _addrCtrl.text = s.address;
+      _controllersInitialized = true;
+    } catch (e) {
+      // If setting text fails, use safe fallbacks
+      if (!_controllersInitialized) {
+        try {
+          _nameCtrl.text = s.businessName.isNotEmpty ? s.businessName : '';
+          _descCtrl.text = s.description.isNotEmpty ? s.description : '';
+          _phoneCtrl.text = s.phoneNumber.isNotEmpty ? s.phoneNumber : '';
+          _webCtrl.text = s.websiteUrl.isNotEmpty ? s.websiteUrl : '';
+          _addrCtrl.text = s.address.isNotEmpty ? s.address : '';
+          _controllersInitialized = true;
+        } catch (_) {
+          // Final fallback - set empty strings
+          _nameCtrl.text = '';
+          _descCtrl.text = '';
+          _phoneCtrl.text = '';
+          _webCtrl.text = '';
+          _addrCtrl.text = '';
+          _controllersInitialized = true;
+        }
+      }
+    }
+  }
+
+  /// Get valid category value that exists in options list (DDD: presentation layer validation)
+  String _getValidCategoryValue(String category, List<String> options) {
+    if (category.isEmpty) {
+      return options.isNotEmpty ? options.first : 'Artisan Jewelry';
+    }
+    // Check if category exists in options
+    if (options.contains(category)) {
+      return category;
+    }
+    // Fallback to first option if category doesn't match
+    return options.isNotEmpty ? options.first : 'Artisan Jewelry';
+  }
+
+  /// Load image files from state if they are file paths (DDD: presentation layer handles file loading)
+  void _loadImageFilesFromState(StorefrontProfileEditState state) {
+    // Always check and update if state has changed (for newly picked images)
+    // Load banner image if it's a file path
+    if (state.bannerImageUrl.startsWith('file://')) {
+      try {
+        final path = state.bannerImageUrl.substring(7);
+        final file = File(path);
+        if (file.existsSync() && (_bannerImageFile?.path != file.path)) {
+          if (mounted) {
+            setState(() {
+              _bannerImageFile = file;
+            });
+          }
+        }
+      } catch (_) {
+        // File doesn't exist or path is invalid - ignore
+      }
+    } else if (!state.bannerImageUrl.startsWith('http') && _bannerImageFile != null) {
+      // If URL changed to non-file, clear the file
+      if (mounted) {
+        setState(() {
+          _bannerImageFile = null;
+        });
+      }
+    }
+    
+    // Load profile image if it's a file path
+    if (state.profileImageUrl.startsWith('file://')) {
+      try {
+        final path = state.profileImageUrl.substring(7);
+        final file = File(path);
+        if (file.existsSync() && (_profileImageFile?.path != file.path)) {
+          if (mounted) {
+            setState(() {
+              _profileImageFile = file;
+            });
+          }
+        }
+      } catch (_) {
+        // File doesn't exist or path is invalid - ignore
+      }
+    } else if (!state.profileImageUrl.startsWith('http') && _profileImageFile != null) {
+      // If URL changed to non-file, clear the file
+      if (mounted) {
+        setState(() {
+          _profileImageFile = null;
+        });
+      }
+    }
+  }
+
+  /// Check if a field value is incomplete (empty or placeholder)
+  bool _isFieldIncomplete(String? value) {
+    if (value == null || value.trim().isEmpty) return true;
+    final trimmed = value.trim();
+    return trimmed == 'Décrivez votre activité en quelques lignes.' ||
+           trimmed == '+33 6 12 34 56 78' ||
+           trimmed == 'www.votresite.com' ||
+           trimmed == 'Votre adresse' ||
+           trimmed == 'Nom du commerce';
+  }
+
+  /// Show help dialog (DDD: presentation layer)
+  void _showHelpDialog(String fieldName, String helpText) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: StorefrontColors.primaryGold.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.help_outline,
+                color: StorefrontColors.primaryGold,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                fieldName,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: StorefrontColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          helpText,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            height: 1.4,
+            color: StorefrontColors.textPrimary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'Fermer',
+              style: TextStyle(
+                color: StorefrontColors.primaryGold,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -47,11 +212,24 @@ class _StorefrontEditProfileScreenState
     final state = ref.watch(storefrontProfileEditProvider);
     final notifier = ref.read(storefrontProfileEditProvider.notifier);
     _ensureControllers(state);
+    
+    // Load image files from state if they exist (only once per state change)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadImageFilesFromState(state);
+    });
 
-    return Scaffold(
-      backgroundColor: StorefrontColors.backgroundLight,
-      appBar: AppBar(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: StorefrontColors.backgroundLight,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: StorefrontColors.backgroundLight,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: Scaffold(
         backgroundColor: StorefrontColors.backgroundLight,
+        appBar: AppBar(
+          backgroundColor: StorefrontColors.backgroundLight,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -85,6 +263,29 @@ class _StorefrontEditProfileScreenState
                   : () async {
                       await notifier.save();
                       if (!context.mounted) return;
+                      
+                      // Check for errors
+                      final currentState = ref.read(storefrontProfileEditProvider);
+                      if (currentState.errorMessage != null) {
+                        // Show error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(currentState.errorMessage!),
+                            backgroundColor: Colors.red,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                        // Clear error message
+                        ref.read(storefrontProfileEditProvider.notifier).clearError();
+                        return; // Don't navigate away on error
+                      }
+                      
+                      // Success - invalidate storefront provider to refresh with new data
+                      ref.invalidate(storefrontProvider);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: const Text('Enregistré'),
@@ -100,8 +301,8 @@ class _StorefrontEditProfileScreenState
               style: ElevatedButton.styleFrom(
                 backgroundColor: StorefrontColors.primaryGold,
                 foregroundColor: StorefrontColors.navyDark,
-                elevation: 10,
-                shadowColor: StorefrontColors.primaryGold.withValues(alpha: 0.25),
+                elevation: 0,
+                shadowColor: Colors.transparent,
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(999),
@@ -138,14 +339,42 @@ class _StorefrontEditProfileScreenState
               const SizedBox(height: 12),
               _BannerEditable(
                 imageUrl: state.bannerImageUrl,
-                onTap: () => _showImagePickerSheet(context, title: 'Change Banner'),
+                imageFile: _bannerImageFile,
+                onTap: () => _showImagePickerSheet(context, title: 'Change Banner', isBanner: true),
+                onDelete: (_bannerImageFile != null || (!state.bannerImageUrl.contains('aida-public') && state.bannerImageUrl.isNotEmpty))
+                    ? () async {
+                        setState(() {
+                          _bannerImageFile = null;
+                        });
+                        notifier.setBannerImageUrl('');
+                        // Save immediately to clear from cache
+                        await notifier.save();
+                        if (context.mounted) {
+                          ref.invalidate(storefrontProvider);
+                        }
+                      }
+                    : null,
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   _ProfileEditable(
                     imageUrl: state.profileImageUrl,
-                    onTap: () => _showImagePickerSheet(context, title: 'Profile Photo'),
+                    imageFile: _profileImageFile,
+                    onTap: () => _showImagePickerSheet(context, title: 'Profile Photo', isBanner: false),
+                    onDelete: (_profileImageFile != null || (!state.profileImageUrl.contains('aida-public') && state.profileImageUrl.isNotEmpty))
+                        ? () async {
+                            setState(() {
+                              _profileImageFile = null;
+                            });
+                            notifier.setProfileImageUrl('');
+                            // Save immediately to clear from cache
+                            await notifier.save();
+                            if (context.mounted) {
+                              ref.invalidate(storefrontProvider);
+                            }
+                          }
+                        : null,
                   ),
                   const SizedBox(width: 14),
                   const Expanded(
@@ -181,11 +410,20 @@ class _StorefrontEditProfileScreenState
                 label: 'Business Name',
                 controller: _nameCtrl,
                 onChanged: notifier.setBusinessName,
+                isRequired: true,
+                isIncomplete: _isFieldIncomplete(state.businessName),
+                helpText: 'Le nom de votre commerce est requis. Il sera visible par vos clients.',
+                onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 14),
               _SelectField(
                 label: 'Category',
-                value: state.category.isEmpty ? 'Artisan Jewelry' : state.category,
+                value: _getValidCategoryValue(state.category, const [
+                  'Artisan Jewelry',
+                  'Handmade Decor',
+                  'Fashion Boutique',
+                  'Gourmet Food',
+                ]),
                 options: const [
                   'Artisan Jewelry',
                   'Handmade Decor',
@@ -193,6 +431,10 @@ class _StorefrontEditProfileScreenState
                   'Gourmet Food',
                 ],
                 onChanged: (v) => notifier.setCategory(v ?? ''),
+                isRequired: true,
+                isIncomplete: state.category.isEmpty || _isFieldIncomplete(state.category),
+                helpText: 'Sélectionnez la catégorie qui correspond le mieux à votre activité. Cela aide les clients à vous trouver.',
+                onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 14),
               _MultilineField(
@@ -200,6 +442,10 @@ class _StorefrontEditProfileScreenState
                 controller: _descCtrl,
                 onChanged: notifier.setDescription,
                 minLines: 4,
+                isRequired: false,
+                isIncomplete: _isFieldIncomplete(state.description),
+                helpText: 'Décrivez votre commerce en quelques lignes. Cette description apparaîtra sur votre vitrine.',
+                onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 28),
               const _SectionTitle('Contact Details'),
@@ -210,6 +456,10 @@ class _StorefrontEditProfileScreenState
                 keyboardType: TextInputType.phone,
                 prefixIcon: Icons.call,
                 onChanged: notifier.setPhoneNumber,
+                isRequired: true,
+                isIncomplete: _isFieldIncomplete(state.phoneNumber),
+                helpText: 'Votre numéro de téléphone est requis. Les clients pourront vous contacter directement.',
+                onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 14),
               _Field(
@@ -218,23 +468,35 @@ class _StorefrontEditProfileScreenState
                 keyboardType: TextInputType.url,
                 prefixIcon: Icons.language,
                 onChanged: notifier.setWebsiteUrl,
+                isRequired: false,
+                isIncomplete: _isFieldIncomplete(state.websiteUrl),
+                helpText: 'Ajoutez l\'URL de votre site web si vous en avez un. Cela permet aux clients de découvrir plus d\'informations sur votre commerce.',
+                onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 14),
-              _Field(
+              _AddressField(
                 label: 'Physical Address',
                 controller: _addrCtrl,
-                prefixIcon: Icons.place,
                 onChanged: notifier.setAddress,
+                onPlaceSelected: (address) {
+                  _addrCtrl.text = address;
+                  notifier.setAddress(address);
+                },
+                isRequired: false,
+                isIncomplete: _isFieldIncomplete(state.address),
+                helpText: 'Ajoutez l\'adresse physique de votre commerce. Les clients pourront vous localiser facilement.',
+                onShowHelp: _showHelpDialog,
               ),
             ],
           ),
         ),
       ),
+      ),
     );
   }
 
-  void _showImagePickerSheet(BuildContext context, {required String title}) {
-    showModalBottomSheet(
+  void _showImagePickerSheet(BuildContext context, {required String title, required bool isBanner}) async {
+    final source = await showModalBottomSheet<ImageSource>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -268,12 +530,12 @@ class _StorefrontEditProfileScreenState
                 _PickerOption(
                   icon: Icons.photo_library,
                   label: 'Galerie',
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () => Navigator.of(context).pop(ImageSource.gallery),
                 ),
                 _PickerOption(
                   icon: Icons.camera_alt,
                   label: 'Caméra',
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () => Navigator.of(context).pop(ImageSource.camera),
                 ),
               ],
             ),
@@ -281,6 +543,39 @@ class _StorefrontEditProfileScreenState
         ),
       ),
     );
+
+    if (source == null || !mounted) return;
+
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: isBanner ? 1200 : 800,
+        maxHeight: isBanner ? 600 : 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null && mounted) {
+        final file = File(pickedFile.path);
+        setState(() {
+          if (isBanner) {
+            _bannerImageFile = file;
+            ref.read(storefrontProfileEditProvider.notifier).setBannerImageUrl('file://${file.path}');
+          } else {
+            _profileImageFile = file;
+            ref.read(storefrontProfileEditProvider.notifier).setProfileImageUrl('file://${file.path}');
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la sélection de l\'image: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -303,9 +598,16 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _BannerEditable extends StatelessWidget {
-  const _BannerEditable({required this.imageUrl, required this.onTap});
+  const _BannerEditable({
+    required this.imageUrl,
+    this.imageFile,
+    required this.onTap,
+    this.onDelete,
+  });
   final String imageUrl;
+  final File? imageFile;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -322,26 +624,40 @@ class _BannerEditable extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.grey[200],
-                    child: const Icon(
-                      Icons.image,
-                      size: 42,
-                      color: StorefrontColors.textTertiary,
-                    ),
-                  ),
-                ),
+                // Show local file if available, otherwise show network image
+                imageFile != null
+                    ? Image.file(
+                        imageFile!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.image,
+                            size: 42,
+                            color: StorefrontColors.textTertiary,
+                          ),
+                        ),
+                      )
+                    : Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.image,
+                            size: 42,
+                            color: StorefrontColors.textTertiary,
+                          ),
+                        ),
+                      ),
                 Container(
                   color: StorefrontColors.navyDark.withValues(alpha: 0.4),
-                  child: const Column(
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.image, color: Colors.white),
-                      SizedBox(height: 6),
-                      Text(
+                      const Icon(Icons.image, color: Colors.white),
+                      const SizedBox(height: 6),
+                      const Text(
                         'CHANGE BANNER',
                         style: TextStyle(
                           fontSize: 10,
@@ -353,6 +669,38 @@ class _BannerEditable extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Delete button (only show if image exists)
+                if (onDelete != null && (imageFile != null || (!imageUrl.contains('aida-public') && imageUrl.isNotEmpty)))
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onDelete,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -363,9 +711,16 @@ class _BannerEditable extends StatelessWidget {
 }
 
 class _ProfileEditable extends StatelessWidget {
-  const _ProfileEditable({required this.imageUrl, required this.onTap});
+  const _ProfileEditable({
+    required this.imageUrl,
+    this.imageFile,
+    required this.onTap,
+    this.onDelete,
+  });
   final String imageUrl;
+  final File? imageFile;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -396,18 +751,32 @@ class _ProfileEditable extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[200],
-                      child: const Icon(
-                        Icons.person,
-                        size: 36,
-                        color: StorefrontColors.textTertiary,
-                      ),
-                    ),
-                  ),
+                  // Show local file if available, otherwise show network image
+                  imageFile != null
+                      ? Image.file(
+                          imageFile!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.grey[200],
+                            child: const Icon(
+                              Icons.person,
+                              size: 36,
+                              color: StorefrontColors.textTertiary,
+                            ),
+                          ),
+                        )
+                      : Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.grey[200],
+                            child: const Icon(
+                              Icons.person,
+                              size: 36,
+                              color: StorefrontColors.textTertiary,
+                            ),
+                          ),
+                        ),
                   Container(
                     color: StorefrontColors.navyDark.withValues(alpha: 0.4),
                     child: const Center(
@@ -485,20 +854,26 @@ class _PickerOption extends StatelessWidget {
   }
 }
 
-class _Field extends StatelessWidget {
-  const _Field({
+class _AddressField extends StatelessWidget {
+  const _AddressField({
     required this.label,
     required this.controller,
     required this.onChanged,
-    this.keyboardType,
-    this.prefixIcon,
+    required this.onPlaceSelected,
+    this.isRequired = false,
+    this.helpText,
+    this.isIncomplete = false,
+    this.onShowHelp,
   });
 
   final String label;
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
-  final TextInputType? keyboardType;
-  final IconData? prefixIcon;
+  final ValueChanged<String> onPlaceSelected;
+  final bool isRequired;
+  final String? helpText;
+  final bool isIncomplete;
+  final void Function(String, String)? onShowHelp;
 
   @override
   Widget build(BuildContext context) {
@@ -507,48 +882,339 @@ class _Field extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: StorefrontColors.textSecondary,
-            ),
+          child: Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isIncomplete ? Colors.red : StorefrontColors.textSecondary,
+                ),
+              ),
+              if (isRequired && isIncomplete) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.error_outline, size: 14, color: Colors.red),
+              ],
+              if (helpText != null && onShowHelp != null) ...[
+                const SizedBox(width: 6),
+                Builder(
+                  builder: (context) => GestureDetector(
+                    onTap: () => onShowHelp!(label, helpText!),
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: StorefrontColors.primaryGold.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.help_outline,
+                        size: 12,
+                        color: StorefrontColors.primaryGold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         TextField(
           controller: controller,
-          keyboardType: keyboardType,
-          onChanged: onChanged,
+          readOnly: true,
+          onTap: () => _showGooglePlacesPicker(context),
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: StorefrontColors.textPrimary,
           ),
           decoration: InputDecoration(
-            prefixIcon: prefixIcon == null
-                ? null
-                : Icon(prefixIcon, color: StorefrontColors.textTertiary),
+            prefixIcon: const Icon(Icons.place, color: StorefrontColors.textTertiary),
+            suffixIcon: const Icon(Icons.search, color: StorefrontColors.primaryGold),
+            hintText: 'Appuyez pour rechercher une adresse',
+            hintStyle: const TextStyle(
+              fontSize: 14,
+              color: StorefrontColors.textTertiary,
+            ),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey[200]!),
+              borderSide: BorderSide(
+                color: isIncomplete ? Colors.red.withValues(alpha: 0.5) : Colors.grey[200]!,
+                width: isIncomplete ? 1.5 : 1,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey[200]!),
+              borderSide: BorderSide(
+                color: isIncomplete ? Colors.red.withValues(alpha: 0.5) : Colors.grey[200]!,
+                width: isIncomplete ? 1.5 : 1,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: StorefrontColors.primaryGold,
+              borderSide: BorderSide(
+                color: isIncomplete ? Colors.red : StorefrontColors.primaryGold,
                 width: 2,
               ),
             ),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
+        ),
+      ],
+    );
+  }
+
+  void _showGooglePlacesPicker(BuildContext context) {
+    // Google Places Autocomplete implementation (DDD: presentation layer)
+    // Note: Requires Google Places API key in production
+    final searchController = TextEditingController(text: controller.text);
+    final suggestions = <String>[];
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          void searchPlaces(String query) async {
+            if (query.trim().isEmpty) {
+              setModalState(() => suggestions.clear());
+              return;
+            }
+            // TODO: Call Google Places API for real address suggestions
+            setModalState(() => suggestions.clear());
+          }
+          
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              top: 16,
+              left: 24,
+              right: 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Text(
+                  'Rechercher une adresse',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: StorefrontColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: searchController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Tapez une adresse...',
+                    prefixIcon: const Icon(Icons.search, color: StorefrontColors.primaryGold),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: StorefrontColors.primaryGold,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  onChanged: searchPlaces,
+                  onSubmitted: (value) {
+                    if (value.trim().isNotEmpty) {
+                      controller.text = value.trim();
+                      onPlaceSelected(value.trim());
+                      onChanged(value.trim());
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                if (suggestions.isNotEmpty)
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: suggestions.length,
+                      itemBuilder: (context, index) {
+                        final suggestion = suggestions[index];
+                        return ListTile(
+                          leading: const Icon(Icons.place, color: StorefrontColors.primaryGold),
+                          title: Text(suggestion),
+                          onTap: () {
+                            controller.text = suggestion;
+                            onPlaceSelected(suggestion);
+                            onChanged(suggestion);
+                            Navigator.of(context).pop();
+                          },
+                        );
+                      },
+                    ),
+                  )
+                else if (searchController.text.length > 2)
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  const _Field({
+    required this.label,
+    required this.controller,
+    required this.onChanged,
+    this.keyboardType,
+    this.prefixIcon,
+    this.canClear = true,
+    this.isRequired = false,
+    this.helpText,
+    this.isIncomplete = false,
+    this.onShowHelp,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final TextInputType? keyboardType;
+  final IconData? prefixIcon;
+  final bool canClear;
+  final bool isRequired;
+  final String? helpText;
+  final bool isIncomplete;
+  final void Function(String, String)? onShowHelp;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isIncomplete ? Colors.red : StorefrontColors.textSecondary,
+                ),
+              ),
+              if (isRequired && isIncomplete) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.error_outline, size: 14, color: Colors.red),
+              ],
+              if (helpText != null && onShowHelp != null) ...[
+                const SizedBox(width: 6),
+                Builder(
+                  builder: (context) => GestureDetector(
+                    onTap: () => onShowHelp!(label, helpText!),
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: StorefrontColors.primaryGold.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.help_outline,
+                        size: 12,
+                        color: StorefrontColors.primaryGold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, child) {
+                return TextField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  onChanged: onChanged,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: StorefrontColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    prefixIcon: prefixIcon == null
+                        ? null
+                        : Icon(prefixIcon, color: StorefrontColors.textTertiary),
+                    suffixIcon: canClear && value.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 20, color: StorefrontColors.textTertiary),
+                            onPressed: () {
+                              controller.clear();
+                              onChanged('');
+                            },
+                          )
+                        : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: isIncomplete ? Colors.red.withValues(alpha: 0.5) : Colors.grey[200]!,
+                    width: isIncomplete ? 1.5 : 1,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: isIncomplete ? Colors.red.withValues(alpha: 0.5) : Colors.grey[200]!,
+                    width: isIncomplete ? 1.5 : 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: isIncomplete ? Colors.red : StorefrontColors.primaryGold,
+                    width: 2,
+                  ),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -561,12 +1227,22 @@ class _MultilineField extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     this.minLines = 4,
+    this.canClear = true,
+    this.isRequired = false,
+    this.helpText,
+    this.isIncomplete = false,
+    this.onShowHelp,
   });
 
   final String label;
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final int minLines;
+  final bool canClear;
+  final bool isRequired;
+  final String? helpText;
+  final bool isIncomplete;
+  final void Function(String, String)? onShowHelp;
 
   @override
   Widget build(BuildContext context) {
@@ -575,47 +1251,94 @@ class _MultilineField extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: StorefrontColors.textSecondary,
-            ),
+          child: Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isIncomplete ? Colors.red : StorefrontColors.textSecondary,
+                ),
+              ),
+              if (isRequired && isIncomplete) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.error_outline, size: 14, color: Colors.red),
+              ],
+                  if (helpText != null && onShowHelp != null) ...[
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () => onShowHelp!(label, helpText!),
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: StorefrontColors.primaryGold.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.help_outline,
+                          size: 12,
+                          color: StorefrontColors.primaryGold,
+                        ),
+                      ),
+                    ),
+                  ],
+            ],
           ),
         ),
-        TextField(
-          controller: controller,
-          onChanged: onChanged,
-          minLines: minLines,
-          maxLines: minLines,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: StorefrontColors.textPrimary,
-            height: 1.5,
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey[200]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey[200]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: StorefrontColors.primaryGold,
-                width: 2,
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, child) {
+            return TextField(
+              controller: controller,
+              onChanged: onChanged,
+              minLines: minLines,
+              maxLines: minLines,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: StorefrontColors.textPrimary,
+                height: 1.5,
               ),
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          ),
+              decoration: InputDecoration(
+                suffixIcon: canClear && value.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 20, color: StorefrontColors.textTertiary),
+                        onPressed: () {
+                          controller.clear();
+                          onChanged('');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: isIncomplete ? Colors.red.withValues(alpha: 0.5) : Colors.grey[200]!,
+                    width: isIncomplete ? 1.5 : 1,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: isIncomplete ? Colors.red.withValues(alpha: 0.5) : Colors.grey[200]!,
+                    width: isIncomplete ? 1.5 : 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: isIncomplete ? Colors.red : StorefrontColors.primaryGold,
+                    width: 2,
+                  ),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -628,12 +1351,20 @@ class _SelectField extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.isRequired = false,
+    this.helpText,
+    this.isIncomplete = false,
+    this.onShowHelp,
   });
 
   final String label;
   final String value;
   final List<String> options;
   final ValueChanged<String?> onChanged;
+  final bool isRequired;
+  final String? helpText;
+  final bool isIncomplete;
+  final void Function(String, String)? onShowHelp;
 
   @override
   Widget build(BuildContext context) {
@@ -660,7 +1391,7 @@ class _SelectField extends StatelessWidget {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: value,
+              value: options.contains(value) ? value : (options.isNotEmpty ? options.first : null),
               isExpanded: true,
               icon: const Icon(
                 Icons.expand_more,

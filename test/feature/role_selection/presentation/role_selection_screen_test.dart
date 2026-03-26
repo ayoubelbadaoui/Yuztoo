@@ -16,6 +16,7 @@ void main() {
 
     Widget createTestWidget({UserRole? initialRole}) {
       return MaterialApp(
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: RoleSelectionScreen(
@@ -117,6 +118,8 @@ void main() {
           }
         }
       } else {
+        await tester.ensureVisible(scanButton);
+        await tester.pump();
         await tester.tap(scanButton);
       }
 
@@ -219,6 +222,8 @@ void main() {
       // Step 4: Tap Scanner button
       final scanButton = find.byType(ElevatedButton);
       if (scanButton.evaluate().isNotEmpty) {
+        await tester.ensureVisible(scanButton);
+        await tester.pump();
         await tester.tap(scanButton);
         await tester.pump(const Duration(milliseconds: 2100));
         expect(selectedRole, UserRole.client);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/application/auth_error_mapper.dart';
+import '../../core/application/providers.dart' as auth_providers;
 import '../../core/domain/value_objects/email_address.dart';
 import '../../../../core/utils/cities.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
@@ -11,11 +12,12 @@ import '../application/state/login_flow_state.dart';
 import 'widgets/input_field.dart';
 import 'widgets/forgot_password_dialog.dart';
 import '../../../../../core/shared/widgets/app_logo.dart';
+import '../../../../../core/shared/constants/merchant_colors.dart';
 
-// Dark theme colors matching signup screen
-const Color _bgDark1 = Color(0xFF0F1A29);
-const Color _bgDark2 = Color(0xFF111A2A);
-const Color _primaryGold = Color(0xFFD4A017);
+// Dark theme colors — same as loading / signup (#0E2A44 scaffold + header surfaces)
+const Color _bgDark1 = MerchantColors.bgMain;
+const Color _bgDark2 = MerchantColors.bgHeader;
+const Color _primaryGold = MerchantColors.gold;
 const Color _textLight = Color(0xFFF5F5F5);
 const Color _textGrey = Color(0xFFB0B0B0);
 const Color _borderColor = Color(0xFF2A3F5F);
@@ -455,9 +457,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (previous == null) return;
 
         if (next is LoginFlowSuccess) {
-          // Login successful - userChanges() stream will automatically emit the authenticated user
-          // DO NOT call refreshAuthState() - it cancels and re-subscribes which can cause logout
-          // The stream will naturally emit when Firebase Auth updates
+          // Keep role cache aligned with resolved login (multi-role / single-role).
+          ref.read(auth_providers.roleCacheServiceProvider).saveLastSelectedRole(next.role);
+          // Auth stream already emitted Authenticated; main.dart uses cache + _role for routing.
         } else if (next is LoginFlowError) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(next.failure);
           if (mounted && frenchMessage != null) {
@@ -489,10 +491,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: const SystemUiOverlayStyle(
-          statusBarColor: _bgDark1,
+          statusBarColor: MerchantColors.bgHeader,
           statusBarIconBrightness: Brightness.light,
           statusBarBrightness: Brightness.dark,
-          systemNavigationBarColor: _bgDark1,
+          systemNavigationBarColor: MerchantColors.bgMain,
           systemNavigationBarIconBrightness: Brightness.light,
         ),
         child: PopScope(
@@ -508,34 +510,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: LayoutBuilder(
             builder: (context, constraints) {
               final screenH = constraints.maxHeight;
-              // International standard: Login screens use 15-20% of screen height
-              // Examples: Google (18%), Facebook (16%), Twitter (19%)
-              final logoSize = (screenH * 0.26).clamp(180.0, 260.0);
+              final isClient = widget.role == UserRole.client;
+              // Client: smaller logo + tighter vertical rhythm so the form isn’t pushed down
+              // by a huge spacer (avoid minHeight + Spacer in scroll).
+              final logoSize = isClient
+                  ? (screenH * 0.17).clamp(110.0, 168.0)
+                  : (screenH * 0.24).clamp(170.0, 240.0);
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: screenH),
-                  child: IntrinsicHeight(
-                    child: Column(
+                child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // ── Top safe-area breathing room (8pt grid) ──
-                        const SizedBox(height: 8),
+                        SizedBox(height: isClient ? 4 : 8),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: IconButton(
                             onPressed: widget.onBack,
                             icon: const Icon(Icons.arrow_back),
-                            color: const Color(0xFFBF8719),
+                            color: _primaryGold,
                             iconSize: 24,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                           ),
                         ),
 
-                        // ── Logo Section (8pt grid spacing) ──
-                        const SizedBox(height: 20),
+                        SizedBox(height: isClient ? 8 : 16),
                         AppLogo(
                           size: logoSize,
                           fallback: Text(
@@ -547,7 +547,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24), // logo → title
+                        SizedBox(height: isClient ? 14 : 22),
                         const Text(
                           'Connexion',
                           style: TextStyle(
@@ -556,7 +556,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 8), // title → subtitle
+                        SizedBox(height: isClient ? 6 : 8),
                         Text(
                           widget.role == UserRole.client
                               ? 'Connectez-vous pour découvrir les commerces'
@@ -568,8 +568,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           textAlign: TextAlign.center,
                         ),
 
-                        // ── Form (8pt grid: 32dp section break) ──
-                        const SizedBox(height: 32),
+                        SizedBox(height: isClient ? 20 : 28),
                         Form(
                           key: _formKey,
                           child: Column(
@@ -640,12 +639,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               height: 50,
                               child: FilledButton(
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFFBF8719),
+                                  backgroundColor: _primaryGold,
                                   disabledBackgroundColor: _borderColor,
                                   shape: const RoundedRectangleBorder(
                                     borderRadius: BorderRadius.all(Radius.circular(10)),
                                   ),
-                                  shadowColor: const Color(0xFFBF8719).withValues(alpha: 0.3),
+                                  shadowColor: _primaryGold.withValues(alpha: 0.3),
                                   elevation: isLoading ? 4 : 2,
                                 ),
                                 onPressed: (isLoading || _isLoginSubmitting) ? null : _handleLogin,
@@ -675,23 +674,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
 
-                        // ── Flexible spacer pushes social / footer down ──
-                        const Spacer(),
-
-                        // ── Social login (8pt grid) ──
-                        const SizedBox(height: 40),
+                        SizedBox(height: isClient ? 22 : 32),
                         _buildSocialDivider(),
-                        const SizedBox(height: 24),
+                        SizedBox(height: isClient ? 16 : 22),
                         _buildSocialLoginButtons(),
 
-                        // ── Footer (8pt grid) ──
-                        const SizedBox(height: 32),
+                        SizedBox(height: isClient ? 20 : 28),
                         _buildFooter(),
-                        const SizedBox(height: 32),
+                        SizedBox(height: isClient ? 16 : 28),
                       ],
                     ),
-                  ),
-                ),
               );
             },
         ),

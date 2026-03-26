@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'merchant_onboarding_colors.dart';
-import '../../../merchant_onboarding/domain/entities/merchant_category.dart';
+import '../../domain/entities/merchant_category.dart';
 
 /// Category card widget for merchant onboarding
 class CategoryCard extends StatelessWidget {

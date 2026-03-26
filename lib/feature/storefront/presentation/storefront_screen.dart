@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import '../../../core/presentation/precache_network_images.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
 import 'widgets/banner_section.dart';
@@ -10,8 +13,14 @@ import 'widgets/stats_cards.dart';
 import 'widgets/navigation_tabs.dart';
 import 'widgets/news_section.dart';
 import 'widgets/hours_section.dart';
+import 'widgets/storefront_qr_section.dart';
 import 'storefront_edit_profile_screen.dart';
 import '../application/profile_edit_state.dart';
+import '../domain/entities/storefront.dart';
+import '../../merchant/application/providers.dart' as merchant_providers;
+import '../../storage/application/providers.dart' as storage_providers;
+import '../../auth/core/application/state/auth_state.dart';
+import '../../auth/core/application/providers.dart' as auth_providers;
 
 /// Storefront screen - main UI for merchant storefront management
 class StorefrontScreen extends ConsumerStatefulWidget {
@@ -22,10 +31,95 @@ class StorefrontScreen extends ConsumerStatefulWidget {
 }
 
 class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
+  bool _hoursHydratedFromStorefront = false;
+  bool _isUploadingNewsImage = false;
+  bool _isPublishingToggle = false;
+  String? _precachedImageKey;
+  final _imagePicker = ImagePicker();
+
   @override
   void dispose() {
-    // Don't reset here - let main.dart handle it
     super.dispose();
+  }
+
+  Future<void> _uploadNewsImage(Storefront storefront) async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1400,
+      imageQuality: 86,
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() => _isUploadingNewsImage = true);
+    final merchantId = _merchantIdForStorefront(storefront);
+
+    final uploadResult = await ref.read(storage_providers.uploadNewsImageProvider).call(
+          filePath: picked.path,
+          merchantId: merchantId,
+        );
+
+    final imageUrl = uploadResult.fold((_) => null, (url) => url);
+    if (imageUrl == null) {
+      if (!mounted) return;
+      setState(() => _isUploadingNewsImage = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Échec du téléversement de l\'image')),
+      );
+      return;
+    }
+
+    final updatedUrls = [...storefront.newsImageUrls, imageUrl];
+    final result = await ref.read(merchant_providers.updateStorefrontProvider).call(
+          merchantId: merchantId,
+          newsImageUrls: updatedUrls,
+        );
+
+    result.fold(
+      (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Échec de la sauvegarde du contenu')),
+        );
+      },
+      (_) {
+        ref.invalidate(storefrontProvider);
+      },
+    );
+
+    if (mounted) {
+      setState(() => _isUploadingNewsImage = false);
+    }
+  }
+
+  String _merchantIdForStorefront(Storefront storefront) {
+    final authState = ref.read(auth_providers.authStateProvider);
+    final userId = authState is Authenticated ? authState.user.id : null;
+    final id = storefront.id;
+    if (id.startsWith('cached-')) {
+      return userId ?? id.replaceFirst('cached-', '');
+    }
+    return id;
+  }
+
+  Future<void> _setMerchantPublished(Storefront storefront, bool published) async {
+    if (storefront.isPublished == published) return;
+    final merchantId = _merchantIdForStorefront(storefront);
+    final result = await ref.read(merchant_providers.updateStorefrontProvider).call(
+          merchantId: merchantId,
+          status: published ? 'active' : 'inactive',
+        );
+
+    result.fold(
+      (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de changer la visibilité du commerce')),
+        );
+      },
+      (_) {
+        ref.invalidate(storefrontProvider);
+      },
+    );
   }
 
   void _showImagePickerDialog(BuildContext context, {required bool isBanner}) {
@@ -161,6 +255,16 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     );
   }
 
+  Widget _buildAccueilQrSection(Storefront storefront) {
+    final authState = ref.watch(auth_providers.authStateProvider);
+    final uid = authState is Authenticated ? authState.user.id : null;
+    var merchantId = storefront.id;
+    if (merchantId.startsWith('cached-')) {
+      merchantId = uid ?? merchantId.replaceFirst('cached-', '');
+    }
+    return StorefrontQrSection(merchantId: merchantId);
+  }
+
   // ── header (same structure/spacing as other tab pages, cream colors) ────
 
   Widget _buildHeader() {
@@ -196,7 +300,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final storefront = ref.watch(storefrontProvider);
+    final storefrontAsync = ref.watch(storefrontProvider);
     final activeTab = ref.watch(storefrontTabProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -208,82 +312,286 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
       ),
       child: Scaffold(
         backgroundColor: StorefrontColors.backgroundLight,
-        body: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    // Banner with profile picture
-                    BannerSection(
-                      bannerImageUrl: storefront.bannerImageUrl,
-                      profileImageUrl: storefront.profileImageUrl,
-                      onBannerEdit: () {
-                        _showImagePickerDialog(context, isBanner: true);
-                      },
-                      onProfileEdit: () {
-                        _showImagePickerDialog(context, isBanner: false);
-                      },
-                    ),
-                    const SizedBox(height: 56), // More space after profile picture
-                    // Merchant info
-                    MerchantInfoSection(
-                      merchantName: storefront.merchantName,
-                      businessActivity: storefront.businessActivity,
-                      isVerified: storefront.isVerified,
-                      onEdit: () {
-                        ref
-                            .read(storefrontProfileEditProvider.notifier)
-                            .initializeFrom(storefront);
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const StorefrontEditProfileScreen(),
+        body: storefrontAsync.when(
+          data: (storefront) {
+            if (storefront == null) {
+              // No merchant profile yet - show empty state
+              return Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.store_outlined,
+                            size: 64,
+                            color: StorefrontColors.textSecondary,
                           ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    // Stats cards
-                    StatsCards(
-                      profileCompletionPercentage:
-                          storefront.profileCompletionPercentage,
-                      weeklyViews: storefront.weeklyViews,
-                      weeklyViewsChange: storefront.weeklyViewsChange,
-                    ),
-                    const SizedBox(height: 24),
-                    // Navigation tabs
-                    NavigationTabs(
-                      activeTab: activeTab,
-                      onTabChanged: (tab) {
-                        ref.read(storefrontTabProvider.notifier).state = tab;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    // Content based on active tab
-                    if (activeTab == 'horaires')
-                      const HoursSection()
-                    else if (activeTab == 'accueil' || activeTab == 'actualite')
-                      NewsSection(
-                        content: storefront.newsContent,
-                        onSettings: () {
-                          // Handle settings
-                        },
-                      )
-                    else
-                      NewsSection(
-                        content: storefront.newsContent,
-                        onSettings: () {
-                          // Handle settings
-                        },
+                          const SizedBox(height: 16),
+                          Text(
+                            'Aucun profil commerçant',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: StorefrontColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Créez votre profil pour commencer',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: StorefrontColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
-                    const SizedBox(height: 100), // Space for main app bottom nav
-                  ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // Hydrate business hours from Firestore once when storefront has saved hours
+            if (storefront.hours != null && !_hoursHydratedFromStorefront) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!_hoursHydratedFromStorefront && storefront.hours != null) {
+                  ref.read(businessHoursProvider.notifier).loadFromMap(storefront.hours);
+                  _hoursHydratedFromStorefront = true;
+                  if (mounted) setState(() {});
+                }
+              });
+            }
+
+            final precacheKey =
+                '${storefront.bannerImageUrl}|${storefront.profileImageUrl}|${storefront.newsImageUrls.join(',')}';
+            if (_precachedImageKey != precacheKey) {
+              _precachedImageKey = precacheKey;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                precacheHttpImages(context, [
+                  storefront.bannerImageUrl,
+                  storefront.profileImageUrl,
+                  ...storefront.newsImageUrls,
+                ]);
+              });
+            }
+
+            // Merchant profile exists - show storefront
+            return Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 80,
+                    ),
+                    child: Column(
+                      children: [
+                        // Banner with profile picture
+                        BannerSection(
+                          bannerImageUrl: storefront.bannerImageUrl,
+                          profileImageUrl: storefront.profileImageUrl,
+                          onBannerEdit: () {
+                            _showImagePickerDialog(context, isBanner: true);
+                          },
+                          onProfileEdit: () {
+                            _showImagePickerDialog(context, isBanner: false);
+                          },
+                        ),
+                        const SizedBox(height: 56), // More space after profile picture
+                        // Merchant info
+                        MerchantInfoSection(
+                          merchantName: storefront.merchantName,
+                          businessActivity: storefront.businessActivity,
+                          isVerified: storefront.isVerified,
+                              onEdit: () async {
+                                await ref
+                                    .read(storefrontProfileEditProvider.notifier)
+                                    .initializeFrom(storefront);
+                                if (!context.mounted) return;
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const StorefrontEditProfileScreen(),
+                                  ),
+                                );
+                              },
+                        ),
+                        const SizedBox(height: 24),
+                        // Stats cards
+                        StatsCards(
+                          profileCompletionPercentage:
+                              storefront.profileCompletionPercentage,
+                          weeklyViews: storefront.weeklyViews,
+                          weeklyViewsChange: storefront.weeklyViewsChange,
+                        ),
+                        const SizedBox(height: 24),
+                        // Navigation tabs
+                        NavigationTabs(
+                          activeTab: activeTab,
+                          onTabChanged: (tab) {
+                            ref.read(storefrontTabProvider.notifier).state = tab;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        if (activeTab == 'accueil') ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: StorefrontColors.primaryGold
+                                      .withValues(alpha: 0.28),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Commerce en ligne',
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: StorefrontColors.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _isPublishingToggle
+                                              ? 'Enregistrement sur Firebase…'
+                                              : storefront.isPublished
+                                                  ? 'Votre vitrine est visible par les clients'
+                                                  : 'Hors ligne — invisible sur Yuztoo',
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 13,
+                                            color: StorefrontColors.textSecondary,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (_isPublishingToggle)
+                                    const SizedBox(
+                                      width: 52,
+                                      height: 40,
+                                      child: Center(
+                                        child: SizedBox(
+                                          width: 26,
+                                          height: 26,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: StorefrontColors.primaryGold,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    Switch(
+                                      value: storefront.isPublished,
+                                      onChanged: (v) =>
+                                          _setMerchantPublished(storefront, v),
+                                      activeThumbColor: Colors.white,
+                                      activeTrackColor: StorefrontColors.primaryGold,
+                                      inactiveThumbColor: Colors.white,
+                                      inactiveTrackColor: StorefrontColors.textTertiary
+                                          .withValues(alpha: 0.4),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Content based on active tab
+                        if (activeTab == 'horaires')
+                          const HoursSection()
+                        else if (activeTab == 'accueil')
+                          _buildAccueilQrSection(storefront)
+                        else if (activeTab == 'actualite')
+                          NewsSection(
+                            content: storefront.newsContent,
+                            imageUrls: storefront.newsImageUrls,
+                            isUploading: _isUploadingNewsImage,
+                            showMedia: true,
+                            showUploadButton: true,
+                            onUploadImage: () => _uploadNewsImage(storefront),
+                            onSettings: null,
+                          ),
+                        const SizedBox(height: 100), // Space for main app bottom nav
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => Column(
+            children: [
+              _buildHeader(),
+              const Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          error: (error, stack) => Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: StorefrontColors.textSecondary,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Erreur de chargement',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: StorefrontColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        error.toString(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: StorefrontColors.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

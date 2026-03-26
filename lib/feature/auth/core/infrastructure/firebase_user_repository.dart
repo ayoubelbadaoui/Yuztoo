@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../domain/auth_failure.dart';
+import '../domain/entities/user_profile_basics.dart';
 import '../domain/repositories/user_repository.dart';
 import '../../../../../core/domain/core/either.dart';
 import '../../../../../core/domain/core/result.dart';
@@ -44,6 +45,8 @@ class FirebaseUserRepository implements UserRepository {
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
         'last_login_at': false, // False on creation, updated on sign-in
+        // One-time routing hint: merchant signup opens merchant view on first post-signup login.
+        'force_merchant_next_login': roles['merchant'] == true,
       }, SetOptions(merge: false));
       LoggerService.logInfo('User document created successfully', context: {'uid': uid, 'email': email, 'city': city});
       return const Right<AuthFailure, Unit>(unit);
@@ -188,6 +191,56 @@ class FirebaseUserRepository implements UserRepository {
   }
 
   @override
+  Future<Result<UserProfileBasics?>> getUserProfileBasics(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) {
+        return const Right<AuthFailure, UserProfileBasics?>(null);
+      }
+
+      final data = doc.data();
+      if (data == null) {
+        return const Right<AuthFailure, UserProfileBasics?>(null);
+      }
+
+      final email = (data['email'] as String?)?.trim() ?? '';
+      final phone = (data['phone'] as String?)?.trim() ?? '';
+      final city = (data['city'] as String?)?.trim() ?? '';
+
+      if (email.isEmpty || phone.isEmpty || city.isEmpty) {
+        return const Right<AuthFailure, UserProfileBasics?>(null);
+      }
+
+      return Right<AuthFailure, UserProfileBasics?>(
+        UserProfileBasics(email: email, phone: phone, city: city),
+      );
+    } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied getting user profile basics (non-fatal)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid},
+        );
+        return const Right<AuthFailure, UserProfileBasics?>(null);
+      }
+      LoggerService.logError(
+        'Error getting user profile basics',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
+      return Left<AuthFailure, UserProfileBasics?>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de la récupération du profil utilisateur',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<Unit>> updateUserCity({
     required String uid,
     required String city,
@@ -229,6 +282,108 @@ class FirebaseUserRepository implements UserRepository {
       return Left<AuthFailure, Unit>(
         AuthUnexpectedFailure(
           message: 'Erreur lors de la mise à jour de la ville: ${e.toString()}',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<List<String>>> getConnectedCities(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) {
+        return const Right<AuthFailure, List<String>>([]);
+      }
+      final data = doc.data();
+      if (data == null) {
+        return const Right<AuthFailure, List<String>>([]);
+      }
+      final citiesRaw = data['cities'];
+      if (citiesRaw is List && citiesRaw.isNotEmpty) {
+        final list = citiesRaw
+            .map((e) => e?.toString().trim())
+            .where((s) => s != null && s.isNotEmpty)
+            .cast<String>()
+            .toList();
+        return Right<AuthFailure, List<String>>(list);
+      }
+      final city = (data['city'] as String?)?.trim();
+      if (city != null && city.isNotEmpty) {
+        return Right<AuthFailure, List<String>>([city]);
+      }
+      return const Right<AuthFailure, List<String>>([]);
+    } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied getting connected cities (non-fatal)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid},
+        );
+        return const Right<AuthFailure, List<String>>([]);
+      }
+      LoggerService.logError(
+        'Error getting connected cities',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
+      return Left<AuthFailure, List<String>>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de la récupération des villes',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<Unit>> setConnectedCities({
+    required String uid,
+    required List<String> cities,
+  }) async {
+    try {
+      final trimmed =
+          cities.map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      final updateData = <String, dynamic>{
+        'cities': trimmed,
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+      if (trimmed.isNotEmpty) {
+        updateData['city'] = trimmed.first;
+      }
+      await _firestore.collection('users').doc(uid).update(updateData);
+      LoggerService.logInfo(
+        'Connected cities updated',
+        context: {'uid': uid, 'count': trimmed.length},
+      );
+      return const Right<AuthFailure, Unit>(unit);
+    } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied updating connected cities',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid},
+        );
+        return const Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(
+            message: 'Permission refusée / Permission denied',
+          ),
+        );
+      }
+      LoggerService.logError(
+        'Error updating connected cities',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
+      return Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de l\'enregistrement des villes',
           cause: e,
           stackTrace: st,
         ),
@@ -414,6 +569,11 @@ class FirebaseUserRepository implements UserRepository {
       // Set updated_at (always update on patch)
       updates['updated_at'] = FieldValue.serverTimestamp();
 
+      // Ensure one-time first-login marker exists for legacy docs.
+      if (!data.containsKey('force_merchant_next_login')) {
+        updates['force_merchant_next_login'] = false;
+      }
+
       // Only update if there are changes
       if (updates.isNotEmpty) {
         await _firestore.collection('users').doc(uid).update(updates);
@@ -494,6 +654,35 @@ class FirebaseUserRepository implements UserRepository {
         context: {'uid': uid},
       );
       // On error, assume incomplete (safer default)
+      return const Right<AuthFailure, bool>(false);
+    }
+  }
+
+  @override
+  Future<Result<bool>> consumeForceMerchantNextLogin(String uid) async {
+    try {
+      final userRef = _firestore.collection('users').doc(uid);
+      final shouldForce = await _firestore.runTransaction<bool>((tx) async {
+        final snap = await tx.get(userRef);
+        if (!snap.exists) return false;
+        final data = snap.data();
+        final enabled = data?['force_merchant_next_login'] == true;
+        if (enabled) {
+          tx.update(userRef, {
+            'force_merchant_next_login': false,
+            'updated_at': FieldValue.serverTimestamp(),
+          });
+        }
+        return enabled;
+      });
+      return Right<AuthFailure, bool>(shouldForce);
+    } catch (e, st) {
+      LoggerService.logError(
+        'Error consuming force_merchant_next_login',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
       return const Right<AuthFailure, bool>(false);
     }
   }

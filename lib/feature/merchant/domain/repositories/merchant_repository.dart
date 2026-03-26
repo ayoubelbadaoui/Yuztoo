@@ -35,6 +35,27 @@ abstract class MerchantRepository {
   /// Returns Result<Merchant?> - Merchant if found, null if not found
   Future<Result<Merchant?>> getMerchantByOwnerUid(String ownerUid);
 
+  /// Get merchant by document ID (for client store profile).
+  /// 
+  /// [merchantId] - Firestore document ID of the merchant
+  /// 
+  /// Returns Result<Merchant?> - Merchant if found, null if not found
+  Future<Result<Merchant?>> getMerchantById(String merchantId);
+
+  /// List merchants for client home / discovery (e.g. "Mon carnet").
+  /// 
+  /// [limit] - Max number of merchants to return (default 20)
+  /// 
+  /// Returns Result<List<Merchant>> - List of merchants, ordered by updated_at descending
+  Future<Result<List<Merchant>>> listMerchants({int limit = 20});
+
+  /// List merchants by their document IDs (e.g. for followed merchants).
+  /// 
+  /// [ids] - List of merchant document IDs
+  /// 
+  /// Returns Result<List<Merchant>> - Merchants that exist, in the order of [ids] where possible
+  Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids);
+
   /// Link an existing merchant to a user (recovery for edge case: merchant exists but user not linked).
   /// 
   /// This method handles the edge case where a merchant document exists but the user
@@ -48,6 +69,44 @@ abstract class MerchantRepository {
   Future<Result<Unit>> linkExistingMerchantToUser({
     required String merchantId,
     required String userId,
+  });
+
+  /// Update merchant storefront fields.
+  ///
+  /// Updates display_name, description, categories, logo_url, phone, address,
+  /// website_url, banner_url, and hours in Firestore.
+  ///
+  /// [merchantId] - ID of the merchant to update
+  /// [displayName] - Display name for storefront (optional)
+  /// [description] - Business description (optional)
+  /// [categories] - List of categories (optional)
+  /// [logoUrl] - Logo URL from Firebase Storage (optional)
+  /// [phone] - Business phone (optional)
+  /// [address] - Business address (optional)
+  /// [websiteUrl] - Website URL (optional)
+  /// [bannerUrl] - Banner image URL from Firebase Storage (optional)
+  /// [newsImageUrls] - Actualite slider image URLs (optional)
+  /// [status] - Merchant visibility status ('active' or 'inactive')
+  /// [hours] - Business hours map (optional)
+  /// [rappelsAutoClientValidation] - Rappels: auto-validate new clients (optional)
+  /// [rappelsAutoPassageValidation] - Rappels: auto-validate passage (optional)
+  ///
+  /// Returns Result<Merchant> on success, Result with failure on error
+  Future<Result<Merchant>> updateMerchant({
+    required String merchantId,
+    String? displayName,
+    String? description,
+    List<String>? categories,
+    String? logoUrl,
+    String? phone,
+    String? address,
+    String? websiteUrl,
+    String? bannerUrl,
+    List<String>? newsImageUrls,
+    String? status,
+    Map<String, dynamic>? hours,
+    bool? rappelsAutoClientValidation,
+    bool? rappelsAutoPassageValidation,
   });
 }
 

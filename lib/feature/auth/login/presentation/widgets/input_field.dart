@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-// Dark theme colors matching signup screen
-const Color _bgDark2 = Color(0xFF111A2A);
-const Color _primaryGold = Color(0xFFD4A017);
+import '../../../../../core/shared/constants/merchant_colors.dart';
+
+// Dark theme colors matching signup / loading
+const Color _bgDark2 = MerchantColors.bgHeader;
+const Color _primaryGold = MerchantColors.gold;
 const Color _textLight = Color(0xFFF5F5F5);
 const Color _textGrey = Color(0xFFB0B0B0);
 const Color _borderColor = Color(0xFF2A3F5F);
@@ -100,7 +102,7 @@ class LoginInputField extends StatelessWidget {
                   // Disables platform spellcheck underlines (Android/iOS) when supported.
                   spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
                   autovalidateMode: AutovalidateMode.disabled, // Validation handled by outer FormField
-                  cursorColor: const Color(0xFFBF8719),
+                  cursorColor: _primaryGold,
                   style: TextStyle(
                     color: enabled ? _textLight : _textLight.withValues(alpha: 0.6),
                     fontSize: 14,

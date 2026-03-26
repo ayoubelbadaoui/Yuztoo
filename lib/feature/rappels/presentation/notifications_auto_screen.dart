@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../storefront/application/providers.dart' as storefront_providers;
+import '../application/providers.dart' as rappels_providers;
 import '../domain/entities/active_notification.dart';
 import 'widgets/active_notifications_list.dart';
 import 'widgets/audience_section.dart';
@@ -10,39 +13,25 @@ import 'widgets/compose_section.dart';
 import 'widgets/step_header.dart';
 import 'widgets/trigger_grid.dart';
 
-/// Notifications automatiques screen – thin orchestrator.
-///
-/// Delegates UI to:
-///  • [ComposeSection]  – step 1: write message
-///  • [AudienceSection] – step 2: pick audience
-///  • [TriggerGrid]     – step 3: pick trigger
-///  • [ActiveNotificationsList] – step 4: manage existing
-class NotificationsAutoScreen extends StatefulWidget {
+/// Notifications automatiques screen – all data saved to Firestore.
+class NotificationsAutoScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
 
   const NotificationsAutoScreen({super.key, this.onBack});
 
   @override
-  State<NotificationsAutoScreen> createState() =>
+  ConsumerState<NotificationsAutoScreen> createState() =>
       _NotificationsAutoScreenState();
 }
 
-class _NotificationsAutoScreenState extends State<NotificationsAutoScreen> {
+class _NotificationsAutoScreenState
+    extends ConsumerState<NotificationsAutoScreen> {
   final TextEditingController _textCtrl = TextEditingController();
 
   int _clientSelection = 0;
   int _selectedTrigger = 0;
   int? _editingIndex;
-
-  final List<ActiveNotification> _active = [
-    ActiveNotification(
-        text: 'Bon anniversaire!', trigger: 'Date anniversaire client'),
-    ActiveNotification(
-        text: 'Merci pour votre visite', trigger: 'Visite client détectée'),
-    ActiveNotification(
-        text: 'On ne vous voit plus? A très vite.',
-        trigger: 'Retour d\'un client inactif'),
-  ];
+  ActiveNotification? _editingNotification;
 
   @override
   void dispose() {
@@ -52,6 +41,12 @@ class _NotificationsAutoScreenState extends State<NotificationsAutoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final storefrontAsync = ref.watch(storefront_providers.storefrontProvider);
+    final merchantId = storefrontAsync.value?.id;
+    final notificationsAsync = merchantId != null
+        ? ref.watch(rappels_providers.autoNotificationsProvider(merchantId))
+        : const AsyncValue<List<ActiveNotification>>.data([]);
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -69,29 +64,37 @@ class _NotificationsAutoScreenState extends State<NotificationsAutoScreen> {
                 padding: const EdgeInsets.only(bottom: 32),
                 child: Column(
                   children: [
-                    // Step 1
                     ComposeSection(
                       controller: _textCtrl,
                       isEditing: _editingIndex != null,
                       onCancelEdit: _cancelEdit,
                     ),
-                    // Step 2
                     AudienceSection(
                       selectedIndex: _clientSelection,
                       onChanged: (v) =>
                           setState(() => _clientSelection = v),
                     ),
-                    // Step 3
                     _buildTriggerSection(),
-                    // Action button
-                    _buildActionButton(),
-                    // Step 4
-                    ActiveNotificationsList(
-                      notifications: _active,
-                      onToggle: (i, v) =>
-                          setState(() => _active[i].isEnabled = v),
-                      onEdit: _edit,
-                      onDelete: _delete,
+                    _buildActionButton(merchantId),
+                    notificationsAsync.when(
+                      data: (notifications) => ActiveNotificationsList(
+                        notifications: notifications,
+                        onToggle: (i, v) => _onToggle(merchantId!, notifications[i], v),
+                        onEdit: (i) => _edit(notifications, i),
+                        onDelete: (i) => _delete(merchantId!, notifications, i),
+                      ),
+                      loading: () => ActiveNotificationsList(
+                        notifications: const [],
+                        onToggle: (_, __) {},
+                        onEdit: (_) {},
+                        onDelete: (_) {},
+                      ),
+                      error: (_, __) => ActiveNotificationsList(
+                        notifications: const [],
+                        onToggle: (_, __) {},
+                        onEdit: (_) {},
+                        onDelete: (_) {},
+                      ),
                     ),
                   ],
                 ),
@@ -197,12 +200,12 @@ class _NotificationsAutoScreenState extends State<NotificationsAutoScreen> {
 
   // ── action button (small – stays inline) ───────────────────────────────────
 
-  Widget _buildActionButton() {
+  Widget _buildActionButton(String? merchantId) {
     final isEditing = _editingIndex != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
       child: GestureDetector(
-        onTap: _onSend,
+        onTap: () => _onSend(merchantId),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -238,7 +241,7 @@ class _NotificationsAutoScreenState extends State<NotificationsAutoScreen> {
 
   // ── actions ────────────────────────────────────────────────────────────────
 
-  void _onSend() {
+  Future<void> _onSend(String? merchantId) async {
     if (_textCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -249,52 +252,145 @@ class _NotificationsAutoScreenState extends State<NotificationsAutoScreen> {
       );
       return;
     }
+    if (merchantId == null || merchantId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Commerce non chargé', style: GoogleFonts.outfit()),
+          backgroundColor: Colors.red[400],
+        ),
+      );
+      return;
+    }
 
     final triggerLabel = triggerLabels[_selectedTrigger];
     final audienceLabel =
         _clientSelection == 0 ? 'Tous mes clients' : 'Certains clients';
+    final text = _textCtrl.text.trim();
 
-    setState(() {
-      if (_editingIndex != null) {
-        _active[_editingIndex!] = ActiveNotification(
-          text: _textCtrl.text.trim(),
+    if (_editingNotification != null) {
+      final updateUseCase = ref.read(rappels_providers.updateAutoNotificationProvider);
+      final updated = _editingNotification!.copyWith(
+        text: text,
+        trigger: triggerLabel,
+        audience: audienceLabel,
+      );
+      final result = await updateUseCase.call(updated);
+      result.fold(
+        (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Erreur lors de l\'enregistrement',
+                    style: GoogleFonts.outfit()),
+                backgroundColor: Colors.red[400],
+              ),
+            );
+          }
+        },
+        (_) {
+          ref.invalidate(rappels_providers.autoNotificationsProvider(merchantId));
+          setState(() {
+            _editingIndex = null;
+            _editingNotification = null;
+            _textCtrl.clear();
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Modification enregistrée', style: GoogleFonts.outfit()),
+                backgroundColor: MerchantColors.gold,
+              ),
+            );
+          }
+        },
+      );
+    } else {
+      final createUseCase = ref.read(rappels_providers.createAutoNotificationProvider);
+      const draft = ActiveNotification(
+        id: '',
+        merchantId: '',
+        text: '',
+      );
+      final result = await createUseCase.call(
+        merchantId: merchantId,
+        notification: draft.copyWith(
+          text: text,
           trigger: triggerLabel,
           audience: audienceLabel,
-        );
-        _editingIndex = null;
-      } else {
-        _active.add(ActiveNotification(
-          text: _textCtrl.text.trim(),
-          trigger: triggerLabel,
-          audience: audienceLabel,
-        ));
-      }
-      _textCtrl.clear();
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Notification ajoutée', style: GoogleFonts.outfit()),
-        backgroundColor: MerchantColors.gold,
-      ),
-    );
+        ),
+      );
+      result.fold(
+        (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Erreur lors de l\'ajout', style: GoogleFonts.outfit()),
+                backgroundColor: Colors.red[400],
+              ),
+            );
+          }
+        },
+        (_) {
+          ref.invalidate(rappels_providers.autoNotificationsProvider(merchantId));
+          setState(() => _textCtrl.clear());
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Notification ajoutée', style: GoogleFonts.outfit()),
+                backgroundColor: MerchantColors.gold,
+              ),
+            );
+          }
+        },
+      );
+    }
   }
 
   void _cancelEdit() {
     setState(() {
       _editingIndex = null;
+      _editingNotification = null;
       _textCtrl.clear();
     });
   }
 
-  void _edit(int i) {
+  void _edit(List<ActiveNotification> notifications, int i) {
     setState(() {
       _editingIndex = i;
-      _textCtrl.text = _active[i].text;
+      _editingNotification = notifications[i];
+      _textCtrl.text = notifications[i].text;
     });
   }
 
-  void _delete(int i) {
+  Future<void> _onToggle(
+    String merchantId,
+    ActiveNotification notification,
+    bool v,
+  ) async {
+    final updateUseCase = ref.read(rappels_providers.updateAutoNotificationProvider);
+    final result = await updateUseCase.call(notification.copyWith(isEnabled: v));
+    result.fold(
+      (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur lors de la mise à jour', style: GoogleFonts.outfit()),
+              backgroundColor: Colors.red[400],
+            ),
+          );
+        }
+      },
+      (_) =>
+          ref.invalidate(rappels_providers.autoNotificationsProvider(merchantId)),
+    );
+  }
+
+  void _delete(
+    String merchantId,
+    List<ActiveNotification> notifications,
+    int i,
+  ) {
+    final notification = notifications[i];
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -312,9 +408,31 @@ class _NotificationsAutoScreenState extends State<NotificationsAutoScreen> {
                 style: GoogleFonts.outfit(color: MerchantColors.textGrey)),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              setState(() => _active.removeAt(i));
+              final deleteUseCase =
+                  ref.read(rappels_providers.deleteAutoNotificationProvider);
+              final result = await deleteUseCase.call(
+                merchantId: merchantId,
+                notificationId: notification.id,
+              );
+              result.fold(
+                (_) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Erreur lors de la suppression',
+                            style: GoogleFonts.outfit()),
+                        backgroundColor: Colors.red[400],
+                      ),
+                    );
+                  }
+                },
+                (_) {
+                  ref.invalidate(
+                      rappels_providers.autoNotificationsProvider(merchantId));
+                },
+              );
             },
             child: Text('Supprimer',
                 style: GoogleFonts.outfit(color: Colors.red)),

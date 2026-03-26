@@ -55,12 +55,12 @@ class SignupButton extends StatelessWidget {
       height: 52,
       child: FilledButton(
         style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFFBF8719),
+          backgroundColor: SignupConstants.primaryGold,
           disabledBackgroundColor: SignupConstants.borderColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          shadowColor: const Color(0xFFBF8719).withValues(alpha: 0.3),
+          shadowColor: SignupConstants.primaryGold.withValues(alpha: 0.3),
           elevation: isLoading ? 4 : 2,
         ),
         onPressed: isLoading ? null : onPressed,

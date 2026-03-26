@@ -1,43 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'widgets/benefits/benefits_colors.dart';
+import 'widgets/benefits/benefits_data.dart';
 import 'widgets/benefits/benefits_header.dart';
 import 'widgets/benefits/benefits_subtitle.dart';
 import 'widgets/benefits/benefit_card.dart';
 import 'widgets/benefits/free_text.dart';
-import 'widgets/benefits/benefits_data.dart';
-import '../../../core/shared/widgets/back_button.dart';
 
-/// Merchant benefits screen - shows Yuztoo benefits
 class MerchantBenefitsScreen extends StatefulWidget {
   const MerchantBenefitsScreen({
     super.key,
-    this.onStartFree,
-    this.onBack,
+    required this.onBack,
+    required this.onNext,
   });
 
-  static String get path => '/merchant-benefits';
-
-  final VoidCallback? onStartFree;
-  final VoidCallback? onBack;
+  final VoidCallback onBack;
+  final VoidCallback onNext;
 
   @override
-  State<MerchantBenefitsScreen> createState() =>
-      _MerchantBenefitsScreenState();
+  State<MerchantBenefitsScreen> createState() => _MerchantBenefitsScreenState();
 }
 
 class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
+  late final AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _animationController.forward();
+      duration: const Duration(milliseconds: 500),
+    )..forward();
   }
 
   @override
@@ -46,136 +41,91 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
     super.dispose();
   }
 
+  Widget _buildProgressBar(int current, int total) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: widget.onBack,
+            icon: const Icon(Icons.arrow_back_ios),
+            color: BenefitsColors.primaryGold,
+            iconSize: 20,
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: current / total,
+                backgroundColor: BenefitsColors.bgDark2,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  BenefitsColors.primaryGold,
+                ),
+                minHeight: 6,
+              ),
+            ),
+          ),
+          const SizedBox(width: 44),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    const statusBarStyle = SystemUiOverlayStyle(
-      statusBarColor: BenefitsColors.bgDark1,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-      systemNavigationBarColor: BenefitsColors.bgDark1,
-      systemNavigationBarIconBrightness: Brightness.light,
-    );
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: statusBarStyle,
-      child: PopScope(
-        canPop: false, // Use our custom navigation instead of route popping
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && widget.onBack != null) {
-            widget.onBack!();
-          }
-        },
-        child: Scaffold(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: BenefitsColors.bgDark1,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: BenefitsColors.bgDark1,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
         backgroundColor: BenefitsColors.bgDark1,
         body: SafeArea(
           bottom: false,
           child: Column(
             children: [
+              _buildProgressBar(3, 3),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                child: Column(
+                  children: [
+                    BenefitsHeader(animationController: _animationController),
+                    const SizedBox(height: 12),
+                    BenefitsSubtitle(animationController: _animationController),
+                  ],
+                ),
+              ),
               Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 24),
-                      // Back button
-                      if (widget.onBack != null)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: YBackButton(
-                            onPressed: widget.onBack!,
-                            backgroundColor: BenefitsColors.bgDark2,
-                            borderColor: BenefitsColors.borderColor,
-                            iconColor: BenefitsColors.textLight,
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      BenefitsHeader(
-                        animationController: _animationController,
-                      ),
-                      const SizedBox(height: 24),
-                      BenefitsSubtitle(
-                        animationController: _animationController,
-                      ),
-                      const SizedBox(height: 32),
-                      _buildBenefitsList(),
-                      const SizedBox(height: 32),
-                      FreeText(
-                        animationController: _animationController,
-                      ),
-                      const SizedBox(height: 24),
-                    ],
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                  itemCount: BenefitsData.all.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) => BenefitCard(
+                    benefit: BenefitsData.all[index],
+                    animationDelay: index * 40,
                   ),
                 ),
               ),
-              _buildCTAButton(),
+              FreeText(animationController: _animationController),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: ElevatedButton(
+                  onPressed: widget.onNext,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: BenefitsColors.primaryGold,
+                    foregroundColor: BenefitsColors.bgDark1,
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                  child: const Text('Créer mon compte'),
+                ),
+              ),
             ],
-          ),
-        ),
-      ),
-        ),
-    );
-  }
-
-  Widget _buildBenefitsList() {
-    final benefits = BenefitsData.all;
-    return Column(
-      children: List.generate(
-        benefits.length,
-        (index) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: BenefitCard(
-              benefit: benefits[index],
-              animationDelay: index * 100,
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildCTAButton() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.bottomCenter,
-          end: Alignment.topCenter,
-          colors: [
-            BenefitsColors.bgDark1,
-            BenefitsColors.bgDark1.withValues(alpha: 0.95),
-            BenefitsColors.bgDark1.withValues(alpha: 0.0),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: widget.onStartFree,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: BenefitsColors.primaryGold,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 8,
-              shadowColor: BenefitsColors.primaryGold.withValues(alpha: 0.4),
-            ),
-            child: const Text(
-              'Démarrer gratuitement',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: BenefitsColors.bgDark1,
-              ),
-            ),
           ),
         ),
       ),
     );
   }
 }
-

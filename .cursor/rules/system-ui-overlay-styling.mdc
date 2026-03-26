@@ -41,8 +41,8 @@ AnnotatedRegion<SystemUiOverlayStyle>(
 ## Screen-Specific Guidelines
 
 ### Auth Screens (Login, Signup, OTP, Role Selection)
-- Status bar + Navigation bar: **Dark Navy** (`#0F1A29` or `SignupConstants.bgDark1`)
-- This matches the dark background
+- **Signup & OTP** (match [LoadingScreen]): Scaffold + bottom nav **`MerchantColors.bgMain`** (`#0E2A44`); status bar **`MerchantColors.bgHeader`** (`#0B1F33`) — same as splash/loading.
+- **Login** and other auth surfaces may still use the older dark navy (`#0F1A29`) until aligned; prefer matching loading when refreshing auth UI.
 
 ### Storefront & Merchant Pages
 - Status bar + Navigation bar: **Cream** (`StorefrontColors.cream`)

@@ -1,75 +1,129 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'widgets/merchant_onboarding_colors.dart';
-import 'widgets/onboarding_header.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../domain/entities/merchant_category.dart';
+import '../application/providers.dart';
 import 'widgets/onboarding_footer.dart';
 import 'widgets/category_card.dart';
-import 'widgets/top_snackbar.dart';
-import '../../../core/shared/widgets/back_button.dart';
-import '../domain/entities/merchant_category.dart';
+import 'widgets/merchant_onboarding_colors.dart';
 
-/// Merchant onboarding screen - category selection
 class MerchantOnboardingScreen extends StatefulWidget {
   const MerchantOnboardingScreen({
     super.key,
-    this.onCategorySelected,
-    this.onBack,
-    this.onNext,
+    required this.onBack,
+    required this.onNext,
   });
 
-  static String get path => '/merchant-onboarding';
-
-  final ValueChanged<String>? onCategorySelected;
-  final VoidCallback? onBack;
-  final VoidCallback? onNext;
+  final VoidCallback onBack;
+  final VoidCallback onNext;
 
   @override
-  State<MerchantOnboardingScreen> createState() =>
-      _MerchantOnboardingScreenState();
+  State<MerchantOnboardingScreen> createState() => _MerchantOnboardingScreenState();
 }
 
 class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
+  late final AnimationController _animationController;
   String? _selectedCategoryId;
 
-  // Mock categories - in real app, these would come from domain/application layer
-  static final List<MerchantCategory> _categories = [
-    const MerchantCategory(
+  Widget _buildProgressBar(int current, int total) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: widget.onBack,
+            icon: const Icon(Icons.arrow_back_ios),
+            color: MerchantOnboardingColors.primaryGold,
+            iconSize: 20,
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: current / total,
+                backgroundColor: MerchantOnboardingColors.bgDark2,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  MerchantOnboardingColors.primaryGold,
+                ),
+                minHeight: 6,
+              ),
+            ),
+          ),
+          const SizedBox(width: 44),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return FadeTransition(
+      opacity: _animationController,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+        child: Column(
+          children: [
+            const Text(
+              'Dites-nous ce que vous faites?',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: MerchantOnboardingColors.textLight,
+                height: 1.3,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 1,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.2),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _categories = <MerchantCategory>[
+    MerchantCategory(
       id: 'restaurant',
       title: 'Restaurant',
-      description: 'Restaurants, cafés, bars et établissements de restauration',
-      placeholderColorHex: '#FF9800', // Orange
+      description: 'Restaurants, cafés, bars',
+      placeholderColorHex: '#FF9800',
     ),
-    const MerchantCategory(
+    MerchantCategory(
       id: 'retail',
       title: 'Commerce de détail',
-      description: 'Boutiques, magasins et points de vente',
-      placeholderColorHex: '#2196F3', // Blue
+      description: 'Boutiques, magasins',
+      placeholderColorHex: '#2196F3',
     ),
-    const MerchantCategory(
+    MerchantCategory(
       id: 'beauty',
       title: 'Beauté & Bien-être',
-      description: 'Salons, spas, instituts de beauté',
-      placeholderColorHex: '#E91E63', // Pink
+      description: 'Salons, spas',
+      placeholderColorHex: '#E91E63',
     ),
-    const MerchantCategory(
+    MerchantCategory(
       id: 'fitness',
       title: 'Sport & Fitness',
-      description: 'Salles de sport, clubs sportifs',
-      placeholderColorHex: '#4CAF50', // Green
+      description: 'Salles de sport',
+      placeholderColorHex: '#4CAF50',
     ),
-    const MerchantCategory(
+    MerchantCategory(
       id: 'services',
       title: 'Services',
-      description: 'Services professionnels et personnels',
-      placeholderColorHex: '#9C27B0', // Purple
+      description: 'Services professionnels',
+      placeholderColorHex: '#9C27B0',
     ),
-    const MerchantCategory(
+    MerchantCategory(
       id: 'other',
       title: 'Autre',
-      description: 'Autres types de commerces',
-      placeholderColorHex: '#9E9E9E', // Grey
+      description: 'Autres commerces',
+      placeholderColorHex: '#9E9E9E',
     ),
   ];
 
@@ -78,9 +132,8 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _animationController.forward();
+      duration: const Duration(milliseconds: 500),
+    )..forward();
   }
 
   @override
@@ -89,168 +142,72 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
     super.dispose();
   }
 
-  void _onCategoryTap(String categoryId) {
-    setState(() {
-      _selectedCategoryId = categoryId;
-    });
-
-    // Show SnackBar feedback from top
-    final category = _categories.firstWhere((c) => c.id == categoryId);
-    showTopSnackBar(
-      context,
-      'Catégorie sélectionnée: ${category.title}',
-    );
-
-    widget.onCategorySelected?.call(categoryId);
+  void _continue() {
+    if (_selectedCategoryId == null) return;
+    final selected = _categories.firstWhere((c) => c.id == _selectedCategoryId);
+    final container = ProviderScope.containerOf(context, listen: false);
+    container.read(selectedMerchantCategoryTitleProvider.notifier).state = selected.title;
+    widget.onNext();
   }
 
   @override
   Widget build(BuildContext context) {
-    const statusBarStyle = SystemUiOverlayStyle(
-      statusBarColor: MerchantOnboardingColors.bgDark1,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-      systemNavigationBarColor: MerchantOnboardingColors.bgDark1,
-      systemNavigationBarIconBrightness: Brightness.light,
-    );
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: statusBarStyle,
-      child: PopScope(
-        canPop: false, // Use our custom navigation instead of route popping
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && widget.onBack != null) {
-            widget.onBack!();
-          }
-        },
-        child: Scaffold(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: MerchantOnboardingColors.bgDark1,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: MerchantOnboardingColors.bgDark1,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
         backgroundColor: MerchantOnboardingColors.bgDark1,
         body: SafeArea(
           bottom: false,
-          child: Stack(
+          child: Column(
             children: [
-              // Scrollable content
-              CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  // Back button and Header
-                  SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        if (widget.onBack != null) ...[
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: YBackButton(
-                                onPressed: widget.onBack!,
-                                backgroundColor: MerchantOnboardingColors.bgDark2,
-                                borderColor: MerchantOnboardingColors.borderColor,
-                                iconColor: MerchantOnboardingColors.textLight,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        OnboardingHeader(
-                          animationController: _animationController,
-                        ),
-                      ],
-                    ),
+              _buildProgressBar(1, 3),
+              _buildHeader(),
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.72,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
                   ),
-
-                  // Category Grid
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    sliver: SliverGrid(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.75,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 20,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final category = _categories[index];
-                          return CategoryCard(
-                            category: category,
-                            isSelected: _selectedCategoryId == category.id,
-                            onTap: () => _onCategoryTap(category.id),
-                            animationDelay: index * 60,
-                          );
-                        },
-                        childCount: _categories.length,
-                      ),
-                    ),
-                  ),
-
-                  // Footer with bottom padding for button
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: 100),
-                      child: OnboardingFooter(),
-                    ),
-                  ),
-                ],
+                  itemCount: _categories.length,
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    return CategoryCard(
+                      category: category,
+                      isSelected: _selectedCategoryId == category.id,
+                      animationDelay: index * 45,
+                      onTap: () => setState(() => _selectedCategoryId = category.id),
+                    );
+                  },
+                ),
               ),
-
-              // Fixed "Suivant" button at bottom
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                  decoration: BoxDecoration(
-                    color: MerchantOnboardingColors.bgDark1,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 10,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
+              const OnboardingFooter(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: ElevatedButton(
+                  onPressed: _selectedCategoryId == null ? null : _continue,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: MerchantOnboardingColors.primaryGold,
+                    foregroundColor: MerchantOnboardingColors.bgDark1,
+                    disabledBackgroundColor:
+                        MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
+                    minimumSize: const Size.fromHeight(48),
                   ),
-                  child: SafeArea(
-                    top: false,
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _selectedCategoryId != null
-                            ? () => widget.onNext?.call()
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: MerchantOnboardingColors.primaryGold,
-                          disabledBackgroundColor:
-                              MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          shadowColor: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
-                          elevation: _selectedCategoryId != null ? 6 : 0,
-                        ),
-                        child: Text(
-                          'Suivant',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: _selectedCategoryId != null
-                                ? MerchantOnboardingColors.bgDark1
-                                : MerchantOnboardingColors.textGrey.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: const Text('Continuer'),
                 ),
               ),
             ],
           ),
         ),
       ),
-        ),
     );
   }
 }
-

@@ -120,6 +120,8 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
     Navigator.pop(
       context,
       Promotion(
+        id: '',
+        merchantId: '',
         title: title,
         subtitle: subtitle,
         dateFrom: _dateFrom,

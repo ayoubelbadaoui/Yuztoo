@@ -41,9 +41,28 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Yuztoo a besoin de la caméra pour scanner les QR codes des commerces.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Yuztoo accède à votre galerie pour que vous puissiez choisir la photo de votre commerce.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Yuztoo enregistre votre QR code vitrine dans la galerie lorsque vous appuyez sur Télécharger.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>app.yuztoo.vitrine</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>yuztoo</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

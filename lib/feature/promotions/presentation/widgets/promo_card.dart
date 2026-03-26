@@ -99,7 +99,14 @@ class PromoCard extends StatelessWidget {
                       width: 60,
                       height: 60,
                     )
-                  : const Center(
+                  : (promo.imageUrl != null && promo.imageUrl!.isNotEmpty)
+                      ? Image.network(
+                          promo.imageUrl!,
+                          fit: BoxFit.cover,
+                          width: 60,
+                          height: 60,
+                        )
+                      : const Center(
                       child: Icon(
                         Icons.image_outlined,
                         color: MerchantColors.gold,

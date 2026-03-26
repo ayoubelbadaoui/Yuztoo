@@ -1,281 +1,403 @@
 import 'package:flutter/material.dart';
-import '../../../theme.dart';
-import '../../../l10n/app_localizations.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class LoyaltyCardsScreen extends StatelessWidget {
-  const LoyaltyCardsScreen({super.key, required this.onBack});
+import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/app_logo.dart';
+import '../../auth/core/application/providers.dart';
+import '../../auth/core/application/state/auth_state.dart';
+import '../../auth/core/presentation/user_display_helpers.dart';
+
+/// Client fidélité — real user email / phone from Auth + Firestore (same as profile).
+/// Loyalty counts: 0 until a backend source exists.
+class LoyaltyCardsScreen extends ConsumerWidget {
+  const LoyaltyCardsScreen({
+    super.key,
+    required this.onBack,
+    required this.onNotifications,
+  });
 
   static String get path => '/loyalty';
 
   final VoidCallback onBack;
+  final VoidCallback onNotifications;
 
-  static final cards = [
-    {
-      'store': 'Café Central',
-      'currentPoints': 120,
-      'nextReward': 150,
-      'rewardText': 'Café offert',
-      'totalVisits': 24,
-      'image': 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400'
-    },
-    {
-      'store': 'Pharmacie El Amane',
-      'currentPoints': 80,
-      'nextReward': 100,
-      'rewardText': '10% de réduction',
-      'totalVisits': 16,
-      'image':
-          'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400'
-    },
-    {
-      'store': 'Pâtisserie Délice',
-      'currentPoints': 45,
-      'nextReward': 50,
-      'rewardText': 'Pâtisserie offerte',
-      'totalVisits': 9,
-      'image':
-          'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=400'
-    },
-  ];
+  /// When loyalty visits are stored in Firestore, wire them here.
+  static const int _advantagesFromBackend = 0;
+  static const int _passagesUntilRewardFromBackend = 0;
 
   @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Row(
-              children: [
-                IconButton(
-                    onPressed: onBack, icon: const Icon(Icons.arrow_back)),
-                const SizedBox(width: 8),
-                Text(
-                  AppLocalizations.of(context)!.myLoyaltyCards,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final authState = ref.watch(authStateProvider);
+
+    if (authState is! Authenticated) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) onBack();
+        },
+        child: Scaffold(
+          backgroundColor: MerchantColors.bgMain,
+          body: Center(
+            child: Text(
+              'Connectez-vous pour voir votre fidélité.',
+              style: GoogleFonts.outfit(color: MerchantColors.textLightGrey),
             ),
           ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            color: YColors.primary,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppLocalizations.of(context)!.totalPoints,
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Text('245',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                          color: YColors.secondary,
-                          borderRadius: BorderRadius.circular(12)),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.trending_up,
-                              size: 14, color: Colors.white),
-                          SizedBox(width: 4),
-                          Text('+15',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600)),
-                        ],
+        ),
+      );
+    }
+
+    final user = authState.user;
+    final basics = ref.watch(userProfileBasicsProvider(user.id)).valueOrNull;
+    final email = resolveEmail(user, basics);
+    final phone = resolvePhone(user, basics);
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) onBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: MerchantColors.bgHeader,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: MerchantColors.bgHeader,
+          systemNavigationBarIconBrightness: Brightness.light,
+        ),
+        child: Scaffold(
+          backgroundColor: MerchantColors.bgMain,
+          body: Column(
+            children: [
+              _Header(onNotifications: onNotifications),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),
+                  child: Column(
+                    children: [
+                      _AdvantageIntro(count: _advantagesFromBackend),
+                      const SizedBox(height: 16),
+                      _ContactLines(email: email, phone: phone),
+                      const SizedBox(height: 24),
+                      const _LoyaltyCardPlaceholder(),
+                      const SizedBox(height: 32),
+                      const _InstructionLines(),
+                      const SizedBox(height: 28),
+                      _ProgressFooter(
+                        passagesUntilReward: _passagesUntilRewardFromBackend,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _Stat(label: 'Commerces', value: '${cards.length}'),
-                    const SizedBox(width: 24),
-                    const _Stat(label: 'Récompenses', value: '3'),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: cards
-                  .map((card) => Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: _LoyaltyCard(card: card),
-                      ))
-                  .toList(),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
+class _Header extends StatelessWidget {
+  const _Header({required this.onNotifications});
 
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.white70)),
-          const SizedBox(height: 4),
-          Text(value,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoyaltyCard extends StatelessWidget {
-  const _LoyaltyCard({required this.card});
-
-  final Map<String, dynamic> card;
+  final VoidCallback onNotifications;
 
   @override
   Widget build(BuildContext context) {
-    final current = card['currentPoints'] as int;
-    final next = card['nextReward'] as int;
-    final progress = current / next;
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [YColors.primary, Color(0xFF2E3643)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+    return Container(
+      width: double.infinity,
+      color: MerchantColors.bgHeader,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: MerchantColors.bgHeader,
+            border: Border(
+              bottom: BorderSide(
+                color: MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderStronger),
+                width: 1,
               ),
             ),
-            padding: const EdgeInsets.all(16),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      color: Colors.white24,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.star,
-                        color: YColors.secondary, size: 26),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Fidélité',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantColors.textWhite,
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(card['store'] as String,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('$current',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700)),
-                        const SizedBox(width: 6),
-                        const Text('points',
-                            style: TextStyle(color: Colors.white70)),
-                      ],
-                    ),
-                  ],
+              ),
+              IconButton(
+                onPressed: onNotifications,
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: MerchantColors.gold,
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactLines extends StatelessWidget {
+  const _ContactLines({required this.email, required this.phone});
+
+  final String email;
+  final String phone;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = GoogleFonts.outfit(
+      fontSize: 13,
+      height: 1.45,
+      color: MerchantColors.textGrey,
+    );
+    return Column(
+      children: [
+        Text(email, textAlign: TextAlign.center, style: style),
+        if (phone != '—') ...[
+          const SizedBox(height: 6),
+          Text(phone, textAlign: TextAlign.center, style: style),
+        ],
+      ],
+    );
+  }
+}
+
+class _AdvantageIntro extends StatelessWidget {
+  const _AdvantageIntro({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final gold = GoogleFonts.outfit(
+      color: MerchantColors.gold,
+      fontWeight: FontWeight.w700,
+      fontSize: 15,
+      height: 1.5,
+    );
+    final base = GoogleFonts.outfit(
+      fontSize: 15,
+      height: 1.5,
+      color: MerchantColors.textLightGrey,
+    );
+
+    if (count == 0) {
+      return Text.rich(
+        TextSpan(
+          style: base,
+          children: [
+            const TextSpan(
+              text:
+                  'Aucun avantage enregistré pour le moment sur votre carte fidélité ',
+            ),
+            TextSpan(text: 'Yuztoo', style: gold),
+            const TextSpan(text: '.'),
+          ],
+        ),
+        textAlign: TextAlign.center,
+      );
+    }
+    if (count == 1) {
+      return Text.rich(
+        TextSpan(
+          style: base,
+          children: [
+            const TextSpan(text: 'Déjà '),
+            TextSpan(text: '1', style: gold),
+            const TextSpan(
+              text: ' avantage obtenu grâce à votre carte fidélité ',
+            ),
+            TextSpan(text: 'Yuztoo', style: gold),
+            const TextSpan(text: '.'),
+          ],
+        ),
+        textAlign: TextAlign.center,
+      );
+    }
+    return Text.rich(
+      TextSpan(
+        style: base,
+        children: [
+          const TextSpan(text: 'Déjà '),
+          TextSpan(text: '$count', style: gold),
+          const TextSpan(
+            text: ' avantages obtenus grâce à votre carte fidélité ',
+          ),
+          TextSpan(text: 'Yuztoo', style: gold),
+          const TextSpan(text: '.'),
+        ],
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+}
+
+/// Placeholder card — replace image asset when final art is ready.
+class _LoyaltyCardPlaceholder extends StatelessWidget {
+  const _LoyaltyCardPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 280),
+        child: AspectRatio(
+          aspectRatio: 0.72,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: MerchantColors.gold.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  MerchantColors.bgHeader,
+                  MerchantColors.bgMain.withValues(alpha: 0.95),
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppLogo(
+                  size: 100,
+                  fallback: Icon(
+                    Icons.location_on_rounded,
+                    size: 56,
+                    color: MerchantColors.gold.withValues(alpha: 0.85),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'yuztoo',
+                  style: GoogleFonts.outfit(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: MerchantColors.gold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'pour eux, pour vous',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: MerchantColors.textLightGrey,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Prochaine récompense',
-                        style: TextStyle(color: YColors.muted)),
-                    Text('${next - current} points',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
-                    minHeight: 8,
-                    backgroundColor: YColors.accent,
-                    color: YColors.secondary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.card_giftcard,
-                            size: 18, color: YColors.secondary),
-                        const SizedBox(width: 6),
-                        Text(card['rewardText'] as String,
-                            style: const TextStyle(fontSize: 14)),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: Colors.grey.shade100,
-                        border: Border.all(color: YColors.border),
-                      ),
-                      child: Text('${card['totalVisits']} visites',
-                          style: const TextStyle(fontSize: 12)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InstructionLines extends StatelessWidget {
+  const _InstructionLines();
+
+  @override
+  Widget build(BuildContext context) {
+    final style = GoogleFonts.outfit(
+      fontSize: 14,
+      height: 1.65,
+      color: MerchantColors.textLightGrey,
+    );
+    return Column(
+      children: [
+        Text(
+          'Présente simplement ton téléphone',
+          textAlign: TextAlign.center,
+          style: style,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Chaque passage compte',
+          textAlign: TextAlign.center,
+          style: style,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Un cadeau après 5, 10 ou 20 passages.',
+          textAlign: TextAlign.center,
+          style: style,
+        ),
+      ],
+    );
+  }
+}
+
+class _ProgressFooter extends StatelessWidget {
+  const _ProgressFooter({required this.passagesUntilReward});
+
+  final int passagesUntilReward;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = GoogleFonts.outfit(
+      fontSize: 14,
+      height: 1.5,
+      color: MerchantColors.textLightGrey,
+    );
+    final gold = GoogleFonts.outfit(
+      fontSize: 14,
+      height: 1.5,
+      color: MerchantColors.gold,
+      fontWeight: FontWeight.w700,
+    );
+
+    if (passagesUntilReward <= 0) {
+      return Text(
+        'Vos passages chez un commerçant partenaire s’afficheront ici après une visite.',
+        textAlign: TextAlign.center,
+        style: base,
+      );
+    }
+
+    return Text.rich(
+      TextSpan(
+        style: base,
+        children: [
+          const TextSpan(text: 'Plus que '),
+          TextSpan(
+            text: '$passagesUntilReward',
+            style: gold,
+          ),
+          const TextSpan(
+            text:
+                ' passages chez votre commerçant avant la prochaine récompense',
           ),
         ],
       ),
+      textAlign: TextAlign.center,
     );
   }
 }

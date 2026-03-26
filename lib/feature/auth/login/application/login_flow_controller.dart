@@ -205,9 +205,13 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
     String city,
     Map<String, bool> rolesMap,
   ) async {
-    // TODO: Implement role cache service if needed
-    // final roleCacheService = ref.read(auth_core.roleCacheServiceProvider);
-    // await roleCacheService.saveLastSelectedRole(selectedRole);
+    // Persist so main shell / cold start route the same way as login intent (client vs merchant).
+    try {
+      final roleCacheService = ref.read(auth_core.roleCacheServiceProvider);
+      await roleCacheService.saveLastSelectedRole(selectedRole);
+    } catch (_) {
+      // Non-fatal
+    }
 
     // Only check onboarding for merchants; clients don't need it
     bool actualOnboardingCompleted = false;

@@ -65,6 +65,9 @@ class MerchantDashboardScreen extends StatelessWidget {
     final stats = _buildStats(context);
     final recentActivity = _buildRecentActivity(context);
     return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 80,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
