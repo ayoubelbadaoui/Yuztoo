@@ -6,9 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/logout_confirm_dialog.dart';
 import '../../../l10n/app_localizations.dart';
+import 'personal_information_screen.dart';
 import '../../auth/core/application/providers.dart';
-import '../../auth/core/application/state/auth_state.dart';
-import '../../auth/core/presentation/user_display_helpers.dart';
 
 /// Client profile / settings – same colors and minimalist layout as merchant settings.
 class ClientProfileScreen extends ConsumerStatefulWidget {
@@ -22,9 +21,6 @@ class ClientProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
-  bool _pushEnabled = true;
-  bool _emailEnabled = true;
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -47,44 +43,23 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
                 ),
                 child: Column(
                   children: [
-                    _buildDescription(l10n),
-                    _buildProfileBlock(),
                     _buildSection(
                       sectionLabel: l10n.account,
                       items: [
                         _NavItem(
                           icon: Icons.person_outline,
                           label: l10n.personalInfo,
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const PersonalInformationScreen(),
+                              ),
+                            );
+                          },
                         ),
                         _NavItem(
                           icon: Icons.credit_card,
                           label: l10n.paymentMethods,
-                          onTap: () {},
-                          isLast: true,
-                        ),
-                      ],
-                    ),
-                    _buildSection(
-                      sectionLabel: l10n.preferences,
-                      items: [
-                        _SwitchItem(
-                          icon: Icons.notifications_none,
-                          label: l10n.pushNotifications,
-                          value: _pushEnabled,
-                          onChanged: (v) =>
-                              setState(() => _pushEnabled = v),
-                        ),
-                        _SwitchItem(
-                          icon: Icons.email_outlined,
-                          label: l10n.emailNotifications,
-                          value: _emailEnabled,
-                          onChanged: (v) =>
-                              setState(() => _emailEnabled = v),
-                        ),
-                        _NavItem(
-                          icon: Icons.settings_outlined,
-                          label: l10n.settings,
                           onTap: () {},
                           isLast: true,
                         ),
@@ -145,114 +120,6 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildDescription(AppLocalizations l10n) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: MerchantColors.gold
-                .withValues(alpha: MerchantColors.goldBorderAlpha),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Center(
-        child: Text(
-          l10n.preferences,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            color: MerchantColors.textLightGrey,
-            height: 1.6,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileBlock() {
-    final authState = ref.watch(authStateProvider);
-    if (authState is! Authenticated) {
-      return const SizedBox.shrink();
-    }
-    final user = authState.user;
-    final basics = ref.watch(userProfileBasicsProvider(user.id)).valueOrNull;
-    final name = resolveDisplayName(user, basics);
-    final email = resolveEmail(user, basics);
-    final phone = resolvePhone(user, basics);
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: MerchantColors.gold
-                .withValues(alpha: MerchantColors.goldBorderAlpha),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: MerchantColors.gold
-                      .withValues(alpha: MerchantColors.goldBorderStronger),
-                  width: 1),
-              color: MerchantColors.gold.withValues(alpha: 0.1),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              avatarInitial(name),
-              style: GoogleFonts.outfit(
-                color: MerchantColors.textWhite,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: GoogleFonts.outfit(
-                    color: MerchantColors.textWhite,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  email,
-                  style: GoogleFonts.outfit(
-                    color: MerchantColors.textLightGrey,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  phone,
-                  style: GoogleFonts.outfit(
-                    color: MerchantColors.textLightGrey,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -386,80 +253,6 @@ class _NavItem extends StatelessWidget {
                 color: MerchantColors.textGrey, size: 20),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SwitchItem extends StatelessWidget {
-  const _SwitchItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: MerchantColors.gold
-                .withValues(alpha: MerchantColors.goldBorderAlpha),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: MerchantColors.textWhite, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: MerchantColors.textWhite,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => onChanged(!value),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: 48,
-              height: 28,
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: value
-                    ? MerchantColors.gold
-                    : const Color(0xFF444444),
-              ),
-              child: AnimatedAlign(
-                duration: const Duration(milliseconds: 300),
-                alignment: value
-                    ? Alignment.centerRight
-                    : Alignment.centerLeft,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

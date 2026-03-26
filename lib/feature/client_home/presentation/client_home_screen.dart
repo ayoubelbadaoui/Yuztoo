@@ -26,6 +26,8 @@ class ClientHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feedAsync = ref.watch(clientHomeFeedProvider);
+    final heartLevelsAsync =
+        ref.watch(followedMerchantHeartLevelsForCurrentUserProvider);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -48,7 +50,11 @@ class ClientHomeScreen extends ConsumerWidget {
                     _buildTagline(context),
                     feedAsync.when(
                       data: (feed) =>
-                          _buildBusinessCard(context, feed.merchants),
+                          _buildBusinessCard(
+                            context,
+                            feed.merchants,
+                            heartLevelsAsync.valueOrNull ?? const <String, int>{},
+                          ),
                       loading: () => _buildBusinessCardLoading(context),
                       error: (_, __) => _buildBusinessCardLoading(context),
                     ),
@@ -94,22 +100,6 @@ class ClientHomeScreen extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: MerchantColors.gold, width: 2),
-                  color: MerchantColors.gold.withValues(alpha: 0.1),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.person_outline,
-                  color: MerchantColors.gold,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Mon carnet Yuztoo',
@@ -150,103 +140,112 @@ class ClientHomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBusinessCard(BuildContext context, List<Merchant> merchants) {
+  Widget _buildBusinessCard(
+    BuildContext context,
+    List<Merchant> merchants,
+    Map<String, int> heartLevels,
+  ) {
     if (merchants.isEmpty) {
       return _buildEmptyCarnet(context);
     }
-    final merchant = merchants.first;
-    final displayName = merchant.displayName ?? merchant.name;
-    final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  displayName,
-                  style: GoogleFonts.outfit(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: MerchantColors.textWhite,
+          ...merchants.asMap().entries.map((entry) {
+            final index = entry.key;
+            final merchant = entry.value;
+            final displayName = merchant.displayName ?? merchant.name;
+            final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
+            final heartLevel = heartLevels[merchant.id] ?? 1;
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: index == merchants.length - 1 ? 0 : 20),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    if (onStoreSelect != null) {
+                      onStoreSelect!(merchant.id);
+                    } else {
+                      onNavigate('store-profile');
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                displayName,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: MerchantColors.textWhite,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                ...List.generate(heartLevel.clamp(0, 3), (i) {
+                                  return Padding(
+                                    padding: EdgeInsets.only(right: i == heartLevel - 1 ? 0 : 4),
+                                    child: Icon(Icons.favorite, color: MerchantColors.gold, size: 18),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: imageUrl != null && imageUrl.isNotEmpty
+                                  ? Image.network(
+                                      imageUrl,
+                                      width: double.infinity,
+                                      height: 160,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
+                                    )
+                                  : _buildPlaceholderImage(),
+                            ),
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: MerchantColors.gold, width: 2),
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                ),
+                                alignment: Alignment.center,
+                                child: Icon(Icons.star, color: MerchantColors.gold, size: 20),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Row(
-                children: [
-                  Icon(Icons.favorite, color: MerchantColors.gold, size: 18),
-                  const SizedBox(width: 4),
-                  Icon(Icons.favorite, color: MerchantColors.gold, size: 18),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: imageUrl != null && imageUrl.isNotEmpty
-                    ? Image.network(
-                        imageUrl,
-                        width: double.infinity,
-                        height: 160,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
-                      )
-                    : _buildPlaceholderImage(),
-              ),
-              Positioned(
-                top: 8,
-                left: 8,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MerchantColors.gold, width: 2),
-                    color: Colors.black.withValues(alpha: 0.3),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(Icons.star, color: MerchantColors.gold, size: 20),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                if (onStoreSelect != null) {
-                  onStoreSelect!(merchant.id);
-                } else {
-                  onNavigate('store-profile');
-                }
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: MerchantColors.gold,
-                side: const BorderSide(color: MerchantColors.gold, width: 2),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: Text(
-                'Bienvenue sur Yuztoo',
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );

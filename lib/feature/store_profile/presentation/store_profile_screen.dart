@@ -21,6 +21,7 @@ class StoreProfileScreen extends ConsumerStatefulWidget {
   const StoreProfileScreen({
     super.key,
     required this.onBack,
+    required this.onNotifications,
     required this.onMessage,
     required this.onReserve,
   });
@@ -28,6 +29,7 @@ class StoreProfileScreen extends ConsumerStatefulWidget {
   static String get path => '/store-profile';
 
   final VoidCallback onBack;
+  final VoidCallback onNotifications;
   final VoidCallback onMessage;
   final VoidCallback onReserve;
 
@@ -38,6 +40,9 @@ class StoreProfileScreen extends ConsumerStatefulWidget {
 class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   String _activeTab = 'accueil';
   bool _isFollowToggling = false;
+  String? _optimisticHeartMerchantId;
+  int? _optimisticHeartLevel;
+  int _heartSaveToken = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +130,26 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     final hours = merchant.hours != null && merchant.hours!.isNotEmpty
         ? BusinessHours.fromMap(merchant.hours)
         : null;
+    final userId = ref.watch(auth_providers.currentUserIdProvider);
+    final followedIdsAsync =
+        ref.watch(client_home_providers.followedMerchantIdsForCurrentUserProvider);
+    final heartLevelsAsync =
+        ref.watch(client_home_providers.followedMerchantHeartLevelsForCurrentUserProvider);
+    final followersCountAsync = ref.watch(
+      client_home_providers.followersCountByMerchantIdsProvider(<String>[merchant.id]),
+    );
+    final isFollowing = followedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
+    final baseHeartLevel = isFollowing
+        ? (heartLevelsAsync.valueOrNull?[merchant.id] ?? 1)
+        : 0;
+    final heartLevel =
+        _optimisticHeartMerchantId == merchant.id && _optimisticHeartLevel != null
+            ? _optimisticHeartLevel!
+            : baseHeartLevel;
+    final fetchedFollowersCount = followersCountAsync.valueOrNull?[merchant.id] ?? 0;
+    final followersCount = isFollowing
+        ? (fetchedFollowersCount < 1 ? 1 : fetchedFollowersCount)
+        : fetchedFollowersCount;
 
     return Stack(
       children: [
@@ -138,6 +163,33 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: StorefrontColors.backgroundLight,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _followersLabelFr(followersCount),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: StorefrontColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: widget.onNotifications,
+                        icon: const Icon(
+                          Icons.notifications_outlined,
+                          color: StorefrontColors.primaryGold,
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               StoreProfileBannerSection(
                   bannerImageUrl: merchant.bannerUrl ?? merchant.logoUrl,
                   profileImageUrl: merchant.logoUrl ?? merchant.bannerUrl,
@@ -150,7 +202,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                     children: [
                       Row(
                         children: [
-                          Flexible(
+                          Expanded(
                             child: Text(
                               name,
                               style: GoogleFonts.outfit(
@@ -158,6 +210,46 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                                 fontWeight: FontWeight.w600,
                                 color: StorefrontColors.textPrimary,
                                 height: 1.2,
+                              ),
+                            ),
+                          ),
+                          Material(
+                            color: Colors.transparent,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                              child: Row(
+                                children: List.generate(3, (index) {
+                                  final target = index + 1;
+                                  final isActive = heartLevel >= target;
+                                  return Padding(
+                                    padding: EdgeInsets.only(right: index == 2 ? 0 : 5),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(16),
+                                      onTap: _isFollowToggling
+                                          ? null
+                                          : () {
+                                              final nextLevel =
+                                                  heartLevel == target ? target - 1 : target;
+                                              _setHeartLevel(
+                                                context,
+                                                userId: userId,
+                                                merchantId: merchant.id,
+                                                level: nextLevel,
+                                              );
+                                            },
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(2),
+                                        child: Icon(
+                                          Icons.favorite,
+                                          color: isActive
+                                              ? StorefrontColors.primaryGold
+                                              : StorefrontColors.textSecondary,
+                                          size: 24,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
                               ),
                             ),
                           ),
@@ -174,34 +266,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: widget.onMessage,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: StorefrontColors.primaryGold,
-                                side: const BorderSide(color: StorefrontColors.primaryGold),
-                              ),
-                              icon: const Icon(Icons.message_outlined, size: 18),
-                              label: const Text('Message'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: widget.onReserve,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: StorefrontColors.primaryGold,
-                                foregroundColor: StorefrontColors.navyDark,
-                              ),
-                              icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                              label: const Text('Réserver'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
                       _buildSuivreButton(context, merchant.id),
                     ],
                   ),
@@ -257,17 +322,113 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
             ),
           ),
         ),
-        Positioned(
-          top: MediaQuery.of(context).padding.top,
-          left: 0,
-          child: SafeArea(
-            bottom: false,
-            child: IconButton(
-              onPressed: widget.onBack,
-              icon: const Icon(
-                Icons.arrow_back,
-                color: StorefrontColors.primaryGold,
-                size: 28,
+      ],
+    );
+  }
+
+  String _followersLabelFr(int count) {
+    if (count <= 1) return 'Ce commerce est suivi par $count personne';
+    return 'Ce commerce est suivi par $count personnes';
+  }
+
+  Widget _buildSuivreButton(BuildContext context, String merchantId) {
+    final userId = ref.watch(auth_providers.currentUserIdProvider);
+    final followedAsync = ref.watch(client_home_providers.followedMerchantIdsForCurrentUserProvider);
+    final isFollowing = followedAsync.valueOrNull?.contains(merchantId) ?? false;
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _isFollowToggling
+                ? null
+                : () async {
+                    if (userId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Connectez-vous pour suivre des commerces'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+                    setState(() => _isFollowToggling = true);
+                    final repo = ref.read(followedMerchantsRepositoryProvider);
+                    final result = isFollowing
+                        ? await repo.remove(userId, merchantId)
+                        : await repo.add(userId, merchantId);
+                    if (!context.mounted) return;
+                    setState(() => _isFollowToggling = false);
+
+                    if (result.isLeft) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Échec de la sauvegarde du suivi'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+                    ref.invalidate(client_home_providers.followedMerchantIdsForCurrentUserProvider);
+                    ref.invalidate(client_home_providers.followedMerchantHeartLevelsForCurrentUserProvider);
+                    ref.invalidate(client_home_providers.clientHomeFeedProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          isFollowing
+                              ? 'Vous ne suivez plus ce commerce'
+                              : 'Commerce ajouté à votre carnet',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: StorefrontColors.primaryGold,
+                      ),
+                    );
+                  },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: StorefrontColors.primaryGold,
+              side: const BorderSide(color: StorefrontColors.primaryGold),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: Text(
+              _isFollowToggling
+                  ? '...'
+                  : (isFollowing ? 'Ne plus suivre' : 'Suivre le commerce'),
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Notifications en cours - bientôt disponible'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: StorefrontColors.primaryGold,
+              side: const BorderSide(color: StorefrontColors.primaryGold),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: Text(
+              'Notifications en cours',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -276,81 +437,68 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     );
   }
 
-  Widget _buildSuivreButton(BuildContext context, String merchantId) {
-    final userId = ref.watch(auth_providers.currentUserIdProvider);
-    final followedAsync = ref.watch(client_home_providers.followedMerchantIdsForCurrentUserProvider);
-    final isFollowing = followedAsync.valueOrNull?.contains(merchantId) ?? false;
+  Future<void> _setHeartLevel(
+    BuildContext context, {
+    required String? userId,
+    required String merchantId,
+    required int level,
+  }) async {
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connectez-vous pour enregistrer vos favoris'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    HapticFeedback.selectionClick();
+    final token = ++_heartSaveToken;
+    setState(() {
+      _optimisticHeartMerchantId = merchantId;
+      _optimisticHeartLevel = level.clamp(0, 3);
+    });
+    final repo = ref.read(followedMerchantsRepositoryProvider);
 
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: _isFollowToggling
-            ? null
-            : () async {
-                if (userId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Connectez-vous pour suivre des commerces'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                  return;
-                }
-                setState(() => _isFollowToggling = true);
-                final repo = ref.read(followedMerchantsRepositoryProvider);
-                if (isFollowing) {
-                  await repo.remove(userId, merchantId);
-                } else {
-                  await repo.add(userId, merchantId);
-                }
-                ref.invalidate(client_home_providers.followedMerchantIdsForCurrentUserProvider);
-                ref.invalidate(client_home_providers.clientHomeFeedProvider);
-                if (!context.mounted) return;
-                setState(() => _isFollowToggling = false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      isFollowing
-                          ? 'Vous ne suivez plus ce commerce'
-                          : 'Commerce ajouté à votre carnet',
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: StorefrontColors.primaryGold,
-                  ),
-                );
-              },
-        style: OutlinedButton.styleFrom(
-          foregroundColor: StorefrontColors.primaryGold,
-          side: const BorderSide(color: StorefrontColors.primaryGold),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+    // Ensure merchant is followed before saving heart level.
+    final addResult = await repo.add(userId, merchantId);
+    // If user tapped again while this request was in-flight, ignore this response.
+    if (token != _heartSaveToken) return;
+    if (addResult.isLeft) {
+      if (!context.mounted) return;
+      setState(() {
+        _optimisticHeartMerchantId = null;
+        _optimisticHeartLevel = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Échec de la sauvegarde du favori'),
+          behavior: SnackBarBehavior.floating,
         ),
-        icon: _isFollowToggling
-            ? SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: StorefrontColors.primaryGold,
-                ),
-              )
-            : Icon(
-                isFollowing ? Icons.check_circle_outline : Icons.add_circle_outline,
-                size: 20,
-              ),
-        label: Text(
-          _isFollowToggling
-              ? '...'
-              : (isFollowing ? 'Ne plus suivre' : 'Suivre le commerce'),
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+      );
+      return;
+    }
+
+    final heartResult = await repo.setHeartLevel(userId, merchantId, level);
+    if (token != _heartSaveToken) return;
+    if (!context.mounted) return;
+    if (heartResult.isLeft) {
+      setState(() {
+        _optimisticHeartMerchantId = null;
+        _optimisticHeartLevel = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Échec de la sauvegarde du favori'),
+          behavior: SnackBarBehavior.floating,
         ),
-      ),
-    );
+      );
+      return;
+    }
+    ref.invalidate(client_home_providers.followedMerchantIdsForCurrentUserProvider);
+    ref.invalidate(client_home_providers.followedMerchantHeartLevelsForCurrentUserProvider);
+    ref.invalidate(client_home_providers.clientHomeFeedProvider);
+    // Keep UI instant and quiet; no success snackbar on every tap.
   }
 
   Widget _buildSectionTitle(String title) {

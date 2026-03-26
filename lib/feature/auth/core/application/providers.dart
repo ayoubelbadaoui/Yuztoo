@@ -18,6 +18,7 @@ import 'use_cases/is_merchant_onboarding_completed.dart';
 import 'use_cases/patch_user_document.dart';
 import 'use_cases/update_last_login_at.dart';
 import 'use_cases/check_user_profile_complete.dart';
+import 'use_cases/consume_force_merchant_next_login.dart';
 import '../infrastructure/auth_repository_provider.dart';
 import '../infrastructure/user_repository_provider.dart';
 import '../infrastructure/role_cache_service.dart';
@@ -143,6 +144,13 @@ final patchUserDocumentProvider = Provider<PatchUserDocument>((ref) {
 final updateLastLoginAtProvider = Provider<UpdateLastLoginAt>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return UpdateLastLoginAt(repository);
+});
+
+/// Use case provider for consuming one-time merchant-first-login marker
+final consumeForceMerchantNextLoginProvider =
+    Provider<ConsumeForceMerchantNextLogin>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return ConsumeForceMerchantNextLogin(repository);
 });
 
 /// Use case provider for checking profile completeness

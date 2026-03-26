@@ -109,10 +109,8 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: SubcategorySelectionScreen(
-            categoryTitle: 'Test',
-            subcategories: const [],
-            onNext: () {},
             onBack: () {},
+            onNext: () {},
           ),
         ),
       );
@@ -139,7 +137,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: MerchantBenefitsScreen(
-            onStartFree: () {
+            onNext: () {
               startFreeCalled = true;
             },
             onBack: () {},

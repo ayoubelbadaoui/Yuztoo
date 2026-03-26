@@ -15,11 +15,13 @@ class LoyaltyCardsScreen extends ConsumerWidget {
   const LoyaltyCardsScreen({
     super.key,
     required this.onBack,
+    required this.onNotifications,
   });
 
   static String get path => '/loyalty';
 
   final VoidCallback onBack;
+  final VoidCallback onNotifications;
 
   /// When loyalty visits are stored in Firestore, wire them here.
   static const int _advantagesFromBackend = 0;
@@ -50,10 +52,8 @@ class LoyaltyCardsScreen extends ConsumerWidget {
 
     final user = authState.user;
     final basics = ref.watch(userProfileBasicsProvider(user.id)).valueOrNull;
-    final displayName = resolveDisplayName(user, basics);
     final email = resolveEmail(user, basics);
     final phone = resolvePhone(user, basics);
-    final initial = avatarInitial(displayName);
 
     return PopScope(
       canPop: false,
@@ -72,7 +72,7 @@ class LoyaltyCardsScreen extends ConsumerWidget {
           backgroundColor: MerchantColors.bgMain,
           body: Column(
             children: [
-              _Header(initial: initial),
+              _Header(onNotifications: onNotifications),
               Expanded(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),
@@ -102,59 +102,49 @@ class LoyaltyCardsScreen extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.initial});
+  const _Header({required this.onNotifications});
 
-  final String initial;
+  final VoidCallback onNotifications;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: MerchantColors.bgHeader,
-        border: Border(
-          bottom: BorderSide(
-            color: MerchantColors.gold,
-            width: 1,
-          ),
-        ),
-      ),
+      color: MerchantColors.bgHeader,
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: MerchantColors.bgHeader,
+            border: Border(
+              bottom: BorderSide(
+                color: MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderStronger),
+                width: 1,
+              ),
+            ),
+          ),
           child: Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: MerchantColors.gold, width: 2),
-                  color: MerchantColors.gold.withValues(alpha: 0.08),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  initial,
-                  style: GoogleFonts.outfit(
-                    color: MerchantColors.gold,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
               Expanded(
                 child: Text(
-                  'Fidèle à mon quartier',
-                  textAlign: TextAlign.center,
+                  'Fidélité',
                   style: GoogleFonts.outfit(
-                    fontSize: 17,
+                    fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: MerchantColors.gold,
+                    color: MerchantColors.textWhite,
                   ),
                 ),
               ),
-              const SizedBox(width: 40),
+              IconButton(
+                onPressed: onNotifications,
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: MerchantColors.gold,
+                  size: 24,
+                ),
+              ),
             ],
           ),
         ),

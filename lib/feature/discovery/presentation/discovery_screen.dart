@@ -13,12 +13,14 @@ class DiscoveryScreen extends ConsumerStatefulWidget {
   const DiscoveryScreen({
     super.key,
     required this.onBack,
+    required this.onNotifications,
     required this.onStoreSelect,
   });
 
   static String get path => '/discovery';
 
   final VoidCallback onBack;
+  final VoidCallback onNotifications;
   /// Called with merchant id when user taps a business (featured or grid).
   final ValueChanged<String> onStoreSelect;
 
@@ -93,27 +95,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           ),
           child: Row(
             children: [
-              IconButton(
-                onPressed: widget.onBack,
-                icon: Icon(Icons.arrow_back, color: MerchantColors.gold),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: MerchantColors.gold, width: 2),
-                  color: MerchantColors.gold.withValues(alpha: 0.1),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.explore_outlined,
-                  color: MerchantColors.gold,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Recommandations',
@@ -122,6 +103,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                     fontWeight: FontWeight.w600,
                     color: MerchantColors.textWhite,
                   ),
+                ),
+              ),
+              IconButton(
+                onPressed: widget.onNotifications,
+                icon: Icon(
+                  Icons.notifications_outlined,
+                  color: MerchantColors.gold,
+                  size: 24,
                 ),
               ),
             ],
@@ -136,9 +125,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final q = _searchQuery.trim().toLowerCase();
     return merchants.where((m) {
       final name = (m.displayName ?? m.name).toLowerCase();
-      final city = m.city.toLowerCase();
       final categories = m.categories?.join(' ').toLowerCase() ?? '';
-      return name.contains(q) || city.contains(q) || categories.contains(q);
+      return name.contains(q) || categories.contains(q);
     }).toList();
   }
 
@@ -287,23 +275,35 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         onChanged: (v) => setState(() => _searchQuery = v),
         style: GoogleFonts.outfit(
           fontSize: 13,
-          color: MerchantColors.textWhite,
+          color: Colors.black,
         ),
         decoration: InputDecoration(
           hintText: AppLocalizations.of(context)!.searchStore,
           hintStyle: GoogleFonts.outfit(
             fontSize: 13,
-            color: MerchantColors.gold.withValues(alpha: 0.8),
+            color: Colors.black54,
           ),
           prefixIcon: Icon(
             Icons.search,
-            color: MerchantColors.gold,
+            color: Colors.black54,
             size: 22,
           ),
           filled: true,
           fillColor: MerchantColors.textWhite,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+            borderSide: BorderSide.none,
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
             borderSide: BorderSide.none,
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

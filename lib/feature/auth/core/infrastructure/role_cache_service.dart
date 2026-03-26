@@ -9,6 +9,7 @@ import '../../../../types.dart';
 /// due to misconfigured rules on a dev project).
 class RoleCacheService {
   static const _keyLastSelectedRole = 'auth.last_selected_role';
+  static const _keyForceMerchantNextLogin = 'auth.force_merchant_next_login';
 
   Future<void> saveLastSelectedRole(UserRole role) async {
     final prefs = await SharedPreferences.getInstance();
@@ -30,6 +31,23 @@ class RoleCacheService {
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyLastSelectedRole);
+    await prefs.remove(_keyForceMerchantNextLogin);
+  }
+
+  /// Sets a one-time hint to open merchant view on the next authenticated route.
+  Future<void> setForceMerchantNextLogin(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyForceMerchantNextLogin, value);
+  }
+
+  /// Returns and clears the one-time merchant hint.
+  Future<bool> consumeForceMerchantNextLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(_keyForceMerchantNextLogin) ?? false;
+    if (enabled) {
+      await prefs.remove(_keyForceMerchantNextLogin);
+    }
+    return enabled;
   }
 }
 

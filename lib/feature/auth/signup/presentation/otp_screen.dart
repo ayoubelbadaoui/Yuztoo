@@ -309,7 +309,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       (_) async {
         // Firestore profile created successfully — align cache with signup intent (client vs merchant).
         try {
-          await ref.read(auth_core.roleCacheServiceProvider).saveLastSelectedRole(widget.role);
+          final roleCache = ref.read(auth_core.roleCacheServiceProvider);
+          await roleCache.saveLastSelectedRole(widget.role);
         } catch (_) {}
         // Verify the write by reading it back once to ensure eventual consistency
         // This is the proper way to handle Firestore's eventual consistency

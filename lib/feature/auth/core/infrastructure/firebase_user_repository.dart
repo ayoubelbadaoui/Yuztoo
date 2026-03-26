@@ -45,6 +45,8 @@ class FirebaseUserRepository implements UserRepository {
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
         'last_login_at': false, // False on creation, updated on sign-in
+        // One-time routing hint: merchant signup opens merchant view on first post-signup login.
+        'force_merchant_next_login': roles['merchant'] == true,
       }, SetOptions(merge: false));
       LoggerService.logInfo('User document created successfully', context: {'uid': uid, 'email': email, 'city': city});
       return const Right<AuthFailure, Unit>(unit);
@@ -567,6 +569,11 @@ class FirebaseUserRepository implements UserRepository {
       // Set updated_at (always update on patch)
       updates['updated_at'] = FieldValue.serverTimestamp();
 
+      // Ensure one-time first-login marker exists for legacy docs.
+      if (!data.containsKey('force_merchant_next_login')) {
+        updates['force_merchant_next_login'] = false;
+      }
+
       // Only update if there are changes
       if (updates.isNotEmpty) {
         await _firestore.collection('users').doc(uid).update(updates);
@@ -647,6 +654,35 @@ class FirebaseUserRepository implements UserRepository {
         context: {'uid': uid},
       );
       // On error, assume incomplete (safer default)
+      return const Right<AuthFailure, bool>(false);
+    }
+  }
+
+  @override
+  Future<Result<bool>> consumeForceMerchantNextLogin(String uid) async {
+    try {
+      final userRef = _firestore.collection('users').doc(uid);
+      final shouldForce = await _firestore.runTransaction<bool>((tx) async {
+        final snap = await tx.get(userRef);
+        if (!snap.exists) return false;
+        final data = snap.data();
+        final enabled = data?['force_merchant_next_login'] == true;
+        if (enabled) {
+          tx.update(userRef, {
+            'force_merchant_next_login': false,
+            'updated_at': FieldValue.serverTimestamp(),
+          });
+        }
+        return enabled;
+      });
+      return Right<AuthFailure, bool>(shouldForce);
+    } catch (e, st) {
+      LoggerService.logError(
+        'Error consuming force_merchant_next_login',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
       return const Right<AuthFailure, bool>(false);
     }
   }

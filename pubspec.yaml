@@ -32,8 +32,10 @@ dependencies:
   mobile_scanner: ^6.0.2
   qr_flutter: ^4.1.0
   gal: ^2.3.2
-  wakelock_plus: ^1.5.1
-  app_links: ^7.0.0
+  # 1.5.1+ requires Dart ^3.10; keep 1.4.x for Dart 3.9 (Flutter 3.35.x).
+  wakelock_plus: ^1.4.0
+  # 7.x requires Dart ^3.10 / Flutter >=3.38.1; keep 6.x for Flutter 3.35.x (Dart 3.9.x).
+  app_links: ^6.4.1
 
 dev_dependencies:
   flutter_test:

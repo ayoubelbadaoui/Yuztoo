@@ -17,6 +17,25 @@ final followedMerchantIdsForCurrentUserProvider =
   return result.fold((_) => [], (list) => list);
 });
 
+/// Followed merchants with heart level (1 or 2), persisted in Firestore.
+final followedMerchantHeartLevelsForCurrentUserProvider =
+    FutureProvider<Map<String, int>>((ref) async {
+  final userId = ref.watch(auth_providers.currentUserIdProvider);
+  if (userId == null) return const <String, int>{};
+  final repo = ref.watch(followedMerchantsRepositoryProvider);
+  final result = await repo.getFollowedHeartLevels(userId);
+  return result.fold((_) => const <String, int>{}, (map) => map);
+});
+
+/// Followers count per merchant id (all users), used for "Suivi par X personnes".
+final followersCountByMerchantIdsProvider =
+    FutureProvider.family<Map<String, int>, List<String>>((ref, merchantIds) async {
+  if (merchantIds.isEmpty) return const <String, int>{};
+  final repo = ref.watch(followedMerchantsRepositoryProvider);
+  final result = await repo.getFollowersCounts(merchantIds);
+  return result.fold((_) => const <String, int>{}, (map) => map);
+});
+
 /// Single load for Accueil: merchants + promotions together (parallel promo fetches).
 /// Avoids duplicate [getFollowedIds] calls and sequential provider chains.
 typedef ClientHomeFeed = ({
@@ -41,6 +60,12 @@ final clientHomeFeedProvider = FutureProvider<ClientHomeFeed>((ref) async {
 
   final merchantsResult = await merchantRepo.getMerchantsByIds(ids);
   final merchants = merchantsResult.fold((_) => <Merchant>[], (list) => list);
+  final heartLevels = await ref.watch(followedMerchantHeartLevelsForCurrentUserProvider.future);
+  merchants.sort((a, b) {
+    final ah = heartLevels[a.id] ?? 1;
+    final bh = heartLevels[b.id] ?? 1;
+    return bh.compareTo(ah);
+  });
 
   if (merchants.isEmpty) {
     return (merchants: <Merchant>[], promotions: <Promotion>[]);

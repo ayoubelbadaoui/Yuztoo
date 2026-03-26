@@ -14,4 +14,13 @@ abstract class FollowedMerchantsRepository {
 
   /// Check if the user follows the given merchant.
   Future<Result<bool>> isFollowing(String userId, String merchantId);
+
+  /// Get followed merchants with saved heart level (1 or 2).
+  Future<Result<Map<String, int>>> getFollowedHeartLevels(String userId);
+
+  /// Save heart level for a followed merchant.
+  Future<Result<Unit>> setHeartLevel(String userId, String merchantId, int heartLevel);
+
+  /// Count how many users follow each merchant id.
+  Future<Result<Map<String, int>>> getFollowersCounts(List<String> merchantIds);
 }

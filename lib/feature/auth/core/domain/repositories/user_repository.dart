@@ -118,6 +118,11 @@ abstract class UserRepository {
   /// Returns Result<Unit> on success, Result with failure on error
   Future<Result<Unit>> updateLastLoginAt(String uid);
 
+  /// Consumes one-time merchant-first-login marker from Firestore.
+  ///
+  /// Returns true once (when flag was set), then resets it to false atomically.
+  Future<Result<bool>> consumeForceMerchantNextLogin(String uid);
+
   /// Check if user profile is complete with all required fields
   /// 
   /// Required fields: uid, email, phone, city, roles

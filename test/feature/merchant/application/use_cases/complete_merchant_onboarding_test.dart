@@ -48,11 +48,76 @@ class _FakeMerchantRepository implements MerchantRepository {
   }
 
   @override
+  Future<Result<Merchant?>> getMerchantById(String merchantId) async {
+    if (_createdMerchant != null && _createdMerchant!.id == merchantId) {
+      return Right<MerchantFailure, Merchant?>(_createdMerchant);
+    }
+    return Right<MerchantFailure, Merchant?>(null);
+  }
+
+  @override
+  Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async {
+    if (_createdMerchant == null) {
+      return Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
+    }
+    return Right<MerchantFailure, List<Merchant>>(<Merchant>[_createdMerchant!]);
+  }
+
+  @override
+  Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async {
+    if (_createdMerchant == null || !ids.contains(_createdMerchant!.id)) {
+      return Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
+    }
+    return Right<MerchantFailure, List<Merchant>>(<Merchant>[_createdMerchant!]);
+  }
+
+  @override
   Future<Result<Unit>> linkExistingMerchantToUser({
     required String merchantId,
     required String userId,
   }) async {
     return Right<MerchantFailure, Unit>(unit);
+  }
+
+  @override
+  Future<Result<Merchant>> updateMerchant({
+    required String merchantId,
+    String? displayName,
+    String? description,
+    List<String>? categories,
+    String? logoUrl,
+    String? phone,
+    String? address,
+    String? websiteUrl,
+    String? bannerUrl,
+    List<String>? newsImageUrls,
+    String? status,
+    Map<String, dynamic>? hours,
+    bool? rappelsAutoClientValidation,
+    bool? rappelsAutoPassageValidation,
+  }) async {
+    final current = _createdMerchant;
+    if (current == null || current.id != merchantId) {
+      return Left<MerchantFailure, Merchant>(
+        const MerchantUnexpectedFailure(message: 'Merchant not found'),
+      );
+    }
+    _createdMerchant = current.copyWith(
+      displayName: displayName,
+      description: description,
+      categories: categories,
+      logoUrl: logoUrl,
+      phone: phone,
+      address: address,
+      websiteUrl: websiteUrl,
+      bannerUrl: bannerUrl,
+      newsImageUrls: newsImageUrls,
+      status: status,
+      hours: hours,
+      rappelsAutoClientValidation: rappelsAutoClientValidation,
+      rappelsAutoPassageValidation: rappelsAutoPassageValidation,
+    );
+    return Right<MerchantFailure, Merchant>(_createdMerchant!);
   }
 }
 
