@@ -254,8 +254,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       password: widget.password,
     );
 
-    verifyResult.fold(
-      (failure) {
+    await verifyResult.fold<Future<void>>(
+      (failure) async {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
           // Only show error if it's a specific Firebase error (not generic)
@@ -271,10 +271,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
         }
       },
       (authUser) async {
-        // User created successfully with phone + email/password - now create Firestore profile
-        if (mounted) {
-          await _createFirestoreProfile(authUser.id);
-        }
+        // User created successfully with phone + email/password - now create Firestore profile.
+        // Do not gate on [mounted]: RootShell may switch to splash as soon as auth emits
+        // Authenticated, which disposes this route before we run — the write must still run.
+        await _createFirestoreProfile(authUser.id);
       },
     );
   }
@@ -294,8 +294,8 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       city: widget.city,
     );
 
-    createResult.fold(
-      (failure) {
+    await createResult.fold<Future<void>>(
+      (failure) async {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
           // Only show error if it's a specific Firebase error (not generic)
@@ -345,10 +345,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
           
           if (mounted) {
             showSuccessSnackbar(context, 'Inscription réussie!');
-            // Navigation will be driven by auth state changes (AuthController + navigation provider)
-            // The retry logic in main.dart will handle any remaining eventual consistency issues
-            // Just pop OTP screen; auth stream will emit Authenticated and RootShell will navigate.
-            Navigator.of(context).pop();
+            // RootShell navigates once users/{uid} is readable (see main.dart _handleAuthenticatedUser).
+            // Do not Navigator.pop() here: OTP was previously pushed above signup and was disposed
+            // when the shell switched away, leaving the user stuck with no transition.
+            setState(() => _isVerifying = false);
           }
         }
       },

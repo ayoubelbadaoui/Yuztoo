@@ -47,7 +47,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   }
 
   void _handleDiscover() {
-    // main.dart: merchant → Discovery (browse shops), not login/onboarding
     widget.onSelectRole(UserRole.merchant);
   }
 

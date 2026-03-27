@@ -41,6 +41,7 @@ class CompleteMerchantOnboarding {
       description: description,
       websiteUrl: websiteUrl,
       hours: hours,
+      displayName: name,
       logoUrl: logoUrl,
       bannerUrl: bannerUrl,
       // Visible in Découvrir / listMerchants (query expects discoverable merchants).

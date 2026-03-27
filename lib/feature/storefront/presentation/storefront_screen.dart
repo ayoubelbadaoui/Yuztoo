@@ -19,8 +19,6 @@ import '../application/profile_edit_state.dart';
 import '../domain/entities/storefront.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../storage/application/providers.dart' as storage_providers;
-import '../../auth/core/application/state/auth_state.dart';
-import '../../auth/core/application/providers.dart' as auth_providers;
 
 /// Storefront screen - main UI for merchant storefront management
 class StorefrontScreen extends ConsumerStatefulWidget {
@@ -53,10 +51,11 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     setState(() => _isUploadingNewsImage = true);
     final merchantId = _merchantIdForStorefront(storefront);
 
-    final uploadResult = await ref.read(storage_providers.uploadNewsImageProvider).call(
-          filePath: picked.path,
-          merchantId: merchantId,
-        );
+    final uploadResult =
+        await ref.read(storage_providers.uploadNewsImageProvider).call(
+              filePath: picked.path,
+              merchantId: merchantId,
+            );
 
     final imageUrl = uploadResult.fold((_) => null, (url) => url);
     if (imageUrl == null) {
@@ -69,10 +68,11 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     }
 
     final updatedUrls = [...storefront.newsImageUrls, imageUrl];
-    final result = await ref.read(merchant_providers.updateStorefrontProvider).call(
-          merchantId: merchantId,
-          newsImageUrls: updatedUrls,
-        );
+    final result =
+        await ref.read(merchant_providers.updateStorefrontProvider).call(
+              merchantId: merchantId,
+              newsImageUrls: updatedUrls,
+            );
 
     result.fold(
       (_) {
@@ -91,29 +91,24 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     }
   }
 
-  String _merchantIdForStorefront(Storefront storefront) {
-    final authState = ref.read(auth_providers.authStateProvider);
-    final userId = authState is Authenticated ? authState.user.id : null;
-    final id = storefront.id;
-    if (id.startsWith('cached-')) {
-      return userId ?? id.replaceFirst('cached-', '');
-    }
-    return id;
-  }
+  String _merchantIdForStorefront(Storefront storefront) => storefront.id;
 
-  Future<void> _setMerchantPublished(Storefront storefront, bool published) async {
+  Future<void> _setMerchantPublished(
+      Storefront storefront, bool published) async {
     if (storefront.isPublished == published) return;
     final merchantId = _merchantIdForStorefront(storefront);
-    final result = await ref.read(merchant_providers.updateStorefrontProvider).call(
-          merchantId: merchantId,
-          status: published ? 'active' : 'inactive',
-        );
+    final result =
+        await ref.read(merchant_providers.updateStorefrontProvider).call(
+              merchantId: merchantId,
+              status: published ? 'active' : 'inactive',
+            );
 
     result.fold(
       (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible de changer la visibilité du commerce')),
+          const SnackBar(
+              content: Text('Impossible de changer la visibilité du commerce')),
         );
       },
       (_) {
@@ -143,7 +138,9 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
               ),
             ),
             Text(
-              isBanner ? 'Modifier la couverture' : 'Modifier la photo de profil',
+              isBanner
+                  ? 'Modifier la couverture'
+                  : 'Modifier la photo de profil',
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -161,7 +158,8 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     // TODO: Implement image picker from gallery
-                    _handleImagePick(context, isBanner: isBanner, fromCamera: false);
+                    _handleImagePick(context,
+                        isBanner: isBanner, fromCamera: false);
                   },
                 ),
                 _buildImagePickerOption(
@@ -171,7 +169,8 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     // TODO: Implement image picker from camera
-                    _handleImagePick(context, isBanner: isBanner, fromCamera: true);
+                    _handleImagePick(context,
+                        isBanner: isBanner, fromCamera: true);
                   },
                 ),
               ],
@@ -236,7 +235,8 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     );
   }
 
-  void _handleImagePick(BuildContext context, {required bool isBanner, required bool fromCamera}) {
+  void _handleImagePick(BuildContext context,
+      {required bool isBanner, required bool fromCamera}) {
     // TODO: Implement actual image picking using image_picker package
     // For now, just show a snackbar
     ScaffoldMessenger.of(context).showSnackBar(
@@ -256,13 +256,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
   }
 
   Widget _buildAccueilQrSection(Storefront storefront) {
-    final authState = ref.watch(auth_providers.authStateProvider);
-    final uid = authState is Authenticated ? authState.user.id : null;
-    var merchantId = storefront.id;
-    if (merchantId.startsWith('cached-')) {
-      merchantId = uid ?? merchantId.replaceFirst('cached-', '');
-    }
-    return StorefrontQrSection(merchantId: merchantId);
+    return StorefrontQrSection(merchantId: storefront.id);
   }
 
   // ── header (same structure/spacing as other tab pages, cream colors) ────
@@ -298,10 +292,69 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     );
   }
 
+  Widget _buildStateMessage({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+  }) {
+    return Column(
+      children: [
+        _buildHeader(),
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 64,
+                  color: StorefrontColors.textSecondary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: StorefrontColors.textPrimary,
+                  ),
+                ),
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: StorefrontColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final storefrontAsync = ref.watch(storefrontProvider);
     final activeTab = ref.watch(storefrontTabProvider);
+
+    // When the vitrine refetches (invalidate / autoDispose / resume), clear
+    // local UI state so hours and image precache align with fresh Firestore data.
+    ref.listen(storefrontProvider, (previous, next) {
+      if (next is AsyncLoading) {
+        if (mounted) {
+          setState(() {
+            _hoursHydratedFromStorefront = false;
+            _precachedImageKey = null;
+          });
+        }
+      }
+    });
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -315,42 +368,16 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
         body: storefrontAsync.when(
           data: (storefront) {
             if (storefront == null) {
-              // No merchant profile yet - show empty state
-              return Column(
-                children: [
-                  _buildHeader(),
-                  Expanded(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.store_outlined,
-                            size: 64,
-                            color: StorefrontColors.textSecondary,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Aucun profil commerçant',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: StorefrontColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Créez votre profil pour commencer',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: StorefrontColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              return _buildStateMessage(
+                icon: Icons.storefront_outlined,
+                title: 'Commerce introuvable.',
+              );
+            }
+
+            if (!storefront.isPublished) {
+              return _buildStateMessage(
+                icon: Icons.visibility_off_outlined,
+                title: 'Commerce indisponible.',
               );
             }
 
@@ -358,7 +385,9 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
             if (storefront.hours != null && !_hoursHydratedFromStorefront) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!_hoursHydratedFromStorefront && storefront.hours != null) {
-                  ref.read(businessHoursProvider.notifier).loadFromMap(storefront.hours);
+                  ref
+                      .read(businessHoursProvider.notifier)
+                      .loadFromMap(storefront.hours);
                   _hoursHydratedFromStorefront = true;
                   if (mounted) setState(() {});
                 }
@@ -402,23 +431,27 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                             _showImagePickerDialog(context, isBanner: false);
                           },
                         ),
-                        const SizedBox(height: 56), // More space after profile picture
+                        const SizedBox(
+                            height: 56), // More space after profile picture
                         // Merchant info
                         MerchantInfoSection(
                           merchantName: storefront.merchantName,
-                          businessActivity: storefront.businessActivity,
+                          description: storefront.description,
+                          city: storefront.city,
+                          loyaltyEnabled: storefront.loyaltyEnabled,
                           isVerified: storefront.isVerified,
-                              onEdit: () async {
-                                await ref
-                                    .read(storefrontProfileEditProvider.notifier)
-                                    .initializeFrom(storefront);
-                                if (!context.mounted) return;
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const StorefrontEditProfileScreen(),
-                                  ),
-                                );
-                              },
+                          onEdit: () async {
+                            await ref
+                                .read(storefrontProfileEditProvider.notifier)
+                                .initializeFrom(storefront);
+                            if (!context.mounted) return;
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    const StorefrontEditProfileScreen(),
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 24),
                         // Stats cards
@@ -433,7 +466,8 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                         NavigationTabs(
                           activeTab: activeTab,
                           onTabChanged: (tab) {
-                            ref.read(storefrontTabProvider.notifier).state = tab;
+                            ref.read(storefrontTabProvider.notifier).state =
+                                tab;
                           },
                         ),
                         const SizedBox(height: 20),
@@ -464,7 +498,8 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'Commerce en ligne',
@@ -483,7 +518,8 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                                                   : 'Hors ligne — invisible sur Yuztoo',
                                           style: GoogleFonts.outfit(
                                             fontSize: 13,
-                                            color: StorefrontColors.textSecondary,
+                                            color:
+                                                StorefrontColors.textSecondary,
                                             height: 1.35,
                                           ),
                                         ),
@@ -511,9 +547,11 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                                       onChanged: (v) =>
                                           _setMerchantPublished(storefront, v),
                                       activeThumbColor: Colors.white,
-                                      activeTrackColor: StorefrontColors.primaryGold,
+                                      activeTrackColor:
+                                          StorefrontColors.primaryGold,
                                       inactiveThumbColor: Colors.white,
-                                      inactiveTrackColor: StorefrontColors.textTertiary
+                                      inactiveTrackColor: StorefrontColors
+                                          .textTertiary
                                           .withValues(alpha: 0.4),
                                     ),
                                 ],
@@ -524,7 +562,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                         ],
                         // Content based on active tab
                         if (activeTab == 'horaires')
-                          const HoursSection()
+                          HoursSection(merchantId: storefront.id)
                         else if (activeTab == 'accueil')
                           _buildAccueilQrSection(storefront)
                         else if (activeTab == 'actualite')
@@ -537,7 +575,8 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                             onUploadImage: () => _uploadNewsImage(storefront),
                             onSettings: null,
                           ),
-                        const SizedBox(height: 100), // Space for main app bottom nav
+                        const SizedBox(
+                            height: 100), // Space for main app bottom nav
                       ],
                     ),
                   ),
@@ -555,46 +594,12 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
               ),
             ],
           ),
-          error: (error, stack) => Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: StorefrontColors.textSecondary,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Erreur de chargement',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: StorefrontColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        error.toString(),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: StorefrontColors.textSecondary,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          error: (error, stack) => _buildStateMessage(
+            icon: Icons.error_outline,
+            title: 'Impossible de charger la boutique.',
           ),
         ),
       ),
     );
   }
 }
-

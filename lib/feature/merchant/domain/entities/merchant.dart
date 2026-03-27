@@ -24,6 +24,7 @@ class Merchant extends Equatable {
     this.websiteUrl,
     this.bannerUrl,
     this.newsImageUrls,
+    this.loyaltyEnabled = true,
     this.rappelsAutoClientValidation,
     this.rappelsAutoPassageValidation,
     this.rappelsMonthlyConnectedClients = 0,
@@ -75,6 +76,9 @@ class Merchant extends Equatable {
   /// Actualite image URLs for storefront slider (optional)
   final List<String>? newsImageUrls;
 
+  /// Loyalty program toggle (required by merchant data model).
+  final bool loyaltyEnabled;
+
   /// Rappels: auto-validate new clients (default true)
   final bool? rappelsAutoClientValidation;
 
@@ -116,6 +120,7 @@ class Merchant extends Equatable {
         websiteUrl,
         bannerUrl,
         newsImageUrls,
+        loyaltyEnabled,
         rappelsAutoClientValidation,
         rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients,
@@ -142,6 +147,7 @@ class Merchant extends Equatable {
     String? websiteUrl,
     String? bannerUrl,
     List<String>? newsImageUrls,
+    bool? loyaltyEnabled,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     int? rappelsMonthlyConnectedClients,
@@ -166,6 +172,7 @@ class Merchant extends Equatable {
       websiteUrl: websiteUrl ?? this.websiteUrl,
       bannerUrl: bannerUrl ?? this.bannerUrl,
       newsImageUrls: newsImageUrls ?? this.newsImageUrls,
+      loyaltyEnabled: loyaltyEnabled ?? this.loyaltyEnabled,
       rappelsAutoClientValidation:
           rappelsAutoClientValidation ?? this.rappelsAutoClientValidation,
       rappelsAutoPassageValidation:

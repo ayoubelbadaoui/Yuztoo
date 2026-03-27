@@ -23,6 +23,7 @@ class MerchantDto {
     this.websiteUrl,
     this.bannerUrl,
     this.newsImageUrls,
+    this.loyaltyEnabled = true,
     this.rappelsAutoClientValidation,
     this.rappelsAutoPassageValidation,
     this.rappelsMonthlyConnectedClients = 0,
@@ -47,6 +48,7 @@ class MerchantDto {
   final String? websiteUrl;
   final String? bannerUrl;
   final List<String>? newsImageUrls;
+  final bool loyaltyEnabled;
   final bool? rappelsAutoClientValidation;
   final bool? rappelsAutoPassageValidation;
   final int rappelsMonthlyConnectedClients;
@@ -103,6 +105,7 @@ class MerchantDto {
       newsImageUrls: data['news_image_urls'] != null
           ? List<String>.from(data['news_image_urls'] as List)
           : null,
+      loyaltyEnabled: data['loyalty_enabled'] as bool? ?? true,
       rappelsAutoClientValidation: data['rappels_auto_client_validation'] as bool?,
       rappelsAutoPassageValidation: data['rappels_auto_passage_validation'] as bool?,
       rappelsMonthlyConnectedClients:
@@ -132,6 +135,7 @@ class MerchantDto {
         websiteUrl: websiteUrl,
         bannerUrl: bannerUrl,
         newsImageUrls: newsImageUrls,
+        loyaltyEnabled: loyaltyEnabled,
         rappelsAutoClientValidation: rappelsAutoClientValidation,
         rappelsAutoPassageValidation: rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients: rappelsMonthlyConnectedClients,
@@ -158,6 +162,7 @@ class MerchantDto {
         websiteUrl: merchant.websiteUrl,
         bannerUrl: merchant.bannerUrl,
         newsImageUrls: merchant.newsImageUrls,
+        loyaltyEnabled: merchant.loyaltyEnabled,
         rappelsAutoClientValidation: merchant.rappelsAutoClientValidation,
         rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients: merchant.rappelsMonthlyConnectedClients,
@@ -181,6 +186,7 @@ class MerchantDto {
         if (websiteUrl != null) 'website_url': websiteUrl,
         if (bannerUrl != null) 'banner_url': bannerUrl,
         if (newsImageUrls != null) 'news_image_urls': newsImageUrls,
+        'loyalty_enabled': loyaltyEnabled,
         if (rappelsAutoClientValidation != null) 'rappels_auto_client_validation': rappelsAutoClientValidation,
         if (rappelsAutoPassageValidation != null) 'rappels_auto_passage_validation': rappelsAutoPassageValidation,
         'status': status,

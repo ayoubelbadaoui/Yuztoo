@@ -96,9 +96,27 @@ void main() {
           authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
         ],
         child: MaterialApp(
-          home: SignupScreen(
-            role: UserRole.client,
-            onBack: () {},
+          home: Builder(
+            builder: (context) => SignupScreen(
+              role: UserRole.client,
+              onBack: () {},
+              onNavigateToOtp: (data) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => OTPScreen(
+                      userId: '',
+                      phone: data.phone,
+                      onResend: () {},
+                      email: data.email,
+                      password: data.password,
+                      city: data.city,
+                      role: UserRole.client,
+                      verificationId: data.verificationId,
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),

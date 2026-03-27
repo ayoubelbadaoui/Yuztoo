@@ -8,6 +8,11 @@ import '../../../../../core/domain/core/result.dart';
 import '../../../../../core/infrastructure/logger_service.dart';
 import '../../../../../types.dart';
 
+/// Thrown inside [createUserDocument] transaction when phone is taken by another uid.
+class DuplicatePhoneIndexException implements Exception {
+  const DuplicatePhoneIndexException();
+}
+
 /// Firebase implementation of UserRepository
 class FirebaseUserRepository implements UserRepository {
   FirebaseUserRepository({
@@ -30,47 +35,109 @@ class FirebaseUserRepository implements UserRepository {
       );
     }
 
-    try {
-      final userRef = _firestore.collection('users').doc(uid);
-      final existing = await userRef.get();
-      if (existing.exists) {
-        return const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(
-            message:
-                'Vous avez déjà un compte avec ce numéro — nous ne créons pas deux comptes pour le même numéro. Connectez-vous.',
-          ),
-        );
-      }
+    final normalizedPhone = phone.trim();
+    if (normalizedPhone.isEmpty) {
+      return const Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(message: 'Le numéro de téléphone est requis'),
+      );
+    }
 
-      await userRef.set({
-        'uid': uid,
-        'email': email,
-        'phone': phone,
-        'roles': roles,
-        // First account type at signup — login always follows this (not last UI toggle).
-        'primary_role': roles['merchant'] == true ? 'merchant' : 'client',
-        'city': city,
-        'merchant_id': null, // Nullable, set when merchant completes onboarding
-        'status': 'active', // Default status
-        'created_at': FieldValue.serverTimestamp(),
-        'updated_at': FieldValue.serverTimestamp(),
-        // last_login_at: omitted until first sign-in (see [updateLastLoginAt])
-        // One-time routing hint: merchant signup opens merchant view on first post-signup login.
-        'force_merchant_next_login': roles['merchant'] == true,
-      }, SetOptions(merge: false));
-      LoggerService.logInfo('User document created successfully', context: {'uid': uid, 'email': email, 'city': city});
+    const duplicateMsg = AuthUnexpectedFailure(
+      message:
+          'Vous avez déjà un compte avec ce numéro — nous ne créons pas deux comptes pour le même numéro. Connectez-vous.',
+    );
+
+    Map<String, dynamic> userPayload() => {
+          'uid': uid,
+          'email': email,
+          'phone': phone,
+          'roles': roles,
+          'primary_role': roles['merchant'] == true ? 'merchant' : 'client',
+          'city': city,
+          'merchant_id': null,
+          'onboarding': {
+            'merchant': 'not_started',
+          },
+          'status': 'active',
+          'created_at': FieldValue.serverTimestamp(),
+          'updated_at': FieldValue.serverTimestamp(),
+          'last_login_at': null,
+          'force_merchant_next_login': roles['merchant'] == true,
+        };
+
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final userRef = _firestore.collection('users').doc(uid);
+        final phoneIndexRef =
+            _firestore.collection('phone_index').doc(normalizedPhone);
+
+        final userSnap = await transaction.get(userRef);
+        if (userSnap.exists) {
+          throw const DuplicatePhoneIndexException();
+        }
+
+        final phoneSnap = await transaction.get(phoneIndexRef);
+        if (phoneSnap.exists) {
+          final existingUid = phoneSnap.data()?['uid'] as String?;
+          if (existingUid != null && existingUid != uid) {
+            throw const DuplicatePhoneIndexException();
+          }
+        } else {
+          transaction.set(phoneIndexRef, {'uid': uid});
+        }
+
+        transaction.set(userRef, userPayload(), SetOptions(merge: false));
+      });
+
+      LoggerService.logInfo('User document created successfully',
+          context: {'uid': uid, 'email': email, 'city': city});
       return const Right<AuthFailure, Unit>(unit);
+    } on DuplicatePhoneIndexException {
+      return const Left<AuthFailure, Unit>(duplicateMsg);
     } catch (e, st) {
-      // If Firestore rules are misconfigured (common on dev projects), Auth may still succeed
-      // but profile writes will be denied. Don't block the user from continuing in the app.
-      if (e is FirebaseException && e.code == 'permission-denied') {
-        LoggerService.logError(
-          'Permission denied creating user document (non-fatal)',
-          error: e,
-          stackTrace: st,
-          context: {'uid': uid, 'email': email, 'phone': phone, 'city': city},
+      // phone_index requires matching Firestore rules; if rules are missing/outdated
+      // the whole transaction fails and signup breaks. Fall back to users/ only.
+      final isPermissionDenied =
+          e is FirebaseException && e.code == 'permission-denied';
+      if (isPermissionDenied) {
+        LoggerService.logInfo(
+          'createUserDocument: transaction denied (often phone_index rules); retrying users doc only',
+          context: {'uid': uid},
         );
-        return const Right<AuthFailure, Unit>(unit);
+        try {
+          final userRef = _firestore.collection('users').doc(uid);
+          final existing = await userRef.get();
+          if (existing.exists) {
+            return const Left<AuthFailure, Unit>(duplicateMsg);
+          }
+          await userRef.set(userPayload(), SetOptions(merge: false));
+          LoggerService.logInfo('User document created (fallback without phone_index)',
+              context: {'uid': uid, 'email': email, 'city': city});
+          return const Right<AuthFailure, Unit>(unit);
+        } catch (e2, st2) {
+          LoggerService.logError(
+            'Error creating user document (fallback)',
+            error: e2,
+            stackTrace: st2,
+            context: {'uid': uid},
+          );
+          if (e2 is FirebaseException && e2.code == 'permission-denied') {
+            return const Left<AuthFailure, Unit>(
+              AuthUnexpectedFailure(
+                message:
+                    'Permission refusée — impossible de créer le profil. Vérifiez la connexion ou réessayez.',
+              ),
+            );
+          }
+          return Left<AuthFailure, Unit>(
+            AuthUnexpectedFailure(
+              message:
+                  'Erreur lors de la création du profil utilisateur: ${e2.toString()}',
+              cause: e2,
+              stackTrace: st2,
+            ),
+          );
+        }
       }
       LoggerService.logError(
         'Error creating user document',
@@ -80,7 +147,8 @@ class FirebaseUserRepository implements UserRepository {
       );
       return Left<AuthFailure, Unit>(
         AuthUnexpectedFailure(
-          message: 'Erreur lors de la création du profil utilisateur: ${e.toString()}',
+          message:
+              'Erreur lors de la création du profil utilisateur: ${e.toString()}',
           cause: e,
           stackTrace: st,
         ),
@@ -281,7 +349,8 @@ class FirebaseUserRepository implements UserRepository {
         'city': city,
         'updated_at': FieldValue.serverTimestamp(),
       });
-      LoggerService.logInfo('User city updated successfully', context: {'uid': uid, 'city': city});
+      LoggerService.logInfo('User city updated successfully',
+          context: {'uid': uid, 'city': city});
       return const Right<AuthFailure, Unit>(unit);
     } catch (e, st) {
       if (e is FirebaseException && e.code == 'permission-denied') {
@@ -499,9 +568,11 @@ class FirebaseUserRepository implements UserRepository {
         return const Right<AuthFailure, bool?>(null);
       }
 
-      // Onboarding completion source of truth: merchant_id existence.
-      final merchantId = (data['merchant_id'] as String?)?.trim();
-      final onboardingCompleted = merchantId != null && merchantId.isNotEmpty;
+      // Canonical onboarding gate: users/{uid}.onboarding.merchant
+      final onboarding = data['onboarding'] as Map<String, dynamic>?;
+      final onboardingValue =
+          (onboarding?['merchant'] as String?)?.trim().toLowerCase();
+      final onboardingCompleted = onboardingValue == 'completed';
       return Right<AuthFailure, bool?>(onboardingCompleted);
     } catch (e, st) {
       if (e is FirebaseException && e.code == 'permission-denied') {
@@ -562,10 +633,11 @@ class FirebaseUserRepository implements UserRepository {
         final primaryRole = (cleaned['primary_role'] as String?)?.toLowerCase();
         final legacyRole = (cleaned['role'] as String?)?.toLowerCase();
 
-        final isMerchant = (existingRoles != null && existingRoles['merchant'] == true) ||
-            dottedMerchant ||
-            primaryRole == 'merchant' ||
-            legacyRole == 'merchant';
+        final isMerchant =
+            (existingRoles != null && existingRoles['merchant'] == true) ||
+                dottedMerchant ||
+                primaryRole == 'merchant' ||
+                legacyRole == 'merchant';
         final isClient = isMerchant
             ? false
             : (existingRoles != null && existingRoles['client'] == true) ||
@@ -573,9 +645,10 @@ class FirebaseUserRepository implements UserRepository {
                 primaryRole == 'client' ||
                 legacyRole == 'client' ||
                 true;
-        final isProvider = (existingRoles != null && existingRoles['provider'] == true) ||
-            dottedProvider ||
-            isMerchant;
+        final isProvider =
+            (existingRoles != null && existingRoles['provider'] == true) ||
+                dottedProvider ||
+                isMerchant;
 
         cleaned['roles'] = <String, bool>{
           'client': isClient,
@@ -583,10 +656,15 @@ class FirebaseUserRepository implements UserRepository {
           'provider': isProvider,
         };
         cleaned.remove('role');
-        cleaned.remove('onboarding');
         if (!cleaned.containsKey('merchant_id')) {
           cleaned['merchant_id'] = null;
         }
+        final merchantId = (cleaned['merchant_id'] as String?)?.trim();
+        cleaned['onboarding'] = {
+          'merchant': (merchantId != null && merchantId.isNotEmpty)
+              ? 'completed'
+              : 'not_started',
+        };
         if (cleaned['status'] == null) {
           cleaned['status'] = 'active';
         }
@@ -602,7 +680,9 @@ class FirebaseUserRepository implements UserRepository {
         cleaned['updated_at'] = FieldValue.serverTimestamp();
 
         await userRef.set(cleaned, SetOptions(merge: false));
-        LoggerService.logInfo('User document cleaned from legacy dotted role keys', context: {'uid': uid});
+        LoggerService.logInfo(
+            'User document cleaned from legacy dotted role keys',
+            context: {'uid': uid});
         return const Right<AuthFailure, Unit>(unit);
       }
 
@@ -633,9 +713,17 @@ class FirebaseUserRepository implements UserRepository {
         };
       }
 
-      // Cleanup deprecated onboarding marker; completion is now merchant_id-driven.
-      if (data.containsKey('onboarding')) {
-        updates['onboarding'] = FieldValue.delete();
+      // Normalize onboarding marker for legacy users.
+      final merchantId = (data['merchant_id'] as String?)?.trim();
+      final currentOnboarding = data['onboarding'] as Map<String, dynamic>?;
+      final currentMerchantStatus =
+          (currentOnboarding?['merchant'] as String?)?.trim().toLowerCase();
+      final targetMerchantStatus = (merchantId != null && merchantId.isNotEmpty)
+          ? 'completed'
+          : 'not_started';
+      if (currentOnboarding == null ||
+          currentMerchantStatus != targetMerchantStatus) {
+        updates['onboarding'] = {'merchant': targetMerchantStatus};
       }
 
       // One-time: backfill primary_role from roles or legacy role string
@@ -685,7 +773,8 @@ class FirebaseUserRepository implements UserRepository {
       // Only update if there are changes
       if (updates.isNotEmpty) {
         await userRef.update(updates);
-        LoggerService.logInfo('User document patched successfully', context: {'uid': uid, 'fieldsUpdated': updates.keys.toList()});
+        LoggerService.logInfo('User document patched successfully',
+            context: {'uid': uid, 'fieldsUpdated': updates.keys.toList()});
       }
 
       return const Right<AuthFailure, Unit>(unit);
@@ -698,7 +787,8 @@ class FirebaseUserRepository implements UserRepository {
       );
       return Left<AuthFailure, Unit>(
         AuthUnexpectedFailure(
-          message: 'Erreur lors de la mise à jour du profil utilisateur: ${e.toString()}',
+          message:
+              'Erreur lors de la mise à jour du profil utilisateur: ${e.toString()}',
           cause: e,
           stackTrace: st,
         ),
@@ -714,7 +804,8 @@ class FirebaseUserRepository implements UserRepository {
         'last_login_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       });
-      LoggerService.logInfo('Last login timestamp updated successfully', context: {'uid': uid});
+      LoggerService.logInfo('Last login timestamp updated successfully',
+          context: {'uid': uid});
       return const Right<AuthFailure, Unit>(unit);
     } catch (e, st) {
       LoggerService.logError(
@@ -725,7 +816,9 @@ class FirebaseUserRepository implements UserRepository {
       );
       // Don't fail login if this fails - log but continue
       // Return success to not block user login
-      LoggerService.logInfo('Continuing login despite last_login_at update failure', context: {'uid': uid});
+      LoggerService.logInfo(
+          'Continuing login despite last_login_at update failure',
+          context: {'uid': uid});
       return const Right<AuthFailure, Unit>(unit);
     }
   }
@@ -745,17 +838,34 @@ class FirebaseUserRepository implements UserRepository {
 
       // Check required fields
       final hasUid = data['uid'] != null && (data['uid'] as String).isNotEmpty;
-      final hasEmail = data['email'] != null && (data['email'] as String).isNotEmpty;
-      final hasPhone = data['phone'] != null && (data['phone'] as String).isNotEmpty;
-      final hasCity = data['city'] != null && (data['city'] as String).isNotEmpty;
-      
+      final hasEmail =
+          data['email'] != null && (data['email'] as String).isNotEmpty;
+      final hasPhone =
+          data['phone'] != null && (data['phone'] as String).isNotEmpty;
+      final hasCity =
+          data['city'] != null && (data['city'] as String).isNotEmpty;
+
       // Roles: canonical `roles` map, or legacy `role` string until patched on login.
-      final hasRoles =
-          data['roles'] != null ||
+      final hasRoles = data['roles'] != null ||
           (data['role'] != null &&
               (data['role'] as String).toString().trim().isNotEmpty);
+      final onboarding = data['onboarding'] as Map<String, dynamic>?;
+      final onboardingMerchant =
+          (onboarding?['merchant'] as String?)?.trim().toLowerCase();
+      final hasOnboarding = onboardingMerchant == 'not_started' ||
+          onboardingMerchant == 'completed';
+      final hasStatus = data['status'] is String &&
+          ((data['status'] as String).trim().isNotEmpty);
+      final hasMerchantIdField = data.containsKey('merchant_id');
 
-      final isComplete = hasUid && hasEmail && hasPhone && hasCity && hasRoles;
+      final isComplete = hasUid &&
+          hasEmail &&
+          hasPhone &&
+          hasCity &&
+          hasRoles &&
+          hasOnboarding &&
+          hasStatus &&
+          hasMerchantIdField;
       return Right<AuthFailure, bool>(isComplete);
     } catch (e, st) {
       LoggerService.logError(
@@ -798,4 +908,3 @@ class FirebaseUserRepository implements UserRepository {
     }
   }
 }
-

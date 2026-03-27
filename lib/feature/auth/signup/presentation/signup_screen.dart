@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/providers.dart';
 import '../../core/application/auth_error_mapper.dart';
-import 'otp_screen.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../../../types.dart';
@@ -13,11 +12,28 @@ import 'utils/phone_formatter.dart';
 import 'widgets/signup_form_fields.dart';
 import 'widgets/signup_ui_widgets.dart';
 
+/// Payload for [SignupScreen.onNavigateToOtp] when the verification SMS is sent.
+class SignupOtpNavigation {
+  const SignupOtpNavigation({
+    required this.verificationId,
+    required this.email,
+    required this.password,
+    required this.phone,
+    required this.city,
+  });
+  final String verificationId;
+  final String email;
+  final String password;
+  final String phone;
+  final String city;
+}
+
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({
     super.key,
     required this.role,
     required this.onBack,
+    required this.onNavigateToOtp,
     this.initialEmail,
     this.initialPassword,
     this.initialPhone,
@@ -27,6 +43,9 @@ class SignupScreen extends ConsumerStatefulWidget {
 
   final UserRole role;
   final VoidCallback onBack;
+  /// Prefer routing OTP via the app shell (e.g. [ScreenId.otp]) so signup is not
+  /// stacked under a nested [Navigator] that gets disposed when auth navigates away.
+  final void Function(SignupOtpNavigation data) onNavigateToOtp;
   final String? initialEmail;
   final String? initialPassword;
   final String? initialPhone;
@@ -280,19 +299,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           });
 
           showSuccessSnackbar(context, 'Code de vérification envoyé!');
-          // Navigate to OTP screen and let auth stream handle navigation after verification
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => OTPScreen(
-                userId: '', // Not needed until verification
-                phone: phoneNumber,
-                onResend: () {},
-                email: email,
-                password: password,
-                city: _selectedCity!,
-                role: widget.role,
-                verificationId: verificationId,
-              ),
+          widget.onNavigateToOtp(
+            SignupOtpNavigation(
+              verificationId: verificationId,
+              email: email,
+              password: password,
+              phone: phoneNumber,
+              city: _selectedCity!,
             ),
           );
         }

@@ -8,12 +8,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'l10n/app_localizations.dart';
 
 import 'core/app_bootstrap.dart';
-import 'core/domain/core/either.dart';
-import 'core/domain/core/failure.dart';
-import 'core/domain/core/result.dart';
 import 'feature/auth/core/application/providers.dart';
 import 'feature/auth/core/infrastructure/user_repository_provider.dart';
-import 'feature/auth/core/application/role_fallback_hint.dart';
 import 'feature/auth/core/application/state/auth_state.dart';
 import 'feature/auth/core/domain/entities/auth_user.dart';
 import 'theme.dart';
@@ -29,7 +25,8 @@ import 'feature/client_home/presentation/client_home_screen.dart';
 import 'feature/discovery/presentation/discovery_screen.dart';
 import 'feature/qr_scanner/presentation/qr_scanner_screen.dart';
 import 'feature/loyalty/presentation/loyalty_cards_screen.dart';
-import 'feature/store_profile/application/providers.dart' as store_profile_providers;
+import 'feature/store_profile/application/providers.dart'
+    as store_profile_providers;
 import 'feature/store_profile/presentation/store_profile_screen.dart';
 import 'feature/notifications/presentation/notifications_screen.dart';
 import 'feature/messages/presentation/messages_screen.dart';
@@ -38,12 +35,13 @@ import 'feature/merchant_dashboard/presentation/merchant_dashboard_screen.dart';
 import 'feature/promotions/presentation/promotions_management_screen.dart';
 import 'feature/merchant_qr/presentation/merchant_qr_screen.dart';
 import 'feature/merchant_stats/presentation/merchant_stats_screen.dart';
+import 'feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
 import 'feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart';
 import 'feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
-import 'feature/merchant_onboarding/presentation/merchant_benefits_screen.dart';
 import 'feature/merchant_onboarding/application/onboarding_flow_provider.dart'
     as merchant_onboarding_providers;
 import 'feature/storefront/presentation/storefront_screen.dart';
+import 'feature/storefront/application/providers.dart' as storefront_providers;
 import 'feature/merchant/presentation/merchant_profile_form_screen.dart';
 import 'feature/rappels/presentation/rappels_screen.dart';
 import 'feature/rappels/presentation/notifications_auto_screen.dart';
@@ -87,13 +85,15 @@ class _RootShell extends ConsumerStatefulWidget {
   ConsumerState<_RootShell> createState() => _RootShellState();
 }
 
-class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObserver {
+class _RootShellState extends ConsumerState<_RootShell>
+    with WidgetsBindingObserver {
   ProviderSubscription<AuthState>? _authStateSub;
   // Main navigation screen from provider (auth flow)
   ScreenId? _authScreen; // null = loading
   // Within-app navigation (discovery, messages, etc.) - manual state
   ScreenId? _nestedScreen; // null = use _authScreen
-  ScreenId? _previousNestedScreen; // remembers previous nested screen before notifications
+  ScreenId?
+      _previousNestedScreen; // remembers previous nested screen before notifications
   UserRole? _role; // For bottom nav and role-based navigation
   String _activeTab = 'home';
   // Signup/OTP flow data
@@ -107,6 +107,7 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
 
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _appLinkSubscription;
+
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
   String? _pendingVitrineMerchantId;
 
@@ -187,8 +188,9 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
 
   void _openVitrineForMerchant(String merchantId) {
     if (!mounted) return;
-    ref.read(store_profile_providers.selectedStoreMerchantIdProvider.notifier).state =
-        merchantId;
+    ref
+        .read(store_profile_providers.selectedStoreMerchantIdProvider.notifier)
+        .state = merchantId;
     setState(() {
       _nestedScreen = ScreenId.storeProfile;
     });
@@ -206,6 +208,13 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(WakelockPlus.enable());
+      // Refetch vitrine when returning to the app on the merchant storefront;
+      // cached Riverpod/Firestore snapshots can otherwise show an outdated page.
+      final currentScreen = _nestedScreen ?? _authScreen;
+      if (_role == UserRole.merchant &&
+          currentScreen == ScreenId.merchantStorefront) {
+        ref.invalidate(storefront_providers.storefrontProvider);
+      }
     } else {
       unawaited(WakelockPlus.disable());
     }
@@ -218,10 +227,14 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
   /// between different accounts after logout.
   Future<void> _clearAuthTransientDrafts() async {
     try {
-      await ref.read(merchant_providers.merchantProfileCacheServiceProvider).clear();
+      await ref
+          .read(merchant_providers.merchantProfileCacheServiceProvider)
+          .clear();
     } catch (_) {}
     try {
-      ref.read(merchant_onboarding_providers.onboardingFlowProvider.notifier).reset();
+      ref
+          .read(merchant_onboarding_providers.onboardingFlowProvider.notifier)
+          .reset();
     } catch (_) {}
     _signupUserId = null;
     _phoneNumber = null;
@@ -235,7 +248,7 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
   /// Handle auth state changes and update navigation
   void _handleAuthStateChange(AuthState authState) {
     if (!mounted) return;
-    
+
     if (authState is AuthInitial) {
       // Initial state - show splash while auth stream initializes
       // Only set if we're on splash or null
@@ -256,12 +269,12 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       // so AuthError can correctly route off splash on first emission.
       final wasFirstRealAuthState = !_hasReceivedFirstAuthState;
       _hasReceivedFirstAuthState = true;
-      
+
       if (authState is Unauthenticated) {
         unawaited(_clearAuthTransientDrafts());
         // Reset navigation flag
         _isNavigatingToHome = false;
-        
+
         // On first auth state, if unauthenticated, go to role selection
         // But if we're already on a home screen (shouldn't happen, but safety check), don't navigate
         // IMPORTANT: If we're navigating to home (just logged in), don't navigate away
@@ -272,7 +285,7 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
         final inAuthFlow = _authScreen == ScreenId.login ||
             _authScreen == ScreenId.signup ||
             _authScreen == ScreenId.otp;
-        
+
         // Don't navigate if we're in the middle of navigating to home (prevents logout during login)
         if (!onHomeScreen && !inAuthFlow && !_isNavigatingToHome) {
           setState(() {
@@ -284,7 +297,7 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       } else if (authState is AuthError) {
         // Reset navigation flag
         _isNavigatingToHome = false;
-        
+
         // Only navigate to role selection if this is the first real auth state.
         // This prevents showing errors for temporary network issues during app startup
         if (wasFirstRealAuthState) {
@@ -309,7 +322,7 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       }
     }
   }
-  
+
   /// Handle authenticated user - compute role and navigate
   /// Handles delays gracefully without showing errors
   /// Keeps splash screen until navigation is ready to prevent flicker
@@ -328,109 +341,85 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
     } catch (_) {
       // Non-fatal: continue normal routing.
     }
-    
+
     // Flag is already set in _handleAuthStateChange, but ensure we're still on splash
     if (_authScreen != ScreenId.splash && mounted) {
       setState(() => _authScreen = ScreenId.splash);
     }
-    
-    // Fallback role order matters: stale SharedPreferences must NOT override a
-    // merchant profile already present on [AuthUser] from Firestore (reload bug).
-    // - in-memory _role (current session)
-    // - AuthUser.roles / role from auth stream (fresh profile)
-    // - disk cache (only when profile not embedded on user yet)
-    final cachedRole =
-        await ref.read(roleCacheServiceProvider).readLastSelectedRole();
-    final fallbackRole =
-        _role ??
-        roleHintFromAuthUserData(
-          primaryRole: user.primaryRole,
-          roles: user.roles,
-          roleString: user.role,
-        ) ??
-        cachedRole ??
-        UserRole.client;
-    
+
     try {
-      // Get user role with retry logic
-      // For newly created accounts (signup), Firestore might need a moment to write the document
-      // For existing accounts (login), this ensures we get the role even if there's a brief delay
+      // Firestore-driven routing: role and onboarding are resolved from users/{uid}.
       final getUserRole = ref.read(getUserRoleProvider);
-      Result<UserRole?> roleResult;
       UserRole? role;
-      
-      // Retry up to 3 times with increasing delays (200ms, 500ms)
+
+      // Retry a few times to absorb eventual consistency right after signup/profile writes.
       for (int attempt = 0; attempt < 3; attempt++) {
-        try {
-          if (attempt > 0) {
-            // Wait before retry: 200ms, 500ms
-            await Future.delayed(Duration(milliseconds: 200 * attempt));
-          }
-          
-          roleResult = await getUserRole
+        if (attempt > 0) {
+          await Future.delayed(Duration(milliseconds: 200 * attempt));
+        }
+        final roleResult =
+            await getUserRole.call(user.id).timeout(const Duration(seconds: 5));
+        role = roleResult.fold((_) => null, (r) => r);
+        if (role != null) break;
+      }
+
+      // After OTP, Auth signs in before the app finishes writing users/{uid}. If we
+      // sign out here too early, Firestore writes run unauthenticated and fail with
+      // permission-denied. Wait for the profile to appear (signup / slow network).
+      if (role == null && mounted) {
+        const maxExtraWaitMs = 30000;
+        const stepMs = 500;
+        var elapsed = 0;
+        while (role == null && elapsed < maxExtraWaitMs && mounted) {
+          await Future.delayed(const Duration(milliseconds: stepMs));
+          elapsed += stepMs;
+          final roleResult = await getUserRole
               .call(user.id)
               .timeout(const Duration(seconds: 5));
-          
-          role = roleResult.fold(
-            (_) => null, // network/firestore failure → null, will retry
-            (r) => r, // success → use the role
-          );
-          
-          // If we got a valid role, break out of retry loop
-          if (role != null) break;
-        } on TimeoutException catch (_) {
-          // Timeout → will retry if attempts remain
-          if (attempt == 2) {
-            // Last attempt failed → use fallback
-            roleResult = Right<AppFailure, UserRole?>(fallbackRole);
-            role = fallbackRole;
-          }
-        } catch (_) {
-          // Any error → will retry if attempts remain
-          if (attempt == 2) {
-            // Last attempt failed → use fallback
-            roleResult = Right<AppFailure, UserRole?>(fallbackRole);
-            role = fallbackRole;
-          }
+          role = roleResult.fold((_) => null, (r) => r);
         }
       }
-      
-      // Use the role we got, or fallback if Firestore is unavailable (e.g. permission-denied).
-      // Routing follows `primary_role` + getUserRole — no multi-role override to client here.
-      final UserRole effectiveRole = role ?? fallbackRole;
+
+      // If profile is missing, deny session and force re-auth flow.
+      if (role == null) {
+        await ref.read(signOutProvider).call();
+        if (!mounted) return;
+        setState(() {
+          _authScreen = ScreenId.roleSelection;
+          _nestedScreen = null;
+          _role = null;
+          _isNavigatingToHome = false;
+        });
+        return;
+      }
 
       if (!mounted) {
         _isNavigatingToHome = false;
         return;
       }
 
-      // Persist resolved role so next cold start matches last session
-      try {
-        await ref.read(roleCacheServiceProvider).saveLastSelectedRole(effectiveRole);
-      } catch (_) {}
-
-      // Determine target screen based on role and onboarding status
+      // Determine target screen based strictly on Firestore role + onboarding.
       ScreenId targetScreen;
-      if (effectiveRole == UserRole.client) {
+      if (role == UserRole.client) {
         targetScreen = ScreenId.clientHome;
       } else {
-        // Merchant: routing from Firestore `users/{uid}.merchant_id` only
-        // (not local profile cache — avoids stale storefront access).
-        final onboardingCompleted = await merchantOnboardingCompletedFromFirestore(
+        // Merchant gate: no dashboard access until onboarding is completed.
+        final onboardingCompleted =
+            await merchantOnboardingCompletedFromFirestore(
           ref.read(userRepositoryProvider),
           user.id,
         );
         targetScreen = onboardingCompleted
-            ? ScreenId.merchantStorefront
+            ? ScreenId.merchantDashboard
             : ScreenId.merchantProfileForm;
       }
-      
+
       // Now navigate to home screen (we were on splash, so this is safe)
       if (mounted) {
         setState(() {
           _authScreen = targetScreen;
-          _role = effectiveRole;
-          _activeTab = effectiveRole == UserRole.client ? 'home' : 'storefront';
+          _role = role;
+          _activeTab = role == UserRole.client ? 'home' : 'storefront';
           _nestedScreen = null;
           _isNavigatingToHome = false; // Navigation complete
         });
@@ -440,51 +429,22 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
         });
         // UI updates handled by setState above
       }
-    } catch (e) {
-      // On any unexpected error, fall back to authUser role without signing out
-      // Don't show errors - just use fallback data
+    } catch (_) {
+      // Fail closed: keep access guarded when profile routing cannot be resolved.
       if (!mounted) {
         _isNavigatingToHome = false;
         return;
       }
-      
-      final cachedRole =
-          await ref.read(roleCacheServiceProvider).readLastSelectedRole();
-      final fallbackRole =
-          _role ??
-          roleHintFromAuthUserData(
-            primaryRole: user.primaryRole,
-            roles: user.roles,
-            roleString: user.role,
-          ) ??
-          cachedRole ??
-          UserRole.client;
-      
-      // Determine target screen with onboarding check for merchants
-      ScreenId targetScreen;
-      if (fallbackRole == UserRole.merchant) {
-        final onboardingCompleted = await merchantOnboardingCompletedFromFirestore(
-          ref.read(userRepositoryProvider),
-          user.id,
-        );
-        targetScreen = onboardingCompleted
-            ? ScreenId.merchantStorefront
-            : ScreenId.merchantProfileForm;
-      } else {
-        targetScreen = ScreenId.clientHome;
-      }
-      
+
+      try {
+        await ref.read(signOutProvider).call();
+      } catch (_) {}
       if (mounted) {
         setState(() {
-          _role = fallbackRole;
-          _authScreen = targetScreen;
-          _activeTab = fallbackRole == UserRole.merchant ? 'storefront' : 'home';
+          _role = null;
+          _authScreen = ScreenId.roleSelection;
           _nestedScreen = null;
           _isNavigatingToHome = false; // Navigation complete
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _tryConsumePendingVitrineLink();
         });
       }
     }
@@ -499,8 +459,9 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
     // so we should always navigate
     setState(() {
       _role = role;
-      _authScreen =
-          role == UserRole.merchant ? ScreenId.merchantOnboarding : ScreenId.login;
+      _authScreen = role == UserRole.merchant
+          ? ScreenId.merchantOnboarding
+          : ScreenId.login;
       _activeTab = role == UserRole.client ? 'home' : 'storefront';
     });
 
@@ -534,8 +495,12 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       'loyalty': ScreenId.loyalty,
       'store-profile': ScreenId.storeProfile,
       'notifications': ScreenId.notifications,
-      'messages': _role == UserRole.client ? ScreenId.messages : ScreenId.merchantMessages,
-      'profile': _role == UserRole.client ? ScreenId.clientProfile : ScreenId.merchantProfile,
+      'messages': _role == UserRole.client
+          ? ScreenId.messages
+          : ScreenId.merchantMessages,
+      'profile': _role == UserRole.client
+          ? ScreenId.clientProfile
+          : ScreenId.merchantProfile,
       'clients': ScreenId.merchantClients,
       'promotions': ScreenId.merchantPromotions,
       'qr-code': ScreenId.merchantQr,
@@ -573,6 +538,12 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
   void _handleTabChange(String tab) {
     if (_role == null) return;
 
+    // Always refetch vitrine when merchant opens the storefront tab (Riverpod +
+    // Firestore cache can otherwise show an outdated snapshot).
+    if (_role == UserRole.merchant && tab == 'storefront') {
+      ref.invalidate(storefront_providers.storefrontProvider);
+    }
+
     setState(() {
       _activeTab = tab;
       // For merchants, if storefront tab is selected, ensure we're on storefront screen
@@ -603,9 +574,14 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
           'promotions': ScreenId.merchantPromotions, // Map to promotions
           'profile': ScreenId.merchantProfile,
         };
-        final target = map[tab] ?? ScreenId.merchantStorefront; // Default to storefront
+        final target =
+            map[tab] ?? ScreenId.merchantStorefront; // Default to storefront
         // If it's a main tab screen, update auth screen; otherwise nested
-        if (target == ScreenId.merchantClients || target == ScreenId.merchantRappels || target == ScreenId.merchantPromotions || target == ScreenId.merchantProfile || target == ScreenId.merchantStorefront) {
+        if (target == ScreenId.merchantClients ||
+            target == ScreenId.merchantRappels ||
+            target == ScreenId.merchantPromotions ||
+            target == ScreenId.merchantProfile ||
+            target == ScreenId.merchantStorefront) {
           _authScreen = target;
           _nestedScreen = null;
           _previousNestedScreen = null;
@@ -627,7 +603,7 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       });
     } else {
       setState(() {
-        _authScreen = ScreenId.merchantStorefront;
+        _authScreen = ScreenId.merchantDashboard;
         _nestedScreen = null;
         _previousNestedScreen = null;
         _activeTab = 'storefront';
@@ -693,12 +669,24 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       setState(() => _authScreen = ScreenId.roleSelection);
       return;
     }
+    if (currentScreen == ScreenId.merchantSubcategorySelection) {
+      setState(() => _authScreen = ScreenId.merchantOnboarding);
+      return;
+    }
+    if (currentScreen == ScreenId.merchantBenefits) {
+      setState(() => _authScreen = ScreenId.merchantSubcategorySelection);
+      return;
+    }
+    if (currentScreen == ScreenId.merchantProfileForm) {
+      // Merchant onboarding is mandatory: do not allow back-navigation bypass.
+      return;
+    }
 
-    // 3) Merchant tab screens – go back to storefront (home) unless already there.
+    // 3) Merchant tab screens – go back to dashboard unless already there.
     if (_role == UserRole.merchant &&
-        currentScreen != ScreenId.merchantStorefront) {
+        currentScreen != ScreenId.merchantDashboard) {
       setState(() {
-        _authScreen = ScreenId.merchantStorefront;
+        _authScreen = ScreenId.merchantDashboard;
         _nestedScreen = null;
         _activeTab = 'storefront';
       });
@@ -749,7 +737,8 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
     ref.watch(authControllerProvider);
 
     // Get current screen for key and styling
-    final currentScreen = _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
+    final currentScreen =
+        _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
 
     // Sharper transitions: key forces AnimatedSwitcher to run transition when screen changes,
     // shorter duration reduces fuzzy crossfade, no layout scaling.
@@ -778,7 +767,8 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       ),
     );
     final isStorefront = currentScreen == ScreenId.merchantStorefront;
-    const authBgDark = Color(0xFF0E2A44); // MerchantColors.bgMain – auth + discover pages
+    const authBgDark =
+        Color(0xFF0E2A44); // MerchantColors.bgMain – auth + discover pages
     final isAuthDarkScreen = currentScreen == ScreenId.splash ||
         currentScreen == ScreenId.roleSelection ||
         currentScreen == ScreenId.login ||
@@ -799,7 +789,8 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
 
     final isRappels = currentScreen == ScreenId.merchantRappels;
     final isPromotions = currentScreen == ScreenId.merchantPromotions;
-    final isNotificationsAuto = currentScreen == ScreenId.merchantNotificationsAuto;
+    final isNotificationsAuto =
+        currentScreen == ScreenId.merchantNotificationsAuto;
     final isMerchantProfile = currentScreen == ScreenId.merchantProfile;
     final isEFidelite = currentScreen == ScreenId.merchantEFidelite;
     final isAccountPrefs = currentScreen == ScreenId.merchantAccountPreferences;
@@ -810,31 +801,48 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
     final isQrScanner = currentScreen == ScreenId.qrScanner;
     final isStoreProfile = currentScreen == ScreenId.storeProfile;
     final isNotifications = currentScreen == ScreenId.notifications;
-    final isDarkMerchantScreen = isRappels || isPromotions || isNotificationsAuto || isMerchantProfile || isEFidelite || isAccountPrefs || isMerchantClients;
-    final isClientDarkScreen = isClientProfile || isClientHome || isDiscovery || isQrScanner || isStoreProfile || isNotifications || currentScreen == ScreenId.loyalty;
+    final isDarkMerchantScreen = isRappels ||
+        isPromotions ||
+        isNotificationsAuto ||
+        isMerchantProfile ||
+        isEFidelite ||
+        isAccountPrefs ||
+        isMerchantClients;
+    final isClientDarkScreen = isClientProfile ||
+        isClientHome ||
+        isDiscovery ||
+        isQrScanner ||
+        isStoreProfile ||
+        isNotifications ||
+        currentScreen == ScreenId.loyalty;
     final scaffoldBgColor = isStorefront
         ? const Color(0xFFFDFBF7) // Storefront background color
         : isDarkMerchantScreen
             ? const Color(0xFF0E2A44) // MerchantColors.bgMain
             : isClientDarkScreen
-                ? const Color(0xFF0E2A44) // MerchantColors.bgMain – client home, profile, discovery
+                ? const Color(
+                    0xFF0E2A44) // MerchantColors.bgMain – client home, profile, discovery
                 : (isAuthDarkScreen ? authBgDark : Colors.white);
-    
+
     // Default rule: system bars follow the current background (and bottom nav if present).
     // IMPORTANT: Use AnnotatedRegion (not SystemChrome.setSystemUIOverlayStyle in build),
     // so screens that provide their own overlay style (e.g. OTP/Login dark screens)
     // are not overridden.
     final statusBarColor = isNotifications
-        ? const Color(0xFF0B1F33) // MerchantColors.bgHeader (match notifications header)
+        ? const Color(
+            0xFF0B1F33) // MerchantColors.bgHeader (match notifications header)
         : isAuthDarkScreen
-        ? authBgDark
-        : (isStorefront
-            ? scaffoldBgColor
-            : (hasPrimaryHeaderTop || isDiscovery || isStoreProfile ? YColors.primary : scaffoldBgColor));
+            ? authBgDark
+            : (isStorefront
+                ? scaffoldBgColor
+                : (hasPrimaryHeaderTop || isDiscovery || isStoreProfile
+                    ? YColors.primary
+                    : scaffoldBgColor));
     final systemNavBarColor = (_showBottomNav && _role == UserRole.merchant)
         ? const Color(0xFF0B1F33) // MerchantColors.bgHeader
         : (_showBottomNav && _role == UserRole.client)
-            ? const Color(0xFF0B1F33) // same dark nav for client (no white square)
+            ? const Color(
+                0xFF0B1F33) // same dark nav for client (no white square)
             : scaffoldBgColor;
 
     final statusIsLight = statusBarColor.computeLuminance() > 0.5;
@@ -861,59 +869,60 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
         child: Scaffold(
           backgroundColor: scaffoldBgColor,
           body: Builder(
-          builder: (context) {
-            final topInset = MediaQuery.of(context).padding.top;
+            builder: (context) {
+              final topInset = MediaQuery.of(context).padding.top;
 
-            // Some screens already include their own SafeArea (auth + onboarding + storefront),
-            // so we avoid applying SafeArea twice.
-            final screenHandlesSafeArea = currentScreen == ScreenId.roleSelection ||
-                currentScreen == ScreenId.login ||
-                currentScreen == ScreenId.signup ||
-                currentScreen == ScreenId.otp ||
-                currentScreen == ScreenId.merchantProfileForm ||
-                currentScreen == ScreenId.merchantOnboarding ||
-                currentScreen == ScreenId.merchantSubcategorySelection ||
-                currentScreen == ScreenId.merchantBenefits ||
-                currentScreen == ScreenId.merchantStorefront ||
-                currentScreen == ScreenId.merchantRappels ||
-                currentScreen == ScreenId.merchantPromotions ||
-                currentScreen == ScreenId.merchantNotificationsAuto ||
-                currentScreen == ScreenId.merchantProfile ||
-                currentScreen == ScreenId.merchantEFidelite ||
-                currentScreen == ScreenId.merchantAccountPreferences ||
-                currentScreen == ScreenId.merchantClients ||
-                currentScreen == ScreenId.clientProfile ||
-                currentScreen == ScreenId.clientHome ||
-                currentScreen == ScreenId.discovery ||
-                currentScreen == ScreenId.qrScanner ||
-                currentScreen == ScreenId.storeProfile ||
-                currentScreen == ScreenId.notifications ||
-                currentScreen == ScreenId.loyalty;
+              // Some screens already include their own SafeArea (auth + onboarding + storefront),
+              // so we avoid applying SafeArea twice.
+              final screenHandlesSafeArea =
+                  currentScreen == ScreenId.roleSelection ||
+                      currentScreen == ScreenId.login ||
+                      currentScreen == ScreenId.signup ||
+                      currentScreen == ScreenId.otp ||
+                      currentScreen == ScreenId.merchantProfileForm ||
+                      currentScreen == ScreenId.merchantOnboarding ||
+                      currentScreen == ScreenId.merchantSubcategorySelection ||
+                      currentScreen == ScreenId.merchantBenefits ||
+                      currentScreen == ScreenId.merchantStorefront ||
+                      currentScreen == ScreenId.merchantRappels ||
+                      currentScreen == ScreenId.merchantPromotions ||
+                      currentScreen == ScreenId.merchantNotificationsAuto ||
+                      currentScreen == ScreenId.merchantProfile ||
+                      currentScreen == ScreenId.merchantEFidelite ||
+                      currentScreen == ScreenId.merchantAccountPreferences ||
+                      currentScreen == ScreenId.merchantClients ||
+                      currentScreen == ScreenId.clientProfile ||
+                      currentScreen == ScreenId.clientHome ||
+                      currentScreen == ScreenId.discovery ||
+                      currentScreen == ScreenId.qrScanner ||
+                      currentScreen == ScreenId.storeProfile ||
+                      currentScreen == ScreenId.notifications ||
+                      currentScreen == ScreenId.loyalty;
 
-            // No bottom padding here – same as profile. Each screen adds its own scroll padding
-            // so content stays above the nav. Avoids the visible square/band at the bottom.
-            final content = body;
+              // No bottom padding here – same as profile. Each screen adds its own scroll padding
+              // so content stays above the nav. Avoids the visible square/band at the bottom.
+              final content = body;
 
-            return Stack(
-              children: [
-                if (topInset > 0)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: topInset,
-                    child: Container(color: statusBarColor),
-                  ),
-                screenHandlesSafeArea
-                    ? content
-                    : SafeArea(
-                        bottom: false,
-                        child: content,
-                      ),
-              ],
-            );
-          },
-        ),
+              return Stack(
+                children: [
+                  if (topInset > 0)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: topInset,
+                      child: Container(color: statusBarColor),
+                    ),
+                  screenHandlesSafeArea
+                      ? content
+                      : SafeArea(
+                          bottom: false,
+                          child: content,
+                        ),
+                ],
+              );
+            },
+          ),
           bottomNavigationBar: _showBottomNav && _role != null
               ? YBottomNav(
                   role: _role!,
@@ -929,8 +938,9 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
   Widget _buildScreen() {
     // Determine current screen: nested screen takes priority, then auth screen
     // Fallback to role selection if auth screen is null (shouldn't happen, but safety)
-    final currentScreen = _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
-    
+    final currentScreen =
+        _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
+
     switch (currentScreen) {
       case ScreenId.splash:
         // Splash is a pure loading surface; routing is driven by AuthState.
@@ -956,22 +966,28 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       case ScreenId.merchantOnboarding:
         return MerchantOnboardingScreen(
           onBack: () => setState(() => _authScreen = ScreenId.roleSelection),
-          onNext: () => setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
+          onNext: () =>
+              setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
         );
       case ScreenId.merchantSubcategorySelection:
         return SubcategorySelectionScreen(
-          onBack: () => setState(() => _authScreen = ScreenId.merchantOnboarding),
-          onNext: () => setState(() => _authScreen = ScreenId.merchantBenefits),
+          onBack: () =>
+              setState(() => _authScreen = ScreenId.merchantOnboarding),
+          onNext: () =>
+              setState(() => _authScreen = ScreenId.merchantBenefits),
         );
       case ScreenId.merchantBenefits:
         return MerchantBenefitsScreen(
-          onBack: () => setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
+          onBack: () =>
+              setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
           onNext: () {
             setState(() {
               _role = UserRole.merchant;
               _authScreen = ScreenId.signup;
             });
-            ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.merchant);
+            ref
+                .read(roleCacheServiceProvider)
+                .saveLastSelectedRole(UserRole.merchant);
           },
         );
       case ScreenId.login:
@@ -984,6 +1000,16 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
         return SignupScreen(
           role: _role ?? UserRole.client,
           onBack: () => setState(() => _authScreen = ScreenId.login),
+          onNavigateToOtp: (data) {
+            setState(() {
+              _verificationId = data.verificationId;
+              _signupEmail = data.email;
+              _signupPassword = data.password;
+              _phoneNumber = data.phone;
+              _signupCity = data.city;
+              _authScreen = ScreenId.otp;
+            });
+          },
         );
       case ScreenId.otp:
         return OTPScreen(
@@ -1005,7 +1031,10 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
         return ClientHomeScreen(
           onNavigate: _handleNavigate,
           onStoreSelect: (merchantId) {
-            ref.read(store_profile_providers.selectedStoreMerchantIdProvider.notifier).state = merchantId;
+            ref
+                .read(store_profile_providers
+                    .selectedStoreMerchantIdProvider.notifier)
+                .state = merchantId;
             setState(() {
               _previousNestedScreen = null;
               _nestedScreen = ScreenId.storeProfile;
@@ -1017,7 +1046,10 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
           onBack: _handleBackFromDiscovery,
           onNotifications: _openNotificationsScreen,
           onStoreSelect: (merchantId) {
-            ref.read(store_profile_providers.selectedStoreMerchantIdProvider.notifier).state = merchantId;
+            ref
+                .read(store_profile_providers
+                    .selectedStoreMerchantIdProvider.notifier)
+                .state = merchantId;
             setState(() {
               _previousNestedScreen = null;
               _nestedScreen = ScreenId.storeProfile;
@@ -1028,8 +1060,10 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
         return QRScannerScreen(
           onBack: _handleBackToBase,
           onVitrineMerchantFound: (merchantId) {
-            ref.read(store_profile_providers.selectedStoreMerchantIdProvider.notifier).state =
-                merchantId;
+            ref
+                .read(store_profile_providers
+                    .selectedStoreMerchantIdProvider.notifier)
+                .state = merchantId;
             setState(() {
               _previousNestedScreen = null;
               _nestedScreen = ScreenId.storeProfile;
@@ -1096,16 +1130,8 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
         return const StorefrontScreen();
       case ScreenId.merchantProfileForm:
         return MerchantProfileFormScreen(
-          onBack: () {
-            // If user goes back, navigate to storefront (don't disconnect)
-            // Storefront will show empty state if profile is incomplete
-            setState(() {
-              _authScreen = ScreenId.merchantStorefront;
-              _activeTab = 'storefront';
-            });
-          },
+          onBack: () {},
           onComplete: () {
-            // After completing profile, navigate to storefront
             setState(() {
               _authScreen = ScreenId.merchantStorefront;
               _activeTab = 'storefront';

@@ -1,7 +1,7 @@
 import '../domain/repositories/user_repository.dart';
 import 'use_cases/is_merchant_onboarding_completed.dart';
 
-/// Firestore `users/{uid}.merchant_id` based completion check.
+/// Firestore `users/{uid}.onboarding.merchant` based completion check.
 /// Returns [false] if read fails or onboarding is incomplete.
 Future<bool> merchantOnboardingCompletedFromFirestore(
   UserRepository repository,

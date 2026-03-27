@@ -81,11 +81,18 @@ class FirebaseAuthRepository implements AuthRepository {
         // Timeout or error - use fallback (Firebase Auth user only)
         profileDoc = null;
       }
-      
-      final dto = profileDoc != null && profileDoc.exists
-          ? AuthUserDto.fromFirebase(user, profileDoc: profileDoc)
-          : AuthUserDto.fromFirebase(user); // Fallback: use Firebase Auth data only
-      return Right<AuthFailure, AuthUser>(dto.toDomain());
+
+      final mapped = await _profileToAuthResult(user, profileDoc);
+      if (mapped.isLeft) {
+        return const Left<AuthFailure, AuthUser>(AccountDisabledFailure());
+      }
+      final authUser = mapped.rightOrNull;
+      if (authUser == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Profil utilisateur introuvable.'),
+        );
+      }
+      return Right<AuthFailure, AuthUser>(authUser);
     } on firebase.FirebaseAuthException catch (e, st) {
       return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
     } catch (e, st) {
@@ -142,12 +149,13 @@ class FirebaseAuthRepository implements AuthRepository {
           if (!completer.isCompleted) {
             // Check for billing errors specifically
             final errorMessage = e.message ?? '';
-            if (errorMessage.contains('BILLING_NOT_ENABLED') || 
+            if (errorMessage.contains('BILLING_NOT_ENABLED') ||
                 errorMessage.toLowerCase().contains('billing')) {
               // ignore: prefer_const_constructors
               completer.complete(Left<AuthFailure, String>(
                 const AuthUnexpectedFailure(
-                  message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+                  message:
+                      'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
                 ),
               ));
             } else {
@@ -250,34 +258,57 @@ class FirebaseAuthRepository implements AuthRepository {
       // Sign in with phone credential
       final phoneCredential = await _auth.signInWithCredential(credential);
       final phoneUser = phoneCredential.user;
-      
+
       if (phoneUser == null) {
         return const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(message: 'Échec de la vérification du téléphone'),
+          AuthUnexpectedFailure(
+              message: 'Échec de la vérification du téléphone'),
         );
       }
 
       // If this phone is already tied to an existing profile, block signup:
       // one phone number must map to one account only.
+      // Fail-closed: if we cannot read Firestore, do not link email/password.
+      DocumentSnapshot<Map<String, dynamic>>? existingProfile;
       try {
-        final existingProfile = await _firestore
+        existingProfile = await _firestore
             .collection('users')
             .doc(phoneUser.uid)
             .get()
             .timeout(const Duration(seconds: 5));
-        if (existingProfile.exists) {
-          try {
-            await _auth.signOut();
-          } catch (_) {}
-          return const Left<AuthFailure, AuthUser>(
-            AuthUnexpectedFailure(
-              message:
-                  'Vous avez déjà un compte avec ce numéro — nous ne créons pas deux comptes pour le même numéro. Connectez-vous.',
-            ),
-          );
-        }
-      } catch (_) {
-        // If profile lookup fails, continue signup flow (best effort guard).
+      } on TimeoutException catch (_) {
+        try {
+          await _auth.signOut();
+        } catch (_) {}
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message:
+                'Impossible de vérifier votre compte. Réessayez dans un instant.',
+          ),
+        );
+      } catch (e, st) {
+        try {
+          await _auth.signOut();
+        } catch (_) {}
+        return Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message:
+                'Impossible de vérifier votre compte. Réessayez dans un instant.',
+            cause: e,
+            stackTrace: st,
+          ),
+        );
+      }
+      if (existingProfile.exists) {
+        try {
+          await _auth.signOut();
+        } catch (_) {}
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message:
+                'Vous avez déjà un compte avec ce numéro — nous ne créons pas deux comptes pour le même numéro. Connectez-vous.',
+          ),
+        );
       }
 
       // Link email/password to the phone-authenticated user (idempotent).
@@ -303,7 +334,8 @@ class FirebaseAuthRepository implements AuthRepository {
       final updatedUser = _auth.currentUser;
       if (updatedUser == null) {
         return const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(message: 'Utilisateur introuvable après la création'),
+          AuthUnexpectedFailure(
+              message: 'Utilisateur introuvable après la création'),
         );
       }
 
@@ -353,10 +385,8 @@ class FirebaseAuthRepository implements AuthRepository {
     firebase.User? initialUser = _auth.currentUser;
     if (initialUser == null) {
       try {
-        initialUser = await _auth
-            .userChanges()
-            .first
-            .timeout(const Duration(seconds: 5));
+        initialUser =
+            await _auth.userChanges().first.timeout(const Duration(seconds: 5));
       } on TimeoutException {
         // No emission yet - re-check (Firebase may have restored session)
         initialUser = _auth.currentUser;
@@ -403,7 +433,7 @@ class FirebaseAuthRepository implements AuthRepository {
         yield Right<AuthFailure, AuthUser?>(dto.toDomain());
       }
     }
-    
+
     await for (final userEvent in _auth.userChanges()) {
       // ROOT FIX:
       // FirebaseAuth.userChanges() can transiently emit `null` during token refresh,
@@ -420,7 +450,7 @@ class FirebaseAuthRepository implements AuthRepository {
       }
       lastEmittedUid = newUid;
       hasEmittedAny = true;
-      
+
       if (user == null) {
         yield const Right<AuthFailure, AuthUser?>(null);
         continue;
@@ -443,7 +473,7 @@ class FirebaseAuthRepository implements AuthRepository {
           // Any Firestore error - use fallback data
           profileDoc = null;
         }
-        
+
         final mapped = await _profileToAuthResult(user, profileDoc);
         yield mapped;
         if (mapped.isLeft) {
@@ -457,7 +487,8 @@ class FirebaseAuthRepository implements AuthRepository {
           final dto = AuthUserDto.fromFirebase(user);
           yield Right<AuthFailure, AuthUser?>(dto.toDomain());
         } else {
-          yield Left<AuthFailure, AuthUser?>(_mapAuthException(e, StackTrace.current));
+          yield Left<AuthFailure, AuthUser?>(
+              _mapAuthException(e, StackTrace.current));
         }
       } catch (e) {
         // Any other error (including Firestore timeouts/errors) - use fallback
@@ -510,7 +541,8 @@ class FirebaseAuthRepository implements AuthRepository {
         if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
             error.message?.toLowerCase().contains('billing') == true) {
           return const AuthUnexpectedFailure(
-            message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+            message:
+                'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
           );
         }
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
@@ -525,7 +557,8 @@ class FirebaseAuthRepository implements AuthRepository {
         if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
             error.message?.toLowerCase().contains('billing') == true) {
           return const AuthUnexpectedFailure(
-            message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+            message:
+                'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
           );
         }
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
@@ -544,8 +577,7 @@ class FirebaseAuthRepository implements AuthRepository {
         return const AuthUnexpectedFailure(
             message: 'Le mot de passe est trop faible');
       case 'invalid-email':
-        return const AuthUnexpectedFailure(
-            message: 'Adresse email invalide');
+        return const AuthUnexpectedFailure(message: 'Adresse email invalide');
       case 'phone-number-already-exists':
         return const AuthUnexpectedFailure(
           message:

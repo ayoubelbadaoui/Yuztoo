@@ -3,10 +3,10 @@ import '../../../../../types.dart';
 import '../entities/user_profile_basics.dart';
 
 /// Repository interface for user profile operations in Firestore
-/// 
+///
 /// This interface is in the domain layer and contains no Firebase types.
 /// Implementations should be in the infrastructure layer.
-/// 
+///
 /// User Schema (/users/{uid}):
 /// - uid: String (required)
 /// - email: String (required)
@@ -19,20 +19,20 @@ import '../entities/user_profile_basics.dart';
 /// - status: String (default: "active")
 /// - created_at: Timestamp (server timestamp)
 /// - updated_at: Timestamp (server timestamp)
-/// - last_login_at: absent until first sign-in, then Firestore Timestamp
+/// - last_login_at: Timestamp? (null until first sign-in)
 abstract class UserRepository {
   /// Create a user document in Firestore with full schema
-  /// 
+  ///
   /// Creates a new user document with all required and optional fields.
   /// All new users will have the complete schema including merchant_id (null),
-  /// status ("active"); `last_login_at` omitted until first sign-in.
-  /// 
+  /// status ("active"), onboarding.merchant ("not_started"), and last_login_at (null).
+  ///
   /// [uid] - User's unique identifier
   /// [email] - User's email address
   /// [phone] - User's phone number (formatted with country code)
   /// [roles] - Map of user roles: {"client": bool, "merchant": bool, "provider": bool}
   /// [city] - User's city (required, non-empty)
-  /// 
+  ///
   /// Returns Result<Unit> on success, Result with failure on error
   Future<Result<Unit>> createUserDocument({
     required String uid,
@@ -43,16 +43,16 @@ abstract class UserRepository {
   });
 
   /// Get user role from Firestore
-  /// 
+  ///
   /// [uid] - User's unique identifier
-  /// 
+  ///
   /// Returns Result<UserRole?> - UserRole if found, null if document doesn't exist or roles invalid
   Future<Result<UserRole?>> getUserRole(String uid);
 
   /// Get user city from Firestore
-  /// 
+  ///
   /// [uid] - User's unique identifier
-  /// 
+  ///
   /// Returns Result<String?> - City if found, null if document doesn't exist or city is empty
   Future<Result<String?>> getUserCity(String uid);
 
@@ -65,24 +65,24 @@ abstract class UserRepository {
   Future<Result<UserProfileBasics?>> getUserProfileBasics(String uid);
 
   /// Get all user roles from Firestore
-  /// 
+  ///
   /// [uid] - User's unique identifier
-  /// 
+  ///
   /// Returns Result<Map<String, bool>?> - Roles map if found, null if document doesn't exist
   Future<Result<Map<String, bool>?>> getUserRoles(String uid);
 
-  /// Check if merchant onboarding is completed (via `merchant_id` link presence)
-  /// 
+  /// Check if merchant onboarding is completed (via `onboarding.merchant`)
+  ///
   /// [uid] - User's unique identifier
-  /// 
+  ///
   /// Returns Result<bool?> - true if completed, false if not, null if not a merchant or document doesn't exist
   Future<Result<bool?>> isMerchantOnboardingCompleted(String uid);
 
   /// Update user city in Firestore
-  /// 
+  ///
   /// [uid] - User's unique identifier
   /// [city] - New city value (required, non-empty)
-  /// 
+  ///
   /// Returns Result<Unit> on success, Result with failure on error
   Future<Result<Unit>> updateUserCity({
     required String uid,
@@ -100,21 +100,21 @@ abstract class UserRepository {
   });
 
   /// Patch missing fields in user document for legacy users
-  /// 
+  ///
   /// Updates only missing required fields without overwriting existing data.
   /// Handles migration from legacy schema (single role string) to new schema (roles map).
-  /// 
+  ///
   /// [uid] - User's unique identifier
-  /// 
+  ///
   /// Returns Result<Unit> on success, Result with failure on error
   Future<Result<Unit>> patchUserDocument(String uid);
 
   /// Update last_login_at timestamp on successful sign-in
-  /// 
+  ///
   /// Uses server timestamp to ensure consistency and handle concurrent logins.
-  /// 
+  ///
   /// [uid] - User's unique identifier
-  /// 
+  ///
   /// Returns Result<Unit> on success, Result with failure on error
   Future<Result<Unit>> updateLastLoginAt(String uid);
 
@@ -124,13 +124,12 @@ abstract class UserRepository {
   Future<Result<bool>> consumeForceMerchantNextLogin(String uid);
 
   /// Check if user profile is complete with all required fields
-  /// 
+  ///
   /// Required fields: uid, email, phone, city, roles
   /// Optional but should exist: merchant_id, status, created_at, updated_at
-  /// 
+  ///
   /// [uid] - User's unique identifier
-  /// 
+  ///
   /// Returns Result<bool> - true if complete, false if incomplete
   Future<Result<bool>> checkUserProfileComplete(String uid);
 }
-

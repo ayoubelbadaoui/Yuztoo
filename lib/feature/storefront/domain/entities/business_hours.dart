@@ -46,14 +46,17 @@ class DayHours {
         'timeSlots': timeSlots.map((s) => s.toMap()).toList(),
       };
 
-  static DayHours fromMap(Map<String, dynamic> map, {String dayNameFallback = 'Lundi'}) {
+  static DayHours fromMap(Map<String, dynamic> map,
+      {String dayNameFallback = 'Lundi'}) {
     final slots = map['timeSlots'];
     final list = slots is List
-        ? slots.map((e) => TimeSlot.fromMap(Map<String, dynamic>.from(e as Map))).toList()
+        ? slots
+            .map((e) => TimeSlot.fromMap(Map<String, dynamic>.from(e as Map)))
+            .toList()
         : <TimeSlot>[];
     return DayHours(
       dayName: map['dayName'] as String? ?? dayNameFallback,
-      isEnabled: map['isEnabled'] as bool? ?? true,
+      isEnabled: map['isEnabled'] as bool? ?? false,
       timeSlots: list,
     );
   }
@@ -103,30 +106,44 @@ class BusinessHours {
         'sunday': sunday.toMap(),
       };
 
-  /// Deserialize from Firestore; returns default hours if map is null/invalid.
+  /// Deserialize from Firestore; returns closed days if map is null/invalid.
   static BusinessHours fromMap(Map<String, dynamic>? map) {
     if (map == null || map.isEmpty) {
       return const BusinessHours(
-        monday: DayHours(dayName: 'Lundi', isEnabled: true, timeSlots: [TimeSlot(start: '8h', end: '12h'), TimeSlot(start: '14h', end: '18h')]),
-        tuesday: DayHours(dayName: 'Mardi', isEnabled: true, timeSlots: [TimeSlot(start: '8h', end: '12h'), TimeSlot(start: '14h', end: '18h')]),
-        wednesday: DayHours(dayName: 'Mercredi', isEnabled: true, timeSlots: [TimeSlot(start: '8h', end: '12h'), TimeSlot(start: '14h', end: '18h')]),
-        thursday: DayHours(dayName: 'Jeudi', isEnabled: true, timeSlots: [TimeSlot(start: '8h', end: '12h'), TimeSlot(start: '14h', end: '18h')]),
-        friday: DayHours(dayName: 'Vendredi', isEnabled: true, timeSlots: [TimeSlot(start: '8h', end: '12h'), TimeSlot(start: '14h', end: '18h')]),
-        saturday: DayHours(dayName: 'Samedi', isEnabled: true, timeSlots: [TimeSlot(start: '8h', end: '12h'), TimeSlot(start: '14h', end: '18h')]),
+        monday: DayHours(dayName: 'Lundi', isEnabled: false, timeSlots: []),
+        tuesday: DayHours(dayName: 'Mardi', isEnabled: false, timeSlots: []),
+        wednesday:
+            DayHours(dayName: 'Mercredi', isEnabled: false, timeSlots: []),
+        thursday: DayHours(dayName: 'Jeudi', isEnabled: false, timeSlots: []),
+        friday: DayHours(dayName: 'Vendredi', isEnabled: false, timeSlots: []),
+        saturday: DayHours(dayName: 'Samedi', isEnabled: false, timeSlots: []),
         sunday: DayHours(dayName: 'Dimanche', isEnabled: false, timeSlots: []),
         hasExceptionalClosure: false,
       );
     }
     return BusinessHours(
       hasExceptionalClosure: map['hasExceptionalClosure'] as bool? ?? false,
-      monday: DayHours.fromMap(Map<String, dynamic>.from((map['monday'] ?? {}) as Map), dayNameFallback: 'Lundi'),
-      tuesday: DayHours.fromMap(Map<String, dynamic>.from((map['tuesday'] ?? {}) as Map), dayNameFallback: 'Mardi'),
-      wednesday: DayHours.fromMap(Map<String, dynamic>.from((map['wednesday'] ?? {}) as Map), dayNameFallback: 'Mercredi'),
-      thursday: DayHours.fromMap(Map<String, dynamic>.from((map['thursday'] ?? {}) as Map), dayNameFallback: 'Jeudi'),
-      friday: DayHours.fromMap(Map<String, dynamic>.from((map['friday'] ?? {}) as Map), dayNameFallback: 'Vendredi'),
-      saturday: DayHours.fromMap(Map<String, dynamic>.from((map['saturday'] ?? {}) as Map), dayNameFallback: 'Samedi'),
-      sunday: DayHours.fromMap(Map<String, dynamic>.from((map['sunday'] ?? {}) as Map), dayNameFallback: 'Dimanche'),
+      monday: DayHours.fromMap(
+          Map<String, dynamic>.from((map['monday'] ?? {}) as Map),
+          dayNameFallback: 'Lundi'),
+      tuesday: DayHours.fromMap(
+          Map<String, dynamic>.from((map['tuesday'] ?? {}) as Map),
+          dayNameFallback: 'Mardi'),
+      wednesday: DayHours.fromMap(
+          Map<String, dynamic>.from((map['wednesday'] ?? {}) as Map),
+          dayNameFallback: 'Mercredi'),
+      thursday: DayHours.fromMap(
+          Map<String, dynamic>.from((map['thursday'] ?? {}) as Map),
+          dayNameFallback: 'Jeudi'),
+      friday: DayHours.fromMap(
+          Map<String, dynamic>.from((map['friday'] ?? {}) as Map),
+          dayNameFallback: 'Vendredi'),
+      saturday: DayHours.fromMap(
+          Map<String, dynamic>.from((map['saturday'] ?? {}) as Map),
+          dayNameFallback: 'Samedi'),
+      sunday: DayHours.fromMap(
+          Map<String, dynamic>.from((map['sunday'] ?? {}) as Map),
+          dayNameFallback: 'Dimanche'),
     );
   }
 }
-

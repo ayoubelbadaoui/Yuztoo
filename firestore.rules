@@ -42,6 +42,27 @@ service cloud.firestore {
       ]);
     }
 
+    function onboardingShapeValid() {
+      return ('onboarding' in request.resource.data)
+        && request.resource.data.onboarding is map
+        && request.resource.data.onboarding.keys().hasOnly(['merchant'])
+        && request.resource.data.onboarding.merchant is string
+        && request.resource.data.onboarding.merchant in ['not_started', 'completed'];
+    }
+
+    // --- /phone_index/{phone} --- E.164 id (same string as users.phone); blocks duplicate phones across UIDs.
+    match /phone_index/{phone} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid is string
+        && request.resource.data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/phone_index/$(phone));
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // --- /users/{userId} -------------------------------------------------
     // Block self-service status changes once set; allow first write to "active" (or omit).
     // (Keep conditions inline: resource/request are match-scoped.)
@@ -51,13 +72,13 @@ service cloud.firestore {
 
       allow create: if isOwner(userId) && (
         !('status' in request.resource.data) || request.resource.data.status == 'active'
-      ) && !('onboarding' in request.resource.data) && rolesShapeValid() && noLegacyDottedRoleKeys();
+      ) && onboardingShapeValid() && rolesShapeValid() && noLegacyDottedRoleKeys();
 
       allow update: if isOwner(userId) && (
         !('status' in resource.data)
           ? (!('status' in request.resource.data) || request.resource.data.status == 'active')
           : resource.data.status == request.resource.data.status
-      ) && !('onboarding' in request.resource.data) && rolesShapeValid() && noLegacyDottedRoleKeys();
+      ) && onboardingShapeValid() && rolesShapeValid() && noLegacyDottedRoleKeys();
 
       allow delete: if false;
     }

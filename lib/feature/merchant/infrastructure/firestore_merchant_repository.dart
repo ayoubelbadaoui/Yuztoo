@@ -86,6 +86,9 @@ class FirestoreMerchantRepository implements MerchantRepository {
       final userRef = _firestore.collection('users').doc(userId);
       batch.set(userRef, {
         'merchant_id': merchantId,
+        'onboarding': {
+          'merchant': 'completed',
+        },
         // Write full roles map (no dotted keys) to avoid schema drift.
         'roles': {
           'merchant': true,
@@ -297,6 +300,9 @@ class FirestoreMerchantRepository implements MerchantRepository {
       
       batch.update(userRef, {
         'merchant_id': merchantId,
+        'onboarding': {
+          'merchant': 'completed',
+        },
         'roles': {
           'merchant': true,
           'client': false,
