@@ -28,8 +28,8 @@ class _AccountPreferencesScreenState extends ConsumerState<AccountPreferencesScr
   Widget build(BuildContext context) {
     final authState = ref.watch(auth_providers.authStateProvider);
     final storefrontAsync = ref.watch(storefront_providers.storefrontProvider);
-    final isMerchant = authState is Authenticated &&
-        authState.user.role == 'merchant';
+    final isMerchant =
+        authState is Authenticated && authState.user.isMerchant;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(

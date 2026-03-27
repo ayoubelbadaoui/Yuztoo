@@ -13,19 +13,19 @@ import '../entities/user_profile_basics.dart';
 /// - phone: String (required)
 /// - city: String (required)
 /// - roles: Map<String, bool> (required) - {"client": bool, "merchant": bool, "provider": bool}
-///   Signup: client-only users have only client=true; merchants get client+merchant+provider=true.
+///   Signup: client XOR merchant (`client` and `merchant` are not both true); merchants also set `provider`.
+/// - primary_role: String — `"merchant"` | `"client"` (first signup intent; login follows this).
 /// - merchant_id: String? (nullable, set when merchant completes onboarding)
 /// - status: String (default: "active")
-/// - onboarding: Map<String, bool> (default: {"merchant": false})
 /// - created_at: Timestamp (server timestamp)
 /// - updated_at: Timestamp (server timestamp)
-/// - last_login_at: Timestamp? (nullable, updated on sign-in)
+/// - last_login_at: absent until first sign-in, then Firestore Timestamp
 abstract class UserRepository {
   /// Create a user document in Firestore with full schema
   /// 
   /// Creates a new user document with all required and optional fields.
   /// All new users will have the complete schema including merchant_id (null),
-  /// status ("active"), onboarding.merchant (false), and last_login_at (null).
+  /// status ("active"); `last_login_at` omitted until first sign-in.
   /// 
   /// [uid] - User's unique identifier
   /// [email] - User's email address
@@ -71,7 +71,7 @@ abstract class UserRepository {
   /// Returns Result<Map<String, bool>?> - Roles map if found, null if document doesn't exist
   Future<Result<Map<String, bool>?>> getUserRoles(String uid);
 
-  /// Check if merchant onboarding is completed
+  /// Check if merchant onboarding is completed (via `merchant_id` link presence)
   /// 
   /// [uid] - User's unique identifier
   /// 
@@ -126,7 +126,7 @@ abstract class UserRepository {
   /// Check if user profile is complete with all required fields
   /// 
   /// Required fields: uid, email, phone, city, roles
-  /// Optional but should exist: merchant_id, status, onboarding, created_at, updated_at
+  /// Optional but should exist: merchant_id, status, created_at, updated_at
   /// 
   /// [uid] - User's unique identifier
   /// 

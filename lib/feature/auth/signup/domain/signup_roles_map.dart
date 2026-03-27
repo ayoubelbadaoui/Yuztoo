@@ -2,9 +2,11 @@ import '../../../../types.dart';
 
 /// Firestore `roles` map written at signup (OTP → createUserDocument).
 ///
-/// - **Client**: only `client` — no merchant, no provider.
-/// - **Merchant**: `merchant` + `provider` + `client` — commerçants sont aussi
-///   considérés comme prestataires et peuvent utiliser l’app client (carnet, etc.).
+/// `client` and `merchant` are **mutually exclusive** (one account, one primary role).
+/// `provider` stays aligned with merchant signup (prestataire / business features).
+///
+/// - **Client**: `client` only.
+/// - **Merchant**: `merchant` + `provider` (`roles.client` stays false).
 Map<String, bool> signupRolesMap(UserRole signupRole) {
   switch (signupRole) {
     case UserRole.client:
@@ -15,7 +17,7 @@ Map<String, bool> signupRolesMap(UserRole signupRole) {
       };
     case UserRole.merchant:
       return <String, bool>{
-        'client': true,
+        'client': false,
         'merchant': true,
         'provider': true,
       };

@@ -160,7 +160,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Invalid credentials. Check your email and password.';
 
   @override
-  String get accountDisabled => 'This account has been disabled.';
+  String get accountDisabled => 'Account disabled.';
 
   @override
   String get networkError =>

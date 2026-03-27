@@ -12,6 +12,8 @@ import 'core/domain/core/either.dart';
 import 'core/domain/core/failure.dart';
 import 'core/domain/core/result.dart';
 import 'feature/auth/core/application/providers.dart';
+import 'feature/auth/core/infrastructure/user_repository_provider.dart';
+import 'feature/auth/core/application/role_fallback_hint.dart';
 import 'feature/auth/core/application/state/auth_state.dart';
 import 'feature/auth/core/domain/entities/auth_user.dart';
 import 'theme.dart';
@@ -318,20 +320,36 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       _isNavigatingToHome = false;
       return;
     }
+
+    // Best-effort legacy cleanup for user schema drift (e.g. dotted role keys).
+    try {
+      final patchUserDoc = ref.read(patchUserDocumentProvider);
+      await patchUserDoc.call(user.id);
+    } catch (_) {
+      // Non-fatal: continue normal routing.
+    }
     
     // Flag is already set in _handleAuthStateChange, but ensure we're still on splash
     if (_authScreen != ScreenId.splash && mounted) {
       setState(() => _authScreen = ScreenId.splash);
     }
     
-    // Use the best available fallback role:
-    // - current in-memory selection (role selection / signup flow)
-    // - last locally saved selection (survives app restarts)
-    // - authUser.role (legacy fallback)
+    // Fallback role order matters: stale SharedPreferences must NOT override a
+    // merchant profile already present on [AuthUser] from Firestore (reload bug).
+    // - in-memory _role (current session)
+    // - AuthUser.roles / role from auth stream (fresh profile)
+    // - disk cache (only when profile not embedded on user yet)
     final cachedRole =
         await ref.read(roleCacheServiceProvider).readLastSelectedRole();
     final fallbackRole =
-        _role ?? cachedRole ?? _mapUserRoleString(user.role) ?? UserRole.client;
+        _role ??
+        roleHintFromAuthUserData(
+          primaryRole: user.primaryRole,
+          roles: user.roles,
+          roleString: user.role,
+        ) ??
+        cachedRole ??
+        UserRole.client;
     
     try {
       // Get user role with retry logic
@@ -378,31 +396,8 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       }
       
       // Use the role we got, or fallback if Firestore is unavailable (e.g. permission-denied).
-      UserRole effectiveRole = role ?? fallbackRole;
-
-      // Users with BOTH client and merchant: getUserRole() in Firestore returns merchant first.
-      // Respect the role the user chose on the login screen / cached intent.
-      try {
-        final getUserRoles = ref.read(getUserRolesProvider);
-        final rolesResult = await getUserRoles.call(user.id);
-        final rolesMap = rolesResult.fold((_) => null, (m) => m);
-        final hasClient = rolesMap?['client'] == true;
-        final hasMerchant = rolesMap?['merchant'] == true;
-        if (hasClient && hasMerchant) {
-          final consumeForceMerchantNextLogin =
-              ref.read(consumeForceMerchantNextLoginProvider);
-          final consumeResult = await consumeForceMerchantNextLogin.call(user.id);
-          final forceMerchantOnce = consumeResult.fold((_) => false, (v) => v);
-          if (forceMerchantOnce) {
-            effectiveRole = UserRole.merchant;
-          } else {
-            // Until role switch is added, multi-role users should open as client by default.
-            effectiveRole = UserRole.client;
-          }
-        }
-      } catch (_) {
-        // Keep effectiveRole
-      }
+      // Routing follows `primary_role` + getUserRole — no multi-role override to client here.
+      final UserRole effectiveRole = role ?? fallbackRole;
 
       if (!mounted) {
         _isNavigatingToHome = false;
@@ -419,38 +414,14 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       if (effectiveRole == UserRole.client) {
         targetScreen = ScreenId.clientHome;
       } else {
-        // Merchant - check if onboarding is complete
-        // Check cache FIRST (works even if Firestore fails)
-        bool onboardingCompleted = false;
-        try {
-          final cacheService = ref.read(merchant_providers.merchantProfileCacheServiceProvider);
-          final cachedData = await cacheService.loadProfile();
-          // If cache has merchant name, consider onboarding complete
-          if (cachedData['userId'] == user.id && cachedData['name'] != null && cachedData['name']!.isNotEmpty) {
-            onboardingCompleted = true;
-          }
-        } catch (_) {
-          // Cache check failed - continue to Firestore check
-        }
-        
-        // If cache didn't have data, check Firestore (optional)
-        if (!onboardingCompleted) {
-          try {
-            final isOnboardingCompleted = ref.read(isMerchantOnboardingCompletedProvider);
-            final onboardingResult = await isOnboardingCompleted.call(user.id);
-            onboardingCompleted = onboardingResult.fold(
-              (_) => false, // Firestore failed - keep false, show form
-              (completed) => completed ?? false,
-            );
-          } catch (_) {
-            // Firestore check failed - keep false, show form
-            onboardingCompleted = false;
-          }
-        }
-        
-        // If onboarding not complete, show profile form
-        targetScreen = onboardingCompleted 
-            ? ScreenId.merchantStorefront 
+        // Merchant: routing from Firestore `users/{uid}.merchant_id` only
+        // (not local profile cache — avoids stale storefront access).
+        final onboardingCompleted = await merchantOnboardingCompletedFromFirestore(
+          ref.read(userRepositoryProvider),
+          user.id,
+        );
+        targetScreen = onboardingCompleted
+            ? ScreenId.merchantStorefront
             : ScreenId.merchantProfileForm;
       }
       
@@ -480,23 +451,25 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
       final cachedRole =
           await ref.read(roleCacheServiceProvider).readLastSelectedRole();
       final fallbackRole =
-          _role ?? cachedRole ?? _mapUserRoleString(user.role) ?? UserRole.client;
+          _role ??
+          roleHintFromAuthUserData(
+            primaryRole: user.primaryRole,
+            roles: user.roles,
+            roleString: user.role,
+          ) ??
+          cachedRole ??
+          UserRole.client;
       
       // Determine target screen with onboarding check for merchants
       ScreenId targetScreen;
       if (fallbackRole == UserRole.merchant) {
-        // Check cache to see if merchant profile exists
-        bool hasProfile = false;
-        try {
-          final cacheService = ref.read(merchant_providers.merchantProfileCacheServiceProvider);
-          final cachedData = await cacheService.loadProfile();
-          if (cachedData['userId'] == user.id && cachedData['name'] != null && cachedData['name']!.isNotEmpty) {
-            hasProfile = true;
-          }
-        } catch (_) {
-          // Cache check failed - assume no profile
-        }
-        targetScreen = hasProfile ? ScreenId.merchantStorefront : ScreenId.merchantProfileForm;
+        final onboardingCompleted = await merchantOnboardingCompletedFromFirestore(
+          ref.read(userRepositoryProvider),
+          user.id,
+        );
+        targetScreen = onboardingCompleted
+            ? ScreenId.merchantStorefront
+            : ScreenId.merchantProfileForm;
       } else {
         targetScreen = ScreenId.clientHome;
       }
@@ -514,16 +487,6 @@ class _RootShellState extends ConsumerState<_RootShell> with WidgetsBindingObser
           _tryConsumePendingVitrineLink();
         });
       }
-    }
-  }
-
-  UserRole? _mapUserRoleString(String role) {
-    switch (role.toLowerCase()) {
-      case 'merchant':
-        return UserRole.merchant;
-      case 'client':
-      default:
-        return UserRole.client;
     }
   }
 

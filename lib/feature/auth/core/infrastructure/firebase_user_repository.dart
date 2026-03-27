@@ -31,20 +31,30 @@ class FirebaseUserRepository implements UserRepository {
     }
 
     try {
-      await _firestore.collection('users').doc(uid).set({
+      final userRef = _firestore.collection('users').doc(uid);
+      final existing = await userRef.get();
+      if (existing.exists) {
+        return const Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(
+            message:
+                'Vous avez déjà un compte avec ce numéro — nous ne créons pas deux comptes pour le même numéro. Connectez-vous.',
+          ),
+        );
+      }
+
+      await userRef.set({
         'uid': uid,
         'email': email,
         'phone': phone,
         'roles': roles,
+        // First account type at signup — login always follows this (not last UI toggle).
+        'primary_role': roles['merchant'] == true ? 'merchant' : 'client',
         'city': city,
         'merchant_id': null, // Nullable, set when merchant completes onboarding
         'status': 'active', // Default status
-        'onboarding': {
-          'merchant': false, // Default to incomplete
-        },
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
-        'last_login_at': false, // False on creation, updated on sign-in
+        // last_login_at: omitted until first sign-in (see [updateLastLoginAt])
         // One-time routing hint: merchant signup opens merchant view on first post-signup login.
         'force_merchant_next_login': roles['merchant'] == true,
       }, SetOptions(merge: false));
@@ -91,7 +101,29 @@ class FirebaseUserRepository implements UserRepository {
         return const Right<AuthFailure, UserRole?>(null);
       }
 
-      // Check legacy role FIRST (for old users)
+      // Signup intent / first account type — wins over flags toggled later.
+      final primaryRaw = data['primary_role'];
+      if (primaryRaw is String) {
+        final p = primaryRaw.toLowerCase();
+        if (p == 'merchant') {
+          return const Right<AuthFailure, UserRole?>(UserRole.merchant);
+        }
+        if (p == 'client') {
+          return const Right<AuthFailure, UserRole?>(UserRole.client);
+        }
+      }
+
+      // Canonical: `roles` map on `/users/{uid}`. Legacy `role` string is migration-only.
+      final roles = data['roles'] as Map<String, dynamic>?;
+      if (roles != null) {
+        if (roles['merchant'] == true) {
+          return const Right<AuthFailure, UserRole?>(UserRole.merchant);
+        }
+        if (roles['client'] == true) {
+          return const Right<AuthFailure, UserRole?>(UserRole.client);
+        }
+      }
+
       final legacyRole = data['role'] as String?;
       if (legacyRole != null) {
         final normalized = legacyRole.toLowerCase();
@@ -99,18 +131,6 @@ class FirebaseUserRepository implements UserRepository {
           return const Right<AuthFailure, UserRole?>(UserRole.merchant);
         }
         if (normalized == 'client') {
-          return const Right<AuthFailure, UserRole?>(UserRole.client);
-        }
-      }
-
-      // Then check new roles map
-      final roles = data['roles'] as Map<String, dynamic>?;
-      if (roles != null) {
-        // Check merchant first (merchant takes priority)
-        if (roles['merchant'] == true) {
-          return const Right<AuthFailure, UserRole?>(UserRole.merchant);
-        }
-        if (roles['client'] == true) {
           return const Right<AuthFailure, UserRole?>(UserRole.client);
         }
       }
@@ -469,15 +489,19 @@ class FirebaseUserRepository implements UserRepository {
       }
 
       final roles = data['roles'] as Map<String, dynamic>?;
-      if (roles == null || roles['merchant'] != true) {
+      final primaryRole = (data['primary_role'] as String?)?.toLowerCase();
+      final legacyRole = (data['role'] as String?)?.toLowerCase();
+      final isMerchant = (roles != null && roles['merchant'] == true) ||
+          primaryRole == 'merchant' ||
+          legacyRole == 'merchant';
+      if (!isMerchant) {
         // Not a merchant, return null
         return const Right<AuthFailure, bool?>(null);
       }
 
-      // Check onboarding status from nested onboarding.merchant field
-      // Falls back to false if not set (defaults to incomplete)
-      final onboarding = data['onboarding'] as Map<String, dynamic>?;
-      final onboardingCompleted = onboarding?['merchant'] as bool? ?? false;
+      // Onboarding completion source of truth: merchant_id existence.
+      final merchantId = (data['merchant_id'] as String?)?.trim();
+      final onboardingCompleted = merchantId != null && merchantId.isNotEmpty;
       return Right<AuthFailure, bool?>(onboardingCompleted);
     } catch (e, st) {
       if (e is FirebaseException && e.code == 'permission-denied') {
@@ -508,7 +532,8 @@ class FirebaseUserRepository implements UserRepository {
   @override
   Future<Result<Unit>> patchUserDocument(String uid) async {
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
+      final userRef = _firestore.collection('users').doc(uid);
+      final doc = await userRef.get();
       if (!doc.exists) {
         return const Left<AuthFailure, Unit>(
           AuthUnexpectedFailure(message: 'User document does not exist'),
@@ -522,8 +547,72 @@ class FirebaseUserRepository implements UserRepository {
         );
       }
 
+      // Legacy cleanup: some docs may contain literal dotted keys such as
+      // `roles.client` / `roles.merchant` / `roles.provider`.
+      final hasLegacyDottedRoleKeys = data.containsKey('roles.client') ||
+          data.containsKey('roles.merchant') ||
+          data.containsKey('roles.provider');
+      if (hasLegacyDottedRoleKeys) {
+        final cleaned = Map<String, dynamic>.from(data);
+        final dottedClient = cleaned.remove('roles.client') == true;
+        final dottedMerchant = cleaned.remove('roles.merchant') == true;
+        final dottedProvider = cleaned.remove('roles.provider') == true;
+
+        final existingRoles = cleaned['roles'] as Map<String, dynamic>?;
+        final primaryRole = (cleaned['primary_role'] as String?)?.toLowerCase();
+        final legacyRole = (cleaned['role'] as String?)?.toLowerCase();
+
+        final isMerchant = (existingRoles != null && existingRoles['merchant'] == true) ||
+            dottedMerchant ||
+            primaryRole == 'merchant' ||
+            legacyRole == 'merchant';
+        final isClient = isMerchant
+            ? false
+            : (existingRoles != null && existingRoles['client'] == true) ||
+                dottedClient ||
+                primaryRole == 'client' ||
+                legacyRole == 'client' ||
+                true;
+        final isProvider = (existingRoles != null && existingRoles['provider'] == true) ||
+            dottedProvider ||
+            isMerchant;
+
+        cleaned['roles'] = <String, bool>{
+          'client': isClient,
+          'merchant': isMerchant,
+          'provider': isProvider,
+        };
+        cleaned.remove('role');
+        cleaned.remove('onboarding');
+        if (!cleaned.containsKey('merchant_id')) {
+          cleaned['merchant_id'] = null;
+        }
+        if (cleaned['status'] == null) {
+          cleaned['status'] = 'active';
+        }
+        if (!cleaned.containsKey('force_merchant_next_login')) {
+          cleaned['force_merchant_next_login'] = false;
+        }
+        if (cleaned['last_login_at'] == false) {
+          cleaned.remove('last_login_at');
+        }
+        if (cleaned['created_at'] == null) {
+          cleaned['created_at'] = FieldValue.serverTimestamp();
+        }
+        cleaned['updated_at'] = FieldValue.serverTimestamp();
+
+        await userRef.set(cleaned, SetOptions(merge: false));
+        LoggerService.logInfo('User document cleaned from legacy dotted role keys', context: {'uid': uid});
+        return const Right<AuthFailure, Unit>(unit);
+      }
+
       // Build update map with only missing fields
       final updates = <String, dynamic>{};
+
+      // Drop legacy string if the canonical `roles` map exists (duplicate / old writes).
+      if (data['roles'] != null && data.containsKey('role')) {
+        updates['role'] = FieldValue.delete();
+      }
 
       // Convert legacy single role string to roles map if needed
       if (data['roles'] == null && data['role'] != null) {
@@ -544,11 +633,25 @@ class FirebaseUserRepository implements UserRepository {
         };
       }
 
-      // Initialize onboarding if missing
-      if (data['onboarding'] == null) {
-        updates['onboarding'] = {
-          'merchant': false,
-        };
+      // Cleanup deprecated onboarding marker; completion is now merchant_id-driven.
+      if (data.containsKey('onboarding')) {
+        updates['onboarding'] = FieldValue.delete();
+      }
+
+      // One-time: backfill primary_role from roles or legacy role string
+      if (!data.containsKey('primary_role')) {
+        final rolesMap = data['roles'] as Map<String, dynamic>?;
+        if (rolesMap != null) {
+          updates['primary_role'] =
+              rolesMap['merchant'] == true ? 'merchant' : 'client';
+        } else {
+          final legacy = (data['role'] as String?)?.toLowerCase();
+          if (legacy == 'merchant') {
+            updates['primary_role'] = 'merchant';
+          } else {
+            updates['primary_role'] = 'client';
+          }
+        }
       }
 
       // Set default status if missing
@@ -574,9 +677,14 @@ class FirebaseUserRepository implements UserRepository {
         updates['force_merchant_next_login'] = false;
       }
 
+      // Legacy sentinel: remove bool false so field is absent until [updateLastLoginAt].
+      if (data['last_login_at'] == false) {
+        updates['last_login_at'] = FieldValue.delete();
+      }
+
       // Only update if there are changes
       if (updates.isNotEmpty) {
-        await _firestore.collection('users').doc(uid).update(updates);
+        await userRef.update(updates);
         LoggerService.logInfo('User document patched successfully', context: {'uid': uid, 'fieldsUpdated': updates.keys.toList()});
       }
 
@@ -641,8 +749,11 @@ class FirebaseUserRepository implements UserRepository {
       final hasPhone = data['phone'] != null && (data['phone'] as String).isNotEmpty;
       final hasCity = data['city'] != null && (data['city'] as String).isNotEmpty;
       
-      // Check roles - either new format (roles map) or legacy (role string)
-      final hasRoles = data['roles'] != null || data['role'] != null;
+      // Roles: canonical `roles` map, or legacy `role` string until patched on login.
+      final hasRoles =
+          data['roles'] != null ||
+          (data['role'] != null &&
+              (data['role'] as String).toString().trim().isNotEmpty);
 
       final isComplete = hasUid && hasEmail && hasPhone && hasCity && hasRoles;
       return Right<AuthFailure, bool>(isComplete);

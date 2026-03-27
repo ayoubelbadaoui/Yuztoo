@@ -10,6 +10,8 @@ class AuthUserDto {
     this.displayName,
     this.photoUrl,
     this.phoneNumber,
+    this.roles,
+    this.primaryRole,
     this.role = 'client',
   });
 
@@ -18,7 +20,25 @@ class AuthUserDto {
   final String? displayName;
   final String? photoUrl;
   final String? phoneNumber;
+  final Map<String, bool>? roles;
+  /// Firestore `primary_role` (`merchant` | `client`).
+  final String? primaryRole;
   final String role;
+
+  static Map<String, bool>? _normalizeRolesMap(Map<String, dynamic>? raw) {
+    if (raw == null) return null;
+    return <String, bool>{
+      'client': raw['client'] == true,
+      'merchant': raw['merchant'] == true,
+      'provider': raw['provider'] == true,
+    };
+  }
+
+  static String _primaryRoleFromFlags(Map<String, bool> roles) {
+    if (roles['merchant'] == true) return 'merchant';
+    if (roles['client'] == true) return 'client';
+    return 'client';
+  }
 
   factory AuthUserDto.fromFirebase(
     firebase.User user, {
@@ -28,29 +48,54 @@ class AuthUserDto {
     // ROOT FIX: If user was created with phone auth, email might not be in Firebase Auth
     // but will be in Firestore. Use Firestore email as fallback.
     final email = user.email ?? (data?['email'] as String?);
-    
-    // Prefer roles map over single role string (new schema)
-    // Derive role from roles map if available, otherwise fall back to legacy role field
-    String role = 'client'; // default
-    final roles = data?['roles'] as Map<String, dynamic>?;
-    if (roles != null) {
-      // Use roles map - prefer merchant over client
-      if (roles['merchant'] == true) {
-        role = 'merchant';
-      } else if (roles['client'] == true) {
-        role = 'client';
-      }
+
+    Map<String, bool>? rolesMap = _normalizeRolesMap(
+      data?['roles'] as Map<String, dynamic>?,
+    );
+    String role = 'client';
+
+    if (rolesMap != null) {
+      role = _primaryRoleFromFlags(rolesMap);
     } else {
-      // Fallback to legacy single role string for backward compatibility
-      role = data?['role'] as String? ?? 'client';
+      final legacy = (data?['role'] as String?)?.toLowerCase();
+      if (legacy == 'merchant') {
+        role = 'merchant';
+        rolesMap = const <String, bool>{
+          'client': false,
+          'merchant': true,
+          'provider': false,
+        };
+      } else if (legacy == 'client') {
+        role = 'client';
+        rolesMap = const <String, bool>{
+          'client': true,
+          'merchant': false,
+          'provider': false,
+        };
+      }
     }
-    
+
+    final primaryRaw = data?['primary_role'] as String?;
+    final primaryNorm = primaryRaw?.toLowerCase();
+    String? primaryRole = (primaryNorm == 'merchant' || primaryNorm == 'client')
+        ? primaryNorm
+        : null;
+
+    // Align convenience [role] with signup intent when Firestore has primary_role.
+    if (primaryRole == 'merchant') {
+      role = 'merchant';
+    } else if (primaryRole == 'client') {
+      role = 'client';
+    }
+
     return AuthUserDto(
       id: user.uid,
       email: email,
       displayName: user.displayName ?? data?['displayName'] as String?,
       photoUrl: user.photoURL ?? data?['photoUrl'] as String?,
       phoneNumber: user.phoneNumber ?? data?['phoneNumber'] as String?,
+      roles: rolesMap,
+      primaryRole: primaryRole,
       role: role,
     );
   }
@@ -61,16 +106,16 @@ class AuthUserDto {
         displayName: displayName,
         photoUrl: photoUrl,
         phoneNumber: phoneNumber,
+        roles: roles,
+        primaryRole: primaryRole,
         role: role,
       );
 
+  /// Not used for `/users/{uid}` writes — profile updates go through [UserRepository].
   Map<String, dynamic> toFirestore() => <String, dynamic>{
         'email': email,
         'displayName': displayName,
         'photoUrl': photoUrl,
         'phoneNumber': phoneNumber,
-        // Note: role field is deprecated - use roles map instead
-        // Only included here for backward compatibility with legacy code
-        'role': role,
       };
 }

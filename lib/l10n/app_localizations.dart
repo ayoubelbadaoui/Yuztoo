@@ -401,7 +401,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountDisabled.
   ///
   /// In en, this message translates to:
-  /// **'This account has been disabled.'**
+  /// **'Account disabled.'**
   String get accountDisabled;
 
   /// No description provided for @networkError.

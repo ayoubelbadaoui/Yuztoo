@@ -282,7 +282,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   Future<void> _createFirestoreProfile(String userId) async {
     // Use user ID from created user (after OTP verification)
 
-    // Client = client only. Merchant = merchant + provider + client (see signup_roles_map).
+    // Client = client only. Merchant = merchant + provider; client flag stays false (see signup_roles_map).
     final Map<String, bool> roles = signupRolesMap(widget.role);
 
     final createUserDocUseCase = ref.read(createUserDocumentProvider);

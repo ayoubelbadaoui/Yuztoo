@@ -50,7 +50,7 @@
   "apple": "Apple",
   "termsAcceptance": "En continuant, vous acceptez nos conditions d'utilisation",
   "invalidCredentials": "Identifiants invalides. Vérifiez votre email et mot de passe.",
-  "accountDisabled": "Ce compte a été désactivé.",
+  "accountDisabled": "Compte désactivé.",
   "networkError": "Erreur de connexion réseau. Vérifiez votre connexion internet.",
   "operationCancelled": "Opération annulée par l'utilisateur.",
   "incompleteProfile": "Profil incomplet",

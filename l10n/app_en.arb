@@ -53,7 +53,7 @@
   "apple": "Apple",
   "termsAcceptance": "By continuing, you accept our terms of use",
   "invalidCredentials": "Invalid credentials. Check your email and password.",
-  "accountDisabled": "This account has been disabled.",
+  "accountDisabled": "Account disabled.",
   "networkError": "Network connection error. Check your internet connection.",
   "operationCancelled": "Operation cancelled by user.",
   "incompleteProfile": "Incomplete profile",

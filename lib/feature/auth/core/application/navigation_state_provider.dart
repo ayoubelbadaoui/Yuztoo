@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../types.dart';
 import '../domain/entities/auth_user.dart';
+import '../infrastructure/user_repository_provider.dart';
 import 'providers.dart';
 import 'state/auth_state.dart';
 
@@ -27,7 +28,7 @@ class NavigationUnauthenticated extends NavigationState {
 /// Authenticated state - show appropriate home screen based on role and onboarding
 class NavigationAuthenticated extends NavigationState {
   const NavigationAuthenticated(this.screen);
-  final ScreenId screen; // clientHome or merchantDashboard
+  final ScreenId screen; // clientHome, merchantStorefront, or merchantProfileForm
 }
 
 /// Error state - user document missing or error fetching user data
@@ -98,10 +99,15 @@ Future<NavigationState> _computeNavigationStateForUser(Ref ref, AuthUser user) a
     return const NavigationAuthenticated(ScreenId.clientHome);
   }
   
-  // Merchant role → check onboarding status before navigating
+  // Merchant: same helper as [main] — Firestore `merchant_id`
   if (role == UserRole.merchant) {
-    // Once authenticated, route merchants to storefront (store page).
-    return const NavigationAuthenticated(ScreenId.merchantStorefront);
+    final completed = await merchantOnboardingCompletedFromFirestore(
+      ref.read(userRepositoryProvider),
+      user.id,
+    );
+    return NavigationAuthenticated(
+      completed ? ScreenId.merchantStorefront : ScreenId.merchantProfileForm,
+    );
   }
   
   // Fallback - should not reach here

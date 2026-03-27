@@ -23,7 +23,7 @@ class AuthErrorMapper {
       return 'Identifiants invalides. Vérifiez votre email et mot de passe.';
     }
     if (failure is AccountDisabledFailure) {
-      return 'Ce compte a été désactivé.';
+      return 'Compte désactivé.';
     }
     if (failure is AuthNetworkFailure) {
       return 'Erreur de connexion réseau. Vérifiez votre connexion internet.';
@@ -56,13 +56,17 @@ class AuthErrorMapper {
           (message.contains('email') || 
            message.contains('mot de passe') ||
            message.contains('téléphone') ||
+           message.contains('compte') ||
+           message.contains('Connectez') ||
            message.contains('vérification') ||
            message.contains('facturation') ||
            message.contains('billing') ||
            message.contains('quota') ||
            message.contains('SMS') ||
            message.contains('configuration') ||
-           message.contains('support'))) {
+           message.contains('support') ||
+           message.contains('Profil utilisateur') ||
+           message.contains('session'))) {
         return message;
       }
       

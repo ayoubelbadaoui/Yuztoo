@@ -139,7 +139,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await loginFlowController.signIn(
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        preferredRole: widget.role, // Pass the selected role from UI
       );
     } finally {
       if (mounted) {

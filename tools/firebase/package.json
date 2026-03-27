@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "name": "yuztoo-firebase-rules",
+  "devDependencies": {
+    "firebase-tools": "^12.4.0"
+  },
+  "scripts": {
+    "rules:emulator": "cd ../.. && firebase emulators:start --only firestore --project demo-yuztoo"
+  }
+}

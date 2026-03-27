@@ -82,13 +82,16 @@ class FirestoreMerchantRepository implements MerchantRepository {
       );
       batch.set(merchantRef, merchantDto.toFirestore(), SetOptions(merge: false));
 
-      // Update user document with merchant_id, mark onboarding as complete, and set merchant role
+      // Update user document with merchant_id and merchant role flags
       final userRef = _firestore.collection('users').doc(userId);
       batch.set(userRef, {
         'merchant_id': merchantId,
-        'onboarding.merchant': true, // Use dot notation for nested field
-        'roles.merchant': true, // Ensure merchant role is set
-        'roles.client': false, // Unset client role
+        // Write full roles map (no dotted keys) to avoid schema drift.
+        'roles': {
+          'merchant': true,
+          'client': false,
+          'provider': true,
+        },
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -294,7 +297,11 @@ class FirestoreMerchantRepository implements MerchantRepository {
       
       batch.update(userRef, {
         'merchant_id': merchantId,
-        'onboarding.merchant': true,
+        'roles': {
+          'merchant': true,
+          'client': false,
+          'provider': true,
+        },
         'updated_at': FieldValue.serverTimestamp(),
       });
 
