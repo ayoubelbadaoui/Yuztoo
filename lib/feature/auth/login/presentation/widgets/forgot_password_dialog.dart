@@ -6,11 +6,12 @@ import '../../../core/application/auth_error_mapper.dart';
 import '../../../../../core/shared/widgets/snackbar.dart';
 import '../../../core/domain/value_objects/email_address.dart';
 import 'input_field.dart';
+import '../../../../../core/shared/constants/merchant_colors.dart';
 
-// Dark theme colors
-const Color _bgDark1 = Color(0xFF0F1A29);
-const Color _bgDark2 = Color(0xFF111A2A);
-const Color _primaryGold = Color(0xFFD4A017);
+// Dark theme colors — same as loading / login scaffold (#0E2A44)
+const Color _bgDark1 = MerchantColors.bgMain;
+const Color _bgDark2 = MerchantColors.bgHeader;
+const Color _primaryGold = MerchantColors.gold;
 const Color _textLight = Color(0xFFF5F5F5);
 const Color _textGrey = Color(0xFFB0B0B0);
 const Color _borderColor = Color(0xFF2A3F5F);

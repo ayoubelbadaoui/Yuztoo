@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../theme.dart';
 import '../../../types.dart';
+import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../feature/storefront/presentation/widgets/storefront_colors.dart';
 
 class YBottomNav extends StatelessWidget {
@@ -21,12 +21,8 @@ class YBottomNav extends StatelessWidget {
         ? const [
             _TabItem(id: 'home', label: 'Accueil', icon: Icons.home_outlined),
             _TabItem(id: 'discovery', label: 'Découvrir', icon: Icons.search),
+            _TabItem(id: 'qr-scanner', label: 'Scan', icon: Icons.qr_code_scanner),
             _TabItem(id: 'loyalty', label: 'Fidélité', icon: Icons.star_border),
-            _TabItem(
-              id: 'messages',
-              label: 'Messages',
-              icon: Icons.chat_bubble_outline,
-            ),
             _TabItem(
               id: 'profile',
               label: 'Profil',
@@ -36,13 +32,13 @@ class YBottomNav extends StatelessWidget {
         : const [
             _TabItem(
               id: 'communaute',
-              label: 'Communauté',
-              icon: Icons.diversity_3_outlined,
+              label: 'Vos clients',
+              icon: Icons.people_outline,
             ),
             _TabItem(
-              id: 'taches',
-              label: 'Tâches',
-              icon: Icons.assignment_outlined,
+              id: 'rappels',
+              label: 'Rappels',
+              icon: Icons.notifications_outlined,
             ),
             _TabItem(
               id: 'storefront',
@@ -50,9 +46,9 @@ class YBottomNav extends StatelessWidget {
               icon: Icons.storefront,
             ),
             _TabItem(
-              id: 'marketing',
-              label: 'Marketing',
-              icon: Icons.campaign_outlined,
+              id: 'promotions',
+              label: 'Promotions',
+              icon: Icons.local_offer_outlined,
             ),
             _TabItem(
               id: 'profile',
@@ -61,97 +57,40 @@ class YBottomNav extends StatelessWidget {
             ),
           ];
 
-    // Use storefront design for merchants, default for clients
-    final isMerchant = role == UserRole.merchant;
-    
-    if (isMerchant) {
-      return Container(
-        padding: const EdgeInsets.only(top: 6, bottom: 6),
-        decoration: BoxDecoration(
-          color: StorefrontColors.navyDark,
-          border: Border(
-            top: BorderSide(
-              color: Colors.white.withValues(alpha: 0.05),
-              width: 1,
-            ),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: tabs.map((tab) {
-                final isActive = tab.id == activeTab;
-                return Expanded(
-                  child: _MerchantNavItem(
-                    icon: tab.icon,
-                    label: tab.label,
-                    isActive: isActive,
-                    onTap: () => onTabChange(tab.id),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Client navigation (original design)
+    // Merchant-style bottom nav for both merchant and client (dark navy, gold accent, no white square)
     return Container(
+      padding: const EdgeInsets.only(top: 6, bottom: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: const Border(top: BorderSide(color: YColors.border)),
+        color: MerchantColors.bgHeader,
+        border: Border(
+          top: BorderSide(
+            color: MerchantColors.gold.withValues(alpha: MerchantColors.goldBorderAlpha),
+            width: 1,
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 2),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: tabs.map((tab) {
               final isActive = tab.id == activeTab;
-              final color = isActive ? YColors.secondary : YColors.muted;
-              return GestureDetector(
-                onTap: () => onTabChange(tab.id),
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 4,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(tab.icon, color: color, size: 24),
-                      const SizedBox(height: 4),
-                      Text(
-                        tab.label,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: color,
-                        ),
-                      ),
-                    ],
-                  ),
+              return Expanded(
+                child: _MerchantNavItem(
+                  icon: tab.icon,
+                  label: tab.label,
+                  isActive: isActive,
+                  onTap: () => onTabChange(tab.id),
                 ),
               );
             }).toList(),

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/utils/firestore_error_mapper.dart';
 
 /// Shows an error snackbar with French styling
 void showErrorSnackbar(BuildContext context, String message) {
@@ -23,21 +21,6 @@ void showErrorSnackbar(BuildContext context, String message) {
       ),
     ),
   );
-}
-
-/// Shows a Firestore error snackbar with French styling
-/// Automatically maps Firestore error codes to French messages
-void showFirestoreErrorSnackbar(BuildContext context, dynamic exception, {String? customMessage}) {
-  if (exception is FirebaseException) {
-    final message = customMessage ?? FirestoreErrorMapper.getFrenchMessage(exception);
-    showErrorSnackbar(context, message);
-  } else {
-    // Fallback for non-Firestore errors
-    showErrorSnackbar(
-      context,
-      customMessage ?? 'Une erreur est survenue lors de l\'opération.',
-    );
-  }
 }
 
 /// Shows a success snackbar with French styling

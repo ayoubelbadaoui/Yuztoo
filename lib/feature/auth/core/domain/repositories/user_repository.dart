@@ -1,5 +1,6 @@
 import '../../../../../core/domain/core/result.dart';
 import '../../../../../types.dart';
+import '../entities/user_profile_basics.dart';
 
 /// Repository interface for user profile operations in Firestore
 /// 
@@ -12,6 +13,7 @@ import '../../../../../types.dart';
 /// - phone: String (required)
 /// - city: String (required)
 /// - roles: Map<String, bool> (required) - {"client": bool, "merchant": bool, "provider": bool}
+///   Signup: client-only users have only client=true; merchants get client+merchant+provider=true.
 /// - merchant_id: String? (nullable, set when merchant completes onboarding)
 /// - status: String (default: "active")
 /// - onboarding: Map<String, bool> (default: {"merchant": false})
@@ -54,6 +56,14 @@ abstract class UserRepository {
   /// Returns Result<String?> - City if found, null if document doesn't exist or city is empty
   Future<Result<String?>> getUserCity(String uid);
 
+  /// Get user email/phone/city from Firestore.
+  ///
+  /// Used to avoid asking the user to re-enter signup information when
+  /// completing merchant onboarding.
+  ///
+  /// Returns Result<UserProfileBasics?> - null if doc missing or fields unavailable.
+  Future<Result<UserProfileBasics?>> getUserProfileBasics(String uid);
+
   /// Get all user roles from Firestore
   /// 
   /// [uid] - User's unique identifier
@@ -79,6 +89,16 @@ abstract class UserRepository {
     required String city,
   });
 
+  /// Get connected cities for the user (from Firestore).
+  /// Returns [city] if no cities array, else the cities array.
+  Future<Result<List<String>>> getConnectedCities(String uid);
+
+  /// Set connected cities in Firestore (replaces the list and updates city to first).
+  Future<Result<Unit>> setConnectedCities({
+    required String uid,
+    required List<String> cities,
+  });
+
   /// Patch missing fields in user document for legacy users
   /// 
   /// Updates only missing required fields without overwriting existing data.
@@ -97,6 +117,11 @@ abstract class UserRepository {
   /// 
   /// Returns Result<Unit> on success, Result with failure on error
   Future<Result<Unit>> updateLastLoginAt(String uid);
+
+  /// Consumes one-time merchant-first-login marker from Firestore.
+  ///
+  /// Returns true once (when flag was set), then resets it to false atomically.
+  Future<Result<bool>> consumeForceMerchantNextLogin(String uid);
 
   /// Check if user profile is complete with all required fields
   /// 

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../constants/signup_constants.dart';
 import '../utils/signup_validators.dart';
 import '../utils/phone_formatter.dart';
@@ -19,7 +18,7 @@ class EmailField extends StatelessWidget {
   final VoidCallback onUnfocusAll;
 
   const EmailField({
-    Key? key,
+    super.key,
     required this.controller,
     required this.focusNode,
     required this.fieldKey,
@@ -27,7 +26,7 @@ class EmailField extends StatelessWidget {
     required this.enabled,
     this.onTap,
     required this.onUnfocusAll,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +51,7 @@ class EmailField extends StatelessWidget {
           keyboardType: TextInputType.emailAddress,
           validator: SignupValidators.validateEmail,
           autovalidateMode: AutovalidateMode.disabled,
-          cursorColor: const Color(0xFFBF8719),
+          cursorColor: SignupConstants.primaryGold,
           onTap: onTap ?? () {
             onUnfocusAll();
             focusNode.requestFocus();
@@ -133,7 +132,7 @@ class PasswordField extends StatefulWidget {
   final ValueChanged<bool> onFocusChanged;
 
   const PasswordField({
-    Key? key,
+    super.key,
     required this.controller,
     required this.focusNode,
     required this.fieldKey,
@@ -142,7 +141,7 @@ class PasswordField extends StatefulWidget {
     this.onTap,
     required this.onUnfocusAll,
     required this.onFocusChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<PasswordField> createState() => _PasswordFieldState();
@@ -174,7 +173,7 @@ class _PasswordFieldState extends State<PasswordField> {
           obscureText: !_isPasswordVisible,
           validator: SignupValidators.validatePassword,
           autovalidateMode: AutovalidateMode.disabled,
-          cursorColor: const Color(0xFFBF8719),
+          cursorColor: SignupConstants.primaryGold,
           onTap: widget.onTap ?? () {
             widget.onUnfocusAll();
             widget.focusNode.requestFocus();
@@ -240,21 +239,21 @@ class _PasswordFieldState extends State<PasswordField> {
 
 /// Password hint widget
 class PasswordHint extends StatelessWidget {
-  const PasswordHint({Key? key}) : super(key: key);
+  const PasswordHint({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline,
             size: 14,
             color: SignupConstants.textGrey,
           ),
-          const SizedBox(width: 6),
-          const Expanded(
+          SizedBox(width: 6),
+          Expanded(
             child: Text(
               '8+ caractères, majuscules, minuscules et chiffres',
               style: TextStyle(
@@ -281,7 +280,7 @@ class ConfirmPasswordField extends StatefulWidget {
   final VoidCallback onUnfocusAll;
 
   const ConfirmPasswordField({
-    Key? key,
+    super.key,
     required this.controller,
     required this.passwordController,
     required this.focusNode,
@@ -290,7 +289,7 @@ class ConfirmPasswordField extends StatefulWidget {
     required this.enabled,
     this.onTap,
     required this.onUnfocusAll,
-  }) : super(key: key);
+  });
 
   @override
   State<ConfirmPasswordField> createState() => _ConfirmPasswordFieldState();
@@ -322,7 +321,7 @@ class _ConfirmPasswordFieldState extends State<ConfirmPasswordField> {
           obscureText: !_isPasswordVisible,
           validator: (value) => SignupValidators.validateConfirmPassword(value, widget.passwordController.text),
           autovalidateMode: AutovalidateMode.disabled,
-          cursorColor: const Color(0xFFBF8719),
+          cursorColor: SignupConstants.primaryGold,
           onTap: widget.onTap ?? () {
             widget.onUnfocusAll();
             widget.focusNode.requestFocus();
@@ -400,7 +399,7 @@ class PhoneField extends StatelessWidget {
   final Function() onRevalidatePhone;
 
   const PhoneField({
-    Key? key,
+    super.key,
     required this.controller,
     required this.focusNode,
     required this.fieldKey,
@@ -411,7 +410,7 @@ class PhoneField extends StatelessWidget {
     required this.onPhoneNumberUpdate,
     required this.onCountryCodeChange,
     required this.onRevalidatePhone,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -481,7 +480,7 @@ class PhoneField extends StatelessWidget {
                           decoration: BoxDecoration(
                             border: Border(
                               right: BorderSide(
-                                color: SignupConstants.borderColor.withOpacity(0.3),
+                                color: SignupConstants.borderColor.withValues(alpha: 0.3),
                                 width: 1,
                               ),
                             ),
@@ -511,7 +510,7 @@ class PhoneField extends StatelessWidget {
                       Container(
                         width: 1,
                         height: 30,
-                        color: SignupConstants.borderColor.withOpacity(0.3),
+                        color: SignupConstants.borderColor.withValues(alpha: 0.3),
                       ),
                       const SizedBox(width: 8),
                       // Phone number field
@@ -524,7 +523,7 @@ class PhoneField extends StatelessWidget {
                           inputFormatters: [
                             PhoneNumberFormatter(countryCode: selectedCountryCode),
                           ],
-                          cursorColor: const Color(0xFFBF8719),
+                          cursorColor: SignupConstants.primaryGold,
                           onTap: () {
                             onUnfocusAll();
                             focusNode.requestFocus();
@@ -597,14 +596,14 @@ class CityDropdown extends StatelessWidget {
   final Function() onValidateCity;
 
   const CityDropdown({
-    Key? key,
+    super.key,
     required this.fieldKey,
     required this.selectedCity,
     required this.enabled,
     required this.onUnfocusAll,
     required this.onCitySelected,
     required this.onValidateCity,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

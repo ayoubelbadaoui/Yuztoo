@@ -5,6 +5,8 @@ import '../../../theme.dart';
 class MerchantStatsScreen extends StatelessWidget {
   const MerchantStatsScreen({super.key, required this.onBack});
 
+  static String get path => '/merchant-stats';
+
   final VoidCallback onBack;
 
   final weeklyVisits = const [

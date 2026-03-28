@@ -1,292 +1,432 @@
 import 'package:flutter/material.dart';
-import '../../../theme.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class DiscoveryScreen extends StatefulWidget {
-  const DiscoveryScreen(
-      {super.key, required this.onBack, required this.onStoreSelect});
+import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../l10n/app_localizations.dart';
+import '../application/providers.dart';
+import '../../merchant/domain/entities/merchant.dart';
+
+/// Découvrir / Recommandations – design.md layout, MerchantColors, real data from Firestore.
+class DiscoveryScreen extends ConsumerStatefulWidget {
+  const DiscoveryScreen({
+    super.key,
+    required this.onBack,
+    required this.onNotifications,
+    required this.onStoreSelect,
+  });
+
+  static String get path => '/discovery';
 
   final VoidCallback onBack;
-  final VoidCallback onStoreSelect;
+  final VoidCallback onNotifications;
+  /// Called with merchant id when user taps a business (featured or grid).
+  final ValueChanged<String> onStoreSelect;
 
   @override
-  State<DiscoveryScreen> createState() => _DiscoveryScreenState();
+  ConsumerState<DiscoveryScreen> createState() => _DiscoveryScreenState();
 }
 
-class _DiscoveryScreenState extends State<DiscoveryScreen>
-    with SingleTickerProviderStateMixin {
-  final categories = [
-    'Tous',
-    'Restaurants',
-    'Cafés',
-    'Santé',
-    'Beauté',
-    'Shopping'
-  ];
-  String selectedCategory = 'Tous';
+class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
-  final stores = [
-    {
-      'name': 'Café Central',
-      'category': 'Restaurant',
-      'rating': 4.5,
-      'distance': '0.5 km',
-      'image':
-          'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400',
-      'hasPromo': true
-    },
-    {
-      'name': 'Pharmacie El Amane',
-      'category': 'Santé',
-      'rating': 4.8,
-      'distance': '1.2 km',
-      'image':
-          'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400',
-      'hasPromo': false
-    },
-    {
-      'name': 'Pâtisserie Délice',
-      'category': 'Boulangerie',
-      'rating': 4.6,
-      'distance': '0.8 km',
-      'image':
-          'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=400',
-      'hasPromo': true
-    },
-    {
-      'name': 'Salon Beauté',
-      'category': 'Beauté',
-      'rating': 4.3,
-      'distance': '1.5 km',
-      'image':
-          'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400',
-      'hasPromo': false
-    },
-  ];
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Row(
-              children: [
-                IconButton(
-                    onPressed: widget.onBack,
-                    icon: const Icon(Icons.arrow_back)),
-                const SizedBox(width: 8),
-                Text('Découvrir',
-                    style: Theme.of(context).textTheme.titleLarge),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher...',
-                      prefixIcon: Icon(Icons.search, color: YColors.muted),
+    final merchantsAsync = ref.watch(discoveryMerchantsProvider);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: MerchantColors.bgHeader,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: MerchantColors.bgMain,
+        body: Column(
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: merchantsAsync.when(
+                data: (merchants) => _buildContent(context, merchants),
+                loading: () => const Center(
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      color: MerchantColors.gold,
+                      strokeWidth: 2,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () {},
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(48, 48),
-                      padding: EdgeInsets.zero),
-                  child: const Icon(Icons.filter_list, color: YColors.primary),
+                error: (_, __) => _buildContent(context, []),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      color: MerchantColors.bgHeader,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: MerchantColors.bgHeader,
+            border: Border(
+              bottom: BorderSide(
+                color: MerchantColors.gold.withValues(
+                  alpha: MerchantColors.goldBorderStronger,
                 ),
-              ],
+                width: 1,
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 42,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              scrollDirection: Axis.horizontal,
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                final isSelected = category == selectedCategory;
-                return ChoiceChip(
-                  label: Text(category),
-                  selected: isSelected,
-                  onSelected: (_) =>
-                      setState(() => selectedCategory = category),
-                  selectedColor: YColors.secondary,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : YColors.primary,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Recommandations',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
                     fontWeight: FontWeight.w600,
+                    color: MerchantColors.textWhite,
                   ),
-                );
-              },
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemCount: categories.length,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const TabBar(
-            labelColor: YColors.primary,
-            unselectedLabelColor: YColors.muted,
-            indicatorColor: YColors.secondary,
-            tabs: [
-              Tab(text: 'À proximité'),
-              Tab(text: 'Populaires'),
-              Tab(text: 'Promotions'),
+                ),
+              ),
+              IconButton(
+                onPressed: widget.onNotifications,
+                icon: Icon(
+                  Icons.notifications_outlined,
+                  color: MerchantColors.gold,
+                  size: 24,
+                ),
+              ),
             ],
           ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _StoreList(
-                  stores: _filteredStores(stores),
-                  onTap: widget.onStoreSelect,
-                  showPromo: true,
-                ),
-                _StoreList(
-                  stores: _filteredStores([...stores]..sort((a, b) =>
-                      (b['rating'] as num).compareTo(a['rating'] as num))),
-                  onTap: widget.onStoreSelect,
-                ),
-                _StoreList(
-                  stores: _filteredStores(
-                      stores.where((s) => s['hasPromo'] == true).toList()),
-                  onTap: widget.onStoreSelect,
-                  showPromo: true,
-                ),
-              ],
-            ),
-          ),
+        ),
+      ),
+    );
+  }
+
+  List<Merchant> _filterMerchants(List<Merchant> merchants) {
+    if (_searchQuery.trim().isEmpty) return merchants;
+    final q = _searchQuery.trim().toLowerCase();
+    return merchants.where((m) {
+      final name = (m.displayName ?? m.name).toLowerCase();
+      final categories = m.categories?.join(' ').toLowerCase() ?? '';
+      return name.contains(q) || categories.contains(q);
+    }).toList();
+  }
+
+  Widget _buildContent(BuildContext context, List<Merchant> merchants) {
+    final filtered = _filterMerchants(merchants);
+    final featured = filtered.isNotEmpty ? filtered.first : null;
+    final gridMerchants = filtered.length > 1 ? filtered.sublist(1) : filtered;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 80,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDescription(context),
+          if (featured != null) _buildFeaturedCard(context, featured),
+          _buildSearchSection(context),
+          _buildBusinessGrid(context, gridMerchants),
+          _buildInviteButton(context),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  List<Map<String, dynamic>> _filteredStores(List<Map<String, dynamic>> list) {
-    if (selectedCategory == 'Tous') return list;
-    return list
-        .where((store) => store['category'] == selectedCategory)
-        .toList();
+  Widget _buildDescription(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: MerchantColors.gold
+                .withValues(alpha: MerchantColors.goldBorderAlpha),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Text(
+        'Des commerces recommandés par ceux que tu fréquentes déjà.',
+        textAlign: TextAlign.center,
+        style: GoogleFonts.outfit(
+          fontSize: 13,
+          height: 1.5,
+          color: MerchantColors.textLightGrey,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeaturedCard(BuildContext context, Merchant merchant) {
+    final name = merchant.displayName ?? merchant.name;
+    final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      child: GestureDetector(
+        onTap: () => widget.onStoreSelect(merchant.id),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 140,
+                width: double.infinity,
+                child: imageUrl != null && imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _placeholderImage(140),
+                      )
+                    : _placeholderImage(140),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: MerchantColors.textWhite,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Icon(Icons.favorite, color: MerchantColors.gold, size: 20),
+              ),
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Text(
+                name,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.textWhite,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholderImage(double? height) {
+    return Container(
+      height: height,
+      width: height != null ? double.infinity : null,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [MerchantColors.gold, MerchantColors.cream],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          'Image commerce',
+          style: GoogleFonts.outfit(
+            fontSize: 14,
+            color: MerchantColors.textGrey,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (v) => setState(() => _searchQuery = v),
+        style: GoogleFonts.outfit(
+          fontSize: 13,
+          color: Colors.black,
+        ),
+        decoration: InputDecoration(
+          hintText: AppLocalizations.of(context)!.searchStore,
+          hintStyle: GoogleFonts.outfit(
+            fontSize: 13,
+            color: Colors.black54,
+          ),
+          prefixIcon: Icon(
+            Icons.search,
+            color: Colors.black54,
+            size: 22,
+          ),
+          filled: true,
+          fillColor: MerchantColors.textWhite,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+            borderSide: BorderSide.none,
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBusinessGrid(BuildContext context, List<Merchant> merchants) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: merchants.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  'Aucun commerce pour le moment',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: MerchantColors.textLightGrey,
+                  ),
+                ),
+              ),
+            )
+          : GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.35,
+              ),
+              itemCount: merchants.length,
+              itemBuilder: (context, index) {
+                final m = merchants[index];
+                return _BusinessGridCard(
+                  merchant: m,
+                  onTap: () => widget.onStoreSelect(m.id),
+                  placeholderBuilder: () => _placeholderImage(null),
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildInviteButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () {},
+          style: ElevatedButton.styleFrom(
+            backgroundColor: MerchantColors.gold,
+            foregroundColor: MerchantColors.bgHeader,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            elevation: 0,
+          ),
+          child: Text(
+            'Invite un commerçant',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
-class _StoreList extends StatelessWidget {
-  const _StoreList(
-      {required this.stores, required this.onTap, this.showPromo = false});
+class _BusinessGridCard extends StatelessWidget {
+  const _BusinessGridCard({
+    required this.merchant,
+    required this.onTap,
+    required this.placeholderBuilder,
+  });
 
-  final List<Map<String, dynamic>> stores;
+  final Merchant merchant;
   final VoidCallback onTap;
-  final bool showPromo;
+  final Widget Function() placeholderBuilder;
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: stores.length,
-      itemBuilder: (context, index) {
-        final store = stores[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Card(
-              clipBehavior: Clip.antiAlias,
-              child: Row(
-                children: [
-                  Stack(
-                    children: [
-                      SizedBox(
-                        width: 112,
-                        height: 112,
-                        child: Image.network(store['image'] as String,
-                            fit: BoxFit.cover),
-                      ),
-                      if (showPromo && store['hasPromo'] == true)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: YColors.secondary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text('Promo',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600)),
-                          ),
-                        ),
-                    ],
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(store['name'] as String,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  color: Colors.grey.shade100,
-                                  border: Border.all(color: YColors.border),
-                                ),
-                                child: Text(store['category'] as String,
-                                    style: const TextStyle(fontSize: 12)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(Icons.star,
-                                  size: 16, color: YColors.secondary),
-                              const SizedBox(width: 4),
-                              Text('${store['rating']}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(Icons.place,
-                                  size: 14, color: YColors.muted),
-                              const SizedBox(width: 4),
-                              Text(store['distance'] as String,
-                                  style: const TextStyle(color: YColors.muted)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+    final name = merchant.displayName ?? merchant.name;
+    final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            imageUrl != null && imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => placeholderBuilder(),
+                  )
+                : placeholderBuilder(),
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 8,
+              child: Text(
+                name,
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: MerchantColors.textWhite,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }

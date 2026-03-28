@@ -168,31 +168,43 @@ class _WeeklyViewsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '$views',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: StorefrontColors.textPrimary,
-                  height: 1.0,
-                ),
+          // Show real number (0 for now, feature will be added later)
+          if (views == 0)
+            Text(
+              '0',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: StorefrontColors.textPrimary,
+                height: 1.0,
               ),
-              const SizedBox(width: 6),
-              Text(
-                '${isPositive ? '+' : ''}${change.toStringAsFixed(0)}%',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: StorefrontColors.successGreen,
-                  height: 1.0,
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  '$views',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: StorefrontColors.textPrimary,
+                    height: 1.0,
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 6),
+                Text(
+                  '${isPositive ? '+' : ''}${change.toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isPositive ? StorefrontColors.successGreen : Colors.red,
+                    height: 1.0,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );

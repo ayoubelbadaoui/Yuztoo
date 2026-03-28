@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../types.dart';
-import 'widgets/role_selection_colors.dart';
 import 'widgets/role_selection_header.dart';
 import 'widgets/merchant_view.dart';
 import 'widgets/client_view.dart';
@@ -20,7 +20,7 @@ class RoleSelectionScreen extends StatefulWidget {
   final ValueChanged<UserRole> onSelectRole;
   final UserRole? initialRole;
   final ValueChanged<UserRole>? onRoleChanged;
-  final VoidCallback? onLogin;
+  final ValueChanged<UserRole>? onLogin;
 
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
@@ -47,31 +47,37 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   }
 
   void _handleDiscover() {
-    // Navigate to merchant onboarding instead of login
-    // This will be handled by main.dart navigation
+    // main.dart: merchant → Discovery (browse shops), not login/onboarding
     widget.onSelectRole(UserRole.merchant);
   }
 
-  void _handleLogin() {
-    // Navigate to login page for the selected role
-    widget.onLogin?.call();
+  void _handleMerchantLogin() {
+    // Navigate to login specifically for merchant role
+    // This is called from the "Se connecter" button in merchant view
+    // Use onLogin callback if provided, otherwise fallback to onSelectRole
+    if (widget.onLogin != null) {
+      widget.onLogin!(UserRole.merchant);
+    } else {
+      widget.onSelectRole(UserRole.merchant);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: RoleSelectionColors.bgDark1,
+        value: const SystemUiOverlayStyle(
+        statusBarColor: MerchantColors.bgMain,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
-        systemNavigationBarColor: RoleSelectionColors.bgDark1,
+        systemNavigationBarColor: MerchantColors.bgMain,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: RoleSelectionColors.bgDark1,
+        backgroundColor: MerchantColors.bgMain,
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            // Keep primary CTA visible on smaller screens (and widget tests default to 600px tall).
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -83,15 +89,28 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     widget.onRoleChanged?.call(role);
                   },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
                 _selectedRole == UserRole.merchant
-                    ? MerchantView(onDiscover: _handleDiscover)
+                    ? MerchantView(
+                        onDiscover: _handleDiscover,
+                        onLogin: _handleMerchantLogin,
+                      )
                     : ClientView(
                         isScanning: _isScanning,
                         onScan: _handleScan,
                       ),
-                const SizedBox(height: 40),
-                LoginLink(onTap: _handleLogin),
+                const SizedBox(height: 20),
+                LoginLink(
+                  onTap: () {
+                    // Route to login while preserving the currently selected role.
+                    // If a dedicated login callback is provided, use it.
+                    if (widget.onLogin != null) {
+                      widget.onLogin!(_selectedRole);
+                      return;
+                    }
+                    widget.onSelectRole(_selectedRole);
+                  },
+                ),
               ],
             ),
           ),

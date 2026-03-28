@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'storefront_colors.dart';
 
@@ -31,16 +33,28 @@ class BannerSection extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  bannerImageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey[200],
-                      child: Icon(Icons.image, size: 48, color: StorefrontColors.navyDark.withValues(alpha: 0.3)),
-                    );
-                  },
-                ),
+                // Support both file:// URLs and network URLs
+                bannerImageUrl.startsWith('file://')
+                    ? Image.file(
+                        File(bannerImageUrl.substring(7)),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[200],
+                            child: Icon(Icons.image, size: 48, color: StorefrontColors.navyDark.withValues(alpha: 0.3)),
+                          );
+                        },
+                      )
+                    : Image.network(
+                        bannerImageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[200],
+                            child: Icon(Icons.image, size: 48, color: StorefrontColors.navyDark.withValues(alpha: 0.3)),
+                          );
+                        },
+                      ),
                 // Edit button overlay for banner
                 if (onBannerEdit != null)
                   Positioned(
@@ -86,9 +100,9 @@ class BannerSection extends StatelessWidget {
         ),
         child: Container(
           padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: GoldGradient.colors,
@@ -101,20 +115,35 @@ class BannerSection extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: ClipOval(
-              child: Image.network(
-                profileImageUrl,
-                width: 80,
-                height: 80,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 80,
-                    height: 80,
-                    color: Colors.grey[300],
-                    child: Icon(Icons.person, size: 40, color: StorefrontColors.navyDark.withValues(alpha: 0.5)),
-                  );
-                },
-              ),
+              child: profileImageUrl.startsWith('file://')
+                  ? Image.file(
+                      File(profileImageUrl.substring(7)),
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 80,
+                          height: 80,
+                          color: Colors.grey[300],
+                          child: Icon(Icons.person, size: 40, color: StorefrontColors.navyDark.withValues(alpha: 0.5)),
+                        );
+                      },
+                    )
+                  : Image.network(
+                      profileImageUrl,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 80,
+                          height: 80,
+                          color: Colors.grey[300],
+                          child: Icon(Icons.person, size: 40, color: StorefrontColors.navyDark.withValues(alpha: 0.5)),
+                        );
+                      },
+                    ),
             ),
           ),
         ),
@@ -231,7 +260,7 @@ class _ProfilePictureTapWidgetState extends State<_ProfilePictureTapWidget>
       onTapUp: _handleTapUp,
       onTapCancel: _handleTapCancel,
       behavior: HitTestBehavior.opaque,
-      child: Container(
+      child: SizedBox(
         width: 96,
         height: 96,
         child: Stack(

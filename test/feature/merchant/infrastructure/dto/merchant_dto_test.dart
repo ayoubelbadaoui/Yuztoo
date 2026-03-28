@@ -6,7 +6,7 @@ import 'package:flutter_yuztoo/feature/merchant/infrastructure/dto/merchant_dto.
 void main() {
   group('MerchantDto', () {
     test('should convert domain entity to DTO', () {
-      final merchant = Merchant(
+      const merchant = Merchant(
         id: 'merchant-123',
         ownerUid: 'user-456',
         name: 'Test Business',
@@ -34,7 +34,7 @@ void main() {
     });
 
     test('should convert DTO to domain entity', () {
-      final dto = MerchantDto(
+      const dto = MerchantDto(
         id: 'merchant-123',
         ownerUid: 'user-456',
         name: 'Test Business',
@@ -62,7 +62,7 @@ void main() {
     });
 
     test('should convert to Firestore map without id field', () {
-      final dto = MerchantDto(
+      const dto = MerchantDto(
         id: 'merchant-123',
         ownerUid: 'user-456',
         name: 'Test Business',
@@ -80,11 +80,11 @@ void main() {
       expect(firestoreMap['email'], 'test@example.com');
       expect(firestoreMap['phone'], '+33612345678');
       expect(firestoreMap['city'], 'Paris');
-      expect(firestoreMap['status'], 'active');
+      expect(firestoreMap['status'], 'inactive');
     });
 
     test('should include optional fields in Firestore map when present', () {
-      final dto = MerchantDto(
+      const dto = MerchantDto(
         id: 'merchant-123',
         ownerUid: 'user-456',
         name: 'Test Business',
@@ -106,7 +106,7 @@ void main() {
     });
 
     test('should exclude optional fields from Firestore map when null', () {
-      final dto = MerchantDto(
+      const dto = MerchantDto(
         id: 'merchant-123',
         ownerUid: 'user-456',
         name: 'Test Business',
@@ -124,7 +124,7 @@ void main() {
     });
 
     test('should use server timestamp for created_at when null', () {
-      final dto = MerchantDto(
+      const dto = MerchantDto(
         id: 'merchant-123',
         ownerUid: 'user-456',
         name: 'Test Business',

@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 
-/// Constants used in the signup screen
+import '../../../../../core/shared/constants/merchant_colors.dart';
+
+/// Signup / OTP colors: same scaffold background as [LoadingScreen] + [MerchantColors] surfaces.
 class SignupConstants {
-  // Colors - Exact Yuztoo theme
-  static const Color bgDark1 = Color(0xFF0F1A29);
-  static const Color bgDark2 = Color(0xFF111A2A);
-  static const Color primaryGold = Color(0xFFD4A017);
+  /// Primary auth background (matches loading screen scaffold: [MerchantColors.bgMain]).
+  static const Color bgDark1 = MerchantColors.bgMain;
+
+  /// Inputs, modals, secondary panels (matches app header / bottom nav).
+  static const Color bgDark2 = MerchantColors.bgHeader;
+
+  /// Gold accent (merchant UI).
+  static const Color primaryGold = MerchantColors.gold;
+
   static const Color textLight = Color(0xFFF5F5F5);
   static const Color textGrey = Color(0xFFB0B0B0);
+
   static const Color borderColor = Color(0xFF2A3F5F);
-  static const Color cardBg = Color(0xFF1A2A3A);
+
+  /// Cards / dropdowns.
+  static const Color cardBg = MerchantColors.navyCard;
   static const Color errorRed = Color(0xFFE74C3C);
   static const Color successGreen = Color(0xFF27AE60);
 

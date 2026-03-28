@@ -6,12 +6,16 @@ class MerchantView extends StatelessWidget {
   const MerchantView({
     super.key,
     required this.onDiscover,
+    this.onLogin,
   });
 
   final VoidCallback onDiscover;
+  final VoidCallback? onLogin;
 
   @override
   Widget build(BuildContext context) {
+    final screenH = MediaQuery.sizeOf(context).height;
+    final gapAfterDescription = (screenH * 0.03).clamp(12.0, 28.0);
     return Column(
       children: [
         // Description Text
@@ -25,7 +29,36 @@ class MerchantView extends StatelessWidget {
             height: 1.6,
           ),
         ),
-        const SizedBox(height: 40),
+        SizedBox(height: gapAfterDescription),
+
+        // Login Button (if user has account)
+        if (onLogin != null) ...[
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton(
+              onPressed: onLogin,
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(
+                  color: RoleSelectionColors.primaryGold,
+                  width: 1.5,
+                ),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(50)),
+                ),
+              ),
+              child: const Text(
+                'Se connecter',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: RoleSelectionColors.primaryGold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // Discover Button
         SizedBox(
@@ -38,7 +71,7 @@ class MerchantView extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(50),
               ),
-              shadowColor: Colors.black.withOpacity(0.1),
+              shadowColor: Colors.black.withValues(alpha: 0.1),
               elevation: 4,
             ),
             child: RichText(

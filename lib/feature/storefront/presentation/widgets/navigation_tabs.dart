@@ -44,7 +44,7 @@ class NavigationTabs extends StatelessWidget {
         // Static separator line (always visible, never moves)
         Container(
           height: 1,
-          margin: const EdgeInsets.only(top: 16),
+          margin: const EdgeInsets.only(top: 6),
           color: StorefrontColors.borderLight,
         ),
       ],
@@ -121,7 +121,7 @@ class _TabButtonState extends State<_TabButton>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
             color: widget.isActive
                 ? StorefrontColors.primaryGold.withValues(alpha: 0.08)
@@ -152,10 +152,10 @@ class _TabButtonState extends State<_TabButton>
                 ),
                 child: Text(widget.label),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
               // Animated gold indicator that appears on top of the static border line
               Transform.translate(
-                offset: const Offset(0, 13), // Position to align with static border below
+                offset: const Offset(0, 8), // Position to align with static border below
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 400),
                   curve: Curves.easeOutCubic,

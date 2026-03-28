@@ -15,9 +15,18 @@ class MerchantDto {
     this.categories,
     this.description,
     this.hours,
-    this.status = 'active',
+    this.status = 'inactive',
     this.createdAt,
     this.updatedAt,
+    this.displayName,
+    this.logoUrl,
+    this.websiteUrl,
+    this.bannerUrl,
+    this.newsImageUrls,
+    this.rappelsAutoClientValidation,
+    this.rappelsAutoPassageValidation,
+    this.rappelsMonthlyConnectedClients = 0,
+    this.rappelsMonthlyValidatedPassages = 0,
   });
 
   final String id;
@@ -33,6 +42,15 @@ class MerchantDto {
   final String status;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? displayName;
+  final String? logoUrl;
+  final String? websiteUrl;
+  final String? bannerUrl;
+  final List<String>? newsImageUrls;
+  final bool? rappelsAutoClientValidation;
+  final bool? rappelsAutoPassageValidation;
+  final int rappelsMonthlyConnectedClients;
+  final int rappelsMonthlyValidatedPassages;
 
   /// Create DTO from Firestore document snapshot.
   factory MerchantDto.fromFirestore(
@@ -55,6 +73,13 @@ class MerchantDto {
       return null;
     }
 
+    int nonNegativeInt(dynamic v) {
+      if (v == null) return 0;
+      if (v is int) return v < 0 ? 0 : v;
+      if (v is num) return v.toInt().clamp(0, 999999999);
+      return 0;
+    }
+
     return MerchantDto(
       id: doc.id,
       ownerUid: data['owner_uid'] as String? ?? '',
@@ -68,9 +93,22 @@ class MerchantDto {
           : null,
       description: data['description'] as String?,
       hours: data['hours'] as Map<String, dynamic>?,
-      status: data['status'] as String? ?? 'active',
+      status: data['status'] as String? ?? 'inactive',
       createdAt: parseTimestamp(data['created_at']),
       updatedAt: parseTimestamp(data['updated_at']),
+      displayName: data['display_name'] as String?,
+      logoUrl: data['logo_url'] as String?,
+      websiteUrl: data['website_url'] as String?,
+      bannerUrl: data['banner_url'] as String?,
+      newsImageUrls: data['news_image_urls'] != null
+          ? List<String>.from(data['news_image_urls'] as List)
+          : null,
+      rappelsAutoClientValidation: data['rappels_auto_client_validation'] as bool?,
+      rappelsAutoPassageValidation: data['rappels_auto_passage_validation'] as bool?,
+      rappelsMonthlyConnectedClients:
+          nonNegativeInt(data['rappels_monthly_connected_clients']),
+      rappelsMonthlyValidatedPassages:
+          nonNegativeInt(data['rappels_monthly_validated_passages']),
     );
   }
 
@@ -89,6 +127,15 @@ class MerchantDto {
         status: status,
         createdAt: createdAt,
         updatedAt: updatedAt,
+        displayName: displayName,
+        logoUrl: logoUrl,
+        websiteUrl: websiteUrl,
+        bannerUrl: bannerUrl,
+        newsImageUrls: newsImageUrls,
+        rappelsAutoClientValidation: rappelsAutoClientValidation,
+        rappelsAutoPassageValidation: rappelsAutoPassageValidation,
+        rappelsMonthlyConnectedClients: rappelsMonthlyConnectedClients,
+        rappelsMonthlyValidatedPassages: rappelsMonthlyValidatedPassages,
       );
 
   /// Convert domain entity to DTO.
@@ -106,6 +153,15 @@ class MerchantDto {
         status: merchant.status,
         createdAt: merchant.createdAt,
         updatedAt: merchant.updatedAt,
+        displayName: merchant.displayName,
+        logoUrl: merchant.logoUrl,
+        websiteUrl: merchant.websiteUrl,
+        bannerUrl: merchant.bannerUrl,
+        newsImageUrls: merchant.newsImageUrls,
+        rappelsAutoClientValidation: merchant.rappelsAutoClientValidation,
+        rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation,
+        rappelsMonthlyConnectedClients: merchant.rappelsMonthlyConnectedClients,
+        rappelsMonthlyValidatedPassages: merchant.rappelsMonthlyValidatedPassages,
       );
 
   /// Convert DTO to Firestore map.
@@ -120,6 +176,13 @@ class MerchantDto {
         if (categories != null) 'categories': categories,
         if (description != null) 'description': description,
         if (hours != null) 'hours': hours,
+        if (displayName != null) 'display_name': displayName,
+        if (logoUrl != null) 'logo_url': logoUrl,
+        if (websiteUrl != null) 'website_url': websiteUrl,
+        if (bannerUrl != null) 'banner_url': bannerUrl,
+        if (newsImageUrls != null) 'news_image_urls': newsImageUrls,
+        if (rappelsAutoClientValidation != null) 'rappels_auto_client_validation': rappelsAutoClientValidation,
+        if (rappelsAutoPassageValidation != null) 'rappels_auto_passage_validation': rappelsAutoPassageValidation,
         'status': status,
         'created_at': createdAt != null
             ? Timestamp.fromDate(createdAt!)

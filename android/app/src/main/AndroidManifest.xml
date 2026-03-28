@@ -20,9 +20,29 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Use app_links for vitrine URLs (see lib/core/config/vitrine_qr_config.dart). -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- https://yuztoo.app/vitrine/{merchantId} — opens client vitrine in-app when verified (optional: assetlinks.json). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
+                <data android:scheme="http" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
+                <data android:scheme="https" android:host="www.yuztoo.app" android:pathPrefix="/vitrine" />
+            </intent-filter>
+            <!-- yuztoo://vitrine/{merchantId} -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="yuztoo" android:host="vitrine" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

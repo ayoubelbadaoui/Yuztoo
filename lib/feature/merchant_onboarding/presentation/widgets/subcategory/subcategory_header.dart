@@ -51,7 +51,7 @@ class SubcategoryHeader extends StatelessWidget {
                 height: 1,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: SubcategoryColors.primaryGold.withOpacity(0.2),
+                  color: SubcategoryColors.primaryGold.withValues(alpha: 0.2),
                 ),
               ),
             ],

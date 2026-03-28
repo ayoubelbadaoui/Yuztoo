@@ -17,7 +17,11 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
     state = const LoginFlowInitial();
   }
 
-  Future<void> signIn({required String email, required String password}) async {
+  Future<void> signIn({
+    required String email,
+    required String password,
+    UserRole? preferredRole,
+  }) async {
     state = const LoginFlowLoading();
 
     final signInUseCase = ref.read(signInWithEmailPasswordProvider);
@@ -76,12 +80,40 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
             final hasMerchantRole = rolesMap['merchant'] == true;
             final isMultiRole = hasClientRole && hasMerchantRole;
 
+            // Check if user requested a specific role but doesn't have it
+            if (preferredRole != null) {
+              final hasRequestedRole = (preferredRole == UserRole.merchant && hasMerchantRole) ||
+                  (preferredRole == UserRole.client && hasClientRole);
+              
+              if (!hasRequestedRole) {
+                // User doesn't have the requested role
+                state = LoginFlowRoleMismatch(
+                  uid: authUser.id,
+                  requestedRole: preferredRole,
+                  availableRoles: rolesMap,
+                );
+                return;
+              }
+            }
+
             if (isMultiRole) {
-              state = LoginFlowMultiRoleRequired(
-                uid: authUser.id,
-                roles: rolesMap,
-                city: city,
-              );
+              // If user has multiple roles, show selection dialog unless they requested a specific role
+              if (preferredRole != null) {
+                // User requested a specific role and has it - use that
+                await _handleRoleSelectionAndRouting(
+                  authUser.id,
+                  preferredRole,
+                  city,
+                  rolesMap,
+                );
+              } else {
+                // Show role selection dialog
+                state = LoginFlowMultiRoleRequired(
+                  uid: authUser.id,
+                  roles: rolesMap,
+                  city: city,
+                );
+              }
             } else {
               final selectedRole =
                   hasClientRole ? UserRole.client : UserRole.merchant;
@@ -173,9 +205,13 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
     String city,
     Map<String, bool> rolesMap,
   ) async {
-    // TODO: Implement role cache service if needed
-    // final roleCacheService = ref.read(auth_core.roleCacheServiceProvider);
-    // await roleCacheService.saveLastSelectedRole(selectedRole);
+    // Persist so main shell / cold start route the same way as login intent (client vs merchant).
+    try {
+      final roleCacheService = ref.read(auth_core.roleCacheServiceProvider);
+      await roleCacheService.saveLastSelectedRole(selectedRole);
+    } catch (_) {
+      // Non-fatal
+    }
 
     // Only check onboarding for merchants; clients don't need it
     bool actualOnboardingCompleted = false;

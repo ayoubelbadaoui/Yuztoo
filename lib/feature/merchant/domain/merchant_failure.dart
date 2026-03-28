@@ -23,11 +23,10 @@ final class UnableToCreateMerchantFailure extends MerchantFailure {
 /// Network error during merchant operation.
 final class MerchantNetworkFailure extends MerchantFailure {
   const MerchantNetworkFailure({
-    String message = 'Erreur réseau lors de l\'opération.',
     Object? cause,
     StackTrace? stackTrace,
   }) : super(
-          message,
+          'Network error during merchant operation.',
           cause: cause,
           stackTrace: stackTrace,
         );

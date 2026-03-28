@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'role_selection_colors.dart';
 import 'qr_pattern_painter.dart';
+import '../../../../l10n/app_localizations.dart';
 
 /// Client view widget for role selection screen
 class ClientView extends StatefulWidget {
@@ -43,14 +44,14 @@ class _ClientViewState extends State<ClientView>
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         border: Border.all(
-          color: RoleSelectionColors.primaryGold.withOpacity(0.35),
+          color: RoleSelectionColors.primaryGold.withValues(alpha: 0.35),
           width: 2,
         ),
         borderRadius: BorderRadius.circular(20),
-        color: RoleSelectionColors.bgDark2.withOpacity(0.7),
+        color: RoleSelectionColors.bgDark2.withValues(alpha: 0.7),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -66,8 +67,8 @@ class _ClientViewState extends State<ClientView>
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: RoleSelectionColors.primaryGold.withOpacity(
-                        0.25 * _pulseAnimation.value,
+                      color: RoleSelectionColors.primaryGold.withValues(
+                        alpha: 0.25 * _pulseAnimation.value,
                       ),
                       blurRadius: 20 * _pulseAnimation.value,
                       spreadRadius: 3 * _pulseAnimation.value,
@@ -77,18 +78,18 @@ class _ClientViewState extends State<ClientView>
                 child: Container(
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: RoleSelectionColors.primaryGold.withOpacity(
-                        0.4 + (0.15 * _pulseAnimation.value),
+                      color: RoleSelectionColors.primaryGold.withValues(
+                        alpha: 0.4 + (0.15 * _pulseAnimation.value),
                       ),
                       width: 2,
                       style: BorderStyle.solid,
                     ),
                     borderRadius: BorderRadius.circular(14),
-                    color: RoleSelectionColors.bgDark1.withOpacity(0.6),
+                    color: RoleSelectionColors.bgDark1.withValues(alpha: 0.6),
                   ),
-                  child: Center(
+                  child: const Center(
                     child: CustomPaint(
-                      size: const Size(85, 85),
+                      size: Size(85, 85),
                       painter: QrPatternPainter(
                         color: RoleSelectionColors.primaryGold,
                       ),
@@ -98,16 +99,16 @@ class _ClientViewState extends State<ClientView>
               );
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
 
           // Description Text - more compact
           RichText(
             textAlign: TextAlign.center,
-            text: const TextSpan(
+            text: TextSpan(
               children: [
                 TextSpan(
-                  text: 'Scanne le ',
-                  style: TextStyle(
+                  text: '${AppLocalizations.of(context)!.scanQRCode} ',
+                  style: const TextStyle(
                     fontSize: 13,
                     color: RoleSelectionColors.textLight,
                     height: 1.4,
@@ -115,15 +116,15 @@ class _ClientViewState extends State<ClientView>
                   ),
                 ),
                 TextSpan(
-                  text: 'QR code',
-                  style: TextStyle(
+                  text: AppLocalizations.of(context)!.qrCode,
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: RoleSelectionColors.primaryGold,
                     height: 1.4,
                   ),
                 ),
-                TextSpan(
+                const TextSpan(
                   text: ' ou la ',
                   style: TextStyle(
                     fontSize: 13,
@@ -132,7 +133,7 @@ class _ClientViewState extends State<ClientView>
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                TextSpan(
+                const TextSpan(
                   text: 'plaque',
                   style: TextStyle(
                     fontSize: 13,
@@ -141,7 +142,7 @@ class _ClientViewState extends State<ClientView>
                     height: 1.4,
                   ),
                 ),
-                TextSpan(
+                const TextSpan(
                   text: ' de ton commerce',
                   style: TextStyle(
                     fontSize: 13,
@@ -155,16 +156,16 @@ class _ClientViewState extends State<ClientView>
           ),
           const SizedBox(height: 12),
 
-          const Text(
-            'Ajoute-le à ton carnet Yuztoo\net reçois ses infos utiles',
+          Text(
+            AppLocalizations.of(context)!.addToYuztoo,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               color: RoleSelectionColors.textGrey,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
 
           // Scan Button - more compact
           AnimatedContainer(
@@ -176,27 +177,31 @@ class _ClientViewState extends State<ClientView>
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: RoleSelectionColors.primaryGold.withOpacity(0.4),
+                        color: RoleSelectionColors.primaryGold.withValues(alpha: 0.4),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
                     ],
                   )
                 : null,
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
               onPressed: widget.isScanning ? null : widget.onScan,
               style: ElevatedButton.styleFrom(
                 backgroundColor: RoleSelectionColors.primaryGold,
                 disabledBackgroundColor:
-                    RoleSelectionColors.primaryGold.withOpacity(0.75),
+                    RoleSelectionColors.primaryGold.withValues(alpha: 0.75),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                shadowColor: RoleSelectionColors.primaryGold.withOpacity(0.2),
+                shadowColor: RoleSelectionColors.primaryGold.withValues(alpha: 0.2),
                 elevation: widget.isScanning ? 8 : 6,
               ),
-              icon: widget.isScanning
-                  ? const SizedBox(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.isScanning)
+                    const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
@@ -206,19 +211,25 @@ class _ClientViewState extends State<ClientView>
                         ),
                       ),
                     )
-                  : const Icon(
+                  else
+                    const Icon(
                       Icons.qr_code_scanner_rounded,
                       color: RoleSelectionColors.bgDark1,
                       size: 20,
                     ),
-              label: Text(
-                widget.isScanning ? 'Scan en cours...' : 'Lancer le scan',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: RoleSelectionColors.bgDark1,
-                  letterSpacing: 0.3,
-                ),
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.isScanning
+                        ? AppLocalizations.of(context)!.scanning
+                        : AppLocalizations.of(context)!.startScan,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: RoleSelectionColors.bgDark1,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
