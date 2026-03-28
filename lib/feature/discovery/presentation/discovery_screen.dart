@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../client_home/application/providers.dart' as client_home_providers;
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/providers.dart';
@@ -41,6 +42,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   @override
   Widget build(BuildContext context) {
     final merchantsAsync = ref.watch(discoveryMerchantsProvider);
+    final viewedIdsAsync =
+        ref.watch(client_home_providers.viewedMerchantIdsForCurrentUserProvider);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -55,7 +58,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
             _buildHeader(context),
             Expanded(
               child: merchantsAsync.when(
-                data: (merchants) => _buildContent(context, merchants),
+                data: (merchants) =>
+                    _buildContent(context, merchants, viewedIdsAsync.valueOrNull ?? const <String>{}),
                 loading: () => const Center(
                   child: SizedBox(
                     width: 32,
@@ -66,7 +70,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                     ),
                   ),
                 ),
-                error: (_, __) => _buildContent(context, []),
+                error: (_, __) => _buildContent(context, [], const <String>{}),
               ),
             ),
           ],
@@ -130,7 +134,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     }).toList();
   }
 
-  Widget _buildContent(BuildContext context, List<Merchant> merchants) {
+  Widget _buildContent(
+    BuildContext context,
+    List<Merchant> merchants,
+    Set<String> viewedIds,
+  ) {
     final filtered = _filterMerchants(merchants);
     final featured = filtered.isNotEmpty ? filtered.first : null;
     final gridMerchants = filtered.length > 1 ? filtered.sublist(1) : filtered;
@@ -143,9 +151,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildDescription(context),
-          if (featured != null) _buildFeaturedCard(context, featured),
+          if (featured != null)
+            _buildFeaturedCard(
+              context,
+              featured,
+              hasViewed: viewedIds.contains(featured.id),
+            ),
           _buildSearchSection(context),
-          _buildBusinessGrid(context, gridMerchants),
+          _buildBusinessGrid(context, gridMerchants, viewedIds),
           _buildInviteButton(context),
           const SizedBox(height: 24),
         ],
@@ -178,7 +191,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     );
   }
 
-  Widget _buildFeaturedCard(BuildContext context, Merchant merchant) {
+  Widget _buildFeaturedCard(
+    BuildContext context,
+    Merchant merchant, {
+    required bool hasViewed,
+  }) {
     final name = merchant.displayName ?? merchant.name;
     final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
     return Padding(
@@ -202,27 +219,28 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                     : _placeholderImage(140),
               ),
             ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: MerchantColors.textWhite,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            if (hasViewed)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: MerchantColors.textWhite,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.star, color: MerchantColors.gold, size: 20),
                 ),
-                alignment: Alignment.center,
-                child: const Icon(Icons.favorite, color: MerchantColors.gold, size: 20),
               ),
-            ),
             Positioned(
               left: 12,
               right: 12,
@@ -312,7 +330,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     );
   }
 
-  Widget _buildBusinessGrid(BuildContext context, List<Merchant> merchants) {
+  Widget _buildBusinessGrid(
+    BuildContext context,
+    List<Merchant> merchants,
+    Set<String> viewedIds,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: merchants.isEmpty
@@ -342,6 +364,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                 final m = merchants[index];
                 return _BusinessGridCard(
                   merchant: m,
+                  hasViewed: viewedIds.contains(m.id),
                   onTap: () => widget.onStoreSelect(m.id),
                   placeholderBuilder: () => _placeholderImage(null),
                 );
@@ -382,11 +405,13 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
 class _BusinessGridCard extends StatelessWidget {
   const _BusinessGridCard({
     required this.merchant,
+    required this.hasViewed,
     required this.onTap,
     required this.placeholderBuilder,
   });
 
   final Merchant merchant;
+  final bool hasViewed;
   final VoidCallback onTap;
   final Widget Function() placeholderBuilder;
 
@@ -408,6 +433,16 @@ class _BusinessGridCard extends StatelessWidget {
                     errorBuilder: (_, __, ___) => placeholderBuilder(),
                   )
                 : placeholderBuilder(),
+            if (hasViewed)
+              const Positioned(
+                top: 8,
+                right: 8,
+                child: Icon(
+                  Icons.star,
+                  size: 16,
+                  color: MerchantColors.gold,
+                ),
+              ),
             Positioned(
               left: 8,
               right: 8,

@@ -915,26 +915,24 @@ class FirebaseUserRepository implements UserRepository {
       return const Right<AuthFailure, bool>(false);
     }
     try {
-      final snap = await _firestore
-          .collection('phone_index')
-          .doc(normalizedPhone)
-          .get();
-      return Right<AuthFailure, bool>(snap.exists);
+      // Prefer transaction.get (evaluated as [get] in rules). If rules are missing/outdated
+      // or the SDK still denies, we fail open: OTP can run; [createUserDocument] still
+      // atomically claims phone_index and rejects duplicates.
+      final exists = await _firestore.runTransaction<bool>((transaction) async {
+        final ref =
+            _firestore.collection('phone_index').doc(normalizedPhone);
+        final snap = await transaction.get(ref);
+        return snap.exists;
+      });
+      return Right<AuthFailure, bool>(exists);
     } catch (e, st) {
       LoggerService.logError(
-        'Error checking phone_index',
+        'Error checking phone_index; continuing signup (duplicate blocked at user creation)',
         error: e,
         stackTrace: st,
         context: {'phone': normalizedPhone},
       );
-      return Left<AuthFailure, bool>(
-        AuthUnexpectedFailure(
-          message:
-              'Impossible de vérifier ce numéro pour le moment. Réessayez dans un instant.',
-          cause: e,
-          stackTrace: st,
-        ),
-      );
+      return const Right<AuthFailure, bool>(false);
     }
   }
 }

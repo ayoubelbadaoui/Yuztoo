@@ -264,31 +264,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final password = _passwordController.text;
     final phoneNumber = formattedPhoneNumber;
 
-    final verifyPhoneAvailable =
-        ref.read(verifyPhoneAvailableForSignupProvider);
     final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
 
     try {
-      final availability =
-          await verifyPhoneAvailable.call(phoneNumber: phoneNumber);
-      final stopForPhone = availability.fold(
-        (failure) {
-          if (mounted) {
-            final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-            if (frenchMessage != null) {
-              showErrorSnackbar(context, frenchMessage);
-            }
-            setState(() {
-              _isLoading = false;
-              _isSubmitting = false;
-            });
-          }
-          return true;
-        },
-        (_) => false,
-      );
-      if (stopForPhone) return;
-
       final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
 
       otpResult.fold(

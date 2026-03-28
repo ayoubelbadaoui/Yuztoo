@@ -168,31 +168,8 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
     }
     final distinctIds = merchantIds.toSet().toList();
     final baseCounts = <String, int>{for (final id in distinctIds) id: 0};
-    try {
-      final counts = await _getFollowersCountsWithoutIndex(distinctIds);
-      return Right<AppFailure, Map<String, int>>(counts);
-    } on FirebaseException catch (_, __) {
-      // Keep UI stable even if Firestore rules block global reads.
-      return Right<AppFailure, Map<String, int>>(baseCounts);
-    } catch (e, st) {
-      LoggerService.logError('Error loading followers counts fallback', error: e, stackTrace: st);
-      return Right<AppFailure, Map<String, int>>(baseCounts);
-    }
-  }
-
-  Future<Map<String, int>> _getFollowersCountsWithoutIndex(List<String> merchantIds) async {
-    final wanted = merchantIds.toSet();
-    final counts = <String, int>{for (final id in merchantIds) id: 0};
-    final usersSnap = await _firestore.collection('users').get();
-    for (final userDoc in usersSnap.docs) {
-      final followedSnap = await userDoc.reference.collection('followed_merchants').get();
-      for (final followedDoc in followedSnap.docs) {
-        final merchantId = followedDoc.id;
-        if (wanted.contains(merchantId)) {
-          counts[merchantId] = (counts[merchantId] ?? 0) + 1;
-        }
-      }
-    }
-    return counts;
+    // Avoid global users scan in client apps: rules usually deny list on /users.
+    // Keep UI responsive with a stable fallback until a server-side counter exists.
+    return Right<AppFailure, Map<String, int>>(baseCounts);
   }
 }

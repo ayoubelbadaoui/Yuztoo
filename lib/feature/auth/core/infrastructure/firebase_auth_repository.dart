@@ -9,6 +9,7 @@ import '../domain/value_objects/email_address.dart';
 import '../domain/value_objects/password.dart';
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/infrastructure/logger_service.dart';
 import 'dto/auth_user_dto.dart';
 
 class FirebaseAuthRepository implements AuthRepository {
@@ -140,10 +141,8 @@ class FirebaseAuthRepository implements AuthRepository {
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (firebase.PhoneAuthCredential credential) {
-          // Auto-verification completed on some devices
-          if (!completer.isCompleted) {
-            completer.complete(const Right<AuthFailure, String>(''));
-          }
+          // Keep waiting for codeSent/timeout verificationId.
+          // Completing with empty verificationId breaks OTP screen flow.
         },
         verificationFailed: (firebase.FirebaseAuthException e) {
           if (!completer.isCompleted) {
@@ -268,7 +267,8 @@ class FirebaseAuthRepository implements AuthRepository {
 
       // If this phone is already tied to an existing profile, block signup:
       // one phone number must map to one account only.
-      // Fail-closed: if we cannot read Firestore, do not link email/password.
+      // On transient Firestore issues, continue and let createUserDocument()
+      // enforce phone_index ownership.
       DocumentSnapshot<Map<String, dynamic>>? existingProfile;
       try {
         existingProfile = await _firestore
@@ -277,29 +277,19 @@ class FirebaseAuthRepository implements AuthRepository {
             .get()
             .timeout(const Duration(seconds: 5));
       } on TimeoutException catch (_) {
-        try {
-          await _auth.signOut();
-        } catch (_) {}
-        return const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(
-            message:
-                'Impossible de vérifier votre compte. Réessayez dans un instant.',
-          ),
+        LoggerService.logError(
+          'verifyPhoneAndCreateUser: timeout reading users/{uid}; continuing',
+          context: {'uid': phoneUser.uid},
         );
       } catch (e, st) {
-        try {
-          await _auth.signOut();
-        } catch (_) {}
-        return Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(
-            message:
-                'Impossible de vérifier votre compte. Réessayez dans un instant.',
-            cause: e,
-            stackTrace: st,
-          ),
+        LoggerService.logError(
+          'verifyPhoneAndCreateUser: error reading users/{uid}; continuing',
+          error: e,
+          stackTrace: st,
+          context: {'uid': phoneUser.uid},
         );
       }
-      if (existingProfile.exists) {
+      if (existingProfile?.exists == true) {
         try {
           await _auth.signOut();
         } catch (_) {}

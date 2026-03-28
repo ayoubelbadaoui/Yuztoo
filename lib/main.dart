@@ -367,11 +367,20 @@ class _RootShellState extends ConsumerState<_RootShell>
         if (role != null) break;
       }
 
-      // After OTP, Auth signs in before the app finishes writing users/{uid}. If we
-      // sign out here too early, Firestore writes run unauthenticated and fail with
-      // permission-denied. Wait for the profile to appear (signup / slow network).
+      // If Firestore role is unreadable (e.g., rules lag), fall back to cached
+      // role so signup/login can proceed without bouncing back to auth screens.
+      if (role == null) {
+        try {
+          role = await ref.read(roleCacheServiceProvider).readLastSelectedRole();
+        } catch (_) {}
+        role ??= _role;
+      }
+
+      // If no fallback role exists (first app open + fresh install), wait only
+      // briefly for users/{uid} to appear after signup. Long waits keep users
+      // stuck on splash when Firestore rules deny reads.
       if (role == null && mounted) {
-        const maxExtraWaitMs = 30000;
+        const maxExtraWaitMs = 3000;
         const stepMs = 500;
         var elapsed = 0;
         while (role == null && elapsed < maxExtraWaitMs && mounted) {
@@ -384,7 +393,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         }
       }
 
-      // If profile is missing, deny session and force re-auth flow.
+      // If we still have no role after cache fallback, deny session.
       if (role == null) {
         await ref.read(signOutProvider).call();
         if (!mounted) return;
