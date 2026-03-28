@@ -1,0 +1,124 @@
+rules_version = '2';
+
+// Yuztoo — aligned with lib/ Firestore usage (users, merchants, subcollections).
+//
+// Deploy: firebase deploy --only firestore:rules
+// Local validation: cd tools/firebase && npm install && npm run rules:emulator
+//   (rules load when Firestore Emulator starts; use project demo-* without login.)
+// Review in console before production — this replaces existing rules for matched paths.
+//
+// Notes:
+// - users: collection list/get-all is DENIED. The follower-count helper that scans
+//   collection('users') will get permission-denied; the app already treats that as non-fatal.
+// - users.status: clients cannot change an existing value (e.g. unblock after admin block).
+//   First-time create may set status to "active" only (or omit status).
+// - merchants: public read for discovery / storefront; writes only for owner_uid.
+// - Subcollections under merchants: owner-only via parent merchant document.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function rolesShapeValid() {
+      return ('roles' in request.resource.data)
+        && request.resource.data.roles.keys().hasOnly(['client', 'merchant', 'provider'])
+        && request.resource.data.roles.client is bool
+        && request.resource.data.roles.merchant is bool
+        && request.resource.data.roles.provider is bool;
+    }
+
+    function noLegacyDottedRoleKeys() {
+      return !request.resource.data.keys().hasAny([
+        'roles.client',
+        'roles.merchant',
+        'roles.provider'
+      ]);
+    }
+
+    function onboardingShapeValid() {
+      return ('onboarding' in request.resource.data)
+        && request.resource.data.onboarding is map
+        && request.resource.data.onboarding.keys().hasOnly(['merchant'])
+        && request.resource.data.onboarding.merchant is string
+        && request.resource.data.onboarding.merchant in ['not_started', 'completed'];
+    }
+
+    // --- /phone_index/{phone} --- E.164 id (same string as users.phone); blocks duplicate phones across UIDs.
+    // Unauthenticated get: signup checks existence via transaction.get (evaluated as [get], not [list]).
+    // Keep list denied so the collection cannot be enumerated (plain doc.get on some clients uses list).
+    match /phone_index/{phone} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid is string
+        && request.resource.data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/phone_index/$(phone));
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // --- /users/{userId} -------------------------------------------------
+    // Block self-service status changes once set; allow first write to "active" (or omit).
+    // (Keep conditions inline: resource/request are match-scoped.)
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) && (
+        !('status' in request.resource.data) || request.resource.data.status == 'active'
+      ) && onboardingShapeValid() && rolesShapeValid() && noLegacyDottedRoleKeys();
+
+      allow update: if isOwner(userId) && (
+        !('status' in resource.data)
+          ? (!('status' in request.resource.data) || request.resource.data.status == 'active')
+          : resource.data.status == request.resource.data.status
+      ) && onboardingShapeValid() && rolesShapeValid() && noLegacyDottedRoleKeys();
+
+      allow delete: if false;
+    }
+
+    match /users/{userId}/followed_merchants/{merchantId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+
+    // --- /merchants/{merchantId} -----------------------------------------
+    function isMerchantOwner(merchantId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/merchants/$(merchantId))
+        && get(/databases/$(database)/documents/merchants/$(merchantId)).data.owner_uid == request.auth.uid;
+    }
+
+    match /merchants/{merchantId} {
+      // Discovery / vitrine: unauthenticated read OK for this app.
+      allow read: if true;
+
+      allow create: if isSignedIn()
+        && request.resource.data.owner_uid == request.auth.uid;
+
+      allow update: if isSignedIn()
+        && resource.data.owner_uid == request.auth.uid
+        && request.resource.data.owner_uid == resource.data.owner_uid;
+
+      allow delete: if false;
+    }
+
+    match /merchants/{merchantId}/promotions/{promoId} {
+      allow read: if true;
+      allow create, update, delete: if isMerchantOwner(merchantId);
+    }
+
+    match /merchants/{merchantId}/auto_notifications/{notificationId} {
+      allow read: if true;
+      allow create, update, delete: if isMerchantOwner(merchantId);
+    }
+  }
+}

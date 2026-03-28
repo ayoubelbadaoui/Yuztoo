@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,13 +11,12 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../domain/entities/merchant_category.dart';
 import '../application/onboarding_flow_provider.dart';
-import '../application/providers.dart';
 import '../../storefront/domain/entities/business_hours.dart';
 import 'widgets/merchant_onboarding_colors.dart';
 import 'widgets/category_card.dart';
 
-/// Total steps: Welcome(0), Name(1), Image(2), Address(3), Category(4), Description(5), Hours(6), Ready(7)
-const _totalSteps = 8;
+/// Total steps: Welcome(0), Name(1), Image(2), Address(3), Description(4), Hours(5), Ready(6)
+const _totalSteps = 7;
 
 /// Uber Eats / Glovo-style multi-step merchant onboarding.
 class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
@@ -28,6 +29,7 @@ class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
 
   final VoidCallback onBack;
   final VoidCallback onComplete;
+
   /// When true, last step shows "Accéder à mon commerce" instead of "Créer mon compte".
   final bool isPostSignup;
 
@@ -45,45 +47,6 @@ class _MerchantOnboardingFlowScreenState
   final _websiteController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _imagePicker = ImagePicker();
-
-  static final _categories = [
-    const MerchantCategory(
-      id: 'restaurant',
-      title: 'Restaurant',
-      description: 'Restaurants, cafés, bars',
-      placeholderColorHex: '#FF9800',
-    ),
-    const MerchantCategory(
-      id: 'retail',
-      title: 'Commerce de détail',
-      description: 'Boutiques, magasins',
-      placeholderColorHex: '#2196F3',
-    ),
-    const MerchantCategory(
-      id: 'beauty',
-      title: 'Beauté & Bien-être',
-      description: 'Salons, spas',
-      placeholderColorHex: '#E91E63',
-    ),
-    const MerchantCategory(
-      id: 'fitness',
-      title: 'Sport & Fitness',
-      description: 'Salles de sport',
-      placeholderColorHex: '#4CAF50',
-    ),
-    const MerchantCategory(
-      id: 'services',
-      title: 'Services',
-      description: 'Services professionnels',
-      placeholderColorHex: '#9C27B0',
-    ),
-    const MerchantCategory(
-      id: 'other',
-      title: 'Autre',
-      description: 'Autres commerces',
-      placeholderColorHex: '#9E9E9E',
-    ),
-  ];
 
   int _currentStep = 0;
 
@@ -135,8 +98,8 @@ class _MerchantOnboardingFlowScreenState
 
   bool _isOptionalStep() {
     return _currentStep == 2 || // Image
-        _currentStep == 5 || // Description
-        _currentStep == 6;  // Hours
+        _currentStep == 4 || // Description
+        _currentStep == 5; // Hours
   }
 
   @override
@@ -179,11 +142,12 @@ class _MerchantOnboardingFlowScreenState
                     _StepImage(
                       imagePath: data.imagePath,
                       bannerImagePath: data.bannerImagePath,
-                      onPickedLogo: (p) =>
-                          ref.read(onboardingFlowProvider.notifier).setImagePath(p),
-                      onPickedBanner: (p) =>
-                          ref.read(onboardingFlowProvider.notifier).setBannerImagePath(p),
-                      onSkip: _goNext,
+                      onPickedLogo: (p) => ref
+                          .read(onboardingFlowProvider.notifier)
+                          .setImagePath(p),
+                      onPickedBanner: (p) => ref
+                          .read(onboardingFlowProvider.notifier)
+                          .setBannerImagePath(p),
                       onNext: _goNext,
                       picker: _imagePicker,
                     ),
@@ -205,22 +169,12 @@ class _MerchantOnboardingFlowScreenState
                           .setWebsiteUrl(v),
                       onNext: _goNext,
                     ),
-                    _StepCategory(
-                      categories: _categories,
-                      selectedId: data.categoryId,
-                      onSelected: (id, title) {
-                        ref.read(onboardingFlowProvider.notifier).setCategory(id, title);
-                        ref.read(selectedMerchantCategoryTitleProvider.notifier).state = title;
-                      },
-                      onNext: _goNext,
-                    ),
                     _StepDescription(
                       controller: _descriptionController,
                       initialValue: data.description,
                       onChanged: (v) => ref
                           .read(onboardingFlowProvider.notifier)
                           .setDescription(v),
-                      onSkip: _goNext,
                       onNext: _goNext,
                     ),
                     _StepHours(
@@ -248,7 +202,7 @@ class _MerchantOnboardingFlowScreenState
   Widget _buildProgressBar() {
     // Hide progress bar on Welcome step
     if (_currentStep == 0) return const SizedBox.shrink();
-    
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
       child: Row(
@@ -297,7 +251,7 @@ class _StepWelcome extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _StepAvatar(
+          const _StepAvatar(
             icon: Icons.storefront_rounded,
             size: 100,
           ),
@@ -435,7 +389,7 @@ class _StepNameState extends State<_StepName> {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          _StepAvatar(icon: Icons.badge_outlined, size: 80),
+          const _StepAvatar(icon: Icons.badge_outlined, size: 80),
           const SizedBox(height: 32),
           Text(
             'Comment s\'appelle votre commerce ?',
@@ -468,7 +422,6 @@ class _StepImage extends StatelessWidget {
     required this.bannerImagePath,
     required this.onPickedLogo,
     required this.onPickedBanner,
-    required this.onSkip,
     required this.onNext,
     required this.picker,
   });
@@ -477,7 +430,6 @@ class _StepImage extends StatelessWidget {
   final String? bannerImagePath;
   final ValueChanged<String?> onPickedLogo;
   final ValueChanged<String?> onPickedBanner;
-  final VoidCallback onSkip;
   final VoidCallback onNext;
   final ImagePicker picker;
 
@@ -505,6 +457,7 @@ class _StepImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canProceed = imagePath != null && imagePath!.trim().isNotEmpty;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -540,7 +493,7 @@ class _StepImage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Depuis la galerie uniquement — optionnel',
+            'Depuis la galerie uniquement — obligatoire',
             style: GoogleFonts.outfit(
               fontSize: 14,
               color: MerchantOnboardingColors.textGrey,
@@ -654,18 +607,7 @@ class _StepImage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 32),
-          _SuivantButton(onPressed: onNext),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              'Passer',
-              style: GoogleFonts.outfit(
-                color: MerchantOnboardingColors.textGrey,
-                fontSize: 14,
-              ),
-            ),
-          ),
+          _SuivantButton(onPressed: canProceed ? onNext : null),
         ],
       ),
     );
@@ -703,7 +645,7 @@ class _StepAddress extends StatefulWidget {
 
 class _StepAddressState extends State<_StepAddress> {
   bool _canProceed = false;
-  
+
   String _toFrenchE164(String rawInput) {
     var digits = rawInput.replaceAll(RegExp(r'[^\d]'), '');
     if (digits.startsWith('33')) digits = digits.substring(2);
@@ -750,7 +692,7 @@ class _StepAddressState extends State<_StepAddress> {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          _StepAvatar(icon: Icons.location_on_outlined, size: 80),
+          const _StepAvatar(icon: Icons.location_on_outlined, size: 80),
           const SizedBox(height: 32),
           Text(
             'Où se trouve votre commerce ?',
@@ -778,11 +720,13 @@ class _StepAddressState extends State<_StepAddress> {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                   decoration: BoxDecoration(
                     border: Border(
                       right: BorderSide(
-                        color: MerchantOnboardingColors.borderColor.withValues(alpha: 0.35),
+                        color: MerchantOnboardingColors.borderColor
+                            .withValues(alpha: 0.35),
                       ),
                     ),
                   ),
@@ -846,6 +790,7 @@ class _StepAddressState extends State<_StepAddress> {
   }
 }
 
+// ignore: unused_element
 class _StepCategory extends StatelessWidget {
   const _StepCategory({
     required this.categories,
@@ -867,7 +812,7 @@ class _StepCategory extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 24),
-          _StepAvatar(icon: Icons.category_outlined, size: 72),
+          const _StepAvatar(icon: Icons.category_outlined, size: 72),
           const SizedBox(height: 24),
           Text(
             'Quel type de commerce ?',
@@ -915,14 +860,12 @@ class _StepDescription extends StatefulWidget {
     required this.controller,
     required this.initialValue,
     required this.onChanged,
-    required this.onSkip,
     required this.onNext,
   });
 
   final TextEditingController controller;
   final String? initialValue;
-  final ValueChanged<String?> onChanged;
-  final VoidCallback onSkip;
+  final ValueChanged<String> onChanged;
   final VoidCallback onNext;
 
   @override
@@ -930,11 +873,28 @@ class _StepDescription extends StatefulWidget {
 }
 
 class _StepDescriptionState extends State<_StepDescription> {
+  bool _canProceed = false;
+
   @override
   void initState() {
     super.initState();
     if (widget.initialValue != null) {
       widget.controller.text = widget.initialValue!;
+    }
+    _canProceed = widget.controller.text.trim().isNotEmpty;
+    widget.controller.addListener(_onTextChange);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChange);
+    super.dispose();
+  }
+
+  void _onTextChange() {
+    final canProceed = widget.controller.text.trim().isNotEmpty;
+    if (canProceed != _canProceed) {
+      setState(() => _canProceed = canProceed);
     }
   }
 
@@ -945,7 +905,7 @@ class _StepDescriptionState extends State<_StepDescription> {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          _StepAvatar(icon: Icons.description_outlined, size: 80),
+          const _StepAvatar(icon: Icons.description_outlined, size: 80),
           const SizedBox(height: 32),
           Text(
             'Décrivez votre commerce',
@@ -957,33 +917,15 @@ class _StepDescriptionState extends State<_StepDescription> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          Text(
-            'Optionnel',
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: MerchantOnboardingColors.textGrey,
-            ),
-          ),
           const SizedBox(height: 24),
           _TextField(
             controller: widget.controller,
             hint: 'Une boulangerie artisanale au cœur du quartier...',
             maxLines: 4,
-            onChanged: (v) => widget.onChanged(v.isEmpty ? null : v),
+            onChanged: widget.onChanged,
           ),
           const SizedBox(height: 32),
-          _SuivantButton(onPressed: widget.onNext),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: widget.onSkip,
-            child: Text(
-              'Passer',
-              style: GoogleFonts.outfit(
-                color: MerchantOnboardingColors.textGrey,
-                fontSize: 14,
-              ),
-            ),
-          ),
+          _SuivantButton(onPressed: _canProceed ? widget.onNext : null),
         ],
       ),
     );
@@ -1033,20 +975,38 @@ class _StepHoursState extends State<_StepHours> {
   }
 
   void _toggleDay(String dayKey, DayHours day) {
-    _updateDay(dayKey, DayHours(
-      dayName: day.dayName,
-      isEnabled: !day.isEnabled,
-      timeSlots: day.isEnabled ? [] : [const TimeSlot(start: '8h', end: '12h'), const TimeSlot(start: '14h', end: '18h')],
-    ));
+    _updateDay(
+        dayKey,
+        DayHours(
+          dayName: day.dayName,
+          isEnabled: !day.isEnabled,
+          timeSlots: day.isEnabled
+              ? []
+              : [
+                  const TimeSlot(start: '8h', end: '12h'),
+                  const TimeSlot(start: '14h', end: '18h')
+                ],
+        ));
   }
 
   void _updateSlots(String dayKey, DayHours day, List<TimeSlot> slots) {
-    _updateDay(dayKey, DayHours(dayName: day.dayName, isEnabled: day.isEnabled, timeSlots: slots));
+    _updateDay(
+        dayKey,
+        DayHours(
+            dayName: day.dayName, isEnabled: day.isEnabled, timeSlots: slots));
   }
 
   @override
   Widget build(BuildContext context) {
-    final dayKeys = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    final dayKeys = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday'
+    ];
     final days = _hours.allDays;
 
     return SingleChildScrollView(
@@ -1054,7 +1014,7 @@ class _StepHoursState extends State<_StepHours> {
       child: Column(
         children: [
           const SizedBox(height: 24),
-          _StepAvatar(icon: Icons.schedule_outlined, size: 72),
+          const _StepAvatar(icon: Icons.schedule_outlined, size: 72),
           const SizedBox(height: 20),
           Text(
             'Vos horaires d\'ouverture',
@@ -1089,7 +1049,7 @@ class _StepHoursState extends State<_StepHours> {
                     onSave: (slots) => _updateSlots(dayKeys[i], days[i], slots),
                   ),
                   if (i < days.length - 1)
-                    Divider(
+                    const Divider(
                       height: 1,
                       indent: 16,
                       endIndent: 16,
@@ -1140,7 +1100,8 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
   final List<TextEditingController> _startCtrls = [];
   final List<TextEditingController> _endCtrls = [];
 
-  bool get _hasSlots => widget.dayHours.isEnabled && widget.dayHours.timeSlots.isNotEmpty;
+  bool get _hasSlots =>
+      widget.dayHours.isEnabled && widget.dayHours.timeSlots.isNotEmpty;
 
   @override
   void initState() {
@@ -1283,7 +1244,9 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                           ),
                           const SizedBox(width: 4),
                           Icon(
-                            _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                            _expanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
                             size: 18,
                             color: MerchantOnboardingColors.textGrey,
                           ),
@@ -1304,7 +1267,8 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
         AnimatedCrossFade(
           firstChild: const SizedBox.shrink(),
           secondChild: _expanded ? _buildEditor() : const SizedBox.shrink(),
-          crossFadeState: _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          crossFadeState:
+              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
           duration: const Duration(milliseconds: 200),
           sizeCurve: Curves.easeOut,
         ),
@@ -1338,7 +1302,8 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                       ),
                       decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 10),
                         filled: true,
                         fillColor: MerchantOnboardingColors.bgDark2,
                         border: OutlineInputBorder(
@@ -1346,13 +1311,15 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                           borderSide: BorderSide.none,
                         ),
                         hintText: '8h',
-                        hintStyle: GoogleFonts.outfit(color: MerchantOnboardingColors.textGrey),
+                        hintStyle: GoogleFonts.outfit(
+                            color: MerchantOnboardingColors.textGrey),
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.arrow_forward, size: 14, color: MerchantOnboardingColors.textGrey),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Icon(Icons.arrow_forward,
+                        size: 14, color: MerchantOnboardingColors.textGrey),
                   ),
                   Expanded(
                     child: TextField(
@@ -1364,7 +1331,8 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                       ),
                       decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 10),
                         filled: true,
                         fillColor: MerchantOnboardingColors.bgDark2,
                         border: OutlineInputBorder(
@@ -1372,7 +1340,8 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                           borderSide: BorderSide.none,
                         ),
                         hintText: '18h',
-                        hintStyle: GoogleFonts.outfit(color: MerchantOnboardingColors.textGrey),
+                        hintStyle: GoogleFonts.outfit(
+                            color: MerchantOnboardingColors.textGrey),
                       ),
                     ),
                   ),
@@ -1380,7 +1349,8 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => _removeSlot(i),
-                      child: Icon(Icons.close, size: 18, color: Colors.red.shade300),
+                      child: Icon(Icons.close,
+                          size: 18, color: Colors.red.shade300),
                     ),
                   ],
                 ],
@@ -1392,14 +1362,18 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.15),
+                  color: MerchantOnboardingColors.primaryGold
+                      .withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3)),
+                  border: Border.all(
+                      color: MerchantOnboardingColors.primaryGold
+                          .withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add, size: 18, color: MerchantOnboardingColors.primaryGold),
+                    const Icon(Icons.add,
+                        size: 18, color: MerchantOnboardingColors.primaryGold),
                     const SizedBox(width: 6),
                     Text(
                       'Ajouter un créneau',
@@ -1458,9 +1432,25 @@ class _StepReady extends StatefulWidget {
 class _StepReadyState extends State<_StepReady> {
   bool _isLoading = false;
 
+  Future<void> _markMerchantOnboardingCompletedNow() async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'onboarding': {'merchant': 'completed'},
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // Best effort only.
+    }
+  }
+
   Future<void> _handleComplete() async {
     if (_isLoading) return;
     setState(() => _isLoading = true);
+    if (widget.isPostSignup) {
+      await _markMerchantOnboardingCompletedNow();
+    }
     widget.onComplete();
 
     // Safety reset: if user remains on the same step (e.g. save error),
@@ -1476,7 +1466,7 @@ class _StepReadyState extends State<_StepReady> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _StepAvatar(
+          const _StepAvatar(
             icon: Icons.check_circle_outline,
             size: 100,
             color: MerchantOnboardingColors.primaryGold,
@@ -1493,7 +1483,7 @@ class _StepReadyState extends State<_StepReady> {
           const SizedBox(height: 12),
           Text(
             widget.isPostSignup
-                ? 'Accédez à votre commerce'
+                ? 'Accédez à votre compte commerce'
                 : 'Créez votre compte pour commencer',
             style: GoogleFonts.outfit(
               fontSize: 15,
@@ -1509,8 +1499,8 @@ class _StepReadyState extends State<_StepReady> {
               onPressed: _isLoading ? null : _handleComplete,
               style: ElevatedButton.styleFrom(
                 backgroundColor: MerchantOnboardingColors.primaryGold,
-                disabledBackgroundColor:
-                    MerchantOnboardingColors.primaryGold.withValues(alpha: 0.55),
+                disabledBackgroundColor: MerchantOnboardingColors.primaryGold
+                    .withValues(alpha: 0.55),
                 foregroundColor: MerchantOnboardingColors.bgDark1,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -1530,7 +1520,7 @@ class _StepReadyState extends State<_StepReady> {
                     )
                   : Text(
                       widget.isPostSignup
-                          ? 'Accéder à mon commerce'
+                          ? 'Accéder à mon compte commerce'
                           : 'Créer mon compte',
                       style: GoogleFonts.outfit(
                         fontSize: 16,
@@ -1614,11 +1604,13 @@ class _TextField extends StatelessWidget {
         fillColor: MerchantOnboardingColors.bgDark2,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
+          borderSide:
+              const BorderSide(color: MerchantOnboardingColors.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
+          borderSide:
+              const BorderSide(color: MerchantOnboardingColors.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -1627,7 +1619,8 @@ class _TextField extends StatelessWidget {
             width: 2,
           ),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       ),
     );
   }

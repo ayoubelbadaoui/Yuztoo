@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/providers.dart';
+import '../application/create_user_document.dart';
 import '../../core/application/auth_error_mapper.dart';
+import '../../core/application/use_cases/get_user_role.dart';
+import '../../core/infrastructure/role_cache_service.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../core/shared/widgets/app_logo.dart';
@@ -244,112 +247,116 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
     setState(() => _isVerifying = true);
 
-    // Verify OTP and create user with phone + email/password
-    // This ensures user is only created after OTP verification
-    final verifyPhoneAndCreateUserUseCase = ref.read(verifyPhoneAndCreateUserProvider);
-    final verifyResult = await verifyPhoneAndCreateUserUseCase.call(
-      verificationId: widget.verificationId!,
-      smsCode: smsCode,
-      email: widget.email,
-      password: widget.password,
-    );
+    try {
+      // Verify OTP and create user with phone + email/password
+      final verifyPhoneAndCreateUserUseCase =
+          ref.read(verifyPhoneAndCreateUserProvider);
+      final createUserDocUseCase = ref.read(createUserDocumentProvider);
+      final roleCache = ref.read(auth_core.roleCacheServiceProvider);
+      final getUserRole = ref.read(auth_core.getUserRoleProvider);
 
-    verifyResult.fold(
-      (failure) {
-        if (mounted) {
-          final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          // Only show error if it's a specific Firebase error (not generic)
-          if (frenchMessage != null) {
-            showErrorSnackbar(context, frenchMessage);
+      final email = widget.email;
+      final password = widget.password;
+      final phone = widget.phone;
+      final city = widget.city;
+      final signupRole = widget.role;
+
+      final verifyResult = await verifyPhoneAndCreateUserUseCase.call(
+        verificationId: widget.verificationId!,
+        smsCode: smsCode,
+        email: email,
+        password: password,
+      );
+
+      await verifyResult.fold<Future<void>>(
+        (failure) async {
+          if (mounted) {
+            final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
+            if (frenchMessage != null) {
+              showErrorSnackbar(context, frenchMessage);
+            }
+            for (final controller in _controllers) {
+              controller.clear();
+            }
+            _focusNodes[0].requestFocus();
           }
-          // Clear OTP fields on error so user can retry
-          for (final controller in _controllers) {
-            controller.clear();
-          }
-          _focusNodes[0].requestFocus();
-          setState(() => _isVerifying = false);
-        }
-      },
-      (authUser) async {
-        // User created successfully with phone + email/password - now create Firestore profile
-        if (mounted) {
-          await _createFirestoreProfile(authUser.id);
-        }
-      },
-    );
+        },
+        (authUser) async {
+          // Firestore profile write must run even if this route is disposed (shell → splash).
+          await _createFirestoreProfile(
+            authUser.id,
+            createUserDocUseCase: createUserDocUseCase,
+            roleCache: roleCache,
+            getUserRole: getUserRole,
+            email: email,
+            phone: phone,
+            city: city,
+            signupRole: signupRole,
+          );
+        },
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isVerifying = false);
+      }
+    }
   }
 
-  Future<void> _createFirestoreProfile(String userId) async {
-    // Use user ID from created user (after OTP verification)
+  Future<void> _createFirestoreProfile(
+    String userId, {
+    required CreateUserDocument createUserDocUseCase,
+    required RoleCacheService roleCache,
+    required GetUserRole getUserRole,
+    required String email,
+    required String phone,
+    required String city,
+    required UserRole signupRole,
+  }) async {
+    final Map<String, bool> roles = signupRolesMap(signupRole);
 
-    // Client = client only. Merchant = merchant + provider + client (see signup_roles_map).
-    final Map<String, bool> roles = signupRolesMap(widget.role);
-
-    final createUserDocUseCase = ref.read(createUserDocumentProvider);
     final createResult = await createUserDocUseCase.call(
-      uid: userId, // Use userId from created user (after OTP verification)
-      email: widget.email,
-      phone: widget.phone,
+      uid: userId,
+      email: email,
+      phone: phone,
       roles: roles,
-      city: widget.city,
+      city: city,
     );
 
-    createResult.fold(
-      (failure) {
+    await createResult.fold<Future<void>>(
+      (failure) async {
         if (mounted) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          // Only show error if it's a specific Firebase error (not generic)
           if (frenchMessage != null) {
             showErrorSnackbar(context, frenchMessage);
           }
-          setState(() => _isVerifying = false);
-          // Don't navigate on error - user can retry or go back
         }
       },
       (_) async {
-        // Firestore profile created successfully — align cache with signup intent (client vs merchant).
         try {
-          final roleCache = ref.read(auth_core.roleCacheServiceProvider);
-          await roleCache.saveLastSelectedRole(widget.role);
+          await roleCache.saveLastSelectedRole(signupRole);
         } catch (_) {}
-        // Verify the write by reading it back once to ensure eventual consistency
-        // This is the proper way to handle Firestore's eventual consistency
+
+        UserRole? verifiedRole;
+        for (var attempt = 0; attempt < 2 && verifiedRole == null; attempt++) {
+          if (attempt > 0) {
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+          }
+          try {
+            final roleResult = await getUserRole.call(userId).timeout(
+              const Duration(seconds: 3),
+            );
+            verifiedRole = roleResult.fold(
+              (_) => null,
+              (r) => r,
+            );
+            if (verifiedRole != null) break;
+          } catch (_) {
+            continue;
+          }
+        }
+
         if (mounted) {
-          final getUserRole = ref.read(auth_core.getUserRoleProvider);
-          UserRole? verifiedRole;
-          
-          // Try to read the role once to verify the write (with one retry)
-          // This handles Firestore's eventual consistency properly
-          for (int attempt = 0; attempt < 2 && verifiedRole == null; attempt++) {
-            if (attempt > 0) {
-              await Future.delayed(const Duration(milliseconds: 200));
-            }
-            
-            try {
-              final roleResult = await getUserRole.call(userId).timeout(
-                const Duration(seconds: 3),
-              );
-              
-              verifiedRole = roleResult.fold(
-                (_) => null,
-                (r) => r,
-              );
-              
-              // If we got the role, break early
-              if (verifiedRole != null) break;
-            } catch (_) {
-              // Timeout or error - will retry if attempts remain
-              continue;
-            }
-          }
-          
-          if (mounted) {
-            showSuccessSnackbar(context, 'Inscription réussie!');
-            // Navigation will be driven by auth state changes (AuthController + navigation provider)
-            // The retry logic in main.dart will handle any remaining eventual consistency issues
-            // Just pop OTP screen; auth stream will emit Authenticated and RootShell will navigate.
-            Navigator.of(context).pop();
-          }
+          showSuccessSnackbar(context, 'Inscription réussie!');
         }
       },
     );

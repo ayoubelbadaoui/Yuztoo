@@ -128,7 +128,7 @@ class _NewsSectionState extends State<NewsSection> {
                     height: tileH,
                     child: _portraitImageTile(urls[i0]),
                   ),
-                  SizedBox(width: _pairGap),
+                  const SizedBox(width: _pairGap),
                   SizedBox(
                     width: tileW,
                     height: tileH,
@@ -293,7 +293,7 @@ class _NewsSectionState extends State<NewsSection> {
                   height: tileH,
                   child: _emptySlotWithHint(showIcon: true),
                 ),
-                SizedBox(width: _pairGap),
+                const SizedBox(width: _pairGap),
                 SizedBox(
                   width: tileW,
                   height: tileH,

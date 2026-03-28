@@ -6,7 +6,7 @@ import '../../../../core/domain/core/result.dart';
 /// 
 /// This use case:
 /// - Creates merchant entity
-/// - Marks onboarding as complete in user document
+/// - Links `users/{uid}.merchant_id` to the created merchant (completion signal)
 /// - Both operations are atomic (handled by repository batch write)
 class CompleteMerchantOnboarding {
   const CompleteMerchantOnboarding(this.merchantRepository);
@@ -41,14 +41,14 @@ class CompleteMerchantOnboarding {
       description: description,
       websiteUrl: websiteUrl,
       hours: hours,
+      displayName: name,
       logoUrl: logoUrl,
       bannerUrl: bannerUrl,
       // Visible in Découvrir / listMerchants (query expects discoverable merchants).
       status: 'active',
     );
 
-    // Create merchant and link to user (atomic batch write)
-    // This also marks onboarding as complete in the same batch
+    // Create merchant and link to user (atomic batch write).
     return await merchantRepository.createMerchantAndLinkUser(
       merchant: merchant,
       userId: userId,

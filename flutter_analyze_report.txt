@@ -1,0 +1,20 @@
+Flutter static analysis report
+================================
+Generated: 2026-03-28 (after merge into backflow)
+
+flutter analyze: PASS — No issues found.
+
+Notes
+-----
+- Prior to merging `fix/signup-otp-phone-precheck` into `backflow`, the older
+  backflow tip reported many infos/warnings (prefer_const_constructors,
+  deprecated withOpacity/scale, use_build_context_synchronously, etc.).
+- Current tree includes the cleanup commit (const/withValues/Matrix4,
+  context.mounted patterns, storefront banner/profile upload, storefront field
+  widgets, intl pin, tests).
+
+Runtime / device console
+------------------------
+- This file only records `flutter analyze`. Runtime warnings or errors from
+  `flutter run` depend on environment, Firebase, and device; check the IDE
+  Run/Debug console or `flutter run -v` if something appears there.

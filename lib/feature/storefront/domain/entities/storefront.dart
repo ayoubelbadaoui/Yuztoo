@@ -4,9 +4,11 @@ class Storefront {
   const Storefront({
     required this.id,
     required this.merchantName,
-    required this.businessActivity,
+    required this.description,
+    required this.city,
     required this.bannerImageUrl,
     required this.profileImageUrl,
+    required this.loyaltyEnabled,
     required this.isVerified,
     this.isPublished = false,
     required this.profileCompletionPercentage,
@@ -26,9 +28,11 @@ class Storefront {
 
   final String id;
   final String merchantName;
-  final String businessActivity;
+  final String description;
+  final String city;
   final String bannerImageUrl;
   final String profileImageUrl;
+  final bool loyaltyEnabled;
   final bool isVerified;
   final bool isPublished;
   final int profileCompletionPercentage; // 0-100
@@ -39,15 +43,19 @@ class Storefront {
   final String? phone;
   final String? address;
   final String? websiteUrl;
+
   /// Business hours (Firestore map from BusinessHours.toMap())
   final Map<String, dynamic>? hours;
+
   /// Rappels: validation client automatique
   final bool rappelsAutoClientValidation;
+
   /// Rappels: validation passage automatique
   final bool rappelsAutoPassageValidation;
+
   /// Rappels: clients connectés ce mois (Firestore `rappels_monthly_connected_clients`)
   final int rappelsMonthlyConnectedClients;
+
   /// Rappels: passages validés ce mois (Firestore `rappels_monthly_validated_passages`)
   final int rappelsMonthlyValidatedPassages;
 }
-

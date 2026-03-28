@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,6 +45,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   String? _optimisticHeartMerchantId;
   int? _optimisticHeartLevel;
   int _heartSaveToken = 0;
+  String? _lastViewedKey;
 
   @override
   Widget build(BuildContext context) {
@@ -138,10 +141,14 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     final followersCountAsync = ref.watch(
       client_home_providers.followersCountByMerchantIdsProvider(<String>[merchant.id]),
     );
+    final viewedIdsAsync =
+        ref.watch(client_home_providers.viewedMerchantIdsForCurrentUserProvider);
     final isFollowing = followedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
+    final hasViewed = viewedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
+    _markMerchantAsViewed(userId, merchant.id);
     final baseHeartLevel = isFollowing
         ? (heartLevelsAsync.valueOrNull?[merchant.id] ?? 1)
-        : 0;
+        : (hasViewed ? 1 : 0);
     final heartLevel =
         _optimisticHeartMerchantId == merchant.id && _optimisticHeartLevel != null
             ? _optimisticHeartLevel!
@@ -324,6 +331,19 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
         ),
       ],
     );
+  }
+
+  void _markMerchantAsViewed(String? userId, String merchantId) {
+    if (userId == null || userId.isEmpty || merchantId.isEmpty) return;
+    final key = '$userId::$merchantId';
+    if (_lastViewedKey == key) return;
+    _lastViewedKey = key;
+    unawaited(
+      ref
+          .read(client_home_providers.viewedMerchantsLocalServiceProvider)
+          .markViewed(userId, merchantId),
+    );
+    ref.invalidate(client_home_providers.viewedMerchantIdsForCurrentUserProvider);
   }
 
   String _followersLabelFr(int count) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_yuztoo/feature/role_selection/presentation/role_selection_screen.dart';
 import 'package:flutter_yuztoo/feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart';
 import 'package:flutter_yuztoo/feature/merchant_onboarding/presentation/subcategory_selection_screen.dart';
@@ -9,7 +10,9 @@ import 'package:flutter_yuztoo/l10n/app_localizations.dart';
 
 void main() {
   group('Comprehensive Button Navigation Test', () {
-    testWidgets('1. Role Selection - Merchant "Se connecter" button navigates to login', (tester) async {
+    testWidgets(
+        '1. Role Selection - Merchant "Se connecter" button navigates to login',
+        (tester) async {
       bool loginCalled = false;
       UserRole? loginRole;
 
@@ -31,16 +34,21 @@ void main() {
 
       // Find "Se connecter" button (OutlinedButton in merchant view)
       final connecterButton = find.byType(OutlinedButton);
-      expect(connecterButton, findsOneWidget, reason: 'Se connecter button should exist');
+      expect(connecterButton, findsOneWidget,
+          reason: 'Se connecter button should exist');
 
       await tester.tap(connecterButton);
       await tester.pump();
 
-      expect(loginCalled, true, reason: 'Se connecter button should call onLogin');
-      expect(loginRole, UserRole.merchant, reason: 'onLogin should be called with merchant role');
+      expect(loginCalled, true,
+          reason: 'Se connecter button should call onLogin');
+      expect(loginRole, UserRole.merchant,
+          reason: 'onLogin should be called with merchant role');
     });
 
-    testWidgets('2. Role Selection - Merchant "Découvrir" button navigates to onboarding', (tester) async {
+    testWidgets(
+        '2. Role Selection - Merchant "Découvrir" button navigates to onboarding',
+        (tester) async {
       bool discoverCalled = false;
       UserRole? discoverRole;
 
@@ -66,72 +74,79 @@ void main() {
       await tester.tap(discoverButton);
       await tester.pump();
 
-      expect(discoverCalled, true, reason: 'Découvrir button should call onSelectRole');
-      expect(discoverRole, UserRole.merchant, reason: 'onSelectRole should be called with merchant role');
+      expect(discoverCalled, true,
+          reason: 'Découvrir button should call onSelectRole');
+      expect(discoverRole, UserRole.merchant,
+          reason: 'onSelectRole should be called with merchant role');
     });
 
-    testWidgets('3. Merchant Onboarding - Suivant button navigates when category selected', (tester) async {
+    testWidgets(
+        '3. Merchant Onboarding - Suivant button navigates when category selected',
+        (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: MerchantOnboardingScreen(
-            onNext: () {},
-            onBack: () {},
+        ProviderScope(
+          child: MaterialApp(
+            home: MerchantOnboardingScreen(
+              onNext: () {},
+              onBack: () {},
+            ),
           ),
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
 
-      // Select a category first
-      final categoryCards = find.byType(GestureDetector);
-      expect(categoryCards, findsWidgets, reason: 'Category cards should exist');
+      // Select a visible category item first.
+      final restaurantCategory = find.text('Restaurant');
+      expect(restaurantCategory, findsOneWidget);
+      await tester.tap(restaurantCategory);
+      await tester.pumpAndSettle();
 
-      await tester.tap(categoryCards.first);
-      await tester.pump();
-
-      // Now Suivant button should be enabled
-      final suivantButton = find.text('Suivant');
-      if (suivantButton.evaluate().isEmpty) {
-        // Try finding ElevatedButton
-        final buttons = find.byType(ElevatedButton);
-        expect(buttons, findsOneWidget);
-        final button = tester.widget<ElevatedButton>(buttons.first);
-        expect(button.onPressed, isNotNull, reason: 'Suivant button should be enabled after category selection');
-        
-        await tester.tap(buttons.first);
-      } else {
-        await tester.tap(suivantButton);
-      }
+      // Continue button should be enabled after category selection.
+      final continueButton = find.widgetWithText(ElevatedButton, 'Continuer');
+      expect(continueButton, findsOneWidget);
+      final button = tester.widget<ElevatedButton>(continueButton);
+      expect(button.onPressed, isNotNull,
+          reason:
+              'Continuer button should be enabled after category selection');
 
       await tester.pump();
     });
 
-    testWidgets('4. Subcategory Selection - Suivant button navigates when subcategory selected', (tester) async {
+    testWidgets(
+        '4. Subcategory Selection - Suivant button navigates when subcategory selected',
+        (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: SubcategorySelectionScreen(
-            onBack: () {},
-            onNext: () {},
+        ProviderScope(
+          child: MaterialApp(
+            home: SubcategorySelectionScreen(
+              onBack: () {},
+              onNext: () {},
+            ),
           ),
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
 
-      // Select a subcategory first (if any exist)
-      final subcategoryCards = find.byType(GestureDetector);
-      if (subcategoryCards.evaluate().isNotEmpty) {
-        await tester.tap(subcategoryCards.first);
-        await tester.pump();
-      }
+      // Select the first visible card by tapping its placeholder icon.
+      final placeholderIcons = find.byIcon(Icons.image_outlined);
+      expect(placeholderIcons, findsWidgets);
+      await tester.tap(placeholderIcons.first);
+      await tester.pumpAndSettle();
 
-      // Check Suivant button
-      final buttons = find.byType(ElevatedButton);
-      if (buttons.evaluate().isNotEmpty) {
-        final button = tester.widget<ElevatedButton>(buttons.first);
-        expect(button.onPressed, isNotNull, reason: 'Suivant button should have callback');
-      }
+      // Continue button should become enabled.
+      final continueButton = find.widgetWithText(ElevatedButton, 'Continuer');
+      expect(continueButton, findsOneWidget);
+      final button = tester.widget<ElevatedButton>(continueButton);
+      expect(button.onPressed, isNotNull,
+          reason:
+              'Continuer button should be enabled after subcategory selection');
     });
 
-    testWidgets('5. Benefits Screen - Démarrer gratuitement button navigates to signup', (tester) async {
+    testWidgets(
+        '5. Benefits Screen - Démarrer gratuitement button navigates to signup',
+        (tester) async {
       bool startFreeCalled = false;
 
       await tester.pumpWidget(
@@ -146,15 +161,19 @@ void main() {
       );
       await tester.pump();
 
-      final startButton = find.text('Démarrer gratuitement');
-      expect(startButton, findsOneWidget, reason: 'Démarrer gratuitement button should exist');
+      final startButton = find.text('Créer mon compte');
+      expect(startButton, findsOneWidget,
+          reason: 'Créer mon compte button should exist');
 
-      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton).first);
-      expect(button.onPressed, isNotNull, reason: 'Démarrer gratuitement button should have onPressed callback');
+      final button =
+          tester.widget<ElevatedButton>(find.byType(ElevatedButton).first);
+      expect(button.onPressed, isNotNull,
+          reason: 'Créer mon compte button should have onPressed callback');
 
       await tester.tap(startButton);
       await tester.pump();
-      expect(startFreeCalled, true, reason: 'Démarrer gratuitement button should call onStartFree');
+      expect(startFreeCalled, true,
+          reason: 'Créer mon compte button should call onNext');
     });
 
     testWidgets('6. All back buttons have callbacks', (tester) async {
@@ -186,4 +205,3 @@ void main() {
     });
   });
 }
-

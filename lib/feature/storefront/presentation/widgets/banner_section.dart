@@ -33,28 +33,7 @@ class BannerSection extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Support both file:// URLs and network URLs
-                bannerImageUrl.startsWith('file://')
-                    ? Image.file(
-                        File(bannerImageUrl.substring(7)),
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[200],
-                            child: Icon(Icons.image, size: 48, color: StorefrontColors.navyDark.withValues(alpha: 0.3)),
-                          );
-                        },
-                      )
-                    : Image.network(
-                        bannerImageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[200],
-                            child: Icon(Icons.image, size: 48, color: StorefrontColors.navyDark.withValues(alpha: 0.3)),
-                          );
-                        },
-                      ),
+                _buildBannerImage(),
                 // Edit button overlay for banner
                 if (onBannerEdit != null)
                   Positioned(
@@ -115,38 +94,76 @@ class BannerSection extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: ClipOval(
-              child: profileImageUrl.startsWith('file://')
-                  ? Image.file(
-                      File(profileImageUrl.substring(7)),
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey[300],
-                          child: Icon(Icons.person, size: 40, color: StorefrontColors.navyDark.withValues(alpha: 0.5)),
-                        );
-                      },
-                    )
-                  : Image.network(
-                      profileImageUrl,
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey[300],
-                          child: Icon(Icons.person, size: 40, color: StorefrontColors.navyDark.withValues(alpha: 0.5)),
-                        );
-                      },
-                    ),
+              child: _buildProfileImage(),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildBannerImage() {
+    final url = bannerImageUrl.trim();
+    if (url.isEmpty) {
+      return _bannerPlaceholder();
+    }
+    if (url.startsWith('file://')) {
+      return Image.file(
+        File(url.substring(7)),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _bannerPlaceholder(),
+      );
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _bannerPlaceholder(),
+    );
+  }
+
+  Widget _buildProfileImage() {
+    final url = profileImageUrl.trim();
+    if (url.isEmpty) {
+      return _profilePlaceholder();
+    }
+    if (url.startsWith('file://')) {
+      return Image.file(
+        File(url.substring(7)),
+        width: 80,
+        height: 80,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _profilePlaceholder(),
+      );
+    }
+    return Image.network(
+      url,
+      width: 80,
+      height: 80,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _profilePlaceholder(),
+    );
+  }
+
+  Widget _bannerPlaceholder() {
+    return Container(
+      color: Colors.grey[200],
+      child: Icon(
+        Icons.storefront_outlined,
+        size: 48,
+        color: StorefrontColors.navyDark.withValues(alpha: 0.3),
+      ),
+    );
+  }
+
+  Widget _profilePlaceholder() {
+    return Container(
+      width: 80,
+      height: 80,
+      color: Colors.grey[300],
+      child: Icon(
+        Icons.store_mall_directory_outlined,
+        size: 40,
+        color: StorefrontColors.navyDark.withValues(alpha: 0.5),
       ),
     );
   }
@@ -206,7 +223,8 @@ class _ProfilePictureTapWidget extends StatefulWidget {
   final Widget child;
 
   @override
-  State<_ProfilePictureTapWidget> createState() => _ProfilePictureTapWidgetState();
+  State<_ProfilePictureTapWidget> createState() =>
+      _ProfilePictureTapWidgetState();
 }
 
 class _ProfilePictureTapWidgetState extends State<_ProfilePictureTapWidget>
@@ -289,4 +307,3 @@ class _ProfilePictureTapWidgetState extends State<_ProfilePictureTapWidget>
     );
   }
 }
-

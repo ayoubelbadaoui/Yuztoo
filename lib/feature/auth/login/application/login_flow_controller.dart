@@ -17,10 +17,11 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
     state = const LoginFlowInitial();
   }
 
+  /// Email/password sign-in. Routing uses Firestore [primary_role] + [getUserRole] —
+  /// not the login screen tile (client vs merchant portal).
   Future<void> signIn({
     required String email,
     required String password,
-    UserRole? preferredRole,
   }) async {
     state = const LoginFlowLoading();
 
@@ -64,6 +65,19 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
         }
 
         final rolesMap = await _resolveRoles(authUser);
+        final getUserRoleUseCase = ref.read(auth_core.getUserRoleProvider);
+        final primaryResult = await getUserRoleUseCase.call(authUser.id);
+        final primaryRole = primaryResult.fold((_) => null, (r) => r);
+
+        if (primaryRole == null) {
+          state = const LoginFlowError(
+            AuthUnexpectedFailure(
+              message: 'Profil utilisateur introuvable.',
+            ),
+          );
+          return;
+        }
+
         final getUserCityUseCase = ref.read(auth_core.getUserCityProvider);
         final cityResult = await getUserCityUseCase.call(authUser.id);
         await cityResult.fold(
@@ -76,54 +90,12 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
               return;
             }
 
-            final hasClientRole = rolesMap['client'] == true;
-            final hasMerchantRole = rolesMap['merchant'] == true;
-            final isMultiRole = hasClientRole && hasMerchantRole;
-
-            // Check if user requested a specific role but doesn't have it
-            if (preferredRole != null) {
-              final hasRequestedRole = (preferredRole == UserRole.merchant && hasMerchantRole) ||
-                  (preferredRole == UserRole.client && hasClientRole);
-              
-              if (!hasRequestedRole) {
-                // User doesn't have the requested role
-                state = LoginFlowRoleMismatch(
-                  uid: authUser.id,
-                  requestedRole: preferredRole,
-                  availableRoles: rolesMap,
-                );
-                return;
-              }
-            }
-
-            if (isMultiRole) {
-              // If user has multiple roles, show selection dialog unless they requested a specific role
-              if (preferredRole != null) {
-                // User requested a specific role and has it - use that
-                await _handleRoleSelectionAndRouting(
-                  authUser.id,
-                  preferredRole,
-                  city,
-                  rolesMap,
-                );
-              } else {
-                // Show role selection dialog
-                state = LoginFlowMultiRoleRequired(
-                  uid: authUser.id,
-                  roles: rolesMap,
-                  city: city,
-                );
-              }
-            } else {
-              final selectedRole =
-                  hasClientRole ? UserRole.client : UserRole.merchant;
-              await _handleRoleSelectionAndRouting(
-                authUser.id,
-                selectedRole,
-                city,
-                rolesMap,
-              );
-            }
+            await _handleRoleSelectionAndRouting(
+              authUser.id,
+              primaryRole,
+              city,
+              rolesMap,
+            );
           },
         );
       },
@@ -140,38 +112,36 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
         state = LoginFlowError(failure);
       },
       (_) async {
-        // City updated, now proceed with role-based routing
+        final getUserRoleUseCase = ref.read(auth_core.getUserRoleProvider);
+        final primaryResult = await getUserRoleUseCase.call(uid);
+        final primaryRole = primaryResult.fold((_) => null, (r) => r);
+        if (primaryRole == null) {
+          state = const LoginFlowError(
+            AuthUnexpectedFailure(
+              message: 'Profil utilisateur introuvable.',
+            ),
+          );
+          return;
+        }
+
         final getUserRolesUseCase = ref.read(auth_core.getUserRolesProvider);
         final rolesResult = await getUserRolesUseCase.call(uid);
-        await rolesResult.fold(
-          (failure) async {
-            state = LoginFlowError(failure);
+        final rolesMap = rolesResult.fold(
+          (failure) => <String, bool>{
+            'client': primaryRole == UserRole.client,
+            'merchant': primaryRole == UserRole.merchant,
+            'provider': false,
           },
-          (rolesMap) async {
-            // Use fallback roles if rolesMap is null (don't sign out - use fallback)
-            final effectiveRolesMap = rolesMap ?? <String, bool>{
-              'client': true, // Default to client if roles missing
-              'merchant': false,
-              'provider': false,
-            };
-            
-            final hasClientRole = effectiveRolesMap['client'] == true;
-            final hasMerchantRole = effectiveRolesMap['merchant'] == true;
-            final isMultiRole = hasClientRole && hasMerchantRole;
-
-            if (isMultiRole) {
-              state = LoginFlowMultiRoleRequired(
-                uid: uid,
-                roles: effectiveRolesMap,
-                city: city,
-              );
-            } else {
-              final selectedRole =
-                  hasClientRole ? UserRole.client : UserRole.merchant;
-              await _handleRoleSelectionAndRouting(uid, selectedRole, city, effectiveRolesMap);
-            }
-          },
+          (m) =>
+              m ??
+              <String, bool>{
+                'client': primaryRole == UserRole.client,
+                'merchant': primaryRole == UserRole.merchant,
+                'provider': false,
+              },
         );
+
+        await _handleRoleSelectionAndRouting(uid, primaryRole, city, rolesMap);
       },
     );
   }
@@ -239,6 +209,11 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
   }
 
   Future<Map<String, bool>> _resolveRoles(AuthUser authUser) async {
+    final fromProfile = authUser.roles;
+    if (fromProfile != null) {
+      return fromProfile;
+    }
+
     final fallbackRoles = <String, bool>{
       'client': authUser.role.toLowerCase() != 'merchant',
       'merchant': authUser.role.toLowerCase() == 'merchant',

@@ -161,7 +161,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Identifiants invalides. Vérifiez votre email et mot de passe.';
 
   @override
-  String get accountDisabled => 'Ce compte a été désactivé.';
+  String get accountDisabled => 'Compte désactivé.';
 
   @override
   String get networkError =>

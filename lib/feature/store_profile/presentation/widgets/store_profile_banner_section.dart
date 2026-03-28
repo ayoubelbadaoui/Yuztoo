@@ -23,7 +23,7 @@ class StoreProfileBannerSection extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           // Banner image - same height as Vitrine (180)
-          Container(
+          SizedBox(
             height: 180,
             width: double.infinity,
             child: _buildBannerImage(),

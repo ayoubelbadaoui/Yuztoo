@@ -129,7 +129,7 @@ class GoogleIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final scale = size.width / 24.0;
-    final matrix = Matrix4.identity()..scale(scale);
+    final matrix = Matrix4.diagonal3Values(scale, scale, scale);
 
     // Red path
     final redPath = Path()

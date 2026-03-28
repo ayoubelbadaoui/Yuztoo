@@ -36,6 +36,7 @@ dependencies:
   wakelock_plus: ^1.4.0
   # 7.x requires Dart ^3.10 / Flutter >=3.38.1; keep 6.x for Flutter 3.35.x (Dart 3.9.x).
   app_links: ^6.4.1
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:

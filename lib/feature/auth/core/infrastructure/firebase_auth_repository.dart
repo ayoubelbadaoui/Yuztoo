@@ -9,6 +9,7 @@ import '../domain/value_objects/email_address.dart';
 import '../domain/value_objects/password.dart';
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/infrastructure/logger_service.dart';
 import 'dto/auth_user_dto.dart';
 
 class FirebaseAuthRepository implements AuthRepository {
@@ -20,6 +21,35 @@ class FirebaseAuthRepository implements AuthRepository {
 
   final firebase.FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
+
+  static bool _isStatusBlocked(Map<String, dynamic>? data) {
+    if (data == null) return false;
+    final raw = data['status'];
+    if (raw is! String) return false;
+    return raw.trim().toLowerCase() == 'blocked';
+  }
+
+  /// Builds [AuthUser] from Firestore profile, or blocks access when `status` is `blocked`.
+  Future<Result<AuthUser?>> _profileToAuthResult(
+    firebase.User user,
+    DocumentSnapshot<Map<String, dynamic>>? profileDoc,
+  ) async {
+    if (profileDoc != null && profileDoc.exists) {
+      final data = profileDoc.data();
+      if (_isStatusBlocked(data)) {
+        try {
+          await _auth.signOut();
+        } catch (_) {
+          // Best-effort — still deny in-app session
+        }
+        return const Left<AuthFailure, AuthUser?>(AccountDisabledFailure());
+      }
+    }
+    final dto = profileDoc != null && profileDoc.exists
+        ? AuthUserDto.fromFirebase(user, profileDoc: profileDoc)
+        : AuthUserDto.fromFirebase(user);
+    return Right<AuthFailure, AuthUser?>(dto.toDomain());
+  }
 
   @override
   Future<Result<AuthUser>> signInWithEmailAndPassword({
@@ -52,11 +82,18 @@ class FirebaseAuthRepository implements AuthRepository {
         // Timeout or error - use fallback (Firebase Auth user only)
         profileDoc = null;
       }
-      
-      final dto = profileDoc != null && profileDoc.exists
-          ? AuthUserDto.fromFirebase(user, profileDoc: profileDoc)
-          : AuthUserDto.fromFirebase(user); // Fallback: use Firebase Auth data only
-      return Right<AuthFailure, AuthUser>(dto.toDomain());
+
+      final mapped = await _profileToAuthResult(user, profileDoc);
+      if (mapped.isLeft) {
+        return const Left<AuthFailure, AuthUser>(AccountDisabledFailure());
+      }
+      final authUser = mapped.rightOrNull;
+      if (authUser == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Profil utilisateur introuvable.'),
+        );
+      }
+      return Right<AuthFailure, AuthUser>(authUser);
     } on firebase.FirebaseAuthException catch (e, st) {
       return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
     } catch (e, st) {
@@ -104,21 +141,20 @@ class FirebaseAuthRepository implements AuthRepository {
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (firebase.PhoneAuthCredential credential) {
-          // Auto-verification completed on some devices
-          if (!completer.isCompleted) {
-            completer.complete(const Right<AuthFailure, String>(''));
-          }
+          // Keep waiting for codeSent/timeout verificationId.
+          // Completing with empty verificationId breaks OTP screen flow.
         },
         verificationFailed: (firebase.FirebaseAuthException e) {
           if (!completer.isCompleted) {
             // Check for billing errors specifically
             final errorMessage = e.message ?? '';
-            if (errorMessage.contains('BILLING_NOT_ENABLED') || 
+            if (errorMessage.contains('BILLING_NOT_ENABLED') ||
                 errorMessage.toLowerCase().contains('billing')) {
               // ignore: prefer_const_constructors
               completer.complete(Left<AuthFailure, String>(
                 const AuthUnexpectedFailure(
-                  message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+                  message:
+                      'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
                 ),
               ));
             } else {
@@ -221,10 +257,47 @@ class FirebaseAuthRepository implements AuthRepository {
       // Sign in with phone credential
       final phoneCredential = await _auth.signInWithCredential(credential);
       final phoneUser = phoneCredential.user;
-      
+
       if (phoneUser == null) {
         return const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(message: 'Échec de la vérification du téléphone'),
+          AuthUnexpectedFailure(
+              message: 'Échec de la vérification du téléphone'),
+        );
+      }
+
+      // If this phone is already tied to an existing profile, block signup:
+      // one phone number must map to one account only.
+      // On transient Firestore issues, continue and let createUserDocument()
+      // enforce phone_index ownership.
+      DocumentSnapshot<Map<String, dynamic>>? existingProfile;
+      try {
+        existingProfile = await _firestore
+            .collection('users')
+            .doc(phoneUser.uid)
+            .get()
+            .timeout(const Duration(seconds: 5));
+      } on TimeoutException catch (_) {
+        LoggerService.logError(
+          'verifyPhoneAndCreateUser: timeout reading users/{uid}; continuing',
+          context: {'uid': phoneUser.uid},
+        );
+      } catch (e, st) {
+        LoggerService.logError(
+          'verifyPhoneAndCreateUser: error reading users/{uid}; continuing',
+          error: e,
+          stackTrace: st,
+          context: {'uid': phoneUser.uid},
+        );
+      }
+      if (existingProfile?.exists == true) {
+        try {
+          await _auth.signOut();
+        } catch (_) {}
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message:
+                'Vous avez déjà un compte avec ce numéro — nous ne créons pas deux comptes pour le même numéro. Connectez-vous.',
+          ),
         );
       }
 
@@ -251,7 +324,8 @@ class FirebaseAuthRepository implements AuthRepository {
       final updatedUser = _auth.currentUser;
       if (updatedUser == null) {
         return const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(message: 'Utilisateur introuvable après la création'),
+          AuthUnexpectedFailure(
+              message: 'Utilisateur introuvable après la création'),
         );
       }
 
@@ -301,10 +375,8 @@ class FirebaseAuthRepository implements AuthRepository {
     firebase.User? initialUser = _auth.currentUser;
     if (initialUser == null) {
       try {
-        initialUser = await _auth
-            .userChanges()
-            .first
-            .timeout(const Duration(seconds: 5));
+        initialUser =
+            await _auth.userChanges().first.timeout(const Duration(seconds: 5));
       } on TimeoutException {
         // No emission yet - re-check (Firebase may have restored session)
         initialUser = _auth.currentUser;
@@ -340,17 +412,18 @@ class FirebaseAuthRepository implements AuthRepository {
           profileDoc = null;
         }
 
-        final dto = profileDoc != null && profileDoc.exists
-            ? AuthUserDto.fromFirebase(initialUser, profileDoc: profileDoc)
-            : AuthUserDto.fromFirebase(initialUser);
-        yield Right<AuthFailure, AuthUser?>(dto.toDomain());
+        final mapped = await _profileToAuthResult(initialUser, profileDoc);
+        yield mapped;
+        if (mapped.isLeft) {
+          lastEmittedUid = null;
+        }
       } catch (_) {
         // Any error while building the initial user -> fallback to FirebaseAuth user only
         final dto = AuthUserDto.fromFirebase(initialUser);
         yield Right<AuthFailure, AuthUser?>(dto.toDomain());
       }
     }
-    
+
     await for (final userEvent in _auth.userChanges()) {
       // ROOT FIX:
       // FirebaseAuth.userChanges() can transiently emit `null` during token refresh,
@@ -367,7 +440,7 @@ class FirebaseAuthRepository implements AuthRepository {
       }
       lastEmittedUid = newUid;
       hasEmittedAny = true;
-      
+
       if (user == null) {
         yield const Right<AuthFailure, AuthUser?>(null);
         continue;
@@ -390,13 +463,12 @@ class FirebaseAuthRepository implements AuthRepository {
           // Any Firestore error - use fallback data
           profileDoc = null;
         }
-        
-        // Use profile doc if available, otherwise create DTO from Firebase Auth user only
-        final dto = profileDoc != null && profileDoc.exists
-            ? AuthUserDto.fromFirebase(user, profileDoc: profileDoc)
-            : AuthUserDto.fromFirebase(user); // Fallback: use Firebase Auth data only
-        
-        yield Right<AuthFailure, AuthUser?>(dto.toDomain());
+
+        final mapped = await _profileToAuthResult(user, profileDoc);
+        yield mapped;
+        if (mapped.isLeft) {
+          lastEmittedUid = null;
+        }
       } on firebase.FirebaseAuthException catch (e) {
         // Only yield error for actual auth errors, not Firestore delays
         // For Firestore issues, use fallback data
@@ -405,7 +477,8 @@ class FirebaseAuthRepository implements AuthRepository {
           final dto = AuthUserDto.fromFirebase(user);
           yield Right<AuthFailure, AuthUser?>(dto.toDomain());
         } else {
-          yield Left<AuthFailure, AuthUser?>(_mapAuthException(e, StackTrace.current));
+          yield Left<AuthFailure, AuthUser?>(
+              _mapAuthException(e, StackTrace.current));
         }
       } catch (e) {
         // Any other error (including Firestore timeouts/errors) - use fallback
@@ -421,6 +494,28 @@ class FirebaseAuthRepository implements AuthRepository {
     switch (error.code) {
       case 'user-disabled':
         return const AccountDisabledFailure();
+      case 'email-already-in-use':
+        return const AuthUnexpectedFailure(
+          message:
+              'Vous avez déjà un compte avec cette adresse email — impossible d’en créer un second. Connectez-vous.',
+        );
+      case 'credential-already-in-use':
+      case 'account-exists-with-different-credential':
+        return const AuthUnexpectedFailure(
+          message:
+              'Vous avez déjà un compte avec cet email ou ce numéro — un seul compte par identifiant. Connectez-vous.',
+        );
+      case 'phone-number-already-exists':
+        return const AuthUnexpectedFailure(
+          message:
+              'Vous avez déjà un compte avec ce numéro — nous ne créons pas deux comptes pour le même numéro. Connectez-vous.',
+        );
+      case 'user-token-expired':
+      case 'invalid-user-token':
+      case 'requires-recent-login':
+        return const AuthUnexpectedFailure(
+          message: 'Erreur de session.',
+        );
       case 'user-not-found':
       case 'wrong-password':
       case 'invalid-credential':
@@ -436,7 +531,8 @@ class FirebaseAuthRepository implements AuthRepository {
         if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
             error.message?.toLowerCase().contains('billing') == true) {
           return const AuthUnexpectedFailure(
-            message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+            message:
+                'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
           );
         }
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
@@ -451,7 +547,8 @@ class FirebaseAuthRepository implements AuthRepository {
         if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
             error.message?.toLowerCase().contains('billing') == true) {
           return const AuthUnexpectedFailure(
-            message: 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+            message:
+                'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
           );
         }
         return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
@@ -463,20 +560,38 @@ class FirebaseAuthRepository implements AuthRepository {
     switch (error.code) {
       case 'email-already-in-use':
         return const AuthUnexpectedFailure(
-            message: 'Cette adresse email est déjà utilisée');
+          message:
+              'Vous avez déjà un compte avec cette adresse email — impossible d’en créer un second. Connectez-vous.',
+        );
       case 'weak-password':
         return const AuthUnexpectedFailure(
             message: 'Le mot de passe est trop faible');
       case 'invalid-email':
-        return const AuthUnexpectedFailure(
-            message: 'Adresse email invalide');
+        return const AuthUnexpectedFailure(message: 'Adresse email invalide');
       case 'phone-number-already-exists':
+        return const AuthUnexpectedFailure(
+          message:
+              'Vous avez déjà un compte avec ce numéro — nous ne créons pas deux comptes pour le même numéro. Connectez-vous.',
+        );
       case 'credential-already-in-use':
         return const AuthUnexpectedFailure(
-            message: 'Ce numéro de téléphone est déjà utilisé');
+          message:
+              'Vous avez déjà un compte avec cet email ou ce numéro — un seul compte par identifiant. Connectez-vous.',
+        );
+      case 'account-exists-with-different-credential':
+        return const AuthUnexpectedFailure(
+          message:
+              'Vous avez déjà un compte avec cet email ou ce numéro — un seul compte par identifiant. Connectez-vous.',
+        );
       case 'invalid-verification-code':
         return const AuthUnexpectedFailure(
             message: 'Code de vérification invalide');
+      case 'user-token-expired':
+      case 'invalid-user-token':
+      case 'requires-recent-login':
+        return const AuthUnexpectedFailure(
+          message: 'Erreur de session.',
+        );
       case 'network-request-failed':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
       default:

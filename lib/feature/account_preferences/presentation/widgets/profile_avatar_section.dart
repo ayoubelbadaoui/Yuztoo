@@ -72,9 +72,9 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: MerchantColors.bgMain,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -86,7 +86,7 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: MerchantColors.textGrey.withOpacity(0.5),
+                  color: MerchantColors.textGrey.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -140,18 +140,17 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
         await _saveProfileImageToCache(file.path);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de la sélection de l\'image: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la sélection de l\'image: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        );
-      }
+        ),
+      );
     }
   }
 
@@ -252,7 +251,7 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                     ),
                     child: const Center(
                       child: Icon(
@@ -304,7 +303,7 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
                         phone.isEmpty && 
                         city.isEmpty)
                       _infoLine('Chargement...', style: TextStyle(
-                        color: MerchantColors.textGrey.withOpacity(0.5),
+                        color: MerchantColors.textGrey.withValues(alpha: 0.5),
                         fontStyle: FontStyle.italic,
                       )),
                   ],
@@ -323,7 +322,7 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
                   ),
                   const SizedBox(height: 4),
                   _infoLine('Chargement des données...', style: TextStyle(
-                    color: MerchantColors.textGrey.withOpacity(0.5),
+                    color: MerchantColors.textGrey.withValues(alpha: 0.5),
                     fontStyle: FontStyle.italic,
                   )),
                 ],
@@ -341,7 +340,7 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
                   ),
                   const SizedBox(height: 4),
                   _infoLine('Impossible de charger les données', style: TextStyle(
-                    color: Colors.red.withOpacity(0.7),
+                    color: Colors.red.withValues(alpha: 0.7),
                     fontStyle: FontStyle.italic,
                   )),
                 ],
@@ -414,7 +413,7 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                     ),
                     child: const Center(
                       child: Icon(
@@ -507,7 +506,7 @@ class _PickerOption extends StatelessWidget {
               Container(
                 width: 52,
                 height: 52,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: MerchantColors.gold,
                   shape: BoxShape.circle,
                 ),

@@ -40,7 +40,7 @@ class _PromotionsManagementScreenState
       backgroundColor: Colors.transparent,
       builder: (_) => const AddPromoSheet(),
     );
-    if (result == null || !mounted) return;
+    if (result == null || !context.mounted) return;
 
     setState(() => _isCreating = true);
     final createPromotion = ref.read(promo_providers.createPromotionProvider);
@@ -49,7 +49,7 @@ class _PromotionsManagementScreenState
       promotion: result.copyWith(merchantId: authState.user.id),
       imageFilePath: result.imagePath,
     );
-    if (!mounted) return;
+    if (!context.mounted) return;
     setState(() => _isCreating = false);
 
     createResult.fold(
@@ -64,8 +64,8 @@ class _PromotionsManagementScreenState
       (_) {
         ref.invalidate(promo_providers.merchantPromotionsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Promotion créée'),
+          const SnackBar(
+            content: Text('Promotion créée'),
             backgroundColor: MerchantColors.gold,
           ),
         );
@@ -103,14 +103,14 @@ class _PromotionsManagementScreenState
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !context.mounted) return;
 
     final deletePromotion = ref.read(promo_providers.deletePromotionProvider);
     final deleteResult = await deletePromotion.call(
       merchantId: promo.merchantId,
       promotionId: promo.id,
     );
-    if (!mounted) return;
+    if (!context.mounted) return;
     deleteResult.fold(
       (failure) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -120,8 +120,8 @@ class _PromotionsManagementScreenState
       (_) {
         ref.invalidate(promo_providers.merchantPromotionsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Promotion supprimée'),
+          const SnackBar(
+            content: Text('Promotion supprimée'),
             backgroundColor: MerchantColors.gold,
           ),
         );
@@ -133,7 +133,7 @@ class _PromotionsManagementScreenState
     final updated = promo.copyWith(isOnline: isOnline);
     final updatePromotion = ref.read(promo_providers.updatePromotionProvider);
     final result = await updatePromotion.call(updated);
-    if (!mounted) return;
+    if (!context.mounted) return;
     result.fold(
       (failure) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -145,6 +145,7 @@ class _PromotionsManagementScreenState
   }
 
   Future<void> _pickImageForPromo(int index, List<Promotion> promotions) async {
+    final messenger = ScaffoldMessenger.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: MerchantColors.navyCard,
@@ -176,7 +177,7 @@ class _PromotionsManagementScreenState
         ),
       ),
     );
-    if (source == null || !mounted) return;
+    if (source == null || !context.mounted) return;
     try {
       final picked = await _picker.pickImage(
         source: source,
@@ -184,12 +185,11 @@ class _PromotionsManagementScreenState
         maxHeight: 800,
         imageQuality: 80,
       );
-      if (picked != null && mounted) {
-        // TODO: upload image and update promotion in Firestore
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Modification de l\'image à venir')),
-        );
-      }
+      if (picked == null || !context.mounted) return;
+      // TODO: upload image and update promotion in Firestore
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Modification de l\'image à venir')),
+      );
     } catch (_) {}
   }
 

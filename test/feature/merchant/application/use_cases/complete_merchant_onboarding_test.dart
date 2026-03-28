@@ -20,7 +20,7 @@ class _FakeMerchantRepository implements MerchantRepository {
 
   @override
   Future<Result<bool>> merchantExists(String ownerUid) async {
-    return Right<MerchantFailure, bool>(false);
+    return const Right<MerchantFailure, bool>(false);
   }
 
   @override
@@ -29,7 +29,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     required String userId,
   }) async {
     if (_shouldFailCreate) {
-      return Left<MerchantFailure, Merchant>(
+      return const Left<MerchantFailure, Merchant>(
         UnableToCreateMerchantFailure(),
       );
     }
@@ -44,7 +44,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     if (_createdMerchant != null && _createdMerchant!.ownerUid == ownerUid) {
       return Right<MerchantFailure, Merchant?>(_createdMerchant);
     }
-    return Right<MerchantFailure, Merchant?>(null);
+    return const Right<MerchantFailure, Merchant?>(null);
   }
 
   @override
@@ -52,13 +52,13 @@ class _FakeMerchantRepository implements MerchantRepository {
     if (_createdMerchant != null && _createdMerchant!.id == merchantId) {
       return Right<MerchantFailure, Merchant?>(_createdMerchant);
     }
-    return Right<MerchantFailure, Merchant?>(null);
+    return const Right<MerchantFailure, Merchant?>(null);
   }
 
   @override
   Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async {
     if (_createdMerchant == null) {
-      return Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
+      return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
     }
     return Right<MerchantFailure, List<Merchant>>(<Merchant>[_createdMerchant!]);
   }
@@ -66,7 +66,7 @@ class _FakeMerchantRepository implements MerchantRepository {
   @override
   Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async {
     if (_createdMerchant == null || !ids.contains(_createdMerchant!.id)) {
-      return Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
+      return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
     }
     return Right<MerchantFailure, List<Merchant>>(<Merchant>[_createdMerchant!]);
   }
@@ -76,7 +76,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     required String merchantId,
     required String userId,
   }) async {
-    return Right<MerchantFailure, Unit>(unit);
+    return const Right<MerchantFailure, Unit>(unit);
   }
 
   @override
@@ -98,8 +98,8 @@ class _FakeMerchantRepository implements MerchantRepository {
   }) async {
     final current = _createdMerchant;
     if (current == null || current.id != merchantId) {
-      return Left<MerchantFailure, Merchant>(
-        const MerchantUnexpectedFailure(message: 'Merchant not found'),
+      return const Left<MerchantFailure, Merchant>(
+        MerchantUnexpectedFailure(message: 'Merchant not found'),
       );
     }
     _createdMerchant = current.copyWith(

@@ -6,6 +6,7 @@ import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../application/providers.dart';
 import '../../storage/application/providers.dart' as storage_providers;
+import '../../storage/infrastructure/storage_repository_provider.dart';
 import '../../merchant_onboarding/application/onboarding_flow_provider.dart';
 import '../../merchant_onboarding/presentation/onboarding_flow_screen.dart';
 import '../../merchant_onboarding/presentation/widgets/merchant_onboarding_colors.dart';
@@ -31,6 +32,7 @@ class MerchantProfileFormScreen extends ConsumerStatefulWidget {
 class _MerchantProfileFormScreenState
     extends ConsumerState<MerchantProfileFormScreen> {
   bool _didInit = false;
+  bool _isSubmitting = false;
 
   @override
   void didChangeDependencies() {
@@ -72,30 +74,43 @@ class _MerchantProfileFormScreenState
   }
 
   Future<void> _saveFromOnboarding() async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
     final authState = ref.read(authStateProvider);
-    if (authState is! Authenticated) return;
+    if (authState is! Authenticated) {
+      if (mounted) setState(() => _isSubmitting = false);
+      return;
+    }
 
     final user = authState.user;
     final userId = user.id;
     final data = ref.read(onboardingFlowProvider);
 
-    final name = data.fullName?.trim();
-    if (name == null || name.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Le nom du commerce est requis'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
+    const defaultCommerceName = 'Mon commerce';
+    const defaultCityPlaceholder = 'À compléter';
+
+    final trimmedName = data.fullName?.trim();
+    final name = (trimmedName == null || trimmedName.isEmpty)
+        ? defaultCommerceName
+        : trimmedName;
+
+    final addrTrim = data.address?.trim();
+    final address =
+        (addrTrim == null || addrTrim.isEmpty) ? null : addrTrim;
+
+    final descTrim = data.description?.trim();
+    final description =
+        (descTrim == null || descTrim.isEmpty) ? null : descTrim;
+
+    final localImagePath = data.imagePath?.trim();
+    final hasLocalLogo =
+        localImagePath != null && localImagePath.isNotEmpty;
 
     final cacheService = ref.read(merchantProfileCacheServiceProvider);
     final cachedData = await cacheService.loadProfile();
 
-    final basicsResult = await ref.read(getUserProfileBasicsProvider).call(userId);
+    final basicsResult =
+        await ref.read(getUserProfileBasicsProvider).call(userId);
     final basics = basicsResult.fold((_) => null, (b) => b);
 
     String email = cachedData['email'] ??
@@ -109,32 +124,60 @@ class _MerchantProfileFormScreenState
         user.phoneNumber ??
         firebase_auth.FirebaseAuth.instance.currentUser?.phoneNumber ??
         '';
-    String city = cachedData['city'] ??
-        basics?.city ??
-        '';
-    final websiteUrl = data.websiteUrl?.trim().isEmpty == true ? null : data.websiteUrl?.trim();
+    String city = cachedData['city'] ?? basics?.city ?? '';
+    final websiteUrl = data.websiteUrl?.trim().isEmpty == true
+        ? null
+        : data.websiteUrl?.trim();
 
-    email = email.trim().isEmpty ? 'demo@example.com' : email.trim();
-    phone = phone.trim().isEmpty ? '+33123456789' : phone.trim();
-    city = city.trim().isEmpty ? 'Paris' : city.trim();
+    email = email.trim();
+    if (email.isEmpty) {
+      email = 'demo@example.com';
+    }
+    phone = phone.trim();
+    if (phone.isEmpty) {
+      phone = '+33123456789';
+    }
+    city = city.trim();
+    if (city.isEmpty) {
+      city = defaultCityPlaceholder;
+    }
 
     String? logoUrl;
     String? bannerUrl;
-    final localImagePath = data.imagePath?.trim();
+    var didUploadLogo = false;
+    var didUploadBanner = false;
     final localBannerPath = data.bannerImagePath?.trim();
-    if (localImagePath != null && localImagePath.isNotEmpty) {
-      final uploadResult = await ref.read(storage_providers.uploadLogoProvider).call(
-            filePath: localImagePath,
-            merchantId: userId,
+
+    if (hasLocalLogo) {
+      final uploadLogoResult =
+          await ref.read(storage_providers.uploadLogoProvider).call(
+                filePath: localImagePath,
+                merchantId: userId,
+              );
+      logoUrl = uploadLogoResult.fold((_) => null, (url) => url);
+      didUploadLogo = logoUrl != null && logoUrl.isNotEmpty;
+      if (!didUploadLogo) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Échec du téléversement.'),
+              backgroundColor: Colors.red,
+            ),
           );
-      logoUrl = uploadResult.fold((_) => null, (url) => url);
+          setState(() => _isSubmitting = false);
+        }
+        return;
+      }
     }
+
     if (localBannerPath != null && localBannerPath.isNotEmpty) {
-      final uploadResult = await ref.read(storage_providers.uploadBannerProvider).call(
-            filePath: localBannerPath,
-            merchantId: userId,
-          );
+      final uploadResult =
+          await ref.read(storage_providers.uploadBannerProvider).call(
+                filePath: localBannerPath,
+                merchantId: userId,
+              );
       bannerUrl = uploadResult.fold((_) => null, (url) => url);
+      didUploadBanner = bannerUrl != null && bannerUrl.isNotEmpty;
     }
 
     try {
@@ -144,11 +187,11 @@ class _MerchantProfileFormScreenState
         email: email,
         phone: phone,
         city: city,
-        address: data.address,
+        address: address,
         category: data.categoryTitle,
-        description: data.description,
+        description: description,
         bannerImagePath: localBannerPath,
-        profileImagePath: localImagePath,
+        profileImagePath: hasLocalLogo ? localImagePath : null,
         websiteUrl: websiteUrl,
         hoursJson: data.hoursJson,
       );
@@ -163,9 +206,9 @@ class _MerchantProfileFormScreenState
         email: email,
         phone: phone,
         city: city,
-        address: data.address,
+        address: address,
         categories: data.categoryTitle != null ? [data.categoryTitle!] : null,
-        description: data.description,
+        description: description,
         websiteUrl: websiteUrl,
         hours: data.hoursJson,
         logoUrl: logoUrl,
@@ -175,17 +218,23 @@ class _MerchantProfileFormScreenState
     } catch (_) {}
 
     if (!firestoreSuccess) {
+      final storageRepository = ref.read(storageRepositoryProvider);
+      if (didUploadLogo) {
+        await storageRepository.deleteImage('merchants/$userId/logo.png');
+      }
+      if (didUploadBanner) {
+        await storageRepository.deleteImage('merchants/$userId/banner.png');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Échec de sauvegarde en base de données. Vérifiez la connexion et réessayez.',
-            ),
+            content: Text('Impossible de créer votre commerce.'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             duration: Duration(seconds: 3),
           ),
         );
+        setState(() => _isSubmitting = false);
       }
       return;
     }
@@ -202,6 +251,7 @@ class _MerchantProfileFormScreenState
         ),
       );
       widget.onComplete?.call();
+      setState(() => _isSubmitting = false);
     }
   }
 

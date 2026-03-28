@@ -6,6 +6,7 @@ import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import '../../promotions/domain/entities/promotion.dart';
 import '../../promotions/infrastructure/promotion_repository_provider.dart';
+import '../infrastructure/viewed_merchants_local_service.dart';
 
 /// Followed merchant IDs for the current user. Invalidated when user follows/unfollows.
 final followedMerchantIdsForCurrentUserProvider =
@@ -25,6 +26,18 @@ final followedMerchantHeartLevelsForCurrentUserProvider =
   final repo = ref.watch(followedMerchantsRepositoryProvider);
   final result = await repo.getFollowedHeartLevels(userId);
   return result.fold((_) => const <String, int>{}, (map) => map);
+});
+
+/// Merchants already opened/viewed by the current user (local persistence).
+final viewedMerchantsLocalServiceProvider = Provider<ViewedMerchantsLocalService>((ref) {
+  return ViewedMerchantsLocalService();
+});
+
+final viewedMerchantIdsForCurrentUserProvider = FutureProvider<Set<String>>((ref) async {
+  final userId = ref.watch(auth_providers.currentUserIdProvider);
+  if (userId == null || userId.isEmpty) return <String>{};
+  final service = ref.watch(viewedMerchantsLocalServiceProvider);
+  return service.readViewedIds(userId);
 });
 
 /// Followers count per merchant id (all users), used for "Suivi par X personnes".

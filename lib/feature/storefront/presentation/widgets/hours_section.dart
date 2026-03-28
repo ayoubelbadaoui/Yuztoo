@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../auth/core/application/providers.dart' as auth_providers;
-import '../../../auth/core/application/state/auth_state.dart';
 import '../../../merchant/application/providers.dart' as merchant_providers;
 import '../../application/providers.dart';
 import '../../domain/entities/business_hours.dart';
@@ -18,7 +16,12 @@ import 'storefront_colors.dart';
 ///
 /// Handles confirmations dialogs inline.
 class HoursSection extends ConsumerWidget {
-  const HoursSection({super.key});
+  const HoursSection({
+    super.key,
+    required this.merchantId,
+  });
+
+  final String merchantId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,11 +40,11 @@ class HoursSection extends ConsumerWidget {
           const SizedBox(height: 20),
           ExceptionalClosureCard(
             isEnabled: hasClosure,
-            onToggle: (enabled) => _showExceptionalClosureConfirmation(
-                context, enabled, () => notifier.toggleExceptionalClosure(enabled)),
+            onToggle: (enabled) => _showExceptionalClosureConfirmation(context,
+                enabled, () => notifier.toggleExceptionalClosure(enabled)),
           ),
           const SizedBox(height: 24),
-          _SaveHoursButton(ref: ref),
+          _SaveHoursButton(ref: ref, merchantId: merchantId),
         ],
       ),
     );
@@ -190,8 +193,7 @@ class HoursSection extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             Container(
@@ -217,9 +219,7 @@ class HoursSection extends ConsumerWidget {
           children: [
             Text(message,
                 style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    height: 1.4)),
+                    fontSize: 15, fontWeight: FontWeight.w500, height: 1.4)),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -261,14 +261,12 @@ class HoursSection extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: color,
               foregroundColor: confirmFg,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text('Confirmer',
-                style: TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700)),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -278,9 +276,13 @@ class HoursSection extends ConsumerWidget {
 
 /// Button to save business hours to Firestore.
 class _SaveHoursButton extends ConsumerStatefulWidget {
-  const _SaveHoursButton({required this.ref});
+  const _SaveHoursButton({
+    required this.ref,
+    required this.merchantId,
+  });
 
   final WidgetRef ref;
+  final String merchantId;
 
   @override
   ConsumerState<_SaveHoursButton> createState() => _SaveHoursButtonState();
@@ -290,17 +292,14 @@ class _SaveHoursButtonState extends ConsumerState<_SaveHoursButton> {
   bool _saving = false;
 
   Future<void> _saveHours() async {
-    final authState = widget.ref.read(auth_providers.authStateProvider);
-    if (authState is! Authenticated) return;
-
     setState(() => _saving = true);
-    final merchantId = authState.user.id;
     final businessHours = widget.ref.read(businessHoursProvider);
     final hoursMap = businessHours.toMap();
 
-    final updateStorefront = widget.ref.read(merchant_providers.updateStorefrontProvider);
+    final updateStorefront =
+        widget.ref.read(merchant_providers.updateStorefrontProvider);
     final result = await updateStorefront.call(
-      merchantId: merchantId,
+      merchantId: widget.merchantId,
       hours: hoursMap,
     );
 
@@ -320,8 +319,8 @@ class _SaveHoursButtonState extends ConsumerState<_SaveHoursButton> {
       (_) {
         widget.ref.invalidate(storefrontProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Horaires enregistrés'),
+          const SnackBar(
+            content: Text('Horaires enregistrés'),
             backgroundColor: StorefrontColors.primaryGold,
             behavior: SnackBarBehavior.floating,
           ),

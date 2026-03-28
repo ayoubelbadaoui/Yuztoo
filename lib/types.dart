@@ -18,7 +18,6 @@ enum ScreenId {
   merchantSubcategorySelection,
   merchantBenefits,
   merchantProfileForm,
-  merchantDashboard,
   merchantClients,
   merchantPromotions,
   merchantQr,

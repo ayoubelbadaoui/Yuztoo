@@ -78,7 +78,7 @@ class LoyaltyCardsScreen extends ConsumerWidget {
                   padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),
                   child: Column(
                     children: [
-                      _AdvantageIntro(count: _advantagesFromBackend),
+                      const _AdvantageIntro(count: _advantagesFromBackend),
                       const SizedBox(height: 16),
                       _ContactLines(email: email, phone: phone),
                       const SizedBox(height: 24),
@@ -86,7 +86,7 @@ class LoyaltyCardsScreen extends ConsumerWidget {
                       const SizedBox(height: 32),
                       const _InstructionLines(),
                       const SizedBox(height: 28),
-                      _ProgressFooter(
+                      const _ProgressFooter(
                         passagesUntilReward: _passagesUntilRewardFromBackend,
                       ),
                     ],
