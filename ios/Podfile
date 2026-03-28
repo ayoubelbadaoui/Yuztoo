@@ -29,6 +29,8 @@ flutter_ios_podfile_setup
 
 target 'Runner' do
   use_frameworks!
+  # Do not use global use_modular_headers! — it makes Clang treat Firebase.h as a hard
+  # non-modular include inside FlutterFire framework modules (Xcode 16 / iOS 18 SDK).
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
@@ -52,16 +54,20 @@ post_install do |installer|
              settings.delete('COMPILER_FLAGS') if cleaned.empty?
            end
 
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+  end
+
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
 
-    # Force all pods to build with iOS 13.0+ to avoid old simulator toolchains
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
     end
 
     # Strip unsupported '-GCC_WARN_INHIBIT_ALL_WARNINGS' flags that trigger
-    # “unsupported option '-G'” on iOS simulator toolchains.
+    # "unsupported option '-G'" on iOS simulator toolchains.
     target.build_configurations.each do |config|
       %w[OTHER_CFLAGS OTHER_CPLUSPLUSFLAGS OTHER_SWIFT_FLAGS].each do |flag_key|
         flags = config.build_settings[flag_key]
@@ -78,16 +84,30 @@ post_install do |installer|
     end
   end
 
-  # Patch gRPC template qualifiers that clang rejects on some iOS toolchains
-  grpc_basic_seq = File.join(installer.sandbox.root, 'gRPC-Core/src/core/lib/promise/detail/basic_seq.h')
-  if File.exist?(grpc_basic_seq)
+  # Xcode 16: also set on Runner (user) project so Debug/simulator picks it up consistently.
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_project.native_targets.each do |t|
+      t.build_configurations.each do |config|
+        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      end
+    end
+    aggregate_target.user_project.save
+  end
+
+  # gRPC-Core and gRPC-C++ both ship basic_seq.h; Xcode 15/16 compiles the C++ pod too.
+  # - `Traits::template CheckResultAndRunNext<Wrapped>(...)` is valid (has <>).
+  # - `Traits::template CallSeqFactory(...)` is INVALID for Clang (needs <> after `template`).
+  %w[
+    gRPC-Core/src/core/lib/promise/detail/basic_seq.h
+    gRPC-C++/src/core/lib/promise/detail/basic_seq.h
+  ].each do |rel|
+    grpc_basic_seq = File.join(installer.sandbox.root, rel)
+    next unless File.exist?(grpc_basic_seq)
+
     File.chmod(0o644, grpc_basic_seq) unless File.writable?(grpc_basic_seq)
     text = File.read(grpc_basic_seq)
-    replacements = {
-      'Traits::CheckResultAndRunNext' => 'Traits::template CheckResultAndRunNext',
-      'Traits::CallSeqFactory' => 'Traits::template CallSeqFactory'
-    }
-    patched = replacements.reduce(text) { |acc, (from, to)| acc.gsub(from, to) }
-    File.write(grpc_basic_seq, patched) if patched != text
+    text = text.gsub('Traits::CheckResultAndRunNext', 'Traits::template CheckResultAndRunNext')
+    text = text.gsub('Traits::template CallSeqFactory', 'Traits::CallSeqFactory')
+    File.write(grpc_basic_seq, text)
   end
 end

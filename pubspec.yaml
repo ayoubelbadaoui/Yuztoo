@@ -29,7 +29,9 @@ dependencies:
   image_picker: ^1.0.7
   flutter_svg: ^2.0.10
   http: ^1.2.0
-  mobile_scanner: ^6.0.2
+  # 6.x pulls MLKit 7 + nanopb 3.x; conflicts with Firebase 10.x / Firestore (nanopb 2.x).
+  # Stay on 5.2.x until FlutterFire upgrades to Firebase iOS 11+ across the stack.
+  mobile_scanner: 5.2.3
   qr_flutter: ^4.1.0
   gal: ^2.3.2
   # 1.5.1+ requires Dart ^3.10; keep 1.4.x for Dart 3.9 (Flutter 3.35.x).

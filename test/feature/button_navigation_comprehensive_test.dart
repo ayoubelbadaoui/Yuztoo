@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/feature/role_selection/presentation/role_selection_screen.dart';
 import 'package:flutter_yuztoo/feature/merchant_onboarding/presentation/merchant_onboarding_screen.dart';
@@ -29,7 +30,6 @@ void main() {
       );
       await tester.pump();
 
-      // Find "Se connecter" button (OutlinedButton in merchant view)
       final connecterButton = find.byType(OutlinedButton);
       expect(connecterButton, findsOneWidget, reason: 'Se connecter button should exist');
 
@@ -59,7 +59,6 @@ void main() {
       );
       await tester.pump();
 
-      // Find "Découvrir" button (ElevatedButton in merchant view)
       final discoverButton = find.byType(ElevatedButton);
       expect(discoverButton, findsOneWidget);
 
@@ -70,7 +69,7 @@ void main() {
       expect(discoverRole, UserRole.merchant, reason: 'onSelectRole should be called with merchant role');
     });
 
-    testWidgets('3. Merchant Onboarding - Suivant button navigates when category selected', (tester) async {
+    testWidgets('3. Merchant Onboarding - Continuer enabled when category selected', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: MerchantOnboardingScreen(
@@ -79,86 +78,75 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      // Select a category first
-      final categoryCards = find.byType(GestureDetector);
-      expect(categoryCards, findsWidgets, reason: 'Category cards should exist');
+      await tester.tap(find.text('Restaurant'));
+      await tester.pumpAndSettle();
 
-      await tester.tap(categoryCards.first);
-      await tester.pump();
-
-      // Now Suivant button should be enabled
-      final suivantButton = find.text('Suivant');
-      if (suivantButton.evaluate().isEmpty) {
-        // Try finding ElevatedButton
-        final buttons = find.byType(ElevatedButton);
-        expect(buttons, findsOneWidget);
-        final button = tester.widget<ElevatedButton>(buttons.first);
-        expect(button.onPressed, isNotNull, reason: 'Suivant button should be enabled after category selection');
-        
-        await tester.tap(buttons.first);
-      } else {
-        await tester.tap(suivantButton);
-      }
-
-      await tester.pump();
+      final continuer = find.widgetWithText(ElevatedButton, 'Continuer');
+      final button = tester.widget<ElevatedButton>(continuer);
+      expect(
+        button.onPressed,
+        isNotNull,
+        reason: 'Continuer should be enabled after category selection',
+      );
     });
 
-    testWidgets('4. Subcategory Selection - Suivant button navigates when subcategory selected', (tester) async {
+    testWidgets('4. Subcategory Selection - Continuer enabled when subcategory selected', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: SubcategorySelectionScreen(
-            onBack: () {},
-            onNext: () {},
+        ProviderScope(
+          child: MaterialApp(
+            home: SubcategorySelectionScreen(
+              onNext: () {},
+              onBack: () {},
+            ),
           ),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      // Select a subcategory first (if any exist)
-      final subcategoryCards = find.byType(GestureDetector);
-      if (subcategoryCards.evaluate().isNotEmpty) {
-        await tester.tap(subcategoryCards.first);
-        await tester.pump();
-      }
+      final firstSubcategory = find.text('Café\nBar');
+      await tester.ensureVisible(firstSubcategory);
+      await tester.pumpAndSettle();
+      await tester.tap(firstSubcategory);
+      await tester.pumpAndSettle();
 
-      // Check Suivant button
-      final buttons = find.byType(ElevatedButton);
-      if (buttons.evaluate().isNotEmpty) {
-        final button = tester.widget<ElevatedButton>(buttons.first);
-        expect(button.onPressed, isNotNull, reason: 'Suivant button should have callback');
-      }
+      final continuerButton = find.widgetWithText(ElevatedButton, 'Continuer');
+      final button = tester.widget<ElevatedButton>(continuerButton);
+      expect(
+        button.onPressed,
+        isNotNull,
+        reason: 'Continuer should be enabled after subcategory selection',
+      );
     });
 
-    testWidgets('5. Benefits Screen - Démarrer gratuitement button navigates to signup', (tester) async {
-      bool startFreeCalled = false;
+    testWidgets('5. Benefits Screen - Créer mon compte calls onNext', (tester) async {
+      bool nextCalled = false;
 
       await tester.pumpWidget(
         MaterialApp(
           home: MerchantBenefitsScreen(
-            onNext: () {
-              startFreeCalled = true;
-            },
             onBack: () {},
+            onNext: () {
+              nextCalled = true;
+            },
           ),
         ),
       );
       await tester.pump();
 
-      final startButton = find.text('Démarrer gratuitement');
-      expect(startButton, findsOneWidget, reason: 'Démarrer gratuitement button should exist');
+      final createAccount = find.text('Créer mon compte');
+      expect(createAccount, findsOneWidget, reason: 'Créer mon compte button should exist');
 
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton).first);
-      expect(button.onPressed, isNotNull, reason: 'Démarrer gratuitement button should have onPressed callback');
+      expect(button.onPressed, isNotNull, reason: 'CTA should have onPressed callback');
 
-      await tester.tap(startButton);
+      await tester.tap(createAccount);
       await tester.pump();
-      expect(startFreeCalled, true, reason: 'Démarrer gratuitement button should call onStartFree');
+      expect(nextCalled, true, reason: 'Créer mon compte should call onNext');
     });
 
     testWidgets('6. All back buttons have callbacks', (tester) async {
-      // Test Merchant Onboarding
       bool backCalled = false;
       await tester.pumpWidget(
         MaterialApp(
@@ -172,10 +160,8 @@ void main() {
       );
       await tester.pump();
 
-      // Find back button
       final backButtons = find.byType(IconButton);
       if (backButtons.evaluate().isEmpty) {
-        // Try YBackButton or GestureDetector
         final gestures = find.byType(GestureDetector);
         if (gestures.evaluate().isNotEmpty) {
           await tester.tap(gestures.first);
@@ -186,4 +172,3 @@ void main() {
     });
   });
 }
-
