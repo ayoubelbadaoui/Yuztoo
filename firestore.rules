@@ -51,8 +51,9 @@ service cloud.firestore {
     }
 
     // --- /phone_index/{phone} --- E.164 id (same string as users.phone); blocks duplicate phones across UIDs.
+    // Unauthenticated get: signup flow checks existence before sending SMS (list stays denied).
     match /phone_index/{phone} {
-      allow get: if isSignedIn();
+      allow get: if true;
       allow list: if false;
       allow create: if isSignedIn()
         && request.resource.data.keys().hasOnly(['uid'])

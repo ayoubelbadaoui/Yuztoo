@@ -263,11 +263,67 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final phoneNumber = formattedPhoneNumber;
-    
+
+    final verifyPhoneAvailable =
+        ref.read(verifyPhoneAvailableForSignupProvider);
     final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
-    late final dynamic otpResult; // Either<AuthFailure, String>
+
     try {
-      otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
+      final availability =
+          await verifyPhoneAvailable.call(phoneNumber: phoneNumber);
+      final stopForPhone = availability.fold(
+        (failure) {
+          if (mounted) {
+            final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
+            if (frenchMessage != null) {
+              showErrorSnackbar(context, frenchMessage);
+            }
+            setState(() {
+              _isLoading = false;
+              _isSubmitting = false;
+            });
+          }
+          return true;
+        },
+        (_) => false,
+      );
+      if (stopForPhone) return;
+
+      final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
+
+      otpResult.fold(
+        (failure) {
+          if (mounted) {
+            final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
+            if (frenchMessage != null) {
+              showErrorSnackbar(context, frenchMessage);
+            }
+            setState(() {
+              _isLoading = false;
+              _isSubmitting = false;
+            });
+          }
+        },
+        (verificationId) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _isSubmitting = false;
+            });
+
+            showSuccessSnackbar(context, 'Code de vérification envoyé!');
+            widget.onNavigateToOtp(
+              SignupOtpNavigation(
+                verificationId: verificationId,
+                email: email,
+                password: password,
+                phone: phoneNumber,
+                city: _selectedCity!,
+              ),
+            );
+          }
+        },
+      );
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -277,40 +333,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
       rethrow;
     }
-
-    otpResult.fold(
-      (failure) {
-        if (mounted) {
-          final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          if (frenchMessage != null) {
-            showErrorSnackbar(context, frenchMessage);
-          }
-          setState(() {
-            _isLoading = false;
-            _isSubmitting = false;
-          });
-        }
-      },
-      (verificationId) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _isSubmitting = false;
-          });
-
-          showSuccessSnackbar(context, 'Code de vérification envoyé!');
-          widget.onNavigateToOtp(
-            SignupOtpNavigation(
-              verificationId: verificationId,
-              email: email,
-              password: password,
-              phone: phoneNumber,
-              city: _selectedCity!,
-            ),
-          );
-        }
-      },
-    );
 
     if (mounted && _isSubmitting) {
       setState(() => _isSubmitting = false);

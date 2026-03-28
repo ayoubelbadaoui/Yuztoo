@@ -907,4 +907,34 @@ class FirebaseUserRepository implements UserRepository {
       return const Right<AuthFailure, bool>(false);
     }
   }
+
+  @override
+  Future<Result<bool>> isPhoneNumberRegistered(String phone) async {
+    final normalizedPhone = phone.trim();
+    if (normalizedPhone.isEmpty) {
+      return const Right<AuthFailure, bool>(false);
+    }
+    try {
+      final snap = await _firestore
+          .collection('phone_index')
+          .doc(normalizedPhone)
+          .get();
+      return Right<AuthFailure, bool>(snap.exists);
+    } catch (e, st) {
+      LoggerService.logError(
+        'Error checking phone_index',
+        error: e,
+        stackTrace: st,
+        context: {'phone': normalizedPhone},
+      );
+      return Left<AuthFailure, bool>(
+        AuthUnexpectedFailure(
+          message:
+              'Impossible de vérifier ce numéro pour le moment. Réessayez dans un instant.',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
 }

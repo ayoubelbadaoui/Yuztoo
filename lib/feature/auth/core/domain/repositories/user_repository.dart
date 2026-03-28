@@ -132,4 +132,9 @@ abstract class UserRepository {
   ///
   /// Returns Result<bool> - true if complete, false if incomplete
   Future<Result<bool>> checkUserProfileComplete(String uid);
+
+  /// Whether [phone] (E.164, trimmed) already has a row in [phone_index] (account exists).
+  ///
+  /// Used before SMS OTP so the user sees an error on signup instead of the auth screen.
+  Future<Result<bool>> isPhoneNumberRegistered(String phone);
 }

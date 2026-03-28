@@ -29,7 +29,7 @@ class NavigationUnauthenticated extends NavigationState {
 class NavigationAuthenticated extends NavigationState {
   const NavigationAuthenticated(this.screen);
   final ScreenId
-      screen; // clientHome, merchantDashboard, or merchantProfileForm
+      screen; // clientHome, merchantStorefront (merchant home), or merchantProfileForm
 }
 
 /// Error state - user document missing or error fetching user data
@@ -110,7 +110,7 @@ Future<NavigationState> _computeNavigationStateForUser(
       user.id,
     );
     return NavigationAuthenticated(
-      completed ? ScreenId.merchantDashboard : ScreenId.merchantProfileForm,
+      completed ? ScreenId.merchantStorefront : ScreenId.merchantProfileForm,
     );
   }
 

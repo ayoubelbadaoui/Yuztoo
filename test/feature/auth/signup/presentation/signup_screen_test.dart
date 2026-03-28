@@ -7,7 +7,10 @@ import 'package:flutter_yuztoo/feature/auth/core/domain/entities/auth_user.dart'
 import 'package:flutter_yuztoo/feature/auth/core/domain/repositories/auth_repository.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/email_address.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/password.dart';
+import 'package:flutter_yuztoo/feature/auth/core/domain/entities/user_profile_basics.dart';
+import 'package:flutter_yuztoo/feature/auth/core/domain/repositories/user_repository.dart';
 import 'package:flutter_yuztoo/feature/auth/core/infrastructure/auth_repository_provider.dart';
+import 'package:flutter_yuztoo/feature/auth/core/infrastructure/user_repository_provider.dart';
 import 'package:flutter_yuztoo/feature/auth/signup/presentation/signup_screen.dart';
 import 'package:flutter_yuztoo/feature/auth/signup/presentation/otp_screen.dart';
 import 'package:flutter_yuztoo/feature/auth/signup/presentation/widgets/signup_form_fields.dart';
@@ -86,6 +89,79 @@ class _FakeAuthRepository implements AuthRepository {
   }
 }
 
+class _FakeUserRepository implements UserRepository {
+  _FakeUserRepository({this.phoneRegistered = false});
+
+  final bool phoneRegistered;
+
+  @override
+  Future<Result<bool>> isPhoneNumberRegistered(String phone) async =>
+      Right<AuthFailure, bool>(phoneRegistered);
+
+  @override
+  Future<Result<Unit>> createUserDocument({
+    required String uid,
+    required String email,
+    required String phone,
+    required Map<String, bool> roles,
+    required String city,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<UserRole?>> getUserRole(String uid) => throw UnimplementedError();
+
+  @override
+  Future<Result<String?>> getUserCity(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<UserProfileBasics?>> getUserProfileBasics(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<Map<String, bool>?>> getUserRoles(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<bool?>> isMerchantOnboardingCompleted(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<Unit>> updateUserCity({
+    required String uid,
+    required String city,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<List<String>>> getConnectedCities(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<Unit>> setConnectedCities({
+    required String uid,
+    required List<String> cities,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<Unit>> patchUserDocument(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<Unit>> updateLastLoginAt(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<bool>> consumeForceMerchantNextLogin(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<bool>> checkUserProfileComplete(String uid) =>
+      throw UnimplementedError();
+}
+
 void main() {
   testWidgets(
     'Signup flow navigates to OTPScreen with formatted phone number',
@@ -94,6 +170,7 @@ void main() {
       ProviderScope(
         overrides: [
           authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+          userRepositoryProvider.overrideWithValue(_FakeUserRepository()),
         ],
         child: MaterialApp(
           home: Builder(
@@ -174,6 +251,64 @@ void main() {
     expect(otp.city, 'Paris');
     expect(otp.role, UserRole.client);
   },
+  );
+
+  testWidgets(
+    'Signup does not navigate to OTP when phone is already registered',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+            userRepositoryProvider.overrideWithValue(
+              _FakeUserRepository(phoneRegistered: true),
+            ),
+          ],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => SignupScreen(
+                role: UserRole.client,
+                onBack: () {},
+                onNavigateToOtp: (_) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const Scaffold(body: Text('OTP')),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'new@example.com');
+      await tester.enterText(fields.at(1), 'Password1');
+      await tester.enterText(fields.at(2), 'Password1');
+      final phoneField = find.descendant(
+        of: find.byType(PhoneField),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(phoneField, '612345678');
+
+      final cityField = find.text('Sélectionnez votre ville');
+      await tester.scrollUntilVisible(
+        cityField,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(cityField);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paris'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Créer un compte'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('OTP'), findsNothing);
+      expect(find.byType(OTPScreen), findsNothing);
+    },
   );
 }
 

@@ -31,7 +31,6 @@ import 'feature/store_profile/presentation/store_profile_screen.dart';
 import 'feature/notifications/presentation/notifications_screen.dart';
 import 'feature/messages/presentation/messages_screen.dart';
 import 'feature/profile/presentation/client_profile_screen.dart';
-import 'feature/merchant_dashboard/presentation/merchant_dashboard_screen.dart';
 import 'feature/promotions/presentation/promotions_management_screen.dart';
 import 'feature/merchant_qr/presentation/merchant_qr_screen.dart';
 import 'feature/merchant_stats/presentation/merchant_stats_screen.dart';
@@ -280,7 +279,6 @@ class _RootShellState extends ConsumerState<_RootShell>
         // IMPORTANT: If we're navigating to home (just logged in), don't navigate away
         // This prevents race conditions where userChanges() emits null briefly
         final onHomeScreen = _authScreen == ScreenId.clientHome ||
-            _authScreen == ScreenId.merchantDashboard ||
             _authScreen == ScreenId.merchantStorefront;
         final inAuthFlow = _authScreen == ScreenId.login ||
             _authScreen == ScreenId.signup ||
@@ -335,12 +333,18 @@ class _RootShellState extends ConsumerState<_RootShell>
     }
 
     // Best-effort legacy cleanup for user schema drift (e.g. dotted role keys).
-    try {
-      final patchUserDoc = ref.read(patchUserDocumentProvider);
-      await patchUserDoc.call(user.id);
-    } catch (_) {
-      // Non-fatal: continue normal routing.
-    }
+    // Never await this before routing: Firestore get/update can stall with no timeout
+    // and leaves new users (especially client signup) stuck on splash forever.
+    unawaited(
+      (() async {
+        try {
+          final patchUserDoc = ref.read(patchUserDocumentProvider);
+          await patchUserDoc
+              .call(user.id)
+              .timeout(const Duration(seconds: 10));
+        } catch (_) {}
+      })(),
+    );
 
     // Flag is already set in _handleAuthStateChange, but ensure we're still on splash
     if (_authScreen != ScreenId.splash && mounted) {
@@ -410,7 +414,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           user.id,
         );
         targetScreen = onboardingCompleted
-            ? ScreenId.merchantDashboard
+            ? ScreenId.merchantStorefront
             : ScreenId.merchantProfileForm;
       }
 
@@ -603,7 +607,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       });
     } else {
       setState(() {
-        _authScreen = ScreenId.merchantDashboard;
+        _authScreen = ScreenId.merchantStorefront;
         _nestedScreen = null;
         _previousNestedScreen = null;
         _activeTab = 'storefront';
@@ -682,11 +686,11 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
-    // 3) Merchant tab screens – go back to dashboard unless already there.
+    // 3) Merchant tab screens – go back to vitrine root unless already there.
     if (_role == UserRole.merchant &&
-        currentScreen != ScreenId.merchantDashboard) {
+        currentScreen != ScreenId.merchantStorefront) {
       setState(() {
-        _authScreen = ScreenId.merchantDashboard;
+        _authScreen = ScreenId.merchantStorefront;
         _nestedScreen = null;
         _activeTab = 'storefront';
       });
@@ -713,7 +717,6 @@ class _RootShellState extends ConsumerState<_RootShell>
       ScreenId.qrScanner,
       ScreenId.loyalty,
       ScreenId.clientProfile,
-      ScreenId.merchantDashboard,
       ScreenId.merchantClients,
       ScreenId.merchantStorefront,
       ScreenId.merchantRappels,
@@ -782,7 +785,6 @@ class _RootShellState extends ConsumerState<_RootShell>
     // Screens whose topmost section/header is the app primary color (dark),
     // so the status bar should match that header for a seamless look.
     final hasPrimaryHeaderTop = currentScreen == ScreenId.clientHome ||
-        currentScreen == ScreenId.merchantDashboard ||
         currentScreen == ScreenId.clientProfile ||
         currentScreen == ScreenId.qrScanner ||
         currentScreen == ScreenId.loyalty;
@@ -1092,8 +1094,6 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.clientProfile:
         return const ClientProfileScreen();
-      case ScreenId.merchantDashboard:
-        return MerchantDashboardScreen(onNavigate: _handleNavigate);
       case ScreenId.merchantClients:
         return ClientListScreen(
           onBack: _handleBackToBase,
