@@ -529,15 +529,15 @@ class PhoneField extends StatelessWidget {
                             focusNode.requestFocus();
                           },
                           style: const TextStyle(color: SignupConstants.textLight, fontSize: 14),
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             hintText: '---',
-                            hintStyle: const TextStyle(color: SignupConstants.textGrey, fontSize: 13),
+                            hintStyle: TextStyle(color: SignupConstants.textGrey, fontSize: 13),
                             filled: false,
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             disabledBorder: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
+                            contentPadding: EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 14,
                             ),

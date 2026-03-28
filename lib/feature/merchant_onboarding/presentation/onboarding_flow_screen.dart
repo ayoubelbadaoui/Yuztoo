@@ -251,7 +251,7 @@ class _StepWelcome extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _StepAvatar(
+          const _StepAvatar(
             icon: Icons.storefront_rounded,
             size: 100,
           ),
@@ -389,7 +389,7 @@ class _StepNameState extends State<_StepName> {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          _StepAvatar(icon: Icons.badge_outlined, size: 80),
+          const _StepAvatar(icon: Icons.badge_outlined, size: 80),
           const SizedBox(height: 32),
           Text(
             'Comment s\'appelle votre commerce ?',
@@ -692,7 +692,7 @@ class _StepAddressState extends State<_StepAddress> {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          _StepAvatar(icon: Icons.location_on_outlined, size: 80),
+          const _StepAvatar(icon: Icons.location_on_outlined, size: 80),
           const SizedBox(height: 32),
           Text(
             'Où se trouve votre commerce ?',
@@ -812,7 +812,7 @@ class _StepCategory extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 24),
-          _StepAvatar(icon: Icons.category_outlined, size: 72),
+          const _StepAvatar(icon: Icons.category_outlined, size: 72),
           const SizedBox(height: 24),
           Text(
             'Quel type de commerce ?',
@@ -905,7 +905,7 @@ class _StepDescriptionState extends State<_StepDescription> {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          _StepAvatar(icon: Icons.description_outlined, size: 80),
+          const _StepAvatar(icon: Icons.description_outlined, size: 80),
           const SizedBox(height: 32),
           Text(
             'Décrivez votre commerce',
@@ -1014,7 +1014,7 @@ class _StepHoursState extends State<_StepHours> {
       child: Column(
         children: [
           const SizedBox(height: 24),
-          _StepAvatar(icon: Icons.schedule_outlined, size: 72),
+          const _StepAvatar(icon: Icons.schedule_outlined, size: 72),
           const SizedBox(height: 20),
           Text(
             'Vos horaires d\'ouverture',
@@ -1049,7 +1049,7 @@ class _StepHoursState extends State<_StepHours> {
                     onSave: (slots) => _updateSlots(dayKeys[i], days[i], slots),
                   ),
                   if (i < days.length - 1)
-                    Divider(
+                    const Divider(
                       height: 1,
                       indent: 16,
                       endIndent: 16,
@@ -1316,8 +1316,8 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
                     child: Icon(Icons.arrow_forward,
                         size: 14, color: MerchantOnboardingColors.textGrey),
                   ),
@@ -1372,7 +1372,7 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add,
+                    const Icon(Icons.add,
                         size: 18, color: MerchantOnboardingColors.primaryGold),
                     const SizedBox(width: 6),
                     Text(
@@ -1466,7 +1466,7 @@ class _StepReadyState extends State<_StepReady> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _StepAvatar(
+          const _StepAvatar(
             icon: Icons.check_circle_outline,
             size: 100,
             color: MerchantOnboardingColors.primaryGold,

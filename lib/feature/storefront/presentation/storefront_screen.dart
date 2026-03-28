@@ -31,6 +31,7 @@ class StorefrontScreen extends ConsumerStatefulWidget {
 class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
   bool _hoursHydratedFromStorefront = false;
   bool _isUploadingNewsImage = false;
+  bool _isUploadingBannerProfile = false;
   bool _isPublishingToggle = false;
   String? _precachedImageKey;
   final _imagePicker = ImagePicker();
@@ -97,15 +98,17 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
       Storefront storefront, bool published) async {
     if (storefront.isPublished == published) return;
     final merchantId = _merchantIdForStorefront(storefront);
+    if (mounted) setState(() => _isPublishingToggle = true);
     final result =
         await ref.read(merchant_providers.updateStorefrontProvider).call(
               merchantId: merchantId,
               status: published ? 'active' : 'inactive',
             );
+    if (mounted) setState(() => _isPublishingToggle = false);
 
     result.fold(
       (_) {
-        if (!mounted) return;
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Impossible de changer la visibilité du commerce')),
@@ -117,7 +120,11 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     );
   }
 
-  void _showImagePickerDialog(BuildContext context, {required bool isBanner}) {
+  void _showImagePickerDialog(
+    BuildContext context, {
+    required Storefront storefront,
+    required bool isBanner,
+  }) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -157,9 +164,11 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                   label: 'Galerie',
                   onTap: () {
                     Navigator.pop(context);
-                    // TODO: Implement image picker from gallery
-                    _handleImagePick(context,
-                        isBanner: isBanner, fromCamera: false);
+                    _pickAndUploadBannerOrProfile(
+                      storefront,
+                      isBanner: isBanner,
+                      fromCamera: false,
+                    );
                   },
                 ),
                 _buildImagePickerOption(
@@ -168,9 +177,11 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                   label: 'Caméra',
                   onTap: () {
                     Navigator.pop(context);
-                    // TODO: Implement image picker from camera
-                    _handleImagePick(context,
-                        isBanner: isBanner, fromCamera: true);
+                    _pickAndUploadBannerOrProfile(
+                      storefront,
+                      isBanner: isBanner,
+                      fromCamera: true,
+                    );
                   },
                 ),
               ],
@@ -235,24 +246,63 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     );
   }
 
-  void _handleImagePick(BuildContext context,
-      {required bool isBanner, required bool fromCamera}) {
-    // TODO: Implement actual image picking using image_picker package
-    // For now, just show a snackbar
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isBanner
-              ? 'Modification de la couverture (${fromCamera ? 'Caméra' : 'Galerie'})'
-              : 'Modification de la photo de profil (${fromCamera ? 'Caméra' : 'Galerie'})',
-        ),
-        backgroundColor: StorefrontColors.primaryGold,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
+  Future<void> _pickAndUploadBannerOrProfile(
+    Storefront storefront, {
+    required bool isBanner,
+    required bool fromCamera,
+  }) async {
+    final source = fromCamera ? ImageSource.camera : ImageSource.gallery;
+    final picked = await _imagePicker.pickImage(
+      source: source,
+      maxWidth: isBanner ? 1200 : 800,
+      maxHeight: isBanner ? 600 : 800,
+      imageQuality: 85,
     );
+    if (picked == null || !mounted) return;
+
+    setState(() => _isUploadingBannerProfile = true);
+    final merchantId = _merchantIdForStorefront(storefront);
+    try {
+      final result =
+          await ref.read(merchant_providers.updateStorefrontProvider).call(
+                merchantId: merchantId,
+                bannerFilePath: isBanner ? picked.path : null,
+                logoFilePath: isBanner ? null : picked.path,
+              );
+
+      if (!mounted) return;
+
+      result.fold(
+        (failure) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(failure.message)),
+          );
+        },
+        (_) {
+          ref.invalidate(storefrontProvider);
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isBanner
+                    ? 'Couverture mise à jour'
+                    : 'Photo de profil mise à jour',
+              ),
+              backgroundColor: StorefrontColors.primaryGold,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        },
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingBannerProfile = false);
+      }
+    }
   }
 
   Widget _buildAccueilQrSection(Storefront storefront) {
@@ -313,7 +363,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                 const SizedBox(height: 16),
                 Text(
                   title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: StorefrontColors.textPrimary,
@@ -323,7 +373,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                   const SizedBox(height: 8),
                   Text(
                     subtitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
                       color: StorefrontColors.textSecondary,
                     ),
@@ -424,12 +474,24 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                         BannerSection(
                           bannerImageUrl: storefront.bannerImageUrl,
                           profileImageUrl: storefront.profileImageUrl,
-                          onBannerEdit: () {
-                            _showImagePickerDialog(context, isBanner: true);
-                          },
-                          onProfileEdit: () {
-                            _showImagePickerDialog(context, isBanner: false);
-                          },
+                          onBannerEdit: _isUploadingBannerProfile
+                              ? null
+                              : () {
+                                  _showImagePickerDialog(
+                                    context,
+                                    storefront: storefront,
+                                    isBanner: true,
+                                  );
+                                },
+                          onProfileEdit: _isUploadingBannerProfile
+                              ? null
+                              : () {
+                                  _showImagePickerDialog(
+                                    context,
+                                    storefront: storefront,
+                                    isBanner: false,
+                                  );
+                                },
                         ),
                         const SizedBox(
                             height: 56), // More space after profile picture

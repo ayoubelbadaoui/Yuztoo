@@ -46,12 +46,12 @@ class ClientListScreen extends StatelessWidget {
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).padding.bottom + 80,
                 ),
-                child: Column(
+                child: const Column(
                   children: [
-                    const ClientSearchBar(),
+                    ClientSearchBar(),
                     // Client list will be loaded from Firestore/backend when available
-                    const ClientInfoBox(),
-                    const ClientQrBox(),
+                    ClientInfoBox(),
+                    ClientQrBox(),
                   ],
                 ),
               ),

@@ -319,8 +319,8 @@ class _SaveHoursButtonState extends ConsumerState<_SaveHoursButton> {
       (_) {
         widget.ref.invalidate(storefrontProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Horaires enregistrés'),
+          const SnackBar(
+            content: Text('Horaires enregistrés'),
             backgroundColor: StorefrontColors.primaryGold,
             behavior: SnackBarBehavior.floating,
           ),

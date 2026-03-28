@@ -170,9 +170,9 @@ class _WeeklyViewsCard extends StatelessWidget {
           const SizedBox(height: 12),
           // Show real number (0 for now, feature will be added later)
           if (views == 0)
-            Text(
+            const Text(
               '0',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 color: StorefrontColors.textPrimary,

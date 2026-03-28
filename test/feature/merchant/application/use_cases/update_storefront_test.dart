@@ -24,7 +24,7 @@ class _FakeStorageRepository implements StorageRepository {
 
   @override
   Future<Result<Unit>> deleteImage(String storagePath) async {
-    return Right(unit);
+    return const Right(unit);
   }
 }
 
@@ -36,34 +36,34 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
 
   @override
   Future<Result<bool>> merchantExists(String ownerUid) async =>
-      Right(false);
+      const Right(false);
 
   @override
   Future<Result<Merchant>> createMerchantAndLinkUser({
     required Merchant merchant,
     required String userId,
   }) async =>
-      Left(MerchantUnexpectedFailure(message: 'not used'));
+      const Left(MerchantUnexpectedFailure(message: 'not used'));
 
   @override
   Future<Result<Merchant?>> getMerchantByOwnerUid(String ownerUid) async =>
-      Right(null);
+      const Right(null);
 
   @override
-  Future<Result<Merchant?>> getMerchantById(String merchantId) async => Right(null);
+  Future<Result<Merchant?>> getMerchantById(String merchantId) async => const Right(null);
 
   @override
-  Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async => Right([]);
+  Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async => const Right([]);
 
   @override
-  Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async => Right([]);
+  Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async => const Right([]);
 
   @override
   Future<Result<Unit>> linkExistingMerchantToUser({
     required String merchantId,
     required String userId,
   }) async =>
-      Right(unit);
+      const Right(unit);
 
   @override
   Future<Result<Merchant>> updateMerchant({
@@ -85,7 +85,7 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
     lastMerchantId = merchantId;
     lastLogoUrl = logoUrl;
     if (shouldFailUpdate) {
-      return Left(MerchantUnexpectedFailure(message: 'Firestore error'));
+      return const Left(MerchantUnexpectedFailure(message: 'Firestore error'));
     }
     final updated = Merchant(
       id: merchantId,

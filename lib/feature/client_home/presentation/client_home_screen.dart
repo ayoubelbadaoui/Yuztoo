@@ -112,7 +112,7 @@ class ClientHomeScreen extends ConsumerWidget {
               ),
               IconButton(
                 onPressed: () => onNavigate('notifications'),
-                icon: Icon(
+                icon: const Icon(
                   Icons.notifications_outlined,
                   color: MerchantColors.gold,
                   size: 24,
@@ -199,7 +199,7 @@ class ClientHomeScreen extends ConsumerWidget {
                                 ...List.generate(heartLevel.clamp(0, 3), (i) {
                                   return Padding(
                                     padding: EdgeInsets.only(right: i == heartLevel - 1 ? 0 : 4),
-                                    child: Icon(Icons.favorite, color: MerchantColors.gold, size: 18),
+                                    child: const Icon(Icons.favorite, color: MerchantColors.gold, size: 18),
                                   );
                                 }),
                               ],
@@ -234,7 +234,7 @@ class ClientHomeScreen extends ConsumerWidget {
                                   color: Colors.black.withValues(alpha: 0.3),
                                 ),
                                 alignment: Alignment.center,
-                                child: Icon(Icons.star, color: MerchantColors.gold, size: 20),
+                                child: const Icon(Icons.star, color: MerchantColors.gold, size: 20),
                               ),
                             ),
                           ],
@@ -257,7 +257,7 @@ class ClientHomeScreen extends ConsumerWidget {
       height: 160,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
@@ -288,7 +288,7 @@ class ClientHomeScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 28,
                 height: 28,
                 child: CircularProgressIndicator(
@@ -647,7 +647,7 @@ class ClientHomeScreen extends ConsumerWidget {
                     color: MerchantColors.gold.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.local_offer_outlined,
                     color: MerchantColors.gold,
                     size: 22,

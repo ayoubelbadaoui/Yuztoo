@@ -109,7 +109,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 48,
               height: 48,
               child: CircularProgressIndicator(
@@ -162,7 +162,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             const SizedBox(height: 24),
             TextButton.icon(
               onPressed: () => _controller.start(),
-              icon: Icon(Icons.refresh, color: MerchantColors.gold, size: 20),
+              icon: const Icon(Icons.refresh, color: MerchantColors.gold, size: 20),
               label: Text(
                 'Réessayer',
                 style: GoogleFonts.outfit(
@@ -193,7 +193,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 children: [
                   IconButton(
                     onPressed: widget.onBack,
-                    icon: Icon(Icons.arrow_back, color: MerchantColors.gold, size: 26),
+                    icon: const Icon(Icons.arrow_back, color: MerchantColors.gold, size: 26),
                   ),
                   const SizedBox(width: 8),
                   Container(
@@ -205,7 +205,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                       color: MerchantColors.gold.withValues(alpha: 0.15),
                     ),
                     alignment: Alignment.center,
-                    child: Icon(Icons.qr_code_scanner, color: MerchantColors.gold, size: 22),
+                    child: const Icon(Icons.qr_code_scanner, color: MerchantColors.gold, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

@@ -26,7 +26,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
     required ActiveNotification notification,
   }) async {
     if (merchantId.isEmpty) {
-      return Left(
+      return const Left(
         RappelsUnexpectedFailure(message: 'Merchant ID is required'),
       );
     }
@@ -80,7 +80,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
     String merchantId,
   ) async {
     if (merchantId.isEmpty) {
-      return Right(<ActiveNotification>[]);
+      return const Right(<ActiveNotification>[]);
     }
     try {
       final snapshot = await _ref(merchantId)
@@ -120,7 +120,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
     ActiveNotification notification,
   ) async {
     if (notification.merchantId.isEmpty || notification.id.isEmpty) {
-      return Left(
+      return const Left(
         RappelsUnexpectedFailure(
           message: 'Merchant ID and Notification ID required',
         ),
@@ -170,7 +170,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
     required String notificationId,
   }) async {
     if (merchantId.isEmpty || notificationId.isEmpty) {
-      return Left(
+      return const Left(
         RappelsUnexpectedFailure(
           message: 'Merchant ID and Notification ID required',
         ),
@@ -182,7 +182,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
         'Auto-notification deleted',
         context: {'merchantId': merchantId, 'notificationId': notificationId},
       );
-      return Right(unit);
+      return const Right(unit);
     } on FirebaseException catch (e, st) {
       LoggerService.logError(
         'Firebase error deleting auto-notification',

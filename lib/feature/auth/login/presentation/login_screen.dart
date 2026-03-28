@@ -461,22 +461,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           // Auth stream already emitted Authenticated; main.dart uses cache + _role for routing.
         } else if (next is LoginFlowError) {
           final frenchMessage = AuthErrorMapper.getFrenchMessage(next.failure);
-          if (mounted && frenchMessage != null) {
+          if (context.mounted && frenchMessage != null) {
             showErrorSnackbar(context, frenchMessage);
           }
         } else if (next is LoginFlowCityRequired) {
           // Only show if state actually changed to CityRequired
-          if (previous is! LoginFlowCityRequired && mounted) {
+          if (previous is! LoginFlowCityRequired && context.mounted) {
             _showCityPicker(next.uid);
           }
         } else if (next is LoginFlowMultiRoleRequired) {
           // Only show if state actually changed to MultiRoleRequired
-          if (previous is! LoginFlowMultiRoleRequired && mounted) {
+          if (previous is! LoginFlowMultiRoleRequired && context.mounted) {
             _showMultiRoleSelectionDialog(next);
           }
         } else if (next is LoginFlowRoleMismatch) {
           // User doesn't have the requested role - show error and offer signup
-          if (previous is! LoginFlowRoleMismatch && mounted) {
+          if (previous is! LoginFlowRoleMismatch && context.mounted) {
             _showRoleMismatchDialog(next);
           }
         }
@@ -842,7 +842,7 @@ class _GoogleIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final scale = size.width / 24.0;
-    final matrix = Matrix4.identity()..scale(scale);
+    final matrix = Matrix4.diagonal3Values(scale, scale, scale);
 
     // Red path
     final redPath = Path()

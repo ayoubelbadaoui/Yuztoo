@@ -107,7 +107,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
               ),
               IconButton(
                 onPressed: widget.onNotifications,
-                icon: Icon(
+                icon: const Icon(
                   Icons.notifications_outlined,
                   color: MerchantColors.gold,
                   size: 24,
@@ -220,7 +220,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                   ],
                 ),
                 alignment: Alignment.center,
-                child: Icon(Icons.favorite, color: MerchantColors.gold, size: 20),
+                child: const Icon(Icons.favorite, color: MerchantColors.gold, size: 20),
               ),
             ),
             Positioned(
@@ -248,7 +248,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     return Container(
       height: height,
       width: height != null ? double.infinity : null,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -283,7 +283,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
             fontSize: 13,
             color: Colors.black54,
           ),
-          prefixIcon: Icon(
+          prefixIcon: const Icon(
             Icons.search,
             color: Colors.black54,
             size: 22,
@@ -294,15 +294,15 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide.none,
           ),
-          enabledBorder: OutlineInputBorder(
+          enabledBorder: const OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(20)),
             borderSide: BorderSide.none,
           ),
-          focusedBorder: OutlineInputBorder(
+          focusedBorder: const OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(20)),
             borderSide: BorderSide.none,
           ),
-          disabledBorder: OutlineInputBorder(
+          disabledBorder: const OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(20)),
             borderSide: BorderSide.none,
           ),

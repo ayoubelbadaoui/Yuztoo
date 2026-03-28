@@ -219,7 +219,7 @@ class _StorefrontEditProfileScreenState
     });
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: const SystemUiOverlayStyle(
         statusBarColor: StorefrontColors.backgroundLight,
         statusBarIconBrightness: Brightness.dark,
         systemNavigationBarColor: StorefrontColors.backgroundLight,
@@ -544,7 +544,7 @@ class _StorefrontEditProfileScreenState
       ),
     );
 
-    if (source == null || !mounted) return;
+    if (source == null || !context.mounted) return;
 
     try {
       final pickedFile = await _picker.pickImage(
@@ -554,7 +554,7 @@ class _StorefrontEditProfileScreenState
         imageQuality: 85,
       );
 
-      if (pickedFile != null && mounted) {
+      if (pickedFile != null && context.mounted) {
         final file = File(pickedFile.path);
         setState(() {
           if (isBanner) {
@@ -567,14 +567,13 @@ class _StorefrontEditProfileScreenState
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de la sélection de l\'image: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la sélection de l\'image: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }
@@ -652,12 +651,12 @@ class _BannerEditable extends StatelessWidget {
                       ),
                 Container(
                   color: StorefrontColors.navyDark.withValues(alpha: 0.4),
-                  child: Column(
+                  child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.image, color: Colors.white),
-                      const SizedBox(height: 6),
-                      const Text(
+                      Icon(Icons.image, color: Colors.white),
+                      SizedBox(height: 6),
+                      Text(
                         'CHANGE BANNER',
                         style: TextStyle(
                           fontSize: 10,
@@ -1099,7 +1098,6 @@ class _Field extends StatelessWidget {
     required this.onChanged,
     this.keyboardType,
     this.prefixIcon,
-    this.canClear = true,
     this.isRequired = false,
     this.helpText,
     this.isIncomplete = false,
@@ -1111,7 +1109,6 @@ class _Field extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final TextInputType? keyboardType;
   final IconData? prefixIcon;
-  final bool canClear;
   final bool isRequired;
   final String? helpText;
   final bool isIncomplete;
@@ -1178,7 +1175,7 @@ class _Field extends StatelessWidget {
                     prefixIcon: prefixIcon == null
                         ? null
                         : Icon(prefixIcon, color: StorefrontColors.textTertiary),
-                    suffixIcon: canClear && value.text.isNotEmpty
+                    suffixIcon: value.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 20, color: StorefrontColors.textTertiary),
                             onPressed: () {
@@ -1227,7 +1224,6 @@ class _MultilineField extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     this.minLines = 4,
-    this.canClear = true,
     this.isRequired = false,
     this.helpText,
     this.isIncomplete = false,
@@ -1238,7 +1234,6 @@ class _MultilineField extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final int minLines;
-  final bool canClear;
   final bool isRequired;
   final String? helpText;
   final bool isIncomplete;
@@ -1302,7 +1297,7 @@ class _MultilineField extends StatelessWidget {
                 height: 1.5,
               ),
               decoration: InputDecoration(
-                suffixIcon: canClear && value.text.isNotEmpty
+                suffixIcon: value.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 20, color: StorefrontColors.textTertiary),
                         onPressed: () {
