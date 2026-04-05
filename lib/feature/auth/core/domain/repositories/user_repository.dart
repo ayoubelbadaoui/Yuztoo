@@ -78,6 +78,19 @@ abstract class UserRepository {
   /// Returns Result<bool?> - true if completed, false if not, null if not a merchant or document doesn't exist
   Future<Result<bool?>> isMerchantOnboardingCompleted(String uid);
 
+  /// Check if client profile onboarding is completed (`onboarding.client`).
+  ///
+  /// Returns `null` if the user is not a client. For legacy docs without
+  /// `onboarding.client`, returns `true` so existing users are not gated.
+  Future<Result<bool?>> isClientOnboardingCompleted(String uid);
+
+  /// Saves display name, optional photo URL, and marks `onboarding.client` completed.
+  Future<Result<Unit>> completeClientProfile({
+    required String uid,
+    required String displayName,
+    String? photoUrl,
+  });
+
   /// Update user city in Firestore
   ///
   /// [uid] - User's unique identifier
@@ -137,4 +150,9 @@ abstract class UserRepository {
   ///
   /// Used before SMS OTP so the user sees an error on signup instead of the auth screen.
   Future<Result<bool>> isPhoneNumberRegistered(String phone);
+
+  /// Whether [email] (lowercased, trimmed) already has a row in [email_index] (account exists).
+  ///
+  /// Used before signup to show an error early instead of letting Firebase Auth reject later.
+  Future<Result<bool>> isEmailRegistered(String email);
 }

@@ -62,7 +62,11 @@ class _FakeMerchantRepository implements MerchantRepository {
   }
 
   @override
-  Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async {
+  Future<Result<List<Merchant>>> listMerchants({
+    int limit = 20,
+    String? cityFilter,
+    int cityFetchCap = 500,
+  }) async {
     if (_createdMerchant == null) {
       return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
     }
@@ -94,6 +98,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     String? logoUrl,
     String? phone,
     String? address,
+    String? city,
     String? websiteUrl,
     String? bannerUrl,
     List<String>? newsImageUrls,
@@ -101,6 +106,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool clearCityField = false,
   }) async {
     if (_createdMerchant == null || _createdMerchant!.id != merchantId) {
       return const Left<MerchantFailure, Merchant>(
@@ -337,7 +343,11 @@ class _FailingCreateRepository implements MerchantRepository {
   }
 
   @override
-  Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async {
+  Future<Result<List<Merchant>>> listMerchants({
+    int limit = 20,
+    String? cityFilter,
+    int cityFetchCap = 500,
+  }) async {
     return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
   }
 
@@ -365,6 +375,7 @@ class _FailingCreateRepository implements MerchantRepository {
     String? logoUrl,
     String? phone,
     String? address,
+    String? city,
     String? websiteUrl,
     String? bannerUrl,
     List<String>? newsImageUrls,
@@ -372,6 +383,7 @@ class _FailingCreateRepository implements MerchantRepository {
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool clearCityField = false,
   }) async {
     return const Left<MerchantFailure, Merchant>(
       UnableToCreateMerchantFailure(),

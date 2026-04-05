@@ -134,6 +134,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     }).toList();
   }
 
+  Future<void> _onRefresh() async {
+    ref.invalidate(discoveryMerchantsProvider);
+    await ref.read(discoveryMerchantsProvider.future);
+  }
+
   Widget _buildContent(
     BuildContext context,
     List<Merchant> merchants,
@@ -143,25 +148,31 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final featured = filtered.isNotEmpty ? filtered.first : null;
     final gridMerchants = filtered.length > 1 ? filtered.sublist(1) : filtered;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom + 80,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildDescription(context),
-          if (featured != null)
-            _buildFeaturedCard(
-              context,
-              featured,
-              hasViewed: viewedIds.contains(featured.id),
-            ),
-          _buildSearchSection(context),
-          _buildBusinessGrid(context, gridMerchants, viewedIds),
-          _buildInviteButton(context),
-          const SizedBox(height: 24),
-        ],
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: MerchantColors.gold,
+      backgroundColor: MerchantColors.bgHeader,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom + 80,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDescription(context),
+            if (featured != null)
+              _buildFeaturedCard(
+                context,
+                featured,
+                hasViewed: viewedIds.contains(featured.id),
+              ),
+            _buildSearchSection(context),
+            _buildBusinessGrid(context, gridMerchants, viewedIds),
+            _buildInviteButton(context),
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }

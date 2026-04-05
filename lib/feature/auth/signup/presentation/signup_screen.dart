@@ -7,6 +7,7 @@ import '../../../../core/shared/widgets/snackbar.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../../../types.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/utils/city_input.dart';
 import 'constants/signup_constants.dart';
 import 'utils/phone_formatter.dart';
 import 'widgets/signup_form_fields.dart';
@@ -249,6 +250,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
       return;
     }
+    if (CityInput.isPlaceholder(_selectedCity)) {
+      if (mounted) {
+        showErrorSnackbar(context, 'Choisissez une ville dans la liste.');
+      }
+      return;
+    }
 
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
@@ -263,6 +270,60 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final phoneNumber = formattedPhoneNumber;
+
+    // Check if email is already registered
+    final verifyEmail = ref.read(verifyEmailAvailableForSignupProvider);
+    final emailResult = await verifyEmail.call(email: email);
+    var emailBlocked = false;
+    final emailError = emailResult.fold<String?>(
+      (failure) {
+        emailBlocked = true;
+        return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
+      },
+      (_) => null,
+    );
+    if (emailBlocked) {
+      if (mounted) {
+        showErrorSnackbar(
+          context,
+          (emailError == null || emailError.isEmpty)
+              ? 'Impossible de vérifier l\'adresse email.'
+              : emailError,
+        );
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+      }
+      return;
+    }
+
+    // Check if phone is already registered
+    final verifyPhone = ref.read(verifyPhoneAvailableForSignupProvider);
+    final phoneResult = await verifyPhone.call(phoneNumber: phoneNumber);
+    var phoneBlocked = false;
+    final phoneError = phoneResult.fold<String?>(
+      (failure) {
+        phoneBlocked = true;
+        return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
+      },
+      (_) => null,
+    );
+    if (phoneBlocked) {
+      if (mounted) {
+        showErrorSnackbar(
+          context,
+          (phoneError == null || phoneError.isEmpty)
+              ? 'Impossible de vérifier le numéro de téléphone.'
+              : phoneError,
+        );
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+      }
+      return;
+    }
 
     final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
 

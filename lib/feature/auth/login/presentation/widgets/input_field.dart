@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../../core/shared/constants/merchant_colors.dart';
 
@@ -28,6 +29,7 @@ class LoginInputField extends StatelessWidget {
     this.enableInteractiveSelection = true,
     this.focusNode,
     this.validateOnChange = false,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
@@ -46,6 +48,7 @@ class LoginInputField extends StatelessWidget {
   final bool enableInteractiveSelection;
   final FocusNode? focusNode;
   final bool validateOnChange;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +95,7 @@ class LoginInputField extends StatelessWidget {
                   controller: controller,
                   focusNode: focusNode,
                   obscureText: obscure,
+                  inputFormatters: inputFormatters,
                   validator: null, // Validation handled by outer FormField
                   enabled: enabled,
                   keyboardType: keyboardType,

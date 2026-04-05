@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../constants/signup_constants.dart';
 import '../utils/signup_validators.dart';
 import '../utils/phone_formatter.dart';
@@ -171,6 +172,9 @@ class _PasswordFieldState extends State<PasswordField> {
           focusNode: widget.focusNode,
           enabled: widget.enabled,
           obscureText: !_isPasswordVisible,
+          inputFormatters: [
+            FilteringTextInputFormatter.deny(RegExp(r'\s')),
+          ],
           validator: SignupValidators.validatePassword,
           autovalidateMode: AutovalidateMode.disabled,
           cursorColor: SignupConstants.primaryGold,
@@ -319,6 +323,9 @@ class _ConfirmPasswordFieldState extends State<ConfirmPasswordField> {
           focusNode: widget.focusNode,
           enabled: widget.enabled,
           obscureText: !_isPasswordVisible,
+          inputFormatters: [
+            FilteringTextInputFormatter.deny(RegExp(r'\s')),
+          ],
           validator: (value) => SignupValidators.validateConfirmPassword(value, widget.passwordController.text),
           autovalidateMode: AutovalidateMode.disabled,
           cursorColor: SignupConstants.primaryGold,

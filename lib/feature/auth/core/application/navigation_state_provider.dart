@@ -98,9 +98,15 @@ Future<NavigationState> _computeNavigationStateForUser(
     return const NavigationError();
   }
 
-  // Client role → go to client home
+  // Client role → profile onboarding gate, then home
   if (role == UserRole.client) {
-    return const NavigationAuthenticated(ScreenId.clientHome);
+    final clientDone = await clientOnboardingCompletedFromFirestore(
+      ref.read(userRepositoryProvider),
+      user.id,
+    );
+    return NavigationAuthenticated(
+      clientDone ? ScreenId.clientHome : ScreenId.clientOnboarding,
+    );
   }
 
   // Merchant: same helper as [main] — Firestore onboarding gate.

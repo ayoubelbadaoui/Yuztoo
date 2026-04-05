@@ -1,3 +1,4 @@
+import '../../../../../core/utils/city_input.dart';
 import '../constants/signup_constants.dart';
 
 /// Signup form validators
@@ -17,6 +18,9 @@ class SignupValidators {
   static String? validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Le mot de passe est requis.';
+    }
+    if (value.contains(RegExp(r'\s'))) {
+      return 'Les espaces ne sont pas autorisés.';
     }
     if (value.length < 8) {
       return 'Au minimum 8 caractères.';
@@ -48,6 +52,9 @@ class SignupValidators {
   static String? validateCity(String? value) {
     if (value == null || value.isEmpty) {
       return 'La ville est requise.';
+    }
+    if (CityInput.isPlaceholder(value)) {
+      return 'Choisissez une ville dans la liste.';
     }
     return null;
   }

@@ -32,10 +32,12 @@ class UpdateStorefront {
   /// [bannerFilePath] - Local file path to upload as banner (optional)
   /// [phone] - Business phone (optional)
   /// [address] - Business address (optional)
+  /// [city] - Business city (optional)
   /// [websiteUrl] - Website URL (optional)
   /// [newsImageUrls] - Actualite slider image URLs (optional)
   /// [status] - Merchant visibility status ('active'/'inactive')
   /// [hours] - Business hours map (optional)
+  /// [clearMerchantCityField] - When true and [city] is null, removes `city` in Firestore (profile save).
   ///
   /// Returns Result<Merchant> - Updated merchant on success, failure on error
   Future<Result<Merchant>> call({
@@ -47,10 +49,12 @@ class UpdateStorefront {
     String? bannerFilePath,
     String? phone,
     String? address,
+    String? city,
     String? websiteUrl,
     List<String>? newsImageUrls,
     String? status,
     Map<String, dynamic>? hours,
+    bool clearMerchantCityField = false,
   }) async {
     if (merchantId.isEmpty) {
       return const Left(
@@ -132,11 +136,13 @@ class UpdateStorefront {
       logoUrl: logoUrl,
       phone: phone,
       address: address,
+      city: city,
       websiteUrl: websiteUrl,
       bannerUrl: bannerUrl,
       newsImageUrls: newsImageUrls,
       status: status,
       hours: hours,
+      clearCityField: clearMerchantCityField,
     );
 
     // Edge case: Upload succeeded but Firestore update failed

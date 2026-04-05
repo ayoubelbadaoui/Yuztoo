@@ -41,37 +41,49 @@ class ClientHomeScreen extends ConsumerWidget {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).padding.bottom + 80,
-                ),
-                child: Column(
-                  children: [
-                    _buildTagline(context),
-                    feedAsync.when(
-                      data: (feed) =>
-                          _buildBusinessCard(
-                            context,
-                            feed.merchants,
-                            heartLevelsAsync.valueOrNull ?? const <String, int>{},
-                          ),
-                      loading: () => _buildBusinessCardLoading(context),
-                      error: (_, __) => _buildBusinessCardLoading(context),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildQuickActions(context),
-                    const SizedBox(height: 24),
-                    feedAsync.when(
-                      data: (feed) => _buildPromotionsContent(
-                        context,
-                        feed.promotions,
-                        feed.merchants,
+              child: RefreshIndicator(
+                color: MerchantColors.gold,
+                backgroundColor: MerchantColors.bgHeader,
+                onRefresh: () async {
+                  ref.invalidate(clientHomeFeedProvider);
+                  ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+                  ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
+                  await ref.read(clientHomeFeedProvider.future);
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom + 80,
+                  ),
+                  child: Column(
+                    children: [
+                      _buildTagline(context),
+                      feedAsync.when(
+                        data: (feed) => _buildBusinessCard(
+                          context,
+                          feed.merchants,
+                          heartLevelsAsync.valueOrNull ?? const <String, int>{},
+                          followedIds:
+                              feed.merchants.map((m) => m.id).toList(),
+                        ),
+                        loading: () => _buildBusinessCardLoading(context),
+                        error: (_, __) => _buildBusinessCardLoading(context),
                       ),
-                      loading: () => _buildPromotionsLoading(context),
-                      error: (_, __) => _buildPromotionsError(context),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                      const SizedBox(height: 24),
+                      _buildQuickActions(context),
+                      const SizedBox(height: 24),
+                      feedAsync.when(
+                        data: (feed) => _buildPromotionsContent(
+                          context,
+                          feed.promotions,
+                          feed.merchants,
+                        ),
+                        loading: () => _buildPromotionsLoading(context),
+                        error: (_, __) => _buildPromotionsError(context),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -143,26 +155,45 @@ class ClientHomeScreen extends ConsumerWidget {
   Widget _buildBusinessCard(
     BuildContext context,
     List<Merchant> merchants,
-    Map<String, int> heartLevels,
-  ) {
+    Map<String, int> heartLevels, {
+    List<String> followedIds = const [],
+  }) {
     if (merchants.isEmpty) {
       return _buildEmptyCarnet(context);
     }
+
+    // Sort: followed merchants first, then others
+    final followedSet = followedIds.toSet();
+    final sortedMerchants = List<Merchant>.from(merchants);
+    sortedMerchants.sort((a, b) {
+      final aFollowed = followedSet.contains(a.id);
+      final bFollowed = followedSet.contains(b.id);
+      if (aFollowed && !bFollowed) return -1;
+      if (!aFollowed && bFollowed) return 1;
+      // Among followed, sort by heart level
+      if (aFollowed && bFollowed) {
+        final ah = heartLevels[a.id] ?? 1;
+        final bh = heartLevels[b.id] ?? 1;
+        return bh.compareTo(ah);
+      }
+      return 0;
+    });
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ...merchants.asMap().entries.map((entry) {
+          ...sortedMerchants.asMap().entries.map((entry) {
             final index = entry.key;
             final merchant = entry.value;
             final displayName = merchant.displayName ?? merchant.name;
             final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
-            final heartLevel = heartLevels[merchant.id] ?? 1;
+            final isFollowed = followedSet.contains(merchant.id);
+            final heartLevel = isFollowed ? (heartLevels[merchant.id] ?? 1) : 0;
 
             return Padding(
-              padding: EdgeInsets.only(bottom: index == merchants.length - 1 ? 0 : 20),
+              padding: EdgeInsets.only(bottom: index == sortedMerchants.length - 1 ? 0 : 20),
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -194,16 +225,17 @@ class ClientHomeScreen extends ConsumerWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Row(
-                              children: [
-                                ...List.generate(heartLevel.clamp(0, 3), (i) {
-                                  return Padding(
-                                    padding: EdgeInsets.only(right: i == heartLevel - 1 ? 0 : 4),
-                                    child: const Icon(Icons.favorite, color: MerchantColors.gold, size: 18),
-                                  );
-                                }),
-                              ],
-                            ),
+                            if (isFollowed)
+                              Row(
+                                children: [
+                                  ...List.generate(heartLevel.clamp(0, 3), (i) {
+                                    return Padding(
+                                      padding: EdgeInsets.only(right: i == heartLevel - 1 ? 0 : 4),
+                                      child: const Icon(Icons.favorite, color: MerchantColors.gold, size: 18),
+                                    );
+                                  }),
+                                ],
+                              ),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -222,21 +254,22 @@ class ClientHomeScreen extends ConsumerWidget {
                                     )
                                   : _buildPlaceholderImage(),
                             ),
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: MerchantColors.gold, width: 2),
-                                  color: Colors.black.withValues(alpha: 0.3),
+                            if (isFollowed)
+                              Positioned(
+                                top: 8,
+                                left: 8,
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: MerchantColors.gold, width: 2),
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.star, color: MerchantColors.gold, size: 20),
                                 ),
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.star, color: MerchantColors.gold, size: 20),
                               ),
-                            ),
                           ],
                         ),
                       ],

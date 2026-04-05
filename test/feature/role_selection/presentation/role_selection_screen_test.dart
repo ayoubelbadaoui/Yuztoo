@@ -130,23 +130,20 @@ void main() {
       expect(selectedRole, UserRole.client);
     });
 
-    testWidgets('5. Login link calls onSelectRole with current selected role', (tester) async {
+    testWidgets('5. Client "Se connecter" text calls onSelectRole with client', (tester) async {
       // Test with client role
       await tester.pumpWidget(createTestWidget(initialRole: UserRole.client));
       await tester.pump();
 
-      // Find LoginLink widget by text
-      final loginLink = find.text('Vous avez déjà un compte ?');
-      expect(loginLink, findsOneWidget);
+      final loginText = find.text('Se connecter');
+      expect(loginText, findsOneWidget);
 
-      // Scroll to make sure it's visible
-      await tester.ensureVisible(loginLink);
+      await tester.ensureVisible(loginText);
       await tester.pump();
 
-      await tester.tap(loginLink, warnIfMissed: false);
+      await tester.tap(loginText, warnIfMissed: false);
       await tester.pump();
 
-      // Verify onSelectRole was called with client (current role)
       expect(selectedRole, UserRole.client);
     });
 
@@ -189,9 +186,9 @@ void main() {
       await tester.tap(clientToggle);
       await tester.pump();
 
-      // Check Scanner button exists (ElevatedButton or ElevatedButton.icon)
-      final buttons = find.byType(ElevatedButton);
-      expect(buttons, findsWidgets);
+      // Scan (Elevated) + merchant may have Elevated; client has one Elevated (scan)
+      expect(find.byType(ElevatedButton), findsWidgets);
+      expect(find.text('Créer un compte'), findsOneWidget);
     });
 
     testWidgets('8. Button navigation flow: Toggle → Action → Login', (tester) async {
@@ -229,12 +226,12 @@ void main() {
         expect(selectedRole, UserRole.client);
       }
 
-      // Step 5: Tap Login link
+      // Step 5: Tap Se connecter (client text link)
       selectedRole = null;
-      final loginLink = find.text('Vous avez déjà un compte ?');
-      await tester.ensureVisible(loginLink);
+      final loginText = find.text('Se connecter');
+      await tester.ensureVisible(loginText);
       await tester.pump();
-      await tester.tap(loginLink, warnIfMissed: false);
+      await tester.tap(loginText, warnIfMissed: false);
       await tester.pump();
       expect(selectedRole, UserRole.client);
     });

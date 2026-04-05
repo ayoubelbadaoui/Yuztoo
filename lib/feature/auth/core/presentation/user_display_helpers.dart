@@ -1,5 +1,6 @@
 import '../domain/entities/auth_user.dart';
 import '../domain/entities/user_profile_basics.dart';
+import '../../../storefront/domain/entities/storefront.dart';
 
 /// Display name: Firestore / Auth display name, else email local part, else fallback.
 String resolveDisplayName(
@@ -26,6 +27,22 @@ String resolveEmail(AuthUser user, UserProfileBasics? basics) {
   final a = user.email?.trim();
   if (a != null && a.isNotEmpty) return a;
   return '—';
+}
+
+/// City: user doc first, then commerce [storefront] for merchants (same source as vitrine).
+String resolveCityForProfile(
+  UserProfileBasics? basics, {
+  required bool isMerchant,
+  Storefront? storefront,
+}) {
+  final fromUser = (basics?.city ?? '').trim();
+  if (fromUser.isNotEmpty) return fromUser;
+  if (!isMerchant || storefront == null) return '';
+  final fromCommerce = storefront.city.trim();
+  if (fromCommerce.isEmpty) return '';
+  final lower = fromCommerce.toLowerCase();
+  if (lower == 'à compléter' || lower == 'votre ville') return '';
+  return fromCommerce;
 }
 
 /// Prefer Firestore phone, then Auth phone.

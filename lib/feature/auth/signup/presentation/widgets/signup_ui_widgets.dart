@@ -37,7 +37,7 @@ class SignupLogoSection extends StatelessWidget {
   }
 }
 
-/// Signup button widget
+/// Signup primary CTA — single full-width button.
 class SignupButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback? onPressed;
