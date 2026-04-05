@@ -9,6 +9,9 @@ import 'use_cases/delete_promotion.dart';
 import 'use_cases/list_promotions_by_merchant.dart';
 import 'use_cases/update_promotion.dart';
 
+export '../../auth/core/application/providers.dart' show authStateProvider;
+export '../../auth/core/application/state/auth_state.dart' show Authenticated;
+
 final createPromotionProvider = Provider<CreatePromotion>((ref) {
   final repo = ref.watch(promotionRepositoryProvider);
   return CreatePromotion(repo);

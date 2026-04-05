@@ -13,21 +13,7 @@ import 'utils/phone_formatter.dart';
 import 'widgets/signup_form_fields.dart';
 import 'widgets/signup_ui_widgets.dart';
 
-/// Payload for [SignupScreen.onNavigateToOtp] when the verification SMS is sent.
-class SignupOtpNavigation {
-  const SignupOtpNavigation({
-    required this.verificationId,
-    required this.email,
-    required this.password,
-    required this.phone,
-    required this.city,
-  });
-  final String verificationId;
-  final String email;
-  final String password;
-  final String phone;
-  final String city;
-}
+part 'signup_screen.part.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({
@@ -64,24 +50,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _confirmPasswordFieldKey = GlobalKey<FormFieldState>();
   final _phoneFieldKey = GlobalKey<FormFieldState>();
   final _cityFieldKey = GlobalKey<FormFieldState>();
-  
+
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   late TextEditingController _confirmPasswordController;
   late TextEditingController _phoneController;
-  
+
   late FocusNode _emailFocusNode;
   late FocusNode _passwordFocusNode;
   late FocusNode _confirmPasswordFocusNode;
   late FocusNode _phoneFocusNode;
 
   bool _isLoading = false;
-  bool _isSubmitting = false; // simple debounce to prevent rapid taps
+  bool _isSubmitting = false;
   bool _isPasswordFocused = false;
   String? _selectedCity;
   String? _phoneNumber;
   String _selectedCountryCode = '+33';
-  
+
   bool _emailFieldHasBeenValidated = false;
   bool _passwordFieldHasBeenValidated = false;
   bool _confirmPasswordFieldHasBeenValidated = false;
@@ -90,111 +76,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Persist role selection so we can route correctly even if Firestore is blocked.
-    // This is best-effort and intentionally non-blocking.
     Future.microtask(() {
-      ref.read(auth_core.roleCacheServiceProvider).saveLastSelectedRole(widget.role);
+      ref
+          .read(auth_core.roleCacheServiceProvider)
+          .saveLastSelectedRole(widget.role);
     });
-    
-    _emailController = TextEditingController(text: widget.initialEmail ?? '');
-    _passwordController = TextEditingController(text: widget.initialPassword ?? '');
-    _confirmPasswordController = TextEditingController(text: widget.initialPassword ?? '');
-    _phoneController = TextEditingController();
-    
-    if (widget.initialPhone != null && widget.initialPhone!.isNotEmpty) {
-      final phoneData = PhoneFormatter.extractPhoneData(widget.initialPhone!);
-      if (phoneData != null) {
-        _selectedCountryCode = phoneData['countryCode'] ?? '+33';
-        _phoneController.text = phoneData['localNumber'] ?? '';
-        _phoneNumber = widget.initialPhone;
-      }
-    }
-    
-    if (widget.initialCity != null && widget.initialCity!.isNotEmpty) {
-      _selectedCity = widget.initialCity;
-    }
-    
-    if (widget.initialCountryCode != null && widget.initialCountryCode!.isNotEmpty) {
-      _selectedCountryCode = widget.initialCountryCode!;
-      // Country code set, name and flag not needed
-    }
-    
-    _emailFocusNode = FocusNode();
-    _passwordFocusNode = FocusNode();
-    _confirmPasswordFocusNode = FocusNode();
-    _phoneFocusNode = FocusNode();
-    
-    _emailFocusNode.addListener(() {
-      if (!_emailFocusNode.hasFocus) {
-        _emailFieldKey.currentState?.validate();
-        final hasError = _emailFieldKey.currentState?.hasError ?? false;
-        if (hasError) {
-          setState(() => _emailFieldHasBeenValidated = true);
-        }
-      }
-    });
-    
-    _emailController.addListener(() {
-      if (_emailFieldHasBeenValidated && _emailController.text.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _emailFieldKey.currentState?.validate());
-          }
-        });
-      }
-    });
-    
-    _passwordFocusNode.addListener(() {
-      setState(() => _isPasswordFocused = _passwordFocusNode.hasFocus);
-      if (!_passwordFocusNode.hasFocus && _passwordController.text.isNotEmpty) {
-        _passwordFieldKey.currentState?.validate();
-        final hasError = _passwordFieldKey.currentState?.hasError ?? false;
-        if (hasError) {
-          setState(() => _passwordFieldHasBeenValidated = true);
-        }
-      }
-    });
-    
-    _passwordController.addListener(() {
-      if (_passwordFieldHasBeenValidated && _passwordController.text.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _passwordFieldKey.currentState?.validate());
-          }
-        });
-      }
-    });
-    
-    _confirmPasswordFocusNode.addListener(() {
-      if (!_confirmPasswordFocusNode.hasFocus && _confirmPasswordController.text.isNotEmpty) {
-        _confirmPasswordFieldKey.currentState?.validate();
-        final hasError = _confirmPasswordFieldKey.currentState?.hasError ?? false;
-        if (hasError) {
-          setState(() => _confirmPasswordFieldHasBeenValidated = true);
-        }
-      }
-    });
-    
-    _confirmPasswordController.addListener(() {
-      if (_confirmPasswordFieldHasBeenValidated && _confirmPasswordController.text.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _confirmPasswordFieldKey.currentState?.validate());
-          }
-        });
-      }
-    });
-    
-    _phoneFocusNode.addListener(() {
-      if (!_phoneFocusNode.hasFocus && _phoneController.text.isNotEmpty) {
-        _phoneFieldKey.currentState?.validate();
-        final hasError = _phoneFieldKey.currentState?.hasError ?? false;
-        if (hasError) {
-          setState(() => _phoneFieldHasBeenValidated = true);
-        }
-      }
-    });
+    _initControllers();
+    _initFocusNodes();
+    _attachValidationListeners();
   }
 
   @override
@@ -217,315 +106,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _phoneFocusNode.unfocus();
   }
 
-  Future<void> _handleSignup() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    if (_phoneNumber == null || _phoneNumber!.isEmpty || _phoneController.text.isEmpty) {
-      if (mounted) {
-        showErrorSnackbar(context, 'Le numéro de téléphone est requis.');
-      }
-      return;
-    }
-    
-    final formattedPhoneNumber = PhoneFormatter.formatPhoneNumber(
-      _selectedCountryCode,
-      _phoneController.text,
-    );
-    
-    if (!PhoneFormatter.isValidE164(formattedPhoneNumber)) {
-      if (mounted) {
-        showErrorSnackbar(
-          context,
-          'Numéro de téléphone invalide. Vérifiez le format.',
-        );
-      }
-      return;
-    }
-
-    if (_selectedCity == null || _selectedCity!.isEmpty) {
-      if (mounted) {
-        showErrorSnackbar(context, 'La ville est requise.');
-      }
-      return;
-    }
-    if (CityInput.isPlaceholder(_selectedCity)) {
-      if (mounted) {
-        showErrorSnackbar(context, 'Choisissez une ville dans la liste.');
-      }
-      return;
-    }
-
-    if (_isSubmitting) return;
-    setState(() => _isSubmitting = true);
-
-    if (_isLoading) {
-      setState(() => _isSubmitting = false);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    final phoneNumber = formattedPhoneNumber;
-
-    // Check if email is already registered
-    final verifyEmail = ref.read(verifyEmailAvailableForSignupProvider);
-    final emailResult = await verifyEmail.call(email: email);
-    var emailBlocked = false;
-    final emailError = emailResult.fold<String?>(
-      (failure) {
-        emailBlocked = true;
-        return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
-      },
-      (_) => null,
-    );
-    if (emailBlocked) {
-      if (mounted) {
-        showErrorSnackbar(
-          context,
-          (emailError == null || emailError.isEmpty)
-              ? 'Impossible de vérifier l\'adresse email.'
-              : emailError,
-        );
-        setState(() {
-          _isLoading = false;
-          _isSubmitting = false;
-        });
-      }
-      return;
-    }
-
-    // Check if phone is already registered
-    final verifyPhone = ref.read(verifyPhoneAvailableForSignupProvider);
-    final phoneResult = await verifyPhone.call(phoneNumber: phoneNumber);
-    var phoneBlocked = false;
-    final phoneError = phoneResult.fold<String?>(
-      (failure) {
-        phoneBlocked = true;
-        return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
-      },
-      (_) => null,
-    );
-    if (phoneBlocked) {
-      if (mounted) {
-        showErrorSnackbar(
-          context,
-          (phoneError == null || phoneError.isEmpty)
-              ? 'Impossible de vérifier le numéro de téléphone.'
-              : phoneError,
-        );
-        setState(() {
-          _isLoading = false;
-          _isSubmitting = false;
-        });
-      }
-      return;
-    }
-
-    final sendOtpUseCase = ref.read(sendPhoneVerificationProvider);
-
-    try {
-      final otpResult = await sendOtpUseCase.call(phoneNumber: phoneNumber);
-
-      otpResult.fold(
-        (failure) {
-          if (mounted) {
-            final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-            if (frenchMessage != null) {
-              showErrorSnackbar(context, frenchMessage);
-            }
-            setState(() {
-              _isLoading = false;
-              _isSubmitting = false;
-            });
-          }
-        },
-        (verificationId) {
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-              _isSubmitting = false;
-            });
-
-            showSuccessSnackbar(context, 'Code de vérification envoyé!');
-            widget.onNavigateToOtp(
-              SignupOtpNavigation(
-                verificationId: verificationId,
-                email: email,
-                password: password,
-                phone: phoneNumber,
-                city: _selectedCity!,
-              ),
-            );
-          }
-        },
-      );
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _isSubmitting = false;
-        });
-      }
-      rethrow;
-    }
-
-    if (mounted && _isSubmitting) {
-      setState(() => _isSubmitting = false);
-    }
-  }
-
-  Future<void> _handleSocialLogin(String provider) async {
-    showErrorSnackbar(context, 'Connexion $provider bientôt disponible');
+  void _withSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
   }
 
   @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        // Match LoadingScreen system chrome
-        statusBarColor: MerchantColors.bgHeader,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-        systemNavigationBarColor: MerchantColors.bgMain,
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
-      child: PopScope(
-        canPop: false, // Use our custom navigation instead of route popping
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && !_isLoading) {
-            widget.onBack();
-          }
-        },
-        child: Scaffold(
-          backgroundColor: MerchantColors.bgMain,
-          body: SafeArea(
-            child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    onPressed: widget.onBack,
-                    icon: const Icon(Icons.arrow_back),
-                    color: SignupConstants.primaryGold,
-                    iconSize: 24,
-                  ),
-                ),
-                const SignupLogoSection(),
-                const SizedBox(height: 32),
-                Form(
-                  key: _formKey,
-                  autovalidateMode: AutovalidateMode.disabled,
-                  child: Column(
-                    children: [
-                      EmailField(
-                        controller: _emailController,
-                        focusNode: _emailFocusNode,
-                        fieldKey: _emailFieldKey,
-                        hasBeenValidated: _emailFieldHasBeenValidated,
-                        enabled: !_isLoading,
-                        onUnfocusAll: _unfocusAllFields,
-                      ),
-                      const SizedBox(height: 20),
-                      PasswordField(
-                        controller: _passwordController,
-                        focusNode: _passwordFocusNode,
-                        fieldKey: _passwordFieldKey,
-                        hasBeenValidated: _passwordFieldHasBeenValidated,
-                        enabled: !_isLoading,
-                        onUnfocusAll: _unfocusAllFields,
-                        onFocusChanged: (isFocused) {
-                          setState(() => _isPasswordFocused = isFocused);
-                        },
-                      ),
-                      if (_isPasswordFocused) ...[
-                        const SizedBox(height: 12),
-                        const PasswordHint(),
-                      ],
-                      const SizedBox(height: 20),
-                      ConfirmPasswordField(
-                        controller: _confirmPasswordController,
-                        passwordController: _passwordController,
-                        focusNode: _confirmPasswordFocusNode,
-                        fieldKey: _confirmPasswordFieldKey,
-                        hasBeenValidated: _confirmPasswordFieldHasBeenValidated,
-                        enabled: !_isLoading,
-                        onUnfocusAll: _unfocusAllFields,
-                      ),
-                      const SizedBox(height: 20),
-                      PhoneField(
-                        controller: _phoneController,
-                        focusNode: _phoneFocusNode,
-                        fieldKey: _phoneFieldKey,
-                        selectedCountryCode: _selectedCountryCode,
-                        hasBeenValidated: _phoneFieldHasBeenValidated,
-                        enabled: !_isLoading,
-                        onUnfocusAll: _unfocusAllFields,
-                        onPhoneNumberUpdate: (formattedPhone) {
-                          setState(() => _phoneNumber = formattedPhone);
-                        },
-                        onCountryCodeChange: (code) {
-                          setState(() => _selectedCountryCode = code);
-                        },
-                        onRevalidatePhone: () {
-                          if (_phoneController.text.isNotEmpty) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted) {
-                                setState(() {
-                                  if (!_phoneFieldHasBeenValidated) {
-                                    _phoneFieldHasBeenValidated = true;
-                                  }
-                                  _phoneFieldKey.currentState?.validate();
-                                });
-                              }
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      CityDropdown(
-                        fieldKey: _cityFieldKey,
-                        selectedCity: _selectedCity,
-                        enabled: !_isLoading,
-                        onUnfocusAll: _unfocusAllFields,
-                        onCitySelected: (city) {
-                          setState(() => _selectedCity = city);
-                        },
-                        onValidateCity: () {
-                          _cityFieldKey.currentState?.validate();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
-                SignupButton(
-                  isLoading: _isLoading,
-                  onPressed: (_isLoading || _isSubmitting) ? null : _handleSignup,
-                ),
-                const SizedBox(height: 32),
-                const SocialDivider(),
-                const SizedBox(height: 24),
-                SocialLoginButtons(
-                  isLoading: _isLoading,
-                  onSocialLogin: _handleSocialLogin,
-                ),
-                const SizedBox(height: 40),
-                SignupFooter(
-                  onBack: widget.onBack,
-                ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _buildSignupContent(context);
 }

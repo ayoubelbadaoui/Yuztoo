@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import '../../../../feature/storefront/presentation/widgets/storefront_colors.dart';
+import '../../../storefront/application/widgets.dart';
 
 /// Read-only banner + profile picture section matching the merchant Vitrine layout.
 /// Same dimensions and styling as [BannerSection] but without edit buttons.

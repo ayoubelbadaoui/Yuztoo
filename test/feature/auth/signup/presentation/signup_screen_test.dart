@@ -11,9 +11,8 @@ import 'package:flutter_yuztoo/feature/auth/core/domain/entities/user_profile_ba
 import 'package:flutter_yuztoo/feature/auth/core/domain/repositories/user_repository.dart';
 import 'package:flutter_yuztoo/feature/auth/core/infrastructure/auth_repository_provider.dart';
 import 'package:flutter_yuztoo/feature/auth/core/infrastructure/user_repository_provider.dart';
-import 'package:flutter_yuztoo/feature/auth/signup/presentation/signup_screen.dart';
-import 'package:flutter_yuztoo/feature/auth/signup/presentation/otp_screen.dart';
-import 'package:flutter_yuztoo/feature/auth/signup/presentation/widgets/signup_form_fields.dart';
+import 'package:flutter_yuztoo/feature/auth/signup/application/screens.dart';
+import 'package:flutter_yuztoo/feature/auth/signup/application/widgets.dart';
 import 'package:flutter_yuztoo/types.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
@@ -84,6 +83,14 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<Result<Unit>> updateUserProfile({
+    String? displayName,
+    String? photoUrl,
+  }) async {
+    return const Right<AuthFailure, Unit>(unit);
+  }
+
+  @override
   Stream<Result<AuthUser?>> watchAuthState() {
     return Stream.value(const Right<AuthFailure, AuthUser?>(null));
   }
@@ -149,6 +156,10 @@ class _FakeUserRepository implements UserRepository {
     required String displayName,
     String? photoUrl,
   }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<Unit>> markMerchantOnboardingCompleted(String uid) =>
       throw UnimplementedError();
 
   @override

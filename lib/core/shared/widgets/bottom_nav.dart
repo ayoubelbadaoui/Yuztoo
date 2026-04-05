@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../types.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
-import '../../../feature/storefront/presentation/widgets/storefront_colors.dart';
+import '../../../feature/storefront/application/widgets.dart';
 
 class YBottomNav extends StatelessWidget {
   const YBottomNav({

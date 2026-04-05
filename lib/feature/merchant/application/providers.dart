@@ -12,6 +12,16 @@ import 'use_cases/update_storefront.dart';
 import 'use_cases/update_rappels_settings.dart';
 import '../../storage/application/providers.dart' as storage_providers;
 
+export '../../auth/core/application/providers.dart'
+    show
+        authStateProvider,
+        getUserProfileBasicsProvider,
+        getUserCityProvider;
+export '../../auth/core/application/state/auth_state.dart' show Authenticated;
+export '../../storefront/application/providers.dart' show storefrontProvider;
+export '../../storage/application/providers.dart'
+    show uploadLogoProvider, uploadBannerProvider, deleteStorageImageProvider;
+
 /// Provider for CreateMerchantUseCase.
 final createMerchantUseCaseProvider = Provider<CreateMerchantUseCase>((ref) {
   final repository = ref.watch(merchantRepositoryProvider);
@@ -71,4 +81,3 @@ final currentMerchantForOwnerProvider =
   final result = await merchantRepo.getMerchantById(merchantId);
   return result.fold((_) => null, (m) => m);
 });
-

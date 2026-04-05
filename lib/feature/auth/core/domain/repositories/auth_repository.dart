@@ -25,6 +25,12 @@ abstract class AuthRepository {
 
   Future<Result<Unit>> signOut();
 
+  /// Updates the signed-in user's display name and/or profile photo URL.
+  Future<Result<Unit>> updateUserProfile({
+    String? displayName,
+    String? photoUrl,
+  });
+
   Future<Result<Unit>> sendPasswordResetEmail({
     required EmailAddress email,
   });

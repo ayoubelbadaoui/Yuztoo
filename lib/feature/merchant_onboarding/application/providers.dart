@@ -1,5 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+export '../../auth/core/application/providers.dart'
+    show currentUserIdProvider, markMerchantOnboardingCompletedProvider;
+
 /// Selected merchant category title from the acquisition onboarding wizard.
 ///
 /// This is UI-only state, used to prefill the merchant profile form so we don't
@@ -9,5 +12,4 @@ final selectedMerchantCategoryTitleProvider = StateProvider<String?>((ref) => nu
 /// Selected merchant subcategory title (optional).
 final selectedMerchantSubcategoryTitleProvider =
     StateProvider<String?>((ref) => null);
-
 

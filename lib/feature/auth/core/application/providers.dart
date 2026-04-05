@@ -19,12 +19,23 @@ import 'use_cases/patch_user_document.dart';
 import 'use_cases/update_last_login_at.dart';
 import 'use_cases/check_user_profile_complete.dart';
 import 'use_cases/consume_force_merchant_next_login.dart';
+import 'use_cases/mark_merchant_onboarding_completed.dart';
+import 'use_cases/update_auth_user_profile.dart';
+import 'use_cases/complete_client_profile.dart';
 import '../infrastructure/auth_repository_provider.dart';
 import '../infrastructure/user_repository_provider.dart';
 import '../infrastructure/role_cache_service.dart';
 
 // Re-export infrastructure providers for use in application layer (for creating use cases)
 export '../infrastructure/auth_repository_provider.dart' show authRepositoryProvider;
+export '../infrastructure/role_cache_service.dart' show RoleCacheService;
+export 'user_display_helpers.dart'
+    show
+        resolveDisplayName,
+        resolveEmail,
+        resolveCityForProfile,
+        resolvePhone,
+        avatarInitial;
 // Note: roleCacheServiceProvider removed - not implemented yet
 
 // Export navigation state provider
@@ -36,6 +47,22 @@ export 'merchant_onboarding_routing.dart' show merchantOnboardingCompletedFromFi
 final signOutProvider = Provider<SignOut>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return SignOut(repository);
+});
+
+final updateAuthUserProfileProvider = Provider<UpdateAuthUserProfile>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return UpdateAuthUserProfile(repository);
+});
+
+final markMerchantOnboardingCompletedProvider =
+    Provider<MarkMerchantOnboardingCompleted>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return MarkMerchantOnboardingCompleted(repository);
+});
+
+final completeClientProfileProvider = Provider<CompleteClientProfile>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return CompleteClientProfile(repository);
 });
 
 final watchAuthStateProvider = Provider<WatchAuthState>((ref) {
