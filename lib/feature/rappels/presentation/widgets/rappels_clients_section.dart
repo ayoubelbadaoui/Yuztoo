@@ -10,6 +10,9 @@ class RappelsClientsSection extends StatelessWidget {
     super.key,
     required this.connectedClientsThisMonth,
     required this.validatedPassagesThisMonth,
+    this.pendingLoyaltyPassagesToConfirm = 0,
+    this.isManualPassageValidation = false,
+    this.onConfirmPendingPassagesTap,
   });
 
   /// Clients connectés ce mois (Firestore `rappels_monthly_connected_clients`).
@@ -17,6 +20,15 @@ class RappelsClientsSection extends StatelessWidget {
 
   /// Passages validés ce mois (Firestore `rappels_monthly_validated_passages`).
   final int validatedPassagesThisMonth;
+
+  /// Somme des `pending_passages` (fidélité à validation manuelle).
+  final int pendingLoyaltyPassagesToConfirm;
+
+  /// Vrai si le programme exige une validation marchand des passages.
+  final bool isManualPassageValidation;
+
+  /// Défile vers la liste « Passages à valider » (fidélité).
+  final VoidCallback? onConfirmPendingPassagesTap;
 
   @override
   Widget build(BuildContext context) {
@@ -74,23 +86,41 @@ class RappelsClientsSection extends StatelessWidget {
           ),
         ),
         ...List.generate(previewCount, (_) => _avatar()),
-        // Confirm button
-        ElevatedButton(
-          onPressed: () {},
-          style: ElevatedButton.styleFrom(
-            backgroundColor: MerchantColors.gold,
-            foregroundColor: MerchantColors.darkOverlay,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+        Tooltip(
+          message: !isManualPassageValidation
+              ? 'Les passages fidélité sont validés automatiquement.'
+              : (pendingLoyaltyPassagesToConfirm <= 0
+                  ? 'Aucun passage en attente pour le moment.'
+                  : 'Voir les passages à valider'),
+          child: ElevatedButton(
+            onPressed: isManualPassageValidation &&
+                    pendingLoyaltyPassagesToConfirm > 0 &&
+                    onConfirmPendingPassagesTap != null
+                ? onConfirmPendingPassagesTap
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: MerchantColors.gold,
+              foregroundColor: MerchantColors.darkOverlay,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 0,
+              disabledBackgroundColor: MerchantColors.navyCard,
+              disabledForegroundColor: MerchantColors.textLightGrey,
+              textStyle: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            elevation: 0,
-            textStyle: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+            child: Text(
+              !isManualPassageValidation
+                  ? 'Auto'
+                  : (pendingLoyaltyPassagesToConfirm > 0
+                      ? 'Confirmer ($pendingLoyaltyPassagesToConfirm)'
+                      : 'Confirmer'),
             ),
           ),
-          child: const Text('Confirmer'),
         ),
       ],
     );
@@ -167,7 +197,9 @@ class RappelsClientsSection extends StatelessWidget {
         ),
       ),
       child: Text(
-        'Retrouvez ici les clients ayant scannés votre QR code pour valider un passage',
+        isManualPassageValidation
+            ? 'Les demandes de passages fidélité (validation manuelle) apparaissent dans la section « Passages à valider » sous ce bloc, ou via le bouton Confirmer.'
+            : 'Retrouvez ici les clients ayant scannés votre QR code pour valider un passage',
         style: GoogleFonts.outfit(
           fontSize: 12,
           color: MerchantColors.textLightGrey,

@@ -9,6 +9,7 @@ class Storefront {
     required this.bannerImageUrl,
     required this.profileImageUrl,
     required this.loyaltyEnabled,
+    this.loyaltyClientSummary,
     required this.isVerified,
     this.isPublished = false,
     required this.profileCompletionPercentage,
@@ -33,6 +34,10 @@ class Storefront {
   final String bannerImageUrl;
   final String profileImageUrl;
   final bool loyaltyEnabled;
+
+  /// Texte généré depuis [LoyaltyProgramConfig.clientSummaryText] quand configuré.
+  final String? loyaltyClientSummary;
+
   final bool isVerified;
   final bool isPublished;
   final int profileCompletionPercentage; // 0-100

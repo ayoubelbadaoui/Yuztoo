@@ -501,6 +501,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
                           description: storefront.description,
                           city: storefront.city,
                           loyaltyEnabled: storefront.loyaltyEnabled,
+                          loyaltyClientSummary: storefront.loyaltyClientSummary,
                           isVerified: storefront.isVerified,
                           onEdit: () async {
                             await ref

@@ -1,7 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/infrastructure/firebase_providers.dart';
+import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../auth/core/application/state/auth_state.dart';
 import '../infrastructure/merchant_repository_provider.dart';
 import '../infrastructure/merchant_profile_cache_service.dart';
+import '../domain/entities/merchant.dart';
 import 'use_cases/create_merchant_use_case.dart';
 import 'use_cases/complete_merchant_onboarding.dart';
 import 'use_cases/update_storefront.dart';
@@ -43,5 +47,28 @@ final updateRappelsSettingsProvider = Provider<UpdateRappelsSettings>((ref) {
 final merchantProfileCacheServiceProvider =
     Provider<MerchantProfileCacheService>((ref) {
   return MerchantProfileCacheService();
+});
+
+/// Signed-in merchant profile (from `users.merchant_id` + [MerchantRepository.getMerchantById]).
+///
+/// `null` when not authenticated, no `merchant_id`, or merchant doc missing.
+final currentMerchantForOwnerProvider =
+    FutureProvider.autoDispose<Merchant?>((ref) async {
+  final authState = ref.watch(auth_providers.authStateProvider);
+  if (authState is! Authenticated) {
+    return null;
+  }
+  final userId = authState.user.id;
+  final firestore = ref.watch(firebaseFirestoreProvider);
+  final merchantRepo = ref.watch(merchantRepositoryProvider);
+
+  final userDoc = await firestore.collection('users').doc(userId).get();
+  final merchantId = (userDoc.data()?['merchant_id'] as String?)?.trim();
+  if (merchantId == null || merchantId.isEmpty) {
+    return null;
+  }
+
+  final result = await merchantRepo.getMerchantById(merchantId);
+  return result.fold((_) => null, (m) => m);
 });
 

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../domain/entities/loyalty_program_config.dart';
 import '../domain/entities/merchant.dart';
 import '../domain/merchant_failure.dart';
 import '../domain/repositories/merchant_repository.dart';
@@ -9,6 +10,7 @@ import '../../../../core/infrastructure/firestore_user_rules_patch.dart';
 import '../../../../core/infrastructure/logger_service.dart';
 import '../../../../core/utils/city_input.dart';
 import 'dto/merchant_dto.dart';
+import 'loyalty_program_firestore_mapper.dart';
 import 'merchant_city_resolution.dart';
 
 /// Firebase Firestore implementation of MerchantRepository.
@@ -402,6 +404,7 @@ class FirestoreMerchantRepository implements MerchantRepository {
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    LoyaltyProgramConfig? loyaltyProgram,
     bool clearCityField = false,
   }) async {
     if (merchantId.isEmpty) {
@@ -477,6 +480,11 @@ class FirestoreMerchantRepository implements MerchantRepository {
       }
       if (rappelsAutoPassageValidation != null) {
         updateData['rappels_auto_passage_validation'] = rappelsAutoPassageValidation;
+      }
+      if (loyaltyProgram != null) {
+        updateData['loyalty_program'] =
+            LoyaltyProgramFirestoreMapper.toFirestoreMap(loyaltyProgram);
+        updateData['loyalty_enabled'] = loyaltyProgram.programEnabled;
       }
 
       // Merge partial fields (same as update; avoids update() on missing docs)

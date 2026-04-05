@@ -9,6 +9,10 @@ import '../../../core/presentation/precache_network_images.dart';
 import '../../../feature/auth/core/application/providers.dart' as auth_providers;
 import '../../../feature/client_home/application/providers.dart' as client_home_providers;
 import '../../../feature/followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
+import '../../../feature/loyalty/application/client_loyalty_providers.dart'
+    as client_loyalty_providers;
+import '../../../feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
+import '../../../feature/merchant/domain/entities/loyalty_program_config.dart';
 import '../../../feature/merchant/domain/entities/merchant.dart';
 import '../../../feature/promotions/domain/entities/promotion.dart';
 import '../../../feature/storefront/domain/entities/business_hours.dart';
@@ -157,6 +161,8 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     final followersCount = isFollowing
         ? (fetchedFollowersCount < 1 ? 1 : fetchedFollowersCount)
         : fetchedFollowersCount;
+    final loyaltyProgressAsync =
+        ref.watch(client_loyalty_providers.clientLoyaltyProgressForMerchantProvider(merchant.id));
 
     return Stack(
       children: [
@@ -272,6 +278,12 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                           height: 1.4,
                         ),
                       ),
+                      _buildClientLoyaltyBlock(
+                        context,
+                        merchant,
+                        loyaltyProgressAsync,
+                        userId,
+                      ),
                       const SizedBox(height: 16),
                       const SizedBox(height: 4),
                       _buildSuivreButton(context, merchant.id),
@@ -330,6 +342,195 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Même logique que la vitrine marchand : badge + texte + progression + enregistrement passage.
+  Widget _buildClientLoyaltyBlock(
+    BuildContext context,
+    Merchant merchant,
+    AsyncValue<ClientMerchantLoyaltyProgress> progressAsync,
+    String? userId,
+  ) {
+    final summary = merchant.loyaltyClientSummaryForDisplay;
+    final program = merchant.loyaltyProgram ??
+        LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: merchant.loyaltyEnabled);
+    final canRecordPassage =
+        merchant.loyaltyEnabled && program.programEnabled;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: merchant.loyaltyEnabled
+                ? StorefrontColors.primaryGold.withValues(alpha: 0.15)
+                : Colors.grey.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            merchant.loyaltyEnabled ? 'Fidélité active' : 'Fidélité inactive',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: merchant.loyaltyEnabled
+                  ? StorefrontColors.navyDark
+                  : StorefrontColors.textSecondary,
+            ),
+          ),
+        ),
+        if (summary != null && summary.trim().isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            summary.trim(),
+            maxLines: 8,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: StorefrontColors.textSecondary,
+              height: 1.45,
+            ),
+          ),
+        ],
+        if (canRecordPassage)
+          progressAsync.when(
+            data: (ClientMerchantLoyaltyProgress p) {
+              final line = _loyaltyProgressSubtitle(merchant, program, p);
+              if (line == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  line,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: StorefrontColors.textPrimary,
+                    height: 1.45,
+                  ),
+                ),
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.only(top: 10),
+              child: SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: StorefrontColors.primaryGold,
+                ),
+              ),
+            ),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        if (canRecordPassage) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => _openRecordPassageSheet(context, merchant, userId),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: StorefrontColors.primaryGold,
+                side: const BorderSide(color: StorefrontColors.primaryGold),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: Text(
+                'Enregistrer un passage',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String? _loyaltyProgressSubtitle(
+    Merchant merchant,
+    LoyaltyProgramConfig program,
+    ClientMerchantLoyaltyProgress p,
+  ) {
+    if (!merchant.loyaltyEnabled || !program.programEnabled) return null;
+
+    if (program.passageValidation == LoyaltyPassageValidation.manual) {
+      if (p.pendingPassages <= 0) {
+        return 'Vos passages seront validés par le commerçant.';
+      }
+      if (p.pendingPassages == 1) {
+        return '1 passage en attente de validation par le commerçant.';
+      }
+      return '${p.pendingPassages} passages en attente de validation par le commerçant.';
+    }
+
+    if (program.triggerType == LoyaltyTriggerType.visitCount) {
+      final need = program.visitsRequired.clamp(1, 9999);
+      final v = p.validatedPassages;
+      if (v >= need) {
+        return 'Objectif atteint ($need passages validés).';
+      }
+      final remaining = need - v;
+      return '$v / $need passages validés — encore $remaining avant la récompense.';
+    }
+
+    final needSpend = program.cumulativeSpendRequiredEuros;
+    final spent = p.cumulativeSpendEuros;
+    if (spent >= needSpend) {
+      return 'Objectif d’achats atteint.';
+    }
+    final remain = needSpend - spent;
+    final spentStr = _formatEuroDisplay(spent);
+    final needStr = _formatEuroDisplay(needSpend);
+    final remStr = remain == remain.roundToDouble()
+        ? remain.toStringAsFixed(0)
+        : remain.toStringAsFixed(2);
+    return '$spentStr € / $needStr € cumulés — encore $remStr €.';
+  }
+
+  String _formatEuroDisplay(double n) {
+    if (n == n.roundToDouble()) return n.toInt().toString();
+    return n.toStringAsFixed(2);
+  }
+
+  void _openRecordPassageSheet(
+    BuildContext context,
+    Merchant merchant,
+    String? userId,
+  ) {
+    if (userId == null || userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connectez-vous pour enregistrer un passage'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final program = merchant.loyaltyProgram ??
+        LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: merchant.loyaltyEnabled);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: StorefrontColors.backgroundLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: _RecordLoyaltyPassageSheet(
+          merchant: merchant,
+          clientUid: userId,
+          needsPurchaseAmount: program.effectiveAskClientPurchaseAmount,
+        ),
+      ),
     );
   }
 
@@ -701,6 +902,168 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
         style: GoogleFonts.outfit(
           fontSize: 14,
           color: StorefrontColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
+  const _RecordLoyaltyPassageSheet({
+    required this.merchant,
+    required this.clientUid,
+    required this.needsPurchaseAmount,
+  });
+
+  final Merchant merchant;
+  final String clientUid;
+  final bool needsPurchaseAmount;
+
+  @override
+  ConsumerState<_RecordLoyaltyPassageSheet> createState() =>
+      _RecordLoyaltyPassageSheetState();
+}
+
+class _RecordLoyaltyPassageSheetState
+    extends ConsumerState<_RecordLoyaltyPassageSheet> {
+  final TextEditingController _amountController = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_busy) return;
+    double? purchaseAmount;
+    if (widget.needsPurchaseAmount) {
+      final raw = _amountController.text.replaceAll(',', '.').trim();
+      purchaseAmount = double.tryParse(raw);
+      if (purchaseAmount == null || purchaseAmount <= 0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Indiquez un montant valide (€)'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() => _busy = true);
+    final useCase = ref.read(client_loyalty_providers.recordLoyaltyPassageProvider);
+    final result = await useCase.call(
+      clientUid: widget.clientUid,
+      merchant: widget.merchant,
+      purchaseAmountEuros: purchaseAmount,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    result.fold(
+      (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+      (_) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Passage enregistré'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Enregistrer un passage',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: StorefrontColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.needsPurchaseAmount
+                  ? 'Indiquez le montant de votre achat pour mettre à jour votre fidélité.'
+                  : 'Confirmez votre passage en boutique.',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                height: 1.45,
+                color: StorefrontColors.textSecondary,
+              ),
+            ),
+            if (widget.needsPurchaseAmount) ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: 'Montant (€)',
+                  hintText: 'ex. 24,90',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: StorefrontColors.primaryGold,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                onSubmitted: (_) => _submit(),
+              ),
+            ],
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: _busy ? null : _submit,
+              style: FilledButton.styleFrom(
+                backgroundColor: StorefrontColors.primaryGold,
+                foregroundColor: StorefrontColors.navyDark,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: _busy
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: StorefrontColors.navyDark,
+                      ),
+                    )
+                  : Text(
+                      'Valider',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );

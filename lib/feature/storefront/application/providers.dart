@@ -140,6 +140,7 @@ Storefront _storefrontFromMerchant(Merchant merchant) {
     bannerImageUrl: bannerImageUrl,
     profileImageUrl: profileImageUrl,
     loyaltyEnabled: merchant.loyaltyEnabled,
+    loyaltyClientSummary: merchant.loyaltyClientSummaryForDisplay,
     isVerified: true,
     isPublished: merchant.status == 'active',
     profileCompletionPercentage: completionPercentage,

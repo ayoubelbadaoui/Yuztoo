@@ -1,4 +1,5 @@
 import '../../../../core/domain/core/result.dart';
+import '../entities/loyalty_program_config.dart';
 import '../entities/merchant.dart';
 
 /// Repository interface for merchant operations in Firestore.
@@ -97,6 +98,7 @@ abstract class MerchantRepository {
   /// [hours] - Business hours map (optional)
   /// [rappelsAutoClientValidation] - Rappels: auto-validate new clients (optional)
   /// [rappelsAutoPassageValidation] - Rappels: auto-validate passage (optional)
+  /// [loyaltyProgram] - Full loyalty questionnaire payload (optional)
   /// [clearCityField] - When true and [city] is null, removes `city` on the merchant (and syncs user doc).
   ///
   /// Returns Result<Merchant> on success, Result with failure on error
@@ -116,6 +118,7 @@ abstract class MerchantRepository {
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    LoyaltyProgramConfig? loyaltyProgram,
     bool clearCityField = false,
   });
 }

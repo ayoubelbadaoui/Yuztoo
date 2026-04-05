@@ -4,8 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
-import '../../storefront/application/providers.dart' as storefront_providers;
+import '../../loyalty/application/client_loyalty_providers.dart'
+    as client_loyalty_providers;
+import '../../loyalty/domain/entities/loyalty_pending_client_row.dart';
+import '../../loyalty/presentation/widgets/pending_loyalty_validations_section.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
+import '../../merchant/domain/entities/loyalty_program_config.dart';
+import '../../merchant/domain/entities/merchant.dart';
+import '../../storefront/application/providers.dart' as storefront_providers;
 import 'widgets/notifications_auto_entry.dart';
 import 'widgets/rappels_clients_section.dart';
 import 'widgets/rappels_product_section.dart';
@@ -23,9 +29,52 @@ class RappelsScreen extends ConsumerStatefulWidget {
 }
 
 class _RappelsScreenState extends ConsumerState<RappelsScreen> {
+  final GlobalKey _pendingLoyaltySectionKey = GlobalKey();
+
+  void _ensurePendingLoyaltySectionVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _pendingLoyaltySectionKey.currentContext;
+      if (ctx != null && mounted) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          alignment: 0.05,
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final storefrontAsync = ref.watch(storefront_providers.storefrontProvider);
+    final merchantAsync = ref.watch(merchant_providers.currentMerchantForOwnerProvider);
+    final Merchant? merchant = merchantAsync.valueOrNull;
+    final LoyaltyProgramConfig loyaltyConfig = merchant?.loyaltyProgram ??
+        LoyaltyProgramConfig.fallbackFromFlags(
+          loyaltyEnabled: merchant?.loyaltyEnabled ?? false,
+        );
+    final bool isManualPassageValidation = merchant != null &&
+        merchant.loyaltyEnabled &&
+        loyaltyConfig.programEnabled &&
+        loyaltyConfig.passageValidation == LoyaltyPassageValidation.manual;
+    final String merchantId = merchant?.id ?? '';
+    final AsyncValue<List<LoyaltyPendingClientRow>> pendingAsync =
+        merchantId.isEmpty
+            ? const AsyncValue<List<LoyaltyPendingClientRow>>.data(
+                <LoyaltyPendingClientRow>[],
+              )
+            : ref.watch(
+                client_loyalty_providers
+                    .pendingLoyaltyClientsForMerchantProvider(merchantId),
+              );
+    final int totalPendingPassages = pendingAsync.maybeWhen(
+      data: (List<LoyaltyPendingClientRow> rows) => rows.fold<int>(
+        0,
+        (int s, LoyaltyPendingClientRow r) => s + r.progress.pendingPassages,
+      ),
+      orElse: () => 0,
+    );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -52,15 +101,35 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
                             storefront?.rappelsMonthlyConnectedClients ?? 0,
                         validatedPassagesThisMonth:
                             storefront?.rappelsMonthlyValidatedPassages ?? 0,
+                        pendingLoyaltyPassagesToConfirm: totalPendingPassages,
+                        isManualPassageValidation: isManualPassageValidation,
+                        onConfirmPendingPassagesTap: _ensurePendingLoyaltySectionVisible,
                       ),
-                      loading: () => const RappelsClientsSection(
+                      loading: () => RappelsClientsSection(
                         connectedClientsThisMonth: 0,
                         validatedPassagesThisMonth: 0,
+                        pendingLoyaltyPassagesToConfirm: totalPendingPassages,
+                        isManualPassageValidation: isManualPassageValidation,
+                        onConfirmPendingPassagesTap: _ensurePendingLoyaltySectionVisible,
                       ),
-                      error: (_, __) => const RappelsClientsSection(
+                      error: (_, __) => RappelsClientsSection(
                         connectedClientsThisMonth: 0,
                         validatedPassagesThisMonth: 0,
+                        pendingLoyaltyPassagesToConfirm: totalPendingPassages,
+                        isManualPassageValidation: isManualPassageValidation,
+                        onConfirmPendingPassagesTap: _ensurePendingLoyaltySectionVisible,
                       ),
+                    ),
+                    merchantAsync.when(
+                      data: (Merchant? m) {
+                        if (m == null) return const SizedBox.shrink();
+                        return PendingLoyaltyValidationsSection(
+                          key: _pendingLoyaltySectionKey,
+                          merchant: m,
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
                     ),
                     const RappelsProductSection(),
                     storefrontAsync.when(
