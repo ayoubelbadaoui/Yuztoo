@@ -6,6 +6,7 @@ import 'widgets/role_selection_header.dart';
 import 'widgets/merchant_view.dart';
 import 'widgets/client_view.dart';
 import 'widgets/login_link.dart';
+import 'widgets/role_selection_colors.dart';
 
 /// Role selection screen - first screen for unauthenticated users
 class RoleSelectionScreen extends StatefulWidget {
@@ -15,12 +16,14 @@ class RoleSelectionScreen extends StatefulWidget {
     this.initialRole,
     this.onRoleChanged,
     this.onLogin,
+    this.onSignup,
   });
 
   final ValueChanged<UserRole> onSelectRole;
   final UserRole? initialRole;
   final ValueChanged<UserRole>? onRoleChanged;
   final ValueChanged<UserRole>? onLogin;
+  final ValueChanged<UserRole>? onSignup;
 
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
@@ -61,6 +64,22 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     }
   }
 
+  void _handleClientLogin() {
+    if (widget.onLogin != null) {
+      widget.onLogin!(UserRole.client);
+      return;
+    }
+    widget.onSelectRole(UserRole.client);
+  }
+
+  void _handleClientSignup() {
+    if (widget.onSignup != null) {
+      widget.onSignup!(UserRole.client);
+      return;
+    }
+    widget.onSelectRole(UserRole.client);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -97,19 +116,32 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     : ClientView(
                         isScanning: _isScanning,
                         onScan: _handleScan,
+                        onCreateAccount: _handleClientSignup,
                       ),
                 const SizedBox(height: 20),
-                LoginLink(
-                  onTap: () {
-                    // Route to login while preserving the currently selected role.
-                    // If a dedicated login callback is provided, use it.
-                    if (widget.onLogin != null) {
-                      widget.onLogin!(_selectedRole);
-                      return;
-                    }
-                    widget.onSelectRole(_selectedRole);
-                  },
-                ),
+                if (_selectedRole == UserRole.client)
+                  GestureDetector(
+                    onTap: _handleClientLogin,
+                    child: const Text(
+                      'Se connecter',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: RoleSelectionColors.textGrey,
+                      ),
+                    ),
+                  )
+                else
+                  LoginLink(
+                    onTap: () {
+                      // Route to login while preserving the currently selected role.
+                      // If a dedicated login callback is provided, use it.
+                      if (widget.onLogin != null) {
+                        widget.onLogin!(_selectedRole);
+                        return;
+                      }
+                      widget.onSelectRole(_selectedRole);
+                    },
+                  ),
               ],
             ),
           ),

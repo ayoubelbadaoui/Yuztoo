@@ -124,7 +124,21 @@ class _MerchantProfileFormScreenState
         user.phoneNumber ??
         firebase_auth.FirebaseAuth.instance.currentUser?.phoneNumber ??
         '';
-    String city = cachedData['city'] ?? basics?.city ?? '';
+    // Firestore signup city first — local merchant cache can hold "À compléter"
+    // and must not override the real ville from inscription.
+    String city = (basics?.city ?? '').trim();
+    if (city.isEmpty) {
+      final cityResult = await ref.read(getUserCityProvider).call(userId);
+      city = cityResult.fold((_) => '', (c) => c?.trim() ?? '');
+    }
+    if (city.isEmpty) {
+      final cc = cachedData['city']?.toString().trim() ?? '';
+      if (cc.isNotEmpty &&
+          cc.toLowerCase() != 'à compléter' &&
+          cc.toLowerCase() != 'votre ville') {
+        city = cc;
+      }
+    }
     final websiteUrl = data.websiteUrl?.trim().isEmpty == true
         ? null
         : data.websiteUrl?.trim();

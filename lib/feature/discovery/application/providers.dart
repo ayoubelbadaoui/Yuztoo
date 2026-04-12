@@ -8,19 +8,23 @@ import '../../merchant/infrastructure/merchant_repository_provider.dart';
 final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
   final userId = ref.watch(auth_providers.currentUserIdProvider);
   final repo = ref.watch(merchantRepositoryProvider);
-  final result = await repo.listMerchants(limit: 50);
-  final merchants = result.fold(
-    (failure) => <Merchant>[],
-    (list) => list,
-  );
+  if (userId == null) {
+    final result = await repo.listMerchants(limit: 50);
+    return result.fold((failure) => <Merchant>[], (list) => list);
+  }
 
-  // Show businesses from the same city as the connected user.
-  if (userId == null) return merchants;
   final cityResult = await ref.read(auth_providers.getUserCityProvider).call(userId);
   final userCity = cityResult.fold((_) => null, (c) => c?.trim());
-  if (userCity == null || userCity.isEmpty) return merchants;
-  final normalized = userCity.toLowerCase();
-  return merchants
-      .where((m) => m.city.trim().toLowerCase() == normalized)
-      .toList();
+
+  if (userCity == null || userCity.isEmpty) {
+    final result = await repo.listMerchants(limit: 50);
+    return result.fold((failure) => <Merchant>[], (list) => list);
+  }
+
+  final result = await repo.listMerchants(
+    limit: 50,
+    cityFilter: userCity,
+    cityFetchCap: 600,
+  );
+  return result.fold((failure) => <Merchant>[], (list) => list);
 });

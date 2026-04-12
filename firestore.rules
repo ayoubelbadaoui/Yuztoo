@@ -43,11 +43,14 @@ service cloud.firestore {
     }
 
     function onboardingShapeValid() {
+      let o = request.resource.data.onboarding;
       return ('onboarding' in request.resource.data)
-        && request.resource.data.onboarding is map
-        && request.resource.data.onboarding.keys().hasOnly(['merchant'])
-        && request.resource.data.onboarding.merchant is string
-        && request.resource.data.onboarding.merchant in ['not_started', 'completed'];
+        && o is map
+        && o.keys().hasOnly(['merchant', 'client'])
+        && (!('merchant' in o)
+          || (o.merchant is string && o.merchant in ['not_started', 'completed']))
+        && (!('client' in o)
+          || (o.client is string && o.client in ['not_started', 'completed']));
     }
 
     // --- /phone_index/{phone} --- E.164 id (same string as users.phone); blocks duplicate phones across UIDs.
@@ -61,6 +64,20 @@ service cloud.firestore {
         && request.resource.data.uid is string
         && request.resource.data.uid == request.auth.uid
         && !exists(/databases/$(database)/documents/phone_index/$(phone));
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // --- /email_index/{email} --- Lowercased email as doc id; blocks duplicate emails across roles (client/merchant).
+    // Same pattern as phone_index: public get so signup can check existence before OTP; list denied.
+    match /email_index/{email} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid is string
+        && request.resource.data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/email_index/$(email));
       allow update: if false;
       allow delete: if false;
     }

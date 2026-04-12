@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../auth/core/application/providers.dart' as auth_providers;
 import '../../../auth/core/application/state/auth_state.dart';
+import '../../../auth/core/presentation/user_display_helpers.dart';
+import '../../../storefront/application/providers.dart' as storefront_providers;
 
 /// Profile avatar (gold-bordered circle) + personal user info text.
 /// Loads personal user data from Firestore (email, phone, city, displayName).
@@ -177,7 +179,10 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
     }
 
     final userId = authState.user.id;
-    
+
+    // Commerce profile (merchants): fallback city when `users.city` not backfilled yet.
+    final storefrontAsync = ref.watch(storefront_providers.storefrontProvider);
+
     // Load user profile basics from Firestore (email, phone, city)
     final profileBasicsAsync = ref.watch(
       auth_providers.userProfileBasicsProvider(userId),
@@ -280,7 +285,11 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
                 final phone = profileBasics?.phone ?? 
                             authState.user.phoneNumber ?? 
                             '';
-                final city = profileBasics?.city ?? '';
+                final city = resolveCityForProfile(
+                  profileBasics,
+                  isMerchant: authState.user.isMerchant,
+                  storefront: storefrontAsync.valueOrNull,
+                );
                 // Note: Address is NOT shown here - that's business info, not personal
 
                 return Column(

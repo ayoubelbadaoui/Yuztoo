@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../infrastructure/storage_repository_provider.dart';
 import 'use_cases/upload_banner.dart';
+import 'use_cases/upload_client_avatar.dart';
 import 'use_cases/upload_logo.dart';
 import 'use_cases/upload_news_image.dart';
 
@@ -21,4 +22,10 @@ final uploadBannerProvider = Provider<UploadBanner>((ref) {
 final uploadNewsImageProvider = Provider<UploadNewsImage>((ref) {
   final repository = ref.watch(storageRepositoryProvider);
   return UploadNewsImage(repository);
+});
+
+/// Provider for client profile avatar upload.
+final uploadClientAvatarProvider = Provider<UploadClientAvatar>((ref) {
+  final repository = ref.watch(storageRepositoryProvider);
+  return UploadClientAvatar(repository);
 });

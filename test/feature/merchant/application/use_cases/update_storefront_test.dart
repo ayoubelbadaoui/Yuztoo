@@ -53,7 +53,12 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
   Future<Result<Merchant?>> getMerchantById(String merchantId) async => const Right(null);
 
   @override
-  Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async => const Right([]);
+  Future<Result<List<Merchant>>> listMerchants({
+    int limit = 20,
+    String? cityFilter,
+    int cityFetchCap = 500,
+  }) async =>
+      const Right([]);
 
   @override
   Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async => const Right([]);
@@ -74,6 +79,7 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
     String? logoUrl,
     String? phone,
     String? address,
+    String? city,
     String? websiteUrl,
     String? bannerUrl,
     List<String>? newsImageUrls,
@@ -81,6 +87,7 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool clearCityField = false,
   }) async {
     lastMerchantId = merchantId;
     lastLogoUrl = logoUrl;

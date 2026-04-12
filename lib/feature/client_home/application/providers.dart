@@ -49,7 +49,8 @@ final followersCountByMerchantIdsProvider =
   return result.fold((_) => const <String, int>{}, (map) => map);
 });
 
-/// Single load for Accueil: merchants + promotions together (parallel promo fetches).
+/// Single load for Accueil: **followed merchants only** (carnet) + their promotions.
+/// City-based discovery belongs on Découvrir, not Accueil.
 /// Avoids duplicate [getFollowedIds] calls and sequential provider chains.
 typedef ClientHomeFeed = ({
   List<Merchant> merchants,

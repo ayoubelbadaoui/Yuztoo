@@ -90,13 +90,25 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 class _FakeUserRepository implements UserRepository {
-  _FakeUserRepository({this.phoneRegistered = false});
+  _FakeUserRepository({
+    this.phoneRegistered = false,
+    this.emailRegistered = false,
+    this.phoneCheckFailure,
+  });
 
   final bool phoneRegistered;
+  final bool emailRegistered;
+  final AuthFailure? phoneCheckFailure;
 
   @override
   Future<Result<bool>> isPhoneNumberRegistered(String phone) async =>
-      Right<AuthFailure, bool>(phoneRegistered);
+      phoneCheckFailure != null
+          ? Left<AuthFailure, bool>(phoneCheckFailure!)
+          : Right<AuthFailure, bool>(phoneRegistered);
+
+  @override
+  Future<Result<bool>> isEmailRegistered(String email) async =>
+      Right<AuthFailure, bool>(emailRegistered);
 
   @override
   Future<Result<Unit>> createUserDocument({
@@ -125,6 +137,18 @@ class _FakeUserRepository implements UserRepository {
 
   @override
   Future<Result<bool?>> isMerchantOnboardingCompleted(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<bool?>> isClientOnboardingCompleted(String uid) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<Unit>> completeClientProfile({
+    required String uid,
+    required String displayName,
+    String? photoUrl,
+  }) =>
       throw UnimplementedError();
 
   @override
@@ -308,6 +332,127 @@ void main() {
 
       expect(find.text('OTP'), findsNothing);
       expect(find.byType(OTPScreen), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Signup does not navigate to OTP when email is already registered',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+            userRepositoryProvider.overrideWithValue(
+              _FakeUserRepository(emailRegistered: true),
+            ),
+          ],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => SignupScreen(
+                role: UserRole.client,
+                onBack: () {},
+                onNavigateToOtp: (_) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const Scaffold(body: Text('OTP')),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'taken@example.com');
+      await tester.enterText(fields.at(1), 'Password1');
+      await tester.enterText(fields.at(2), 'Password1');
+      final phoneField = find.descendant(
+        of: find.byType(PhoneField),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(phoneField, '612345678');
+
+      final cityField = find.text('Sélectionnez votre ville');
+      await tester.scrollUntilVisible(
+        cityField,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(cityField);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paris'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Créer un compte'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('OTP'), findsNothing);
+      expect(find.byType(OTPScreen), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Signup blocks when duplicate check fails even without mapped message',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+            userRepositoryProvider.overrideWithValue(
+              _FakeUserRepository(
+                phoneCheckFailure: const AuthUnexpectedFailure(
+                  message: 'verification backend unavailable',
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => SignupScreen(
+                role: UserRole.client,
+                onBack: () {},
+                onNavigateToOtp: (_) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const Scaffold(body: Text('OTP')),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'new@example.com');
+      await tester.enterText(fields.at(1), 'Password1');
+      await tester.enterText(fields.at(2), 'Password1');
+      final phoneField = find.descendant(
+        of: find.byType(PhoneField),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(phoneField, '612345678');
+
+      final cityField = find.text('Sélectionnez votre ville');
+      await tester.scrollUntilVisible(
+        cityField,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(cityField);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paris'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Créer un compte'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('OTP'), findsNothing);
+      expect(find.byType(OTPScreen), findsNothing);
+      expect(find.text('verification backend unavailable'), findsOneWidget);
     },
   );
 }

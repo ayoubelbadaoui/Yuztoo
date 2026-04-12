@@ -248,7 +248,11 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     setState(() => _isVerifying = true);
 
     try {
-      // Verify OTP and create user with phone + email/password
+      // Re-check duplicates here too. This prevents a transient Firebase Auth
+      // sign-in for an existing account from bouncing the shell before we can
+      // reject the signup attempt.
+      final verifyEmail = ref.read(verifyEmailAvailableForSignupProvider);
+      final verifyPhone = ref.read(verifyPhoneAvailableForSignupProvider);
       final verifyPhoneAndCreateUserUseCase =
           ref.read(verifyPhoneAndCreateUserProvider);
       final createUserDocUseCase = ref.read(createUserDocumentProvider);
@@ -260,6 +264,56 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
       final phone = widget.phone;
       final city = widget.city;
       final signupRole = widget.role;
+
+      final emailCheck = await verifyEmail.call(email: email);
+      var emailBlocked = false;
+      final emailError = emailCheck.fold<String?>(
+        (failure) {
+          emailBlocked = true;
+          return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
+        },
+        (_) => null,
+      );
+      if (emailBlocked) {
+        if (mounted) {
+          showErrorSnackbar(
+            context,
+            (emailError == null || emailError.isEmpty)
+                ? 'Impossible de vérifier l\'adresse email.'
+                : emailError,
+          );
+          for (final controller in _controllers) {
+            controller.clear();
+          }
+          _focusNodes[0].requestFocus();
+        }
+        return;
+      }
+
+      final phoneCheck = await verifyPhone.call(phoneNumber: phone);
+      var phoneBlocked = false;
+      final phoneError = phoneCheck.fold<String?>(
+        (failure) {
+          phoneBlocked = true;
+          return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
+        },
+        (_) => null,
+      );
+      if (phoneBlocked) {
+        if (mounted) {
+          showErrorSnackbar(
+            context,
+            (phoneError == null || phoneError.isEmpty)
+                ? 'Impossible de vérifier le numéro de téléphone.'
+                : phoneError,
+          );
+          for (final controller in _controllers) {
+            controller.clear();
+          }
+          _focusNodes[0].requestFocus();
+        }
+        return;
+      }
 
       final verifyResult = await verifyPhoneAndCreateUserUseCase.call(
         verificationId: widget.verificationId!,
@@ -358,6 +412,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
         if (mounted) {
           showSuccessSnackbar(context, 'Inscription réussie!');
         }
+
+        // Auth often emits before Firestore `createUserDocument` finishes; refresh so
+        // [main] re-runs routing and shows client onboarding (same idea as merchant gate).
+        await ref.read(auth_core.authControllerProvider.notifier).refreshAuthState();
       },
     );
   }

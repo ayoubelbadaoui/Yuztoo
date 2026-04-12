@@ -43,11 +43,18 @@ abstract class MerchantRepository {
   Future<Result<Merchant?>> getMerchantById(String merchantId);
 
   /// List merchants for client home / discovery (e.g. "Mon carnet").
-  /// 
+  ///
   /// [limit] - Max number of merchants to return (default 20)
-  /// 
+  /// [cityFilter] - When non-empty, only merchants in this city (case-insensitive),
+  ///   scanned from up to [cityFetchCap] most recently updated documents so
+  ///   commerces that just set their city still appear for matching clients.
+  ///
   /// Returns Result<List<Merchant>> - List of merchants, ordered by updated_at descending
-  Future<Result<List<Merchant>>> listMerchants({int limit = 20});
+  Future<Result<List<Merchant>>> listMerchants({
+    int limit = 20,
+    String? cityFilter,
+    int cityFetchCap = 500,
+  });
 
   /// List merchants by their document IDs (e.g. for followed merchants).
   /// 
@@ -90,6 +97,7 @@ abstract class MerchantRepository {
   /// [hours] - Business hours map (optional)
   /// [rappelsAutoClientValidation] - Rappels: auto-validate new clients (optional)
   /// [rappelsAutoPassageValidation] - Rappels: auto-validate passage (optional)
+  /// [clearCityField] - When true and [city] is null, removes `city` on the merchant (and syncs user doc).
   ///
   /// Returns Result<Merchant> on success, Result with failure on error
   Future<Result<Merchant>> updateMerchant({
@@ -100,6 +108,7 @@ abstract class MerchantRepository {
     String? logoUrl,
     String? phone,
     String? address,
+    String? city,
     String? websiteUrl,
     String? bannerUrl,
     List<String>? newsImageUrls,
@@ -107,6 +116,7 @@ abstract class MerchantRepository {
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool clearCityField = false,
   });
 }
 

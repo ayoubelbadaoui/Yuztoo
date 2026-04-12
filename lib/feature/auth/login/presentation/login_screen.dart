@@ -593,6 +593,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 hint: '••••••••',
                                 icon: Icons.lock_outline,
                                 obscure: !_isPasswordVisible,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                                ],
                                 validator: _validatePassword,
                                 enabled: !isLoading,
                                 textInputAction: TextInputAction.done,

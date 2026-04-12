@@ -68,12 +68,23 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
                           final newList = [...current, city];
                           final setCities =
                               ref.read(auth_providers.setConnectedCitiesProvider);
-                          await setCities.call(uid: uid, cities: newList);
-                          if (mounted) {
-                            ref.invalidate(
-                              auth_providers.connectedCitiesProvider(uid),
-                            );
-                          }
+                          final result =
+                              await setCities.call(uid: uid, cities: newList);
+                          if (!context.mounted) return;
+                          result.fold(
+                            (failure) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(failure.message),
+                                ),
+                              );
+                            },
+                            (_) {
+                              ref.invalidate(
+                                auth_providers.connectedCitiesProvider(uid),
+                              );
+                            },
+                          );
                         },
                       );
                     },

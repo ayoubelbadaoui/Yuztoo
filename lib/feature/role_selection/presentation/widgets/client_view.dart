@@ -9,10 +9,12 @@ class ClientView extends StatefulWidget {
     super.key,
     required this.isScanning,
     required this.onScan,
+    required this.onCreateAccount,
   });
 
   final bool isScanning;
   final VoidCallback onScan;
+  final VoidCallback onCreateAccount;
 
   @override
   State<ClientView> createState() => _ClientViewState();
@@ -167,71 +169,116 @@ class _ClientViewState extends State<ClientView>
           ),
           const SizedBox(height: 12),
 
-          // Scan Button - more compact
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: double.infinity,
-            height: 48,
-            decoration: widget.isScanning
-                ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: RoleSelectionColors.primaryGold.withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        spreadRadius: 2,
+          // Start scan + Créer un compte (side by side)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 48,
+                  decoration: widget.isScanning
+                      ? BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: RoleSelectionColors.primaryGold
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        )
+                      : null,
+                  child: ElevatedButton(
+                    onPressed: widget.isScanning ? null : widget.onScan,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: RoleSelectionColors.primaryGold,
+                      disabledBackgroundColor: RoleSelectionColors.primaryGold
+                          .withValues(alpha: 0.75),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
-                  )
-                : null,
-            child: ElevatedButton(
-              onPressed: widget.isScanning ? null : widget.onScan,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: RoleSelectionColors.primaryGold,
-                disabledBackgroundColor:
-                    RoleSelectionColors.primaryGold.withValues(alpha: 0.75),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                shadowColor: RoleSelectionColors.primaryGold.withValues(alpha: 0.2),
-                elevation: widget.isScanning ? 8 : 6,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.isScanning)
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          RoleSelectionColors.bgDark1,
-                        ),
-                      ),
-                    )
-                  else
-                    const Icon(
-                      Icons.qr_code_scanner_rounded,
-                      color: RoleSelectionColors.bgDark1,
-                      size: 20,
+                      shadowColor: RoleSelectionColors.primaryGold
+                          .withValues(alpha: 0.2),
+                      elevation: widget.isScanning ? 8 : 6,
                     ),
-                  const SizedBox(width: 10),
-                  Text(
-                    widget.isScanning
-                        ? AppLocalizations.of(context)!.scanning
-                        : AppLocalizations.of(context)!.startScan,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: RoleSelectionColors.bgDark1,
-                      letterSpacing: 0.3,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.isScanning)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                RoleSelectionColors.bgDark1,
+                              ),
+                            ),
+                          )
+                        else
+                          const Icon(
+                            Icons.qr_code_scanner_rounded,
+                            color: RoleSelectionColors.bgDark1,
+                            size: 20,
+                          ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            widget.isScanning
+                                ? AppLocalizations.of(context)!.scanning
+                                : AppLocalizations.of(context)!.startScan,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: RoleSelectionColors.bgDark1,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: widget.onCreateAccount,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      side: const BorderSide(
+                        color: RoleSelectionColors.primaryGold,
+                        width: 1.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Créer un compte',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: RoleSelectionColors.primaryGold,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

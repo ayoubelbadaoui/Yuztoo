@@ -7,6 +7,7 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/core/presentation/user_display_helpers.dart';
+import '../../storefront/application/providers.dart' as storefront_providers;
 
 class PersonalInformationScreen extends ConsumerWidget {
   const PersonalInformationScreen({super.key});
@@ -18,11 +19,21 @@ class PersonalInformationScreen extends ConsumerWidget {
     final basics = user == null
         ? null
         : ref.watch(userProfileBasicsProvider(user.id)).valueOrNull;
+    final storefront = user == null
+        ? null
+        : ref.watch(storefront_providers.storefrontProvider).valueOrNull;
 
     final fullName = user == null ? 'Utilisateur' : resolveDisplayName(user, basics);
     final email = user == null ? '—' : resolveEmail(user, basics);
     final phone = user == null ? '—' : resolvePhone(user, basics);
-    final city = basics?.city.trim().isNotEmpty == true ? basics!.city : '—';
+    final cityRaw = user == null
+        ? ''
+        : resolveCityForProfile(
+            basics,
+            isMerchant: user.isMerchant,
+            storefront: storefront,
+          );
+    final city = cityRaw.isNotEmpty ? cityRaw : '—';
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(

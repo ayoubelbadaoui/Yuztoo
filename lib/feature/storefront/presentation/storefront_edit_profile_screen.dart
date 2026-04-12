@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/utils/city_input.dart';
 import '../application/profile_edit_state.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
@@ -24,6 +25,7 @@ class _StorefrontEditProfileScreenState
   final _phoneCtrl = TextEditingController();
   final _webCtrl = TextEditingController();
   final _addrCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
   final _picker = ImagePicker();
 
   bool _controllersInitialized = false;
@@ -37,6 +39,7 @@ class _StorefrontEditProfileScreenState
     _phoneCtrl.dispose();
     _webCtrl.dispose();
     _addrCtrl.dispose();
+    _cityCtrl.dispose();
     super.dispose();
   }
 
@@ -48,6 +51,7 @@ class _StorefrontEditProfileScreenState
       if (_phoneCtrl.text != s.phoneNumber) _phoneCtrl.text = s.phoneNumber;
       if (_webCtrl.text != s.websiteUrl) _webCtrl.text = s.websiteUrl;
       if (_addrCtrl.text != s.address) _addrCtrl.text = s.address;
+      if (_cityCtrl.text != s.city) _cityCtrl.text = s.city;
       _controllersInitialized = true;
     } catch (e) {
       // If setting text fails, use safe fallbacks
@@ -58,6 +62,7 @@ class _StorefrontEditProfileScreenState
           _phoneCtrl.text = s.phoneNumber.isNotEmpty ? s.phoneNumber : '';
           _webCtrl.text = s.websiteUrl.isNotEmpty ? s.websiteUrl : '';
           _addrCtrl.text = s.address.isNotEmpty ? s.address : '';
+          _cityCtrl.text = s.city.isNotEmpty ? s.city : '';
           _controllersInitialized = true;
         } catch (_) {
           // Final fallback - set empty strings
@@ -66,6 +71,7 @@ class _StorefrontEditProfileScreenState
           _phoneCtrl.text = '';
           _webCtrl.text = '';
           _addrCtrl.text = '';
+          _cityCtrl.text = '';
           _controllersInitialized = true;
         }
       }
@@ -139,13 +145,14 @@ class _StorefrontEditProfileScreenState
 
   /// Check if a field value is incomplete (empty or placeholder)
   bool _isFieldIncomplete(String? value) {
-    if (value == null || value.trim().isEmpty) return true;
+    if (value == null) return true;
     final trimmed = value.trim();
+    if (trimmed.isEmpty || CityInput.isPlaceholder(trimmed)) return true;
     return trimmed == 'Décrivez votre activité en quelques lignes.' ||
-           trimmed == '+33 6 12 34 56 78' ||
-           trimmed == 'www.votresite.com' ||
-           trimmed == 'Votre adresse' ||
-           trimmed == 'Nom du commerce';
+        trimmed == '+33 6 12 34 56 78' ||
+        trimmed == 'www.votresite.com' ||
+        trimmed == 'Votre adresse' ||
+        trimmed == 'Nom du commerce';
   }
 
   /// Show help dialog (DDD: presentation layer)
@@ -261,6 +268,13 @@ class _StorefrontEditProfileScreenState
               onPressed: state.isSaving
                   ? null
                   : () async {
+                      // Flush latest text fields into state so Ville (and others) reach Firestore.
+                      notifier.setBusinessName(_nameCtrl.text);
+                      notifier.setDescription(_descCtrl.text);
+                      notifier.setPhoneNumber(_phoneCtrl.text);
+                      notifier.setCity(_cityCtrl.text);
+                      notifier.setWebsiteUrl(_webCtrl.text);
+                      notifier.setAddress(_addrCtrl.text);
                       await notifier.save();
                       if (!context.mounted) return;
                       
@@ -459,6 +473,18 @@ class _StorefrontEditProfileScreenState
                 isRequired: true,
                 isIncomplete: _isFieldIncomplete(state.phoneNumber),
                 helpText: 'Votre numéro de téléphone est requis. Les clients pourront vous contacter directement.',
+                onShowHelp: _showHelpDialog,
+              ),
+              const SizedBox(height: 14),
+              _Field(
+                label: 'Ville',
+                controller: _cityCtrl,
+                keyboardType: TextInputType.text,
+                prefixIcon: Icons.location_city,
+                onChanged: notifier.setCity,
+                isRequired: true,
+                isIncomplete: _isFieldIncomplete(state.city),
+                helpText: 'La ville de votre commerce. Cela permet aux clients de vous trouver facilement.',
                 onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 14),

@@ -21,6 +21,7 @@ import 'feature/role_selection/presentation/role_selection_screen.dart';
 import 'feature/auth/login/presentation/login_screen.dart';
 import 'feature/auth/signup/presentation/signup_screen.dart';
 import 'feature/auth/signup/presentation/otp_screen.dart';
+import 'feature/client_onboarding/presentation/client_onboarding_screen.dart';
 import 'feature/client_home/presentation/client_home_screen.dart';
 import 'feature/discovery/presentation/discovery_screen.dart';
 import 'feature/qr_scanner/presentation/qr_scanner_screen.dart';
@@ -177,6 +178,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       ScreenId.login,
       ScreenId.signup,
       ScreenId.otp,
+      ScreenId.clientOnboarding,
       ScreenId.merchantOnboarding,
       ScreenId.merchantSubcategorySelection,
       ScreenId.merchantBenefits,
@@ -271,8 +273,12 @@ class _RootShellState extends ConsumerState<_RootShell>
 
       if (authState is Unauthenticated) {
         unawaited(_clearAuthTransientDrafts());
-        // Reset navigation flag
-        _isNavigatingToHome = false;
+        // While splash + post-signup routing is in progress, do not clear the flag:
+        // a brief Unauthenticated tick would otherwise send the user to role selection
+        // instead of client onboarding.
+        if (!(_authScreen == ScreenId.splash && _isNavigatingToHome)) {
+          _isNavigatingToHome = false;
+        }
 
         // On first auth state, if unauthenticated, go to role selection
         // But if we're already on a home screen (shouldn't happen, but safety check), don't navigate
@@ -282,7 +288,8 @@ class _RootShellState extends ConsumerState<_RootShell>
             _authScreen == ScreenId.merchantStorefront;
         final inAuthFlow = _authScreen == ScreenId.login ||
             _authScreen == ScreenId.signup ||
-            _authScreen == ScreenId.otp;
+            _authScreen == ScreenId.otp ||
+            (_authScreen == ScreenId.splash && _isNavigatingToHome);
 
         // Don't navigate if we're in the middle of navigating to home (prevents logout during login)
         if (!onHomeScreen && !inAuthFlow && !_isNavigatingToHome) {
@@ -414,7 +421,14 @@ class _RootShellState extends ConsumerState<_RootShell>
       // Determine target screen based strictly on Firestore role + onboarding.
       ScreenId targetScreen;
       if (role == UserRole.client) {
-        targetScreen = ScreenId.clientHome;
+        final clientOnboardingDone =
+            await clientOnboardingCompletedFromFirestore(
+          ref.read(userRepositoryProvider),
+          user.id,
+        );
+        targetScreen = clientOnboardingDone
+            ? ScreenId.clientHome
+            : ScreenId.clientOnboarding;
       } else {
         // Merchant gate: no dashboard access until onboarding is completed.
         final onboardingCompleted =
@@ -694,6 +708,10 @@ class _RootShellState extends ConsumerState<_RootShell>
       // Merchant onboarding is mandatory: do not allow back-navigation bypass.
       return;
     }
+    if (currentScreen == ScreenId.clientOnboarding) {
+      // Client profile onboarding is mandatory until completed.
+      return;
+    }
 
     // 3) Merchant tab screens – go back to vitrine root unless already there.
     if (_role == UserRole.merchant &&
@@ -786,6 +804,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         currentScreen == ScreenId.login ||
         currentScreen == ScreenId.signup ||
         currentScreen == ScreenId.otp ||
+        currentScreen == ScreenId.clientOnboarding ||
         currentScreen == ScreenId.merchantProfileForm ||
         currentScreen == ScreenId.merchantOnboarding ||
         currentScreen == ScreenId.merchantSubcategorySelection ||
@@ -890,6 +909,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                       currentScreen == ScreenId.login ||
                       currentScreen == ScreenId.signup ||
                       currentScreen == ScreenId.otp ||
+                      currentScreen == ScreenId.clientOnboarding ||
                       currentScreen == ScreenId.merchantProfileForm ||
                       currentScreen == ScreenId.merchantOnboarding ||
                       currentScreen == ScreenId.merchantSubcategorySelection ||
@@ -973,6 +993,14 @@ class _RootShellState extends ConsumerState<_RootShell>
             });
             ref.read(roleCacheServiceProvider).saveLastSelectedRole(role);
           },
+          onSignup: (UserRole role) {
+            // Navigate directly to signup screen from role selection.
+            setState(() {
+              _role = role;
+              _authScreen = ScreenId.signup;
+            });
+            ref.read(roleCacheServiceProvider).saveLastSelectedRole(role);
+          },
         );
       case ScreenId.merchantOnboarding:
         return MerchantOnboardingScreen(
@@ -1036,6 +1064,15 @@ class _RootShellState extends ConsumerState<_RootShell>
           onResend: () {
             // VerificationId will be updated by OTP screen if resend succeeds
             // This callback can be used for any additional logic if needed
+          },
+        );
+      case ScreenId.clientOnboarding:
+        return ClientOnboardingScreen(
+          onComplete: () {
+            setState(() {
+              _authScreen = ScreenId.clientHome;
+              _activeTab = 'home';
+            });
           },
         );
       case ScreenId.clientHome:

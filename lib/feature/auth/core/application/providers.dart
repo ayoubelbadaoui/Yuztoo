@@ -30,6 +30,7 @@ export '../infrastructure/auth_repository_provider.dart' show authRepositoryProv
 // Export navigation state provider
 export 'navigation_state_provider.dart' show navigationStateProvider, NavigationState, NavigationLoading, NavigationUnauthenticated, NavigationAuthenticated, NavigationError;
 
+export 'client_onboarding_routing.dart' show clientOnboardingCompletedFromFirestore;
 export 'merchant_onboarding_routing.dart' show merchantOnboardingCompletedFromFirestore;
 
 final signOutProvider = Provider<SignOut>((ref) {

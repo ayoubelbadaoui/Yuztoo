@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/city_input.dart';
 import '../domain/entities/storefront.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../auth/core/application/providers.dart' as auth_providers;
@@ -17,6 +18,7 @@ class StorefrontProfileEditState {
     required this.phoneNumber,
     required this.websiteUrl,
     required this.address,
+    required this.city,
     this.isSaving = false,
     this.errorMessage,
   });
@@ -29,6 +31,7 @@ class StorefrontProfileEditState {
   final String phoneNumber;
   final String websiteUrl;
   final String address;
+  final String city;
   final bool isSaving;
   final String? errorMessage;
 
@@ -41,6 +44,7 @@ class StorefrontProfileEditState {
     String? phoneNumber,
     String? websiteUrl,
     String? address,
+    String? city,
     bool? isSaving,
     String? errorMessage,
   }) {
@@ -53,6 +57,7 @@ class StorefrontProfileEditState {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       address: address ?? this.address,
+      city: city ?? this.city,
       isSaving: isSaving ?? this.isSaving,
       errorMessage: errorMessage,
     );
@@ -72,6 +77,7 @@ class StorefrontProfileEditNotifier
             phoneNumber: '',
             websiteUrl: '',
             address: '',
+            city: '',
           ),
         );
 
@@ -92,6 +98,7 @@ class StorefrontProfileEditNotifier
           final cachedDescription = cachedData['description']?.toString().trim() ?? '';
           final cachedPhone = cachedData['phone']?.toString().trim() ?? '';
           final cachedAddress = cachedData['address']?.toString().trim() ?? '';
+          final cachedCity = cachedData['city']?.toString().trim() ?? '';
           final cachedWebsiteUrl = cachedData['websiteUrl']?.toString().trim() ?? '';
           final cachedBannerPath = cachedData['bannerImagePath']?.toString().trim();
           final cachedProfilePath = cachedData['profileImagePath']?.toString().trim();
@@ -123,6 +130,11 @@ class StorefrontProfileEditNotifier
             address: cachedAddress.isNotEmpty 
                 ? cachedAddress
                 : (state.address.isEmpty ? 'Votre adresse' : state.address),
+            city: CityInput.forEditField(
+              cachedCity.isNotEmpty
+                  ? cachedCity
+                  : storefront.city,
+            ),
           );
           return;
         }
@@ -144,6 +156,7 @@ class StorefrontProfileEditNotifier
       phoneNumber: (storefront.phone ?? state.phoneNumber).trim().isEmpty ? '+33 6 12 34 56 78' : (storefront.phone ?? state.phoneNumber),
       websiteUrl: (storefront.websiteUrl ?? state.websiteUrl).trim().isEmpty ? 'www.votresite.com' : (storefront.websiteUrl ?? state.websiteUrl),
       address: (storefront.address ?? state.address).trim().isEmpty ? 'Votre adresse' : (storefront.address ?? state.address),
+      city: CityInput.forEditField(storefront.city),
     );
   }
 
@@ -153,6 +166,7 @@ class StorefrontProfileEditNotifier
   void setPhoneNumber(String v) => state = state.copyWith(phoneNumber: v);
   void setWebsiteUrl(String v) => state = state.copyWith(websiteUrl: v);
   void setAddress(String v) => state = state.copyWith(address: v);
+  void setCity(String v) => state = state.copyWith(city: v);
 
   void setBannerImageUrl(String v) => state = state.copyWith(bannerImageUrl: v);
   void setProfileImageUrl(String v) => state = state.copyWith(profileImageUrl: v);
@@ -209,6 +223,7 @@ class StorefrontProfileEditNotifier
       final address = state.address.trim().isNotEmpty
           ? state.address.trim()
           : null;
+      final city = CityInput.forFirestore(state.city);
       final websiteUrl = state.websiteUrl.trim().isNotEmpty
           ? state.websiteUrl.trim()
           : null;
@@ -224,7 +239,9 @@ class StorefrontProfileEditNotifier
         bannerFilePath: bannerFilePath,
         phone: phone,
         address: address,
+        city: city,
         websiteUrl: websiteUrl,
+        clearMerchantCityField: city == null,
       );
 
       result.fold(
@@ -292,7 +309,10 @@ class StorefrontProfileEditNotifier
         phone: state.phoneNumber.trim().isNotEmpty 
             ? state.phoneNumber.trim() 
             : (existingCache['phone'] ?? '+33123456789'),
-        city: existingCache['city'] ?? 'Paris',
+        city: CityInput.forFirestore(state.city) ??
+            (CityInput.isPlaceholder(existingCache['city']?.toString())
+                ? ''
+                : (existingCache['city']?.toString().trim() ?? '')),
         address: state.address.trim().isNotEmpty ? state.address.trim() : null,
         category: state.category.trim().isNotEmpty ? state.category.trim() : null,
         description: description,

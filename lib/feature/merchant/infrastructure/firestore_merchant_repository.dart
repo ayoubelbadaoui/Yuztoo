@@ -5,8 +5,11 @@ import '../domain/merchant_failure.dart';
 import '../domain/repositories/merchant_repository.dart';
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/infrastructure/firestore_user_rules_patch.dart';
 import '../../../../core/infrastructure/logger_service.dart';
+import '../../../../core/utils/city_input.dart';
 import 'dto/merchant_dto.dart';
+import 'merchant_city_resolution.dart';
 
 /// Firebase Firestore implementation of MerchantRepository.
 class FirestoreMerchantRepository implements MerchantRepository {
@@ -56,15 +59,6 @@ class FirestoreMerchantRepository implements MerchantRepository {
     required Merchant merchant,
     required String userId,
   }) async {
-    // Validate merchant data
-    if (!merchant.isValid()) {
-      return const Left<MerchantFailure, Merchant>(
-        MerchantUnexpectedFailure(
-          message: 'Unable to create merchant / Impossible de créer le profil commerçant',
-        ),
-      );
-    }
-
     // MVP: Use userId as merchantId (one merchant per user)
     // This ensures merchantId == user.uid for MVP
     final merchantId = merchant.id.isEmpty
@@ -72,19 +66,38 @@ class FirestoreMerchantRepository implements MerchantRepository {
         : merchant.id;
 
     try {
+      // Recover ville d'inscription from /users if onboarding sent a placeholder.
+      final userSnap =
+          await _firestore.collection('users').doc(userId).get();
+      final signupCity =
+          (userSnap.data()?['city'] as String?)?.trim() ?? '';
+
+      var merchantToCreate = merchant.copyWith(id: merchantId);
+      final resolvedCity = resolveMerchantCityForCreation(
+        incomingMerchantCity: merchantToCreate.city,
+        signupCityFromUserDoc: signupCity,
+      );
+      merchantToCreate = merchantToCreate.copyWith(city: resolvedCity);
+
+      if (!merchantToCreate.isValid()) {
+        return const Left<MerchantFailure, Merchant>(
+          MerchantUnexpectedFailure(
+            message: 'Unable to create merchant / Impossible de créer le profil commerçant',
+          ),
+        );
+      }
+
       // Create batch write for atomic operation
       final batch = _firestore.batch();
 
       // Create merchant document
       final merchantRef = _firestore.collection('merchants').doc(merchantId);
-      final merchantDto = MerchantDto.fromDomain(
-        merchant.copyWith(id: merchantId),
-      );
+      final merchantDto = MerchantDto.fromDomain(merchantToCreate);
       batch.set(merchantRef, merchantDto.toFirestore(), SetOptions(merge: false));
 
       // Update user document with merchant_id and merchant role flags
       final userRef = _firestore.collection('users').doc(userId);
-      batch.set(userRef, {
+      final userPayload = <String, dynamic>{
         'merchant_id': merchantId,
         'onboarding': {
           'merchant': 'completed',
@@ -96,7 +109,14 @@ class FirestoreMerchantRepository implements MerchantRepository {
           'provider': true,
         },
         'updated_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+      // Keep signup city on the user doc in sync with the commerce (préférences compte).
+      final trimmedCity = merchantToCreate.city.trim();
+      if (trimmedCity.isNotEmpty &&
+          trimmedCity.toLowerCase() != 'à compléter') {
+        userPayload['city'] = trimmedCity;
+      }
+      batch.set(userRef, userPayload, SetOptions(merge: true));
 
       // Commit batch write atomically
       await batch.commit();
@@ -298,7 +318,9 @@ class FirestoreMerchantRepository implements MerchantRepository {
       final batch = _firestore.batch();
       final userRef = _firestore.collection('users').doc(userId);
       
-      batch.update(userRef, {
+      final merchantCity =
+          (merchantData?['city'] as String?)?.trim() ?? '';
+      final linkUpdate = <String, dynamic>{
         'merchant_id': merchantId,
         'onboarding': {
           'merchant': 'completed',
@@ -309,7 +331,12 @@ class FirestoreMerchantRepository implements MerchantRepository {
           'provider': true,
         },
         'updated_at': FieldValue.serverTimestamp(),
-      });
+      };
+      if (merchantCity.isNotEmpty &&
+          merchantCity.toLowerCase() != 'à compléter') {
+        linkUpdate['city'] = merchantCity;
+      }
+      batch.update(userRef, linkUpdate);
 
       await batch.commit();
 
@@ -367,6 +394,7 @@ class FirestoreMerchantRepository implements MerchantRepository {
     String? logoUrl,
     String? phone,
     String? address,
+    String? city,
     String? websiteUrl,
     String? bannerUrl,
     List<String>? newsImageUrls,
@@ -374,6 +402,7 @@ class FirestoreMerchantRepository implements MerchantRepository {
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool clearCityField = false,
   }) async {
     if (merchantId.isEmpty) {
       return const Left<MerchantFailure, Merchant>(
@@ -385,7 +414,16 @@ class FirestoreMerchantRepository implements MerchantRepository {
 
     try {
       final merchantRef = _firestore.collection('merchants').doc(merchantId);
-      
+      final merchantSnap = await merchantRef.get();
+      if (!merchantSnap.exists) {
+        return const Left<MerchantFailure, Merchant>(
+          MerchantUnexpectedFailure(
+            message:
+                'Profil commerçant introuvable. Terminez l\'onboarding ou contactez le support. / Merchant profile not found. Complete onboarding first.',
+          ),
+        );
+      }
+
       // Build update map with only provided fields
       final updateData = <String, dynamic>{
         'updated_at': FieldValue.serverTimestamp(),
@@ -409,6 +447,16 @@ class FirestoreMerchantRepository implements MerchantRepository {
       if (address != null) {
         updateData['address'] = address;
       }
+      final persistedCity = city != null ? CityInput.forFirestore(city) : null;
+      final removeCity = clearCityField ||
+          (city != null &&
+              persistedCity == null &&
+              CityInput.isPlaceholder(city));
+      if (persistedCity != null) {
+        updateData['city'] = persistedCity;
+      } else if (removeCity) {
+        updateData['city'] = FieldValue.delete();
+      }
       if (websiteUrl != null) {
         updateData['website_url'] = websiteUrl;
       }
@@ -431,8 +479,8 @@ class FirestoreMerchantRepository implements MerchantRepository {
         updateData['rappels_auto_passage_validation'] = rappelsAutoPassageValidation;
       }
 
-      // Update merchant document
-      await merchantRef.update(updateData);
+      // Merge partial fields (same as update; avoids update() on missing docs)
+      await merchantRef.set(updateData, SetOptions(merge: true));
 
       // Fetch updated merchant to return
       final updatedDoc = await merchantRef.get();
@@ -457,6 +505,51 @@ class FirestoreMerchantRepository implements MerchantRepository {
           'hasLogoUrl': logoUrl != null,
         },
       );
+
+      // Keep owner user doc city in sync so préférences + discovery stay aligned (MVP: merchantId == uid).
+      if (persistedCity != null && persistedCity.isNotEmpty) {
+        try {
+          final userRef = _firestore.collection('users').doc(merchantId);
+          final userSnap = await userRef.get();
+          if (userSnap.exists && userSnap.data() != null) {
+            final existing = Map<String, dynamic>.from(userSnap.data()!);
+            final userPatch = <String, dynamic>{
+              'city': persistedCity,
+              'updated_at': FieldValue.serverTimestamp(),
+            };
+            mergeUserPatchForFirestoreRules(existing, userPatch);
+            await userRef.set(userPatch, SetOptions(merge: true));
+          }
+        } catch (e, st) {
+          LoggerService.logError(
+            'Could not sync user city after storefront update (non-fatal)',
+            error: e,
+            stackTrace: st,
+            context: {'merchantId': merchantId},
+          );
+        }
+      } else if (removeCity) {
+        try {
+          final userRef = _firestore.collection('users').doc(merchantId);
+          final userSnap = await userRef.get();
+          if (userSnap.exists && userSnap.data() != null) {
+            final existing = Map<String, dynamic>.from(userSnap.data()!);
+            final userPatch = <String, dynamic>{
+              'city': FieldValue.delete(),
+              'updated_at': FieldValue.serverTimestamp(),
+            };
+            mergeUserPatchForFirestoreRules(existing, userPatch);
+            await userRef.set(userPatch, SetOptions(merge: true));
+          }
+        } catch (e, st) {
+          LoggerService.logError(
+            'Could not clear user city after storefront update (non-fatal)',
+            error: e,
+            stackTrace: st,
+            context: {'merchantId': merchantId},
+          );
+        }
+      }
 
       return Right<MerchantFailure, Merchant>(updatedMerchant);
     } on FirebaseException catch (e, st) {
@@ -502,23 +595,45 @@ class FirestoreMerchantRepository implements MerchantRepository {
   }
 
   @override
-  Future<Result<List<Merchant>>> listMerchants({int limit = 20}) async {
+  Future<Result<List<Merchant>>> listMerchants({
+    int limit = 20,
+    String? cityFilter,
+    int cityFetchCap = 500,
+  }) async {
     try {
-      // List all merchants with a recent updated_at (no status filter) so Découvrir
-      // shows newly created commerces (they were previously excluded when status was only 'inactive').
+      final trimmedFilter = cityFilter?.trim() ?? '';
+      final useCityFilter = trimmedFilter.isNotEmpty;
+      final fetchLimit =
+          useCityFilter ? cityFetchCap.clamp(limit, 1000) : limit;
+
+      // List merchants by recent activity. When filtering by city, scan a wider
+      // slice so a commerce that just set its city is not excluded by the
+      // global top-N limit.
       final querySnapshot = await _firestore
           .collection('merchants')
           .orderBy('updated_at', descending: true)
-          .limit(limit)
+          .limit(fetchLimit)
           .get();
 
-      final merchants = querySnapshot.docs
+      var merchants = querySnapshot.docs
           .map((doc) => MerchantDto.fromFirestore(doc).toDomain())
           .toList();
 
+      if (useCityFilter) {
+        final n = trimmedFilter.toLowerCase();
+        merchants = merchants
+            .where((m) => m.city.trim().toLowerCase() == n)
+            .take(limit)
+            .toList();
+      }
+
       LoggerService.logInfo(
         'List merchants for client home',
-        context: {'count': merchants.length, 'limit': limit},
+        context: {
+          'count': merchants.length,
+          'limit': limit,
+          'cityFilter': useCityFilter ? trimmedFilter : null,
+        },
       );
       return Right<MerchantFailure, List<Merchant>>(merchants);
     } on FirebaseException catch (e, st) {

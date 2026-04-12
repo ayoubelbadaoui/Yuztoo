@@ -1,16 +1,24 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../domain/auth_failure.dart';
 import '../domain/entities/user_profile_basics.dart';
 import '../domain/repositories/user_repository.dart';
 import '../../../../../core/domain/core/either.dart';
 import '../../../../../core/domain/core/result.dart';
+import '../../../../../core/infrastructure/firestore_user_rules_patch.dart';
+import '../../../../../core/utils/city_input.dart';
 import '../../../../../core/infrastructure/logger_service.dart';
 import '../../../../../types.dart';
 
 /// Thrown inside [createUserDocument] transaction when phone is taken by another uid.
 class DuplicatePhoneIndexException implements Exception {
   const DuplicatePhoneIndexException();
+}
+
+/// Thrown inside [createUserDocument] transaction when email is taken by another uid.
+class DuplicateEmailIndexException implements Exception {
+  const DuplicateEmailIndexException();
 }
 
 /// Firebase implementation of UserRepository
@@ -35,6 +43,16 @@ class FirebaseUserRepository implements UserRepository {
       );
     }
 
+    final persistedCity = CityInput.forFirestore(city);
+    if (persistedCity == null) {
+      return const Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(
+          message:
+              'La ville n\'est pas valide (libellé réservé). / Invalid city.',
+        ),
+      );
+    }
+
     final normalizedPhone = phone.trim();
     if (normalizedPhone.isEmpty) {
       return const Left<AuthFailure, Unit>(
@@ -53,10 +71,11 @@ class FirebaseUserRepository implements UserRepository {
           'phone': phone,
           'roles': roles,
           'primary_role': roles['merchant'] == true ? 'merchant' : 'client',
-          'city': city,
+          'city': persistedCity,
           'merchant_id': null,
           'onboarding': {
-            'merchant': 'not_started',
+            'merchant': roles['merchant'] == true ? 'not_started' : 'completed',
+            'client': roles['client'] == true ? 'not_started' : 'completed',
           },
           'status': 'active',
           'created_at': FieldValue.serverTimestamp(),
@@ -65,11 +84,20 @@ class FirebaseUserRepository implements UserRepository {
           'force_merchant_next_login': roles['merchant'] == true,
         };
 
+    const duplicateEmailMsg = AuthUnexpectedFailure(
+      message:
+          'Cette adresse email est déjà utilisée. Connectez-vous ou utilisez une autre adresse.',
+    );
+
+    final normalizedEmail = email.trim().toLowerCase();
+
     try {
       await _firestore.runTransaction((transaction) async {
         final userRef = _firestore.collection('users').doc(uid);
         final phoneIndexRef =
             _firestore.collection('phone_index').doc(normalizedPhone);
+        final emailIndexRef =
+            _firestore.collection('email_index').doc(normalizedEmail);
 
         final userSnap = await transaction.get(userRef);
         if (userSnap.exists) {
@@ -86,14 +114,26 @@ class FirebaseUserRepository implements UserRepository {
           transaction.set(phoneIndexRef, {'uid': uid});
         }
 
+        final emailSnap = await transaction.get(emailIndexRef);
+        if (emailSnap.exists) {
+          final existingUid = emailSnap.data()?['uid'] as String?;
+          if (existingUid != null && existingUid != uid) {
+            throw const DuplicateEmailIndexException();
+          }
+        } else {
+          transaction.set(emailIndexRef, {'uid': uid});
+        }
+
         transaction.set(userRef, userPayload(), SetOptions(merge: false));
       });
 
       LoggerService.logInfo('User document created successfully',
-          context: {'uid': uid, 'email': email, 'city': city});
+          context: {'uid': uid, 'email': email, 'city': persistedCity});
       return const Right<AuthFailure, Unit>(unit);
     } on DuplicatePhoneIndexException {
       return const Left<AuthFailure, Unit>(duplicateMsg);
+    } on DuplicateEmailIndexException {
+      return const Left<AuthFailure, Unit>(duplicateEmailMsg);
     } catch (e, st) {
       // phone_index requires matching Firestore rules; if rules are missing/outdated
       // the whole transaction fails and signup breaks. Fall back to users/ only.
@@ -112,7 +152,7 @@ class FirebaseUserRepository implements UserRepository {
           }
           await userRef.set(userPayload(), SetOptions(merge: false));
           LoggerService.logInfo('User document created (fallback without phone_index)',
-              context: {'uid': uid, 'email': email, 'city': city});
+              context: {'uid': uid, 'email': email, 'city': persistedCity});
           return const Right<AuthFailure, Unit>(unit);
         } catch (e2, st2) {
           LoggerService.logError(
@@ -143,7 +183,7 @@ class FirebaseUserRepository implements UserRepository {
         'Error creating user document',
         error: e,
         stackTrace: st,
-        context: {'uid': uid, 'email': email, 'phone': phone, 'city': city},
+        context: {'uid': uid, 'email': email, 'phone': phone, 'city': persistedCity},
       );
       return Left<AuthFailure, Unit>(
         AuthUnexpectedFailure(
@@ -295,10 +335,8 @@ class FirebaseUserRepository implements UserRepository {
       final phone = (data['phone'] as String?)?.trim() ?? '';
       final city = (data['city'] as String?)?.trim() ?? '';
 
-      if (email.isEmpty || phone.isEmpty || city.isEmpty) {
-        return const Right<AuthFailure, UserProfileBasics?>(null);
-      }
-
+      // Always return basics when the document exists so UI (préférences compte,
+      // onboarding) can show city even if one field is temporarily empty.
       return Right<AuthFailure, UserProfileBasics?>(
         UserProfileBasics(email: email, phone: phone, city: city),
       );
@@ -435,16 +473,33 @@ class FirebaseUserRepository implements UserRepository {
     required List<String> cities,
   }) async {
     try {
+      final userRef = _firestore.collection('users').doc(uid);
+      final snap = await userRef.get();
+      if (!snap.exists || snap.data() == null) {
+        return const Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(
+            message:
+                'Profil introuvable. Reconnectez-vous. / Profile not found. Please sign in again.',
+          ),
+        );
+      }
+
       final trimmed =
           cities.map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      final existing = Map<String, dynamic>.from(snap.data()!);
       final updateData = <String, dynamic>{
         'cities': trimmed,
         'updated_at': FieldValue.serverTimestamp(),
       };
       if (trimmed.isNotEmpty) {
-        updateData['city'] = trimmed.first;
+        final primary = CityInput.forFirestore(trimmed.first);
+        if (primary != null) {
+          updateData['city'] = primary;
+        }
       }
-      await _firestore.collection('users').doc(uid).update(updateData);
+      mergeUserPatchForFirestoreRules(existing, updateData);
+
+      await userRef.set(updateData, SetOptions(merge: true));
       LoggerService.logInfo(
         'Connected cities updated',
         context: {'uid': uid, 'count': trimmed.length},
@@ -601,6 +656,134 @@ class FirebaseUserRepository implements UserRepository {
   }
 
   @override
+  Future<Result<bool?>> isClientOnboardingCompleted(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      // No doc yet (e.g. auth emitted before Firestore write) → not completed.
+      if (!doc.exists) {
+        return const Right<AuthFailure, bool?>(false);
+      }
+
+      final data = doc.data();
+      if (data == null) {
+        return const Right<AuthFailure, bool?>(false);
+      }
+
+      final roles = data['roles'] as Map<String, dynamic>?;
+      final primaryRole = (data['primary_role'] as String?)?.toLowerCase();
+      final legacyRole = (data['role'] as String?)?.toLowerCase();
+      final isClient = (roles != null && roles['client'] == true) ||
+          primaryRole == 'client' ||
+          legacyRole == 'client';
+      if (!isClient) {
+        return const Right<AuthFailure, bool?>(null);
+      }
+
+      final onboarding = data['onboarding'] as Map<String, dynamic>?;
+      // Legacy: no `onboarding` object at all → old accounts; don't force onboarding.
+      if (onboarding == null) {
+        return const Right<AuthFailure, bool?>(true);
+      }
+      final clientRaw = (onboarding['client'] as String?)?.trim().toLowerCase();
+      // `onboarding` exists but `client` missing/empty → new signup partial write or pending.
+      if (clientRaw == null || clientRaw.isEmpty) {
+        return const Right<AuthFailure, bool?>(false);
+      }
+      return Right<AuthFailure, bool?>(clientRaw == 'completed');
+    } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        LoggerService.logError(
+          'Permission denied checking client onboarding (non-fatal)',
+          error: e,
+          stackTrace: st,
+          context: {'uid': uid},
+        );
+        // Fail closed: prefer showing onboarding until reads succeed.
+        return const Right<AuthFailure, bool?>(false);
+      }
+      LoggerService.logError(
+        'Error checking client onboarding status',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
+      return Left<AuthFailure, bool?>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de la vérification du profil client',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<Unit>> completeClientProfile({
+    required String uid,
+    required String displayName,
+    String? photoUrl,
+  }) async {
+    final trimmed = displayName.trim();
+    if (trimmed.isEmpty) {
+      return const Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(message: 'Le nom est requis'),
+      );
+    }
+
+    try {
+      final userRef = _firestore.collection('users').doc(uid);
+      final snap = await userRef.get();
+      if (!snap.exists) {
+        return const Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(message: 'Profil utilisateur introuvable'),
+        );
+      }
+
+      final data = snap.data();
+      final mergedOnboarding = Map<String, dynamic>.from(
+        (data?['onboarding'] as Map<String, dynamic>?) ?? {},
+      );
+      mergedOnboarding['client'] = 'completed';
+      mergedOnboarding.putIfAbsent('merchant', () => 'completed');
+
+      final update = <String, dynamic>{
+        'displayName': trimmed,
+        'onboarding': mergedOnboarding,
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+      if (photoUrl != null && photoUrl.trim().isNotEmpty) {
+        update['photoUrl'] = photoUrl.trim();
+      }
+
+      await userRef.update(update);
+      LoggerService.logInfo(
+        'Client profile onboarding completed',
+        context: {'uid': uid},
+      );
+      return const Right<AuthFailure, Unit>(unit);
+    } catch (e, st) {
+      LoggerService.logError(
+        'Error completing client profile',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid, 'error': e.toString()},
+      );
+      // Return more specific error message for debugging
+      String message = 'Erreur lors de l\'enregistrement du profil';
+      if (e.toString().contains('permission-denied')) {
+        message = 'Permission refusée. Vérifiez les règles Firestore.';
+      }
+      return Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(
+          message: message,
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<Unit>> patchUserDocument(String uid) async {
     try {
       final userRef = _firestore.collection('users').doc(uid);
@@ -664,6 +847,8 @@ class FirebaseUserRepository implements UserRepository {
           'merchant': (merchantId != null && merchantId.isNotEmpty)
               ? 'completed'
               : 'not_started',
+          // Legacy cleanup: existing users skip client onboarding gate.
+          'client': 'completed',
         };
         if (cleaned['status'] == null) {
           cleaned['status'] = 'active';
@@ -713,7 +898,7 @@ class FirebaseUserRepository implements UserRepository {
         };
       }
 
-      // Normalize onboarding marker for legacy users.
+      // Normalize onboarding marker for legacy users (merge; do not drop client).
       final merchantId = (data['merchant_id'] as String?)?.trim();
       final currentOnboarding = data['onboarding'] as Map<String, dynamic>?;
       final currentMerchantStatus =
@@ -721,9 +906,19 @@ class FirebaseUserRepository implements UserRepository {
       final targetMerchantStatus = (merchantId != null && merchantId.isNotEmpty)
           ? 'completed'
           : 'not_started';
-      if (currentOnboarding == null ||
-          currentMerchantStatus != targetMerchantStatus) {
-        updates['onboarding'] = {'merchant': targetMerchantStatus};
+      final mergedOnboarding =
+          Map<String, dynamic>.from(currentOnboarding ?? {});
+      var onboardingDirty = false;
+      if (currentMerchantStatus != targetMerchantStatus) {
+        mergedOnboarding['merchant'] = targetMerchantStatus;
+        onboardingDirty = true;
+      }
+      if (!mergedOnboarding.containsKey('client')) {
+        mergedOnboarding['client'] = 'completed';
+        onboardingDirty = true;
+      }
+      if (onboardingDirty) {
+        updates['onboarding'] = mergedOnboarding;
       }
 
       // One-time: backfill primary_role from roles or legacy role string
@@ -915,24 +1110,102 @@ class FirebaseUserRepository implements UserRepository {
       return const Right<AuthFailure, bool>(false);
     }
     try {
-      // Prefer transaction.get (evaluated as [get] in rules). If rules are missing/outdated
-      // or the SDK still denies, we fail open: OTP can run; [createUserDocument] still
-      // atomically claims phone_index and rejects duplicates.
-      final exists = await _firestore.runTransaction<bool>((transaction) async {
-        final ref =
-            _firestore.collection('phone_index').doc(normalizedPhone);
-        final snap = await transaction.get(ref);
-        return snap.exists;
-      });
-      return Right<AuthFailure, bool>(exists);
+      final snap = await _firestore
+          .collection('phone_index')
+          .doc(normalizedPhone)
+          .get();
+      return Right<AuthFailure, bool>(snap.exists);
     } catch (e, st) {
       LoggerService.logError(
-        'Error checking phone_index; continuing signup (duplicate blocked at user creation)',
+        'Error checking phone_index',
         error: e,
         stackTrace: st,
         context: {'phone': normalizedPhone},
       );
+      return Left<AuthFailure, bool>(
+        AuthUnexpectedFailure(
+          message:
+              'Impossible de vérifier le numéro. Vérifiez votre connexion et réessayez.',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<bool>> isEmailRegistered(String email) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) {
       return const Right<AuthFailure, bool>(false);
     }
+    try {
+      final snap = await _firestore
+          .collection('email_index')
+          .doc(normalizedEmail)
+          .get();
+      if (snap.exists) {
+        return const Right<AuthFailure, bool>(true);
+      }
+    } catch (e, st) {
+      LoggerService.logError(
+        'Error checking email_index',
+        error: e,
+        stackTrace: st,
+        context: {'email': normalizedEmail},
+      );
+      return Left<AuthFailure, bool>(
+        AuthUnexpectedFailure(
+          message:
+              'Impossible de vérifier l\'adresse email. Vérifiez votre connexion et réessayez.',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+    try {
+      final methods = await FirebaseAuth.instance
+          // ignore: deprecated_member_use — signup duplicate check; email_index may be absent on legacy accounts.
+          .fetchSignInMethodsForEmail(normalizedEmail);
+      if (methods.isNotEmpty) {
+        return const Right<AuthFailure, bool>(true);
+      }
+    } on FirebaseAuthException catch (e, st) {
+      if (e.code == 'invalid-email') {
+        return const Left<AuthFailure, bool>(
+          AuthUnexpectedFailure(message: 'Adresse email invalide.'),
+        );
+      }
+      LoggerService.logError(
+        'fetchSignInMethodsForEmail',
+        error: e,
+        stackTrace: st,
+        context: {'email': normalizedEmail},
+      );
+      return Left<AuthFailure, bool>(
+        AuthUnexpectedFailure(
+          message:
+              'Impossible de vérifier l\'adresse email. Réessayez dans un instant.',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    } catch (e, st) {
+      LoggerService.logError(
+        'fetchSignInMethodsForEmail',
+        error: e,
+        stackTrace: st,
+        context: {'email': normalizedEmail},
+      );
+      return Left<AuthFailure, bool>(
+        AuthUnexpectedFailure(
+          message:
+              'Impossible de vérifier l\'adresse email. Réessayez dans un instant.',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+    return const Right<AuthFailure, bool>(false);
   }
 }

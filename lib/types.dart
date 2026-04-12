@@ -6,6 +6,7 @@ enum ScreenId {
   login,
   signup,
   otp,
+  clientOnboarding,
   clientHome,
   discovery,
   qrScanner,
