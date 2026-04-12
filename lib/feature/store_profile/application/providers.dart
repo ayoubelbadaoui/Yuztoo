@@ -6,6 +6,22 @@ import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import '../../promotions/domain/entities/promotion.dart';
 import '../../promotions/infrastructure/promotion_repository_provider.dart';
 
+export '../../auth/core/application/providers.dart' show currentUserIdProvider;
+export '../../client_home/application/providers.dart'
+    show
+        followedMerchantIdsForCurrentUserProvider,
+        followedMerchantHeartLevelsForCurrentUserProvider,
+        followersCountByMerchantIdsProvider,
+        viewedMerchantIdsForCurrentUserProvider,
+        viewedMerchantsLocalServiceProvider,
+        clientHomeFeedProvider;
+export '../../followed_merchants/application/providers.dart'
+    show toggleMerchantFollowProvider, ensureFollowedAndSetHeartLevelProvider;
+export '../../loyalty/application/client_loyalty_providers.dart'
+    show
+        clientLoyaltyProgressForMerchantProvider,
+        recordLoyaltyPassageProvider;
+
 /// When the user taps a business (Accueil or Découvrir), set this to the merchant id
 /// before navigating to store profile.
 final selectedStoreMerchantIdProvider = StateProvider<String?>((ref) => null);

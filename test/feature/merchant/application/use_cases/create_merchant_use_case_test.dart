@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/merchant/application/use_cases/create_merchant_use_case.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
@@ -106,6 +107,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    LoyaltyProgramConfig? loyaltyProgram,
     bool clearCityField = false,
   }) async {
     if (_createdMerchant == null || _createdMerchant!.id != merchantId) {
@@ -127,6 +129,8 @@ class _FakeMerchantRepository implements MerchantRepository {
       hours: hours,
       rappelsAutoClientValidation: rappelsAutoClientValidation,
       rappelsAutoPassageValidation: rappelsAutoPassageValidation,
+      loyaltyProgram: loyaltyProgram,
+      loyaltyEnabled: loyaltyProgram?.programEnabled ?? _createdMerchant!.loyaltyEnabled,
     );
     return Right<MerchantFailure, Merchant>(_createdMerchant!);
   }
@@ -383,6 +387,7 @@ class _FailingCreateRepository implements MerchantRepository {
     Map<String, dynamic>? hours,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    LoyaltyProgramConfig? loyaltyProgram,
     bool clearCityField = false,
   }) async {
     return const Left<MerchantFailure, Merchant>(

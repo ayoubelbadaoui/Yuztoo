@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_yuztoo/feature/merchant_onboarding/presentation/onboarding_flow_screen.dart';
-import 'package:flutter_yuztoo/feature/role_selection/presentation/role_selection_screen.dart';
+import 'package:flutter_yuztoo/feature/merchant_onboarding/application/screens.dart';
+import 'package:flutter_yuztoo/feature/role_selection/application/screens.dart';
 import 'package:flutter_yuztoo/l10n/app_localizations.dart';
 
 void main() {

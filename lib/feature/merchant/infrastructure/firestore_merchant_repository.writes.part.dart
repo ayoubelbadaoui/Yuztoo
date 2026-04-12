@@ -1,0 +1,338 @@
+part of 'firestore_merchant_repository.dart';
+
+mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
+  Future<Result<Unit>> linkExistingMerchantToUser({
+    required String merchantId,
+    required String userId,
+  }) async {
+    if (merchantId.isEmpty || userId.isEmpty) {
+      return const Left<MerchantFailure, Unit>(
+        MerchantUnexpectedFailure(
+          message: 'Merchant ID and User ID are required',
+        ),
+      );
+    }
+
+    try {
+      // Verify merchant exists
+      final merchantDoc = await _firestore
+          .collection('merchants')
+          .doc(merchantId)
+          .get();
+
+      if (!merchantDoc.exists) {
+        LoggerService.logError(
+          'Merchant not found for linking',
+          context: {'merchantId': merchantId, 'userId': userId},
+        );
+        return const Left<MerchantFailure, Unit>(
+          MerchantUnexpectedFailure(
+            message: 'Merchant not found / Le commerce n\'existe pas',
+          ),
+        );
+      }
+
+      // Verify merchant owner matches
+      final merchantData = merchantDoc.data();
+      final ownerUid = merchantData?['owner_uid'] as String?;
+      if (ownerUid != userId) {
+        LoggerService.logError(
+          'Merchant owner mismatch',
+          context: {
+            'merchantId': merchantId,
+            'userId': userId,
+            'merchantOwnerUid': ownerUid,
+          },
+        );
+        return const Left<MerchantFailure, Unit>(
+          MerchantUnexpectedFailure(
+            message: 'Merchant owner mismatch / Le propriétaire du commerce ne correspond pas',
+          ),
+        );
+      }
+
+      // Use batch write to ensure atomicity
+      final batch = _firestore.batch();
+      final userRef = _firestore.collection('users').doc(userId);
+      
+      final merchantCity =
+          (merchantData?['city'] as String?)?.trim() ?? '';
+      final linkUpdate = <String, dynamic>{
+        'merchant_id': merchantId,
+        'onboarding': {
+          'merchant': 'completed',
+        },
+        'roles': {
+          'merchant': true,
+          'client': false,
+          'provider': true,
+        },
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+      if (merchantCity.isNotEmpty &&
+          merchantCity.toLowerCase() != 'à compléter') {
+        linkUpdate['city'] = merchantCity;
+      }
+      batch.update(userRef, linkUpdate);
+
+      await batch.commit();
+
+      LoggerService.logInfo(
+        'Existing merchant linked to user successfully',
+        context: {'merchantId': merchantId, 'userId': userId},
+      );
+
+      return const Right<MerchantFailure, Unit>(unit);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError(
+        'Firebase error linking merchant to user',
+        error: e,
+        stackTrace: st,
+        context: {'merchantId': merchantId, 'userId': userId, 'code': e.code},
+      );
+
+      if (e.code == 'permission-denied') {
+        return const Left<MerchantFailure, Unit>(
+          UnableToCreateMerchantFailure(
+            message: 'Unable to link merchant / Impossible de lier le commerce',
+          ),
+        );
+      }
+
+      return Left<MerchantFailure, Unit>(
+        MerchantNetworkFailure(
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error linking merchant to user',
+        error: e,
+        stackTrace: st,
+        context: {'merchantId': merchantId, 'userId': userId},
+      );
+      return Left<MerchantFailure, Unit>(
+        MerchantUnexpectedFailure(
+          message: 'Unable to link merchant / Impossible de lier le commerce',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  Future<Result<Merchant>> updateMerchant({
+    required String merchantId,
+    String? displayName,
+    String? description,
+    List<String>? categories,
+    String? logoUrl,
+    String? phone,
+    String? address,
+    String? city,
+    String? websiteUrl,
+    String? bannerUrl,
+    List<String>? newsImageUrls,
+    String? status,
+    Map<String, dynamic>? hours,
+    bool? rappelsAutoClientValidation,
+    bool? rappelsAutoPassageValidation,
+    LoyaltyProgramConfig? loyaltyProgram,
+    bool clearCityField = false,
+  }) async {
+    if (merchantId.isEmpty) {
+      return const Left<MerchantFailure, Merchant>(
+        MerchantUnexpectedFailure(
+          message: 'Merchant ID is required',
+        ),
+      );
+    }
+
+    try {
+      final merchantRef = _firestore.collection('merchants').doc(merchantId);
+      final merchantSnap = await merchantRef.get();
+      if (!merchantSnap.exists) {
+        return const Left<MerchantFailure, Merchant>(
+          MerchantUnexpectedFailure(
+            message:
+                'Profil commerçant introuvable. Terminez l\'onboarding ou contactez le support. / Merchant profile not found. Complete onboarding first.',
+          ),
+        );
+      }
+
+      // Build update map with only provided fields
+      final updateData = <String, dynamic>{
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+      
+      if (displayName != null) {
+        updateData['display_name'] = displayName;
+      }
+      if (description != null) {
+        updateData['description'] = description;
+      }
+      if (categories != null) {
+        updateData['categories'] = categories;
+      }
+      if (logoUrl != null) {
+        updateData['logo_url'] = logoUrl;
+      }
+      if (phone != null) {
+        updateData['phone'] = phone;
+      }
+      if (address != null) {
+        updateData['address'] = address;
+      }
+      final persistedCity = city != null ? CityInput.forFirestore(city) : null;
+      final removeCity = clearCityField ||
+          (city != null &&
+              persistedCity == null &&
+              CityInput.isPlaceholder(city));
+      if (persistedCity != null) {
+        updateData['city'] = persistedCity;
+      } else if (removeCity) {
+        updateData['city'] = FieldValue.delete();
+      }
+      if (websiteUrl != null) {
+        updateData['website_url'] = websiteUrl;
+      }
+      if (bannerUrl != null) {
+        updateData['banner_url'] = bannerUrl;
+      }
+      if (newsImageUrls != null) {
+        updateData['news_image_urls'] = newsImageUrls;
+      }
+      if (status != null) {
+        updateData['status'] = status;
+      }
+      if (hours != null) {
+        updateData['hours'] = hours;
+      }
+      if (rappelsAutoClientValidation != null) {
+        updateData['rappels_auto_client_validation'] = rappelsAutoClientValidation;
+      }
+      if (rappelsAutoPassageValidation != null) {
+        updateData['rappels_auto_passage_validation'] = rappelsAutoPassageValidation;
+      }
+      if (loyaltyProgram != null) {
+        updateData['loyalty_program'] =
+            LoyaltyProgramFirestoreMapper.toFirestoreMap(loyaltyProgram);
+        updateData['loyalty_enabled'] = loyaltyProgram.programEnabled;
+      }
+
+      // Merge partial fields (same as update; avoids update() on missing docs)
+      await merchantRef.set(updateData, SetOptions(merge: true));
+
+      // Fetch updated merchant to return
+      final updatedDoc = await merchantRef.get();
+      if (!updatedDoc.exists) {
+        LoggerService.logError(
+          'Merchant document not found after update',
+          context: {'merchantId': merchantId},
+        );
+        return const Left<MerchantFailure, Merchant>(
+          MerchantUnexpectedFailure(
+            message: 'Could not save storefront / Impossible d\'enregistrer la vitrine',
+          ),
+        );
+      }
+
+      final updatedMerchant = MerchantDto.fromFirestore(updatedDoc).toDomain();
+      LoggerService.logInfo(
+        'Merchant storefront updated successfully',
+        context: {
+          'merchantId': merchantId,
+          'displayName': displayName,
+          'hasLogoUrl': logoUrl != null,
+        },
+      );
+
+      // Keep owner user doc city in sync so préférences + discovery stay aligned (MVP: merchantId == uid).
+      if (persistedCity != null && persistedCity.isNotEmpty) {
+        try {
+          final userRef = _firestore.collection('users').doc(merchantId);
+          final userSnap = await userRef.get();
+          if (userSnap.exists && userSnap.data() != null) {
+            final existing = Map<String, dynamic>.from(userSnap.data()!);
+            final userPatch = <String, dynamic>{
+              'city': persistedCity,
+              'updated_at': FieldValue.serverTimestamp(),
+            };
+            mergeUserPatchForFirestoreRules(existing, userPatch);
+            await userRef.set(userPatch, SetOptions(merge: true));
+          }
+        } catch (e, st) {
+          LoggerService.logError(
+            'Could not sync user city after storefront update (non-fatal)',
+            error: e,
+            stackTrace: st,
+            context: {'merchantId': merchantId},
+          );
+        }
+      } else if (removeCity) {
+        try {
+          final userRef = _firestore.collection('users').doc(merchantId);
+          final userSnap = await userRef.get();
+          if (userSnap.exists && userSnap.data() != null) {
+            final existing = Map<String, dynamic>.from(userSnap.data()!);
+            final userPatch = <String, dynamic>{
+              'city': FieldValue.delete(),
+              'updated_at': FieldValue.serverTimestamp(),
+            };
+            mergeUserPatchForFirestoreRules(existing, userPatch);
+            await userRef.set(userPatch, SetOptions(merge: true));
+          }
+        } catch (e, st) {
+          LoggerService.logError(
+            'Could not clear user city after storefront update (non-fatal)',
+            error: e,
+            stackTrace: st,
+            context: {'merchantId': merchantId},
+          );
+        }
+      }
+
+      return Right<MerchantFailure, Merchant>(updatedMerchant);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError(
+        'Firebase error updating merchant storefront',
+        error: e,
+        stackTrace: st,
+        context: {
+          'merchantId': merchantId,
+          'code': e.code,
+        },
+      );
+
+      if (e.code == 'permission-denied') {
+        return const Left<MerchantFailure, Merchant>(
+          MerchantUnexpectedFailure(
+            message: 'Permission denied (Firestore rules) / Permission refusée (règles Firestore). Could not save storefront / Impossible d\'enregistrer la vitrine.',
+          ),
+        );
+      }
+
+      return Left<MerchantFailure, Merchant>(
+        MerchantNetworkFailure(
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    } catch (e, st) {
+      LoggerService.logError(
+        'Unexpected error updating merchant storefront',
+        error: e,
+        stackTrace: st,
+        context: {'merchantId': merchantId},
+      );
+      return Left<MerchantFailure, Merchant>(
+        MerchantUnexpectedFailure(
+          message: 'Could not save storefront / Impossible d\'enregistrer la vitrine',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+}

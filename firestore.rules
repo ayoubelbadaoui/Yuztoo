@@ -128,6 +128,62 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- /merchants/{merchantId}/loyalty_clients/{userId} ---
+    // Client: read own row; create/update with bounded increments (MVP — abuse limits only in rules).
+    // Merchant owner: full read/write (validation manuelle, ajustements).
+    function loyaltyClientDocKeys() {
+      return request.resource.data.keys().hasOnly([
+        'validated_passages',
+        'pending_passages',
+        'cumulative_spend_euros',
+        'updated_at'
+      ]);
+    }
+
+    function loyaltyClientCreateValid() {
+      let r = request.resource.data;
+      return loyaltyClientDocKeys()
+        && r.validated_passages is int
+        && r.pending_passages is int
+        && r.cumulative_spend_euros is number
+        && r.updated_at is timestamp
+        && r.validated_passages >= 0 && r.validated_passages <= 1
+        && r.pending_passages >= 0 && r.pending_passages <= 1
+        && r.cumulative_spend_euros >= 0 && r.cumulative_spend_euros <= 5000;
+    }
+
+    function loyaltyClientSelfUpdateValid() {
+      let r = request.resource.data;
+      let o = resource.data;
+      return loyaltyClientDocKeys()
+        && r.validated_passages is int
+        && r.pending_passages is int
+        && r.cumulative_spend_euros is number
+        && r.updated_at is timestamp
+        && r.validated_passages >= o.validated_passages
+        && r.validated_passages <= o.validated_passages + 1
+        && r.pending_passages >= o.pending_passages
+        && r.pending_passages <= o.pending_passages + 1
+        && r.cumulative_spend_euros >= o.cumulative_spend_euros
+        && r.cumulative_spend_euros <= o.cumulative_spend_euros + 5000;
+    }
+
+    match /merchants/{merchantId}/loyalty_clients/{userId} {
+      allow read: if isSignedIn()
+        && (request.auth.uid == userId || isMerchantOwner(merchantId));
+
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && loyaltyClientCreateValid();
+
+      allow update: if isMerchantOwner(merchantId)
+        || (isSignedIn()
+          && request.auth.uid == userId
+          && loyaltyClientSelfUpdateValid());
+
+      allow delete: if isMerchantOwner(merchantId);
+    }
+
     match /merchants/{merchantId}/promotions/{promoId} {
       allow read: if true;
       allow create, update, delete: if isMerchantOwner(merchantId);

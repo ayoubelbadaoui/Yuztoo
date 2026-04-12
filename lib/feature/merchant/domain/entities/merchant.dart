@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'loyalty_program_config.dart';
+
 /// Domain representation of a merchant business entity.
 /// 
 /// This entity is separate from user identity and represents a business
@@ -25,6 +27,7 @@ class Merchant extends Equatable {
     this.bannerUrl,
     this.newsImageUrls,
     this.loyaltyEnabled = true,
+    this.loyaltyProgram,
     this.rappelsAutoClientValidation,
     this.rappelsAutoPassageValidation,
     this.rappelsMonthlyConnectedClients = 0,
@@ -79,6 +82,9 @@ class Merchant extends Equatable {
   /// Loyalty program toggle (required by merchant data model).
   final bool loyaltyEnabled;
 
+  /// Detailed loyalty settings when present on the merchant document.
+  final LoyaltyProgramConfig? loyaltyProgram;
+
   /// Rappels: auto-validate new clients (default true)
   final bool? rappelsAutoClientValidation;
 
@@ -99,6 +105,14 @@ class Merchant extends Equatable {
 
   /// Timestamp when the merchant was last updated
   final DateTime? updatedAt;
+
+  /// Résumé fidélité pour vitrine marchand et fiche client. `null` si [loyaltyEnabled] est faux.
+  String? get loyaltyClientSummaryForDisplay {
+    if (!loyaltyEnabled) return null;
+    final config = loyaltyProgram ??
+        LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: true);
+    return config.clientSummaryText;
+  }
 
   @override
   List<Object?> get props => <Object?>[
@@ -121,6 +135,7 @@ class Merchant extends Equatable {
         bannerUrl,
         newsImageUrls,
         loyaltyEnabled,
+        loyaltyProgram,
         rappelsAutoClientValidation,
         rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients,
@@ -148,6 +163,7 @@ class Merchant extends Equatable {
     String? bannerUrl,
     List<String>? newsImageUrls,
     bool? loyaltyEnabled,
+    LoyaltyProgramConfig? loyaltyProgram,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     int? rappelsMonthlyConnectedClients,
@@ -173,6 +189,7 @@ class Merchant extends Equatable {
       bannerUrl: bannerUrl ?? this.bannerUrl,
       newsImageUrls: newsImageUrls ?? this.newsImageUrls,
       loyaltyEnabled: loyaltyEnabled ?? this.loyaltyEnabled,
+      loyaltyProgram: loyaltyProgram ?? this.loyaltyProgram,
       rappelsAutoClientValidation:
           rappelsAutoClientValidation ?? this.rappelsAutoClientValidation,
       rappelsAutoPassageValidation:

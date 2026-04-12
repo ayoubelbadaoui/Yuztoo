@@ -9,6 +9,7 @@ class MerchantInfoSection extends StatelessWidget {
     required this.description,
     required this.city,
     required this.loyaltyEnabled,
+    this.loyaltyClientSummary,
     required this.isVerified,
     this.onEdit,
   });
@@ -17,6 +18,7 @@ class MerchantInfoSection extends StatelessWidget {
   final String description;
   final String city;
   final bool loyaltyEnabled;
+  final String? loyaltyClientSummary;
   final bool isVerified;
   final VoidCallback? onEdit;
 
@@ -109,6 +111,22 @@ class MerchantInfoSection extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (loyaltyEnabled &&
+                    loyaltyClientSummary != null &&
+                    loyaltyClientSummary!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    loyaltyClientSummary!.trim(),
+                    maxLines: 6,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: StorefrontColors.textSecondary,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

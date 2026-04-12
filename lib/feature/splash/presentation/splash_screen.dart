@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../loading/presentation/loading_screen.dart';
+import '../../loading/application/screens.dart';
 
 /// Splash / loading surface shown while auth state initialises.
 ///

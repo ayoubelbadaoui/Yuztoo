@@ -5,6 +5,7 @@ import 'use_cases/upload_banner.dart';
 import 'use_cases/upload_client_avatar.dart';
 import 'use_cases/upload_logo.dart';
 import 'use_cases/upload_news_image.dart';
+import 'use_cases/delete_storage_image.dart';
 
 /// Provider for UploadLogo use case.
 final uploadLogoProvider = Provider<UploadLogo>((ref) {
@@ -28,4 +29,9 @@ final uploadNewsImageProvider = Provider<UploadNewsImage>((ref) {
 final uploadClientAvatarProvider = Provider<UploadClientAvatar>((ref) {
   final repository = ref.watch(storageRepositoryProvider);
   return UploadClientAvatar(repository);
+});
+
+final deleteStorageImageProvider = Provider<DeleteStorageImage>((ref) {
+  final repository = ref.watch(storageRepositoryProvider);
+  return DeleteStorageImage(repository);
 });

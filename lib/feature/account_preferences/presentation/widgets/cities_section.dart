@@ -4,8 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../../core/utils/cities.dart';
-import '../../../auth/core/application/providers.dart' as auth_providers;
-import '../../../auth/core/application/state/auth_state.dart';
+import '../../application/providers.dart';
 
 /// "Villes connectées" – shows only cities stored in DB; add saves to DB.
 class CitiesSection extends ConsumerStatefulWidget {
@@ -67,7 +66,7 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
                           Navigator.of(ctx).pop();
                           final newList = [...current, city];
                           final setCities =
-                              ref.read(auth_providers.setConnectedCitiesProvider);
+                              ref.read(setConnectedCitiesProvider);
                           final result =
                               await setCities.call(uid: uid, cities: newList);
                           if (!context.mounted) return;
@@ -81,7 +80,7 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
                             },
                             (_) {
                               ref.invalidate(
-                                auth_providers.connectedCitiesProvider(uid),
+                                connectedCitiesProvider(uid),
                               );
                             },
                           );
@@ -100,13 +99,13 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(auth_providers.authStateProvider);
+    final authState = ref.watch(authStateProvider);
     if (authState is! Authenticated) {
       return _buildSection(context, [], null);
     }
 
     final uid = authState.user.id;
-    final citiesAsync = ref.watch(auth_providers.connectedCitiesProvider(uid));
+    final citiesAsync = ref.watch(connectedCitiesProvider(uid));
 
     return citiesAsync.when(
       data: (cities) =>
@@ -182,7 +181,7 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
           ? null
           : () {
               final cities = ref
-                  .read(auth_providers.connectedCitiesProvider(uid))
+                  .read(connectedCitiesProvider(uid))
                   .value ?? [];
               _openAddCityPicker(context, uid, cities);
             },

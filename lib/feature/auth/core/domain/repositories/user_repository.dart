@@ -91,6 +91,11 @@ abstract class UserRepository {
     String? photoUrl,
   });
 
+  /// Marks merchant acquisition onboarding complete (`onboarding.merchant` = completed).
+  ///
+  /// Used when the user finishes the pre-signup onboarding wizard (post-signup path).
+  Future<Result<Unit>> markMerchantOnboardingCompleted(String uid);
+
   /// Update user city in Firestore
   ///
   /// [uid] - User's unique identifier
