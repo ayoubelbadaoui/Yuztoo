@@ -75,7 +75,13 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
                         ),
                       );
                     }
-                    return const LoyaltyConfigurationWizard();
+                    return LoyaltyConfigurationWizard(
+                      onSave: _save,
+                      saveEnabled: asyncMerchant.hasValue &&
+                          asyncMerchant.value != null &&
+                          !_saving,
+                      saving: _saving,
+                    );
                   },
                 ),
               ),
