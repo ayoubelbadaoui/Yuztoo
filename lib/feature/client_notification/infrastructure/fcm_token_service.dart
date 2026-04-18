@@ -48,24 +48,41 @@ class FcmTokenService {
   }
 
   Future<void> _persistToken(String userId, String token) async {
-    await _firestore.collection('users').doc(userId).set(
+    // Store in a subcollection so we don't trigger the strict shape-validation
+    // rules on the root /users/{uid} document.
+    // Path: users/{uid}/push_tokens/device
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('push_tokens')
+        .doc('device')
+        .set(
       {
         'fcm_token': token,
-        'fcm_token_updated_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+        'platform': _platform(),
       },
       SetOptions(merge: true),
     );
     LoggerService.logInfo('FCM token saved', context: {'userId': userId});
   }
 
+  static String _platform() {
+    // ignore: do_not_use_environment
+    const isAndroid = bool.hasEnvironment('android');
+    return isAndroid ? 'android' : 'ios';
+  }
+
   /// Remove the FCM token on sign-out so push notifications stop.
   Future<void> clearToken(String userId) async {
     if (userId.isEmpty) return;
     try {
-      await _firestore.collection('users').doc(userId).set(
-        {'fcm_token': null},
-        SetOptions(merge: true),
-      );
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('push_tokens')
+          .doc('device')
+          .delete();
     } catch (_) {}
   }
 }
