@@ -8,11 +8,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/utils/cities.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/core/infrastructure/user_repository_provider.dart';
 import '../../merchant_onboarding/application/widgets.dart';
+import '../../merchant_onboarding/presentation/widgets/merchant_onboarding_colors.dart';
 import '../../storage/application/providers.dart' as storage_providers;
+import '../../auth/signup/presentation/widgets/city_selection_modal.dart';
 
 part 'client_onboarding_screen.part.dart';
 
@@ -31,7 +34,7 @@ class ClientOnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen> {
-  static const _totalSteps = 3;
+  static const _totalSteps = 4;
 
   final _pageController = PageController();
   final _nameController = TextEditingController();
@@ -39,6 +42,7 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
 
   int _currentStep = 0;
   bool _canProceedName = false;
+  String? _selectedCity;
   String? _localImagePath;
   bool _isSaving = false;
 
@@ -141,18 +145,22 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
     final result = await repo.completeClientProfile(
       uid: uid,
       displayName: name,
+      city: _selectedCity?.trim().isEmpty == true ? null : _selectedCity,
       photoUrl: photoUrl,
     );
 
     if (!mounted) return;
 
     result.fold(
-      (_) {
+      (failure) {
         if (!mounted) return;
+        // ignore: avoid_print
+        print('[ClientOnboarding] completeClientProfile failed: ${failure.runtimeType} – ${failure.message}');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de l\'enregistrement.'),
+          SnackBar(
+            content: Text('Erreur: ${failure.message}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
           ),
         );
         setState(() => _isSaving = false);
@@ -171,6 +179,10 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
         widget.onComplete();
       },
     );
+  }
+
+  void _onCitySelected(String city) {
+    setState(() => _selectedCity = city);
   }
 
   @override
@@ -203,6 +215,7 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
                       children: [
                         _buildWelcomeStep(),
                         _buildNameStep(),
+                        _buildCityStep(),
                         _buildPhotoStep(),
                       ],
                     ),

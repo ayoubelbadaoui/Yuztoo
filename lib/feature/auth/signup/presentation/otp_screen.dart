@@ -27,7 +27,6 @@ class OTPScreen extends ConsumerStatefulWidget {
     required this.onResend,
     required this.email,
     required this.password,
-    required this.city,
     required this.role,
     this.otpUnavailableMessage,
     this.verificationId,
@@ -36,15 +35,14 @@ class OTPScreen extends ConsumerStatefulWidget {
   /// Optional external back handler (used when OTP is shown via RootShell state,
   /// where there may be no Navigator stack to pop).
   final VoidCallback? onBack;
-  final String userId; // User ID (empty until OTP verified and user created)
+  final String userId;
   final String phone;
   final VoidCallback onResend;
   final String email;
-  final String password; // Password for user creation after OTP verification
-  final String city;
+  final String password;
   final UserRole role;
   final String? otpUnavailableMessage;
-  final String? verificationId; // Optional, for resend functionality
+  final String? verificationId;
 
   @override
   ConsumerState<OTPScreen> createState() => _OTPScreenState();

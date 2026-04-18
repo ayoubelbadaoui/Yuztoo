@@ -18,10 +18,6 @@ extension _SignupScreenUi on _SignupScreenState {
       }
     }
 
-    if (widget.initialCity != null && widget.initialCity!.isNotEmpty) {
-      _selectedCity = widget.initialCity;
-    }
-
     if (widget.initialCountryCode != null &&
         widget.initialCountryCode!.isNotEmpty) {
       _selectedCountryCode = widget.initialCountryCode!;
@@ -142,19 +138,6 @@ extension _SignupScreenUi on _SignupScreenState {
       return;
     }
 
-    if (_selectedCity == null || _selectedCity!.isEmpty) {
-      if (mounted) {
-        showErrorSnackbar(context, 'La ville est requise.');
-      }
-      return;
-    }
-    if (CityInput.isPlaceholder(_selectedCity)) {
-      if (mounted) {
-        showErrorSnackbar(context, 'Choisissez une ville dans la liste.');
-      }
-      return;
-    }
-
     if (_isSubmitting) return;
     _withSetState(() => _isSubmitting = true);
 
@@ -253,7 +236,6 @@ extension _SignupScreenUi on _SignupScreenState {
                 email: email,
                 password: password,
                 phone: phoneNumber,
-                city: _selectedCity!,
               ),
             );
           }
@@ -301,10 +283,6 @@ extension _SignupScreenUi on _SignupScreenState {
         _phoneFieldKey.currentState?.validate();
       });
     });
-  }
-
-  void _onCitySelected(String city) {
-    _withSetState(() => _selectedCity = city);
   }
 
   Widget _buildSignupContent(BuildContext context) {
@@ -392,17 +370,6 @@ extension _SignupScreenUi on _SignupScreenState {
                           onCountryCodeChange: _onCountryCodeChange,
                           onRevalidatePhone: _revalidatePhoneAfterEdit,
                         ),
-                        const SizedBox(height: 20),
-                        CityDropdown(
-                          fieldKey: _cityFieldKey,
-                          selectedCity: _selectedCity,
-                          enabled: !_isLoading,
-                          onUnfocusAll: _unfocusAllFields,
-                          onCitySelected: _onCitySelected,
-                          onValidateCity: () {
-                            _cityFieldKey.currentState?.validate();
-                          },
-                        ),
                       ],
                     ),
                   ),
@@ -440,11 +407,9 @@ class SignupOtpNavigation {
     required this.email,
     required this.password,
     required this.phone,
-    required this.city,
   });
   final String verificationId;
   final String email;
   final String password;
   final String phone;
-  final String city;
 }

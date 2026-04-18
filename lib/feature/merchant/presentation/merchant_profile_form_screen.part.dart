@@ -15,7 +15,6 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
     final data = ref.read(onboardingFlowProvider);
 
     const defaultCommerceName = 'Mon commerce';
-    const defaultCityPlaceholder = 'À compléter';
 
     final trimmedName = data.fullName?.trim();
     final name = (trimmedName == null || trimmedName.isEmpty)
@@ -37,9 +36,9 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
     final cacheService = ref.read(merchantProfileCacheServiceProvider);
     final cachedData = await cacheService.loadProfile();
 
-    final basicsResult =
+    var basicsResult =
         await ref.read(getUserProfileBasicsProvider).call(userId);
-    final basics = basicsResult.fold((_) => null, (b) => b);
+    var basics = basicsResult.fold((_) => null, (b) => b);
 
     String email = cachedData['email'] ??
         basics?.email ??
@@ -50,21 +49,9 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         basics?.phone ??
         user.phoneNumber ??
         '';
-    // Firestore signup city first — local merchant cache can hold "À compléter"
-    // and must not override the real ville from inscription.
-    String city = (basics?.city ?? '').trim();
-    if (city.isEmpty) {
-      final cityResult = await ref.read(getUserCityProvider).call(userId);
-      city = cityResult.fold((_) => '', (c) => c?.trim() ?? '');
-    }
-    if (city.isEmpty) {
-      final cc = cachedData['city']?.toString().trim() ?? '';
-      if (cc.isNotEmpty &&
-          cc.toLowerCase() != 'à compléter' &&
-          cc.toLowerCase() != 'votre ville') {
-        city = cc;
-      }
-    }
+    // City comes directly from the onboarding City step.
+    final city = (data.city ?? '').trim();
+
     final websiteUrl = data.websiteUrl?.trim().isEmpty == true
         ? null
         : data.websiteUrl?.trim();
@@ -76,10 +63,6 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
     phone = phone.trim();
     if (phone.isEmpty) {
       phone = '+33123456789';
-    }
-    city = city.trim();
-    if (city.isEmpty) {
-      city = defaultCityPlaceholder;
     }
 
     String? logoUrl;

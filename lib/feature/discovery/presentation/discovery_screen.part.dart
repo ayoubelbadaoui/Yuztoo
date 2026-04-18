@@ -67,8 +67,6 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     Set<String> viewedIds,
   ) {
     final filtered = _filterMerchants(merchants);
-    final featured = filtered.isNotEmpty ? filtered.first : null;
-    final gridMerchants = filtered.length > 1 ? filtered.sublist(1) : filtered;
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
@@ -83,14 +81,9 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDescription(context),
-            if (featured != null)
-              _buildFeaturedCard(
-                context,
-                featured,
-                hasViewed: viewedIds.contains(featured.id),
-              ),
+            _buildPromoBanner(context),
             _buildSearchSection(context),
-            _buildBusinessGrid(context, gridMerchants, viewedIds),
+            _buildBusinessGrid(context, filtered, viewedIds),
             _buildInviteButton(context),
             const SizedBox(height: 24),
           ],
@@ -124,72 +117,44 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     );
   }
 
-  Widget _buildFeaturedCard(
-    BuildContext context,
-    Merchant merchant, {
-    required bool hasViewed,
-  }) {
-    final name = merchant.displayName ?? merchant.name;
-    final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
+  Widget _buildPromoBanner(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      child: GestureDetector(
-        onTap: () => widget.onStoreSelect(merchant.id),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                height: 140,
-                width: double.infinity,
-                child: imageUrl != null && imageUrl.isNotEmpty
-                    ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholderImage(140),
-                      )
-                    : _placeholderImage(140),
-              ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 140,
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [MerchantColors.bgHeader, MerchantColors.gold],
             ),
-            if (hasViewed)
+          ),
+          child: Stack(
+            children: [
+              Center(
+                child: Icon(
+                  Icons.image_outlined,
+                  size: 48,
+                  color: MerchantColors.textWhite.withValues(alpha: 0.3),
+                ),
+              ),
               Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: MerchantColors.textWhite,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                left: 16,
+                bottom: 14,
+                child: Text(
+                  'À venir…',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: MerchantColors.textWhite.withValues(alpha: 0.6),
                   ),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.star, color: MerchantColors.gold, size: 20),
                 ),
               ),
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 12,
-              child: Text(
-                name,
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: MerchantColors.textWhite,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -43,13 +43,23 @@ void main() {
       );
     });
 
-    test('keeps placeholder when signup has no city', () {
+    test('returns empty when signup has no usable city', () {
       expect(
         resolveMerchantCityForCreation(
           incomingMerchantCity: 'À compléter',
           signupCityFromUserDoc: '',
         ),
-        'À compléter',
+        '',
+      );
+    });
+
+    test('returns empty when both sides are placeholders', () {
+      expect(
+        resolveMerchantCityForCreation(
+          incomingMerchantCity: 'Votre ville',
+          signupCityFromUserDoc: 'À compléter',
+        ),
+        '',
       );
     });
 

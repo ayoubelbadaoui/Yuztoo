@@ -39,7 +39,7 @@ abstract class UserRepository {
     required String email,
     required String phone,
     required Map<String, bool> roles,
-    required String city,
+    String city = '',
   });
 
   /// Get user role from Firestore
@@ -88,6 +88,7 @@ abstract class UserRepository {
   Future<Result<Unit>> completeClientProfile({
     required String uid,
     required String displayName,
+    String? city,
     String? photoUrl,
   });
 

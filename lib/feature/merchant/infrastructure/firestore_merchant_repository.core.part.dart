@@ -92,8 +92,7 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
       };
       // Keep signup city on the user doc in sync with the commerce (préférences compte).
       final trimmedCity = merchantToCreate.city.trim();
-      if (trimmedCity.isNotEmpty &&
-          trimmedCity.toLowerCase() != 'à compléter') {
+      if (trimmedCity.isNotEmpty && !CityInput.isPlaceholder(trimmedCity)) {
         userPayload['city'] = trimmedCity;
       }
       batch.set(userRef, userPayload, SetOptions(merge: true));

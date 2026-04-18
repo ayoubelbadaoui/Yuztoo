@@ -140,6 +140,19 @@ void main() {
       expect(invalidMerchant.isValid(), isFalse);
     });
 
+    test('should return false when city is a UI placeholder', () {
+      const invalidMerchant = Merchant(
+        id: 'merchant-1',
+        ownerUid: 'user-1',
+        name: 'Business',
+        email: 'biz@example.com',
+        phone: '+33611111111',
+        city: 'À compléter',
+      );
+
+      expect(invalidMerchant.isValid(), isFalse);
+    });
+
     test('should return false for invalid merchant with empty ownerUid', () {
       const invalidMerchant = Merchant(
         id: 'merchant-1',

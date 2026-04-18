@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../application/providers.dart';
 import '../../merchant_onboarding/application/onboarding_flow_provider.dart';
 import '../../merchant_onboarding/application/screens.dart';
@@ -78,9 +79,8 @@ class _MerchantProfileFormScreenState
     return MerchantOnboardingFlowScreen(
       isPostSignup: true,
       onBack: widget.onBack ?? () {},
-      onComplete: () {
-        _saveFromOnboarding();
-      },
+      onComplete: () {},
+      onPostSignupPersist: _saveFromOnboarding,
     );
   }
 }

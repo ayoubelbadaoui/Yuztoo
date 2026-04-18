@@ -10,8 +10,13 @@ String resolveMerchantCityForCreation({
   required String signupCityFromUserDoc,
 }) {
   final signup = signupCityFromUserDoc.trim();
-  if (CityInput.isPlaceholder(incomingMerchantCity) && signup.isNotEmpty) {
+  final incoming = incomingMerchantCity.trim();
+
+  if (incoming.isNotEmpty && !CityInput.isPlaceholder(incoming)) {
+    return incoming;
+  }
+  if (signup.isNotEmpty && !CityInput.isPlaceholder(signup)) {
     return signup;
   }
-  return incomingMerchantCity.trim();
+  return '';
 }

@@ -69,8 +69,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
         },
         'updated_at': FieldValue.serverTimestamp(),
       };
-      if (merchantCity.isNotEmpty &&
-          merchantCity.toLowerCase() != 'à compléter') {
+      if (merchantCity.isNotEmpty && !CityInput.isPlaceholder(merchantCity)) {
         linkUpdate['city'] = merchantCity;
       }
       batch.update(userRef, linkUpdate);

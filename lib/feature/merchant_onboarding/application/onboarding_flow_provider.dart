@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class MerchantOnboardingData {
   const MerchantOnboardingData({
     this.fullName,
+    this.city,
     this.imagePath,
     this.bannerImagePath,
     this.address,
@@ -17,6 +18,7 @@ class MerchantOnboardingData {
   });
 
   final String? fullName;
+  final String? city;
   final String? imagePath;
   final String? bannerImagePath;
   final String? address;
@@ -29,6 +31,7 @@ class MerchantOnboardingData {
 
   MerchantOnboardingData copyWith({
     String? fullName,
+    String? city,
     String? imagePath,
     String? bannerImagePath,
     String? address,
@@ -41,6 +44,7 @@ class MerchantOnboardingData {
   }) {
     return MerchantOnboardingData(
       fullName: fullName ?? this.fullName,
+      city: city ?? this.city,
       imagePath: imagePath ?? this.imagePath,
       bannerImagePath: bannerImagePath ?? this.bannerImagePath,
       address: address ?? this.address,
@@ -59,6 +63,9 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
 
   void setFullName(String value) =>
       state = state.copyWith(fullName: value.trim().isEmpty ? null : value.trim());
+
+  void setCity(String value) =>
+      state = state.copyWith(city: value.trim().isEmpty ? null : value.trim());
 
   void setImagePath(String? path) => state = state.copyWith(imagePath: path);
 

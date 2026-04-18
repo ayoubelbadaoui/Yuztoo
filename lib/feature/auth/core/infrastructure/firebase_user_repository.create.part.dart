@@ -6,23 +6,10 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
     required String email,
     required String phone,
     required Map<String, bool> roles,
-    required String city,
+    String city = '',
   }) async {
-    if (city.isEmpty) {
-      return const Left<AuthFailure, Unit>(
-        AuthUnexpectedFailure(message: 'La ville est requise'),
-      );
-    }
-
-    final persistedCity = CityInput.forFirestore(city);
-    if (persistedCity == null) {
-      return const Left<AuthFailure, Unit>(
-        AuthUnexpectedFailure(
-          message:
-              'La ville n\'est pas valide (libellé réservé). / Invalid city.',
-        ),
-      );
-    }
+    // City is now optional at signup — merchants set it during onboarding.
+    final persistedCity = city.trim().isEmpty ? null : CityInput.forFirestore(city);
 
     final normalizedPhone = phone.trim();
     if (normalizedPhone.isEmpty) {
@@ -42,7 +29,7 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
           'phone': phone,
           'roles': roles,
           'primary_role': roles['merchant'] == true ? 'merchant' : 'client',
-          'city': persistedCity,
+          if (persistedCity != null) 'city': persistedCity,
           'merchant_id': null,
           'onboarding': {
             'merchant': roles['merchant'] == true ? 'not_started' : 'completed',
