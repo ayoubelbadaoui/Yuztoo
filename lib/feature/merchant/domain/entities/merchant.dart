@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/utils/city_input.dart';
 import 'loyalty_program_config.dart';
 
 /// Domain representation of a merchant business entity.
@@ -209,6 +210,7 @@ class Merchant extends Equatable {
         email.isNotEmpty &&
         phone.isNotEmpty &&
         city.isNotEmpty &&
+        !CityInput.isPlaceholder(city) &&
         status.isNotEmpty;
   }
 }

@@ -1,6 +1,5 @@
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
-import '../../../../core/utils/city_input.dart';
 import '../../core/domain/auth_failure.dart';
 import '../../core/domain/repositories/user_repository.dart';
 
@@ -14,7 +13,6 @@ class CreateUserDocument {
     required String email,
     required String phone,
     required Map<String, bool> roles,
-    required String city,
   }) {
     if (uid.isEmpty) {
       return Future<Result<Unit>>.value(
@@ -40,31 +38,11 @@ class CreateUserDocument {
       );
     }
 
-    if (city.isEmpty) {
-      return Future<Result<Unit>>.value(
-        const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'City is required.'),
-        ),
-      );
-    }
-
-    if (CityInput.isPlaceholder(city)) {
-      return Future<Result<Unit>>.value(
-        const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(
-            message:
-                'Choisissez une ville réelle (pas un libellé vide). / Choose a real city.',
-          ),
-        ),
-      );
-    }
-
     return _repository.createUserDocument(
       uid: uid,
       email: email,
       phone: phone,
       roles: roles,
-      city: CityInput.forFirestore(city)!,
     );
   }
 }

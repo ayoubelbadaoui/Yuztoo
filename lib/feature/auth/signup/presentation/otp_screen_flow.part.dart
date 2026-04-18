@@ -26,7 +26,6 @@ extension _OTPScreenFlow on _OTPScreenState {
       final email = widget.email;
       final password = widget.password;
       final phone = widget.phone;
-      final city = widget.city;
       final signupRole = widget.role;
 
       final emailCheck = await verifyEmail.call(email: email);
@@ -100,7 +99,6 @@ extension _OTPScreenFlow on _OTPScreenState {
           }
         },
         (authUser) async {
-          // Firestore profile write must run even if this route is disposed (shell → splash).
           await _createFirestoreProfile(
             authUser.id,
             createUserDocUseCase: createUserDocUseCase,
@@ -108,7 +106,6 @@ extension _OTPScreenFlow on _OTPScreenState {
             getUserRole: getUserRole,
             email: email,
             phone: phone,
-            city: city,
             signupRole: signupRole,
           );
         },
@@ -127,7 +124,6 @@ extension _OTPScreenFlow on _OTPScreenState {
     required GetUserRole getUserRole,
     required String email,
     required String phone,
-    required String city,
     required UserRole signupRole,
   }) async {
     final Map<String, bool> roles = signupRolesMap(signupRole);
@@ -137,7 +133,6 @@ extension _OTPScreenFlow on _OTPScreenState {
       email: email,
       phone: phone,
       roles: roles,
-      city: city,
     );
 
     await createResult.fold<Future<void>>(

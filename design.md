@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vos clients - Yuztoo</title>
+    <title>Recommandations - Yuztoo</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         * {
@@ -25,7 +25,7 @@
         .phone-frame {
             width: 390px;
             height: 884px;
-            background: #0E2A44;
+            background: #0B162C;
             border: 14px solid #1a1a1a;
             border-radius: 48px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -37,7 +37,7 @@
 
         .status-bar {
             height: 47px;
-            background: #0B1F33;
+            background: #0B162C;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -50,11 +50,11 @@
 
         .header {
             padding: 16px 24px;
-            background: #0B1F33;
+            background: #0B162C;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.3);
             display: flex;
             align-items: center;
             gap: 12px;
-            border-bottom: 1px solid rgba(212, 175, 55, 0.1);
         }
 
         .header-icon {
@@ -65,10 +65,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            color: #D4A017;
         }
 
         .header h1 {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
             color: white;
             margin: 0;
@@ -80,191 +81,133 @@
             padding-bottom: 80px;
         }
 
-        .search-section {
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
+        .description {
+            padding: 20px 24px;
+            text-align: center;
+            color: #ccc;
+            font-size: 13px;
+            line-height: 1.5;
             border-bottom: 1px solid rgba(212, 175, 55, 0.1);
         }
 
-        .mode-pro-badge {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            color: #D4A017;
-            font-size: 11px;
-            font-weight: 600;
-            text-align: center;
+        .featured-card {
+            margin: 20px 24px;
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            height: 140px;
         }
 
-        .mode-pro-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 2px solid #D4A017;
+        .featured-image {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #D4A017 0%, #E8D5B7 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            color: #999;
+            font-size: 14px;
+            position: relative;
+        }
+
+        .featured-heart {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .search-section {
+            padding: 16px 24px;
         }
 
         .search-input {
-            flex: 1;
+            width: 100%;
             padding: 12px 16px;
             background: white;
             border: none;
             border-radius: 20px;
-            font-size: 14px;
+            font-size: 13px;
             color: #999;
             outline: none;
+            font-family: 'Outfit', sans-serif;
         }
 
-        .search-icon {
-            width: 32px;
-            height: 32px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .search-input::placeholder {
             color: #D4A017;
         }
 
-        .filter-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 2px solid #D4A017;
-            background: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #D4A017;
-            transition: all 0.3s;
-        }
-
-        .filter-btn:hover {
-            background: rgba(212, 175, 55, 0.1);
-        }
-
-        .client-item {
-            padding: 24px;
-            border-bottom: 1px solid rgba(212, 175, 55, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .client-left {
-            display: flex;
-            align-items: center;
+        .business-grid {
+            padding: 0 24px 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 12px;
-            flex: 1;
         }
 
-        .client-avatar {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            border: 2px solid #D4A017;
-            background: #1A2B4D;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            font-size: 24px;
-        }
-
-        .client-info h3 {
-            font-size: 15px;
-            font-weight: 600;
-            color: white;
-            margin: 0;
-        }
-
-        .client-info p {
-            font-size: 12px;
-            color: #999;
-            margin: 2px 0 0 0;
-        }
-
-        .client-action {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: 2px solid #D4A017;
-            background: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #D4A017;
-            transition: all 0.3s;
-            flex-shrink: 0;
-        }
-
-        .client-action:hover {
-            background: rgba(212, 175, 55, 0.1);
-        }
-
-        .info-box {
-            margin: 24px;
-            padding: 20px;
-            background: transparent;
-            border: 1px solid #D4A017;
-            border-radius: 16px;
-            text-align: center;
-            color: #ccc;
-            font-size: 13px;
-            line-height: 1.6;
-        }
-
-        .info-box .gold-text {
-            color: #D4A017;
-            font-weight: 600;
-        }
-
-        .qr-box {
-            margin: 24px;
-            padding: 32px 24px;
-            background: transparent;
-            border: 1px solid #D4A017;
-            border-radius: 16px;
-            text-align: center;
-        }
-
-        .qr-icon {
-            width: 40px;
-            height: 40px;
-            border: 2px solid #D4A017;
+        .business-card {
+            position: relative;
             border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 16px;
-            color: #D4A017;
-        }
-
-        .qr-code {
-            width: 120px;
+            overflow: hidden;
             height: 120px;
-            background: white;
-            border-radius: 8px;
-            margin: 16px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 80px;
+            cursor: pointer;
+            transition: all 0.3s;
         }
 
-        .qr-text {
-            color: #ccc;
-            font-size: 13px;
-            line-height: 1.6;
+        .business-card:hover {
+            transform: scale(1.05);
+        }
+
+        .business-image {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #D4A017 0%, #E8D5B7 100%);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 8px;
+            position: relative;
+        }
+
+        .business-name {
+            font-size: 11px;
+            color: white;
+            font-weight: 500;
+            text-align: center;
+            max-width: 100%;
+            line-height: 1.2;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .invite-btn {
+            margin: 0 24px 24px;
+            width: calc(100% - 48px);
+            padding: 14px;
+            background: #D4A017;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .invite-btn:hover {
+            background: #C09010;
+            transform: scale(1.02);
+        }
+
+        .invite-btn:active {
+            transform: scale(0.98);
         }
 
         .bottom-nav {
@@ -273,7 +216,7 @@
             left: 0;
             right: 0;
             height: 80px;
-            background: #0B1F33;
+            background: #0B162C;
             border-top: 1px solid rgba(212, 175, 55, 0.2);
             display: flex;
             justify-content: space-around;
@@ -292,11 +235,18 @@
             justify-content: center;
             transition: transform 0.3s;
             color: #D4A017;
-            font-size: 24px;
         }
 
         .nav-btn:hover {
             transform: scale(1.15);
+        }
+
+        .nav-btn svg {
+            width: 24px;
+            height: 24px;
+            stroke: #D4A017;
+            fill: none;
+            stroke-width: 2;
         }
 
         .home-indicator {
@@ -323,105 +273,92 @@
         <!-- Header -->
         <div class="header">
             <div class="header-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D4A017" stroke-width="2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
                 </svg>
             </div>
-            <h1>Vos clients</h1>
+            <h1>Recommandations</h1>
         </div>
 
         <!-- Content -->
         <div class="content">
-            <!-- Search Section -->
-            <div class="search-section">
-                <div class="mode-pro-badge">
-                    <div class="mode-pro-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                            <circle cx="12" cy="7" r="4"/>
+            <!-- Description -->
+            <div class="description">
+                Des commerces recommandés par ceux que tu fréquentes déjà.
+            </div>
+
+            <!-- Featured Card -->
+            <div class="featured-card">
+                <div class="featured-image">
+                    Image Commerces
+                    <div class="featured-heart">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="#D4A017" stroke="none">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                         </svg>
                     </div>
-                    <span>Mode Pro</span>
                 </div>
-                <input type="text" class="search-input" placeholder="Rechercher">
-                <button class="filter-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                    </svg>
-                </button>
             </div>
 
-            <!-- Client Item -->
-            <div class="client-item">
-                <div class="client-left">
-                    <div class="client-avatar">👤</div>
-                    <div class="client-info">
-                        <h3>M Guyomar Pascal</h3>
-                        <p>Conseiller Yuztoo pour bien démarrer</p>
+            <!-- Search Section -->
+            <div class="search-section">
+                <input type="text" class="search-input" placeholder="Boulanger">
+            </div>
+
+            <!-- Business Grid -->
+            <div class="business-grid">
+                <div class="business-card">
+                    <div class="business-image">
+                        <div class="business-name">Boulangerie Bon fournil</div>
                     </div>
                 </div>
-                <button class="client-action">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                </button>
-            </div>
 
-            <!-- Info Box -->
-            <div class="info-box">
-                Vos clients vous appartiennent désormais. <span class="gold-text">Yuztoo</span> vous aide à les garder
-            </div>
-
-            <!-- QR Box -->
-            <div class="qr-box">
-                <div class="qr-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        <rect x="7" y="7" width="10" height="10"/>
-                        <circle cx="9" cy="9" r="1"/>
-                    </svg>
+                <div class="business-card">
+                    <div class="business-image">
+                        <div class="business-name">Boulangerie Tampis</div>
+                    </div>
                 </div>
-                <div class="qr-code">⬜</div>
-                <div class="qr-text">
-                    Faites scanez ce QR code<br>pour ajouter un client
+
+                <div class="business-card">
+                    <div class="business-image">
+                        <div class="business-name">Pâtisserie Laurent</div>
+                    </div>
                 </div>
             </div>
+
+            <!-- Invite Button -->
+            <button class="invite-btn">Invite un commerçant</button>
         </div>
 
         <!-- Bottom Navigation -->
         <div class="bottom-nav">
             <button class="nav-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                <svg viewBox="0 0 24 24">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                 </svg>
             </button>
             <button class="nav-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="8" y1="6" x2="21" y2="6"/>
-                    <line x1="8" y1="12" x2="21" y2="12"/>
-                    <line x1="8" y1="18" x2="21" y2="18"/>
-                    <line x1="3" y1="6" x2="3.01" y2="6"/>
-                    <line x1="3" y1="12" x2="3.01" y2="12"/>
-                    <line x1="3" y1="18" x2="3.01" y2="18"/>
+                <svg viewBox="0 0 24 24">
+                    <path d="M4 19V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>
+                    <polyline points="12 2 12 8"/>
+                    <polyline points="12 16 12 22"/>
                 </svg>
             </button>
             <button class="nav-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="6" y="9" width="12" height="13" rx="2" ry="2"/>
-                    <path d="M9 5a3 3 0 0 1 6 0"/>
+                <svg viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
                 </svg>
             </button>
             <button class="nav-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                <svg viewBox="0 0 24 24">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                 </svg>
             </button>
             <button class="nav-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg viewBox="0 0 24 24">
                     <circle cx="12" cy="12" r="1"/>
                     <circle cx="19" cy="12" r="1"/>
                     <circle cx="5" cy="12" r="1"/>
@@ -435,7 +372,7 @@
             </button>
         </div>
 
-        <!-- Home Indicator --> 
+        <!-- Home Indicator -->
         <div class="home-indicator"></div>
     </div>
 </body>

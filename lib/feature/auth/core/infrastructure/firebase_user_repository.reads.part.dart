@@ -89,8 +89,10 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       }
 
       final city = data['city'] as String?;
-      // Return null if city is null or empty
       if (city == null || city.isEmpty) {
+        return const Right<AuthFailure, String?>(null);
+      }
+      if (CityInput.isPlaceholder(city)) {
         return const Right<AuthFailure, String?>(null);
       }
 
@@ -135,7 +137,9 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
 
       final email = (data['email'] as String?)?.trim() ?? '';
       final phone = (data['phone'] as String?)?.trim() ?? '';
-      final city = (data['city'] as String?)?.trim() ?? '';
+      final rawCity = (data['city'] as String?)?.trim() ?? '';
+      final city =
+          CityInput.isPlaceholder(rawCity) ? '' : rawCity;
 
       // Always return basics when the document exists so UI (préférences compte,
       // onboarding) can show city even if one field is temporarily empty.
@@ -516,6 +520,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
   Future<Result<Unit>> completeClientProfile({
     required String uid,
     required String displayName,
+    String? city,
     String? photoUrl,
   }) async {
     final trimmed = displayName.trim();
@@ -528,13 +533,34 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
     try {
       final userRef = _firestore.collection('users').doc(uid);
       final snap = await userRef.get();
+
+      // Guard: if the Firestore doc was never created during signup (e.g. the
+      // phone_index transaction was denied and the fallback also failed), build
+      // a minimal valid document now so onboarding can still complete.
       if (!snap.exists) {
-        return const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'Profil utilisateur introuvable'),
-        );
+        // ignore: avoid_print
+        print('[completeClientProfile] user doc missing for uid=$uid — creating minimal doc');
+        final authUser = FirebaseAuth.instance.currentUser;
+        final minimalDoc = <String, dynamic>{
+          'uid': uid,
+          'email': authUser?.email ?? '',
+          'phone': authUser?.phoneNumber ?? '',
+          'roles': <String, bool>{'client': true, 'merchant': false, 'provider': false},
+          'primary_role': 'client',
+          'merchant_id': null,
+          'onboarding': <String, String>{'merchant': 'completed', 'client': 'not_started'},
+          'status': 'active',
+          'created_at': FieldValue.serverTimestamp(),
+          'updated_at': FieldValue.serverTimestamp(),
+          'last_login_at': null,
+          'force_merchant_next_login': false,
+        };
+        await userRef.set(minimalDoc, SetOptions(merge: false));
+        LoggerService.logInfo('completeClientProfile: created missing user doc', context: {'uid': uid});
       }
 
-      final data = snap.data();
+      final freshSnap = snap.exists ? snap : await userRef.get();
+      final data = freshSnap.data();
       final mergedOnboarding = Map<String, dynamic>.from(
         (data?['onboarding'] as Map<String, dynamic>?) ?? {},
       );
@@ -549,6 +575,10 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       if (photoUrl != null && photoUrl.trim().isNotEmpty) {
         update['photoUrl'] = photoUrl.trim();
       }
+      final trimmedCity = CityInput.forFirestore(city ?? '');
+      if (trimmedCity != null) {
+        update['city'] = trimmedCity;
+      }
 
       await userRef.update(update);
       LoggerService.logInfo(
@@ -557,6 +587,8 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       );
       return const Right<AuthFailure, Unit>(unit);
     } catch (e, st) {
+      // ignore: avoid_print
+      print('[completeClientProfile] EXCEPTION for uid=$uid: $e');
       LoggerService.logError(
         'Error completing client profile',
         error: e,

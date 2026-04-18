@@ -245,6 +245,140 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
     );
   }
 
+  Widget _buildCityStep() {
+    final hasCity =
+        _selectedCity != null && _selectedCity!.trim().isNotEmpty;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        children: [
+          const SizedBox(height: 40),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: MerchantOnboardingColors.bgDark2,
+              border: Border.all(
+                color: MerchantOnboardingColors.primaryGold,
+                width: 2,
+              ),
+            ),
+            child: const Icon(
+              Icons.location_city_rounded,
+              size: 40,
+              color: MerchantOnboardingColors.primaryGold,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'Dans quelle ville êtes-vous ?',
+            style: GoogleFonts.outfit(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: MerchantOnboardingColors.textLight,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Nous vous montrerons les commerces proches de chez vous.',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              height: 1.5,
+              color: MerchantOnboardingColors.textGrey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
+          GestureDetector(
+            onTap: _isSaving
+                ? null
+                : () => CitySelectionModal.show(
+                      context,
+                      cities: frenchCities,
+                      selectedCity: _selectedCity,
+                      onCitySelected: (city) {
+                        _onCitySelected(city);
+                      },
+                      onValidateCity: () {},
+                    ),
+            child: Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: MerchantOnboardingColors.bgDark2,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: hasCity
+                      ? MerchantOnboardingColors.primaryGold
+                      : MerchantOnboardingColors.bgDark2,
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.location_on_rounded,
+                    color: hasCity
+                        ? MerchantOnboardingColors.primaryGold
+                        : MerchantOnboardingColors.textGrey,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      hasCity
+                          ? _selectedCity!
+                          : 'Sélectionnez votre ville',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        color: hasCity
+                            ? MerchantOnboardingColors.textLight
+                            : MerchantOnboardingColors.textGrey,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: MerchantOnboardingColors.textGrey,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: (hasCity && !_isSaving) ? _goNext : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: MerchantOnboardingColors.primaryGold,
+                disabledBackgroundColor:
+                    MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
+                foregroundColor: MerchantOnboardingColors.bgDark1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: hasCity ? 4 : 0,
+              ),
+              child: Text(
+                'Suivant',
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPhotoStep() {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),

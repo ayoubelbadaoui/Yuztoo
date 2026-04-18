@@ -1,3 +1,4 @@
+import '../../../../core/utils/city_input.dart';
 import '../domain/entities/auth_user.dart';
 import '../domain/entities/user_profile_basics.dart';
 import '../../../storefront/domain/entities/storefront.dart';
@@ -35,7 +36,9 @@ String resolveCityForProfile(
   required bool isMerchant,
   Storefront? storefront,
 }) {
-  final fromUser = (basics?.city ?? '').trim();
+  final fromUserRaw = (basics?.city ?? '').trim();
+  final fromUser =
+      CityInput.isPlaceholder(fromUserRaw) ? '' : fromUserRaw;
   if (fromUser.isNotEmpty) return fromUser;
   if (!isMerchant || storefront == null) return '';
   final fromCommerce = storefront.city.trim();

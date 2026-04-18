@@ -17,7 +17,6 @@ class _RootShellState extends ConsumerState<_RootShell>
   String? _verificationId;
   String? _signupEmail;
   String? _signupPassword;
-  String? _signupCity;
   String? _otpUnavailableMessage;
 
   final AppLinks _appLinks = AppLinks();
@@ -157,7 +156,6 @@ class _RootShellState extends ConsumerState<_RootShell>
     _verificationId = null;
     _signupEmail = null;
     _signupPassword = null;
-    _signupCity = null;
     _otpUnavailableMessage = null;
   }
 
@@ -960,7 +958,6 @@ class _RootShellState extends ConsumerState<_RootShell>
               _signupEmail = data.email;
               _signupPassword = data.password;
               _phoneNumber = data.phone;
-              _signupCity = data.city;
               _authScreen = ScreenId.otp;
             });
           },
@@ -973,7 +970,6 @@ class _RootShellState extends ConsumerState<_RootShell>
           verificationId: _verificationId,
           email: _signupEmail ?? '',
           password: _signupPassword ?? '',
-          city: _signupCity ?? '',
           role: _role ?? UserRole.client,
           otpUnavailableMessage: _otpUnavailableMessage,
           onResend: () {

@@ -179,6 +179,132 @@ class _StepNameState extends State<_StepName> {
   }
 }
 
+class _StepCity extends StatefulWidget {
+  const _StepCity({
+    required this.initialValue,
+    required this.onChanged,
+    required this.onNext,
+  });
+
+  final String? initialValue;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onNext;
+
+  @override
+  State<_StepCity> createState() => _StepCityState();
+}
+
+class _StepCityState extends State<_StepCity> {
+  String? _selectedCity;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCity = widget.initialValue;
+  }
+
+  void _openCityPicker() {
+    CitySelectionModal.show(
+      context,
+      cities: frenchCities,
+      selectedCity: _selectedCity,
+      onCitySelected: (city) {
+        setState(() => _selectedCity = city);
+        widget.onChanged(city);
+      },
+      onValidateCity: () {},
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasCity =
+        _selectedCity != null && _selectedCity!.trim().isNotEmpty;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        children: [
+          const SizedBox(height: 40),
+          const _StepAvatar(icon: Icons.location_city_rounded, size: 80),
+          const SizedBox(height: 32),
+          Text(
+            'Dans quelle ville se trouve votre commerce ?',
+            style: GoogleFonts.outfit(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: MerchantOnboardingColors.textLight,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Vos clients dans la même ville vous trouveront facilement.',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: MerchantOnboardingColors.textGrey,
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
+          GestureDetector(
+            onTap: _openCityPicker,
+            child: Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: MerchantOnboardingColors.bgDark2,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: hasCity
+                      ? MerchantOnboardingColors.primaryGold
+                      : MerchantOnboardingColors.bgDark2,
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.location_on_rounded,
+                    color: hasCity
+                        ? MerchantOnboardingColors.primaryGold
+                        : MerchantOnboardingColors.textGrey,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      hasCity
+                          ? _selectedCity!
+                          : 'Sélectionnez votre ville',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        color: hasCity
+                            ? MerchantOnboardingColors.textLight
+                            : MerchantOnboardingColors.textGrey,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: MerchantOnboardingColors.textGrey,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          _SuivantButton(
+            onPressed: hasCity ? widget.onNext : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StepImage extends StatelessWidget {
   const _StepImage({
     required this.imagePath,
@@ -1183,11 +1309,15 @@ class _StepReady extends StatefulWidget {
   const _StepReady({
     required this.onComplete,
     this.isPostSignup = false,
+    this.postSignupAwaitFullPersistOnly = false,
     this.onPostSignupPersistMerchantReady,
   });
 
   final VoidCallback onComplete;
   final bool isPostSignup;
+  /// When true, [onPostSignupPersistMerchantReady] is the full Firestore save; do not
+  /// call [onComplete] afterward (the persist callback handles success navigation).
+  final bool postSignupAwaitFullPersistOnly;
   final Future<void> Function()? onPostSignupPersistMerchantReady;
 
   @override
@@ -1200,15 +1330,21 @@ class _StepReadyState extends State<_StepReady> {
   Future<void> _handleComplete() async {
     if (_isLoading) return;
     setState(() => _isLoading = true);
-    if (widget.isPostSignup) {
-      await widget.onPostSignupPersistMerchantReady?.call();
+    try {
+      if (widget.isPostSignup) {
+        await widget.onPostSignupPersistMerchantReady?.call();
+        if (!widget.postSignupAwaitFullPersistOnly) {
+          widget.onComplete();
+        }
+      } else {
+        widget.onComplete();
+      }
+    } finally {
+      // Safety reset: if user remains on the same step (e.g. save error),
+      // re-enable the button so they can retry.
+      await Future<void>.delayed(const Duration(seconds: 8));
+      if (mounted) setState(() => _isLoading = false);
     }
-    widget.onComplete();
-
-    // Safety reset: if user remains on the same step (e.g. save error),
-    // re-enable the button so they can retry.
-    await Future<void>.delayed(const Duration(seconds: 8));
-    if (mounted) setState(() => _isLoading = false);
   }
 
   @override

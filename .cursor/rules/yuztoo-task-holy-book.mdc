@@ -1,0 +1,30 @@
+---
+description: Task reminder — DDD layers, Flutter conventions, UI/UX + system chrome
+alwaysApply: true
+---
+
+# Task reminder (Yuztoo)
+
+Before finishing a task, mentally run this list. **Full detail:** `docs/yuztoo-holy-book.md`.
+
+## DDD (this repo)
+
+- **domain**: entities, value objects, failures, **repository interfaces only** — no Flutter, Firebase, or Riverpod.
+- **application**: use cases, orchestration, providers that compose domain + repos.
+- **infrastructure**: repo implementations, DTOs, mappers, Firebase — no UI.
+- **presentation**: widgets/screens — no direct Firestore/SDK calls; use application layer.
+- Prefer changes inside **one** `lib/feature/<name>/` boundary; avoid cross-feature “reach-in”.
+
+## Flutter
+
+- Match existing **Riverpod** and **go_router** patterns in the same feature.
+- Large UI: `part` / `part of` per `docs/flutter-presentation-part-split-guide.md`.
+- Handle **loading / empty / error**; use `const` where reasonable.
+
+## UI / UX
+
+- Follow **`design.md`** for visuals and flow.
+- Every screen: **system status bar + navigation bar** match adjacent UI; icon brightness correct — see **`system-ui-overlay-styling`** rule (`AnnotatedRegion<SystemUiOverlayStyle>`).
+- New user-visible copy: **l10n** where the app already localizes.
+
+If a requirement conflicts with this guide, **ask the human** before inventing a new cross-cutting pattern.

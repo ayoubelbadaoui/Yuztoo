@@ -9,11 +9,13 @@ class CompleteClientProfile {
   Future<Result<Unit>> call({
     required String uid,
     required String displayName,
+    String? city,
     String? photoUrl,
   }) =>
       _repository.completeClientProfile(
         uid: uid,
         displayName: displayName,
+        city: city,
         photoUrl: photoUrl,
       );
 }

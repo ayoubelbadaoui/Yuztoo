@@ -7,17 +7,19 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/utils/cities.dart';
 import '../application/providers.dart';
 import '../domain/entities/merchant_category.dart';
 import '../application/onboarding_flow_provider.dart';
 import '../../storefront/domain/entities/business_hours.dart';
 import 'widgets/merchant_onboarding_colors.dart';
 import 'widgets/category_card.dart';
+import '../../auth/signup/presentation/widgets/city_selection_modal.dart';
 
 part 'onboarding_flow_screen.part.dart';
 
-/// Total steps: Welcome(0), Name(1), Image(2), Address(3), Description(4), Hours(5), Ready(6)
-const _totalSteps = 7;
+/// Total steps: Welcome(0), Name(1), City(2), Image(3), Address(4), Description(5), Hours(6), Ready(7)
+const _totalSteps = 8;
 
 /// Uber Eats / Glovo-style multi-step merchant onboarding.
 class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
@@ -26,6 +28,10 @@ class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
     required this.onBack,
     required this.onComplete,
     this.isPostSignup = false,
+    /// When set with [isPostSignup], the final button **only** awaits this (e.g. create
+    /// merchant in Firestore). Do not fire-and-forget [onComplete] for the same work —
+    /// otherwise routing can unmount the screen before signup city is read from `/users`.
+    this.onPostSignupPersist,
   });
 
   final VoidCallback onBack;
@@ -33,6 +39,9 @@ class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
 
   /// When true, last step shows "Accéder à mon commerce" instead of "Créer mon compte".
   final bool isPostSignup;
+
+  /// Optional: awaited on the last step when [isPostSignup] is true (full persist path).
+  final Future<void> Function()? onPostSignupPersist;
 
   @override
   ConsumerState<MerchantOnboardingFlowScreen> createState() =>
@@ -98,9 +107,9 @@ class _MerchantOnboardingFlowScreenState
   }
 
   bool _isOptionalStep() {
-    return _currentStep == 2 || // Image
-        _currentStep == 4 || // Description
-        _currentStep == 5; // Hours
+    return _currentStep == 3 || // Image
+        _currentStep == 5 || // Description
+        _currentStep == 6; // Hours
   }
 
   Future<void> _persistMerchantOnboardingCompleted() async {
@@ -144,6 +153,13 @@ class _MerchantOnboardingFlowScreenState
                       onChanged: (v) => ref
                           .read(onboardingFlowProvider.notifier)
                           .setFullName(v),
+                      onNext: _goNext,
+                    ),
+                    _StepCity(
+                      initialValue: data.city,
+                      onChanged: (v) => ref
+                          .read(onboardingFlowProvider.notifier)
+                          .setCity(v),
                       onNext: _goNext,
                     ),
                     _StepImage(
@@ -194,8 +210,11 @@ class _MerchantOnboardingFlowScreenState
                     _StepReady(
                       onComplete: widget.onComplete,
                       isPostSignup: widget.isPostSignup,
+                      postSignupAwaitFullPersistOnly:
+                          widget.isPostSignup && widget.onPostSignupPersist != null,
                       onPostSignupPersistMerchantReady: widget.isPostSignup
-                          ? _persistMerchantOnboardingCompleted
+                          ? (widget.onPostSignupPersist ??
+                              _persistMerchantOnboardingCompleted)
                           : null,
                     ),
                   ],
