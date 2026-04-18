@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../client_notification/application/providers.dart';
+import '../../merchant/application/providers.dart' show currentMerchantForOwnerProvider;
 import '../application/providers.dart';
 import '../domain/entities/promotion.dart';
 import 'widgets/add_promo_sheet.dart';
@@ -61,13 +63,26 @@ class _PromotionsManagementScreenState
           ),
         );
       },
-      (_) {
+      (savedPromo) async {
         ref.invalidate(merchantPromotionsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Promotion créée'),
             backgroundColor: MerchantColors.gold,
           ),
+        );
+
+        // Notify all followers — fire and forget (non-blocking UI).
+        final merchantAsync =
+            await ref.read(currentMerchantForOwnerProvider.future);
+        final merchantName =
+            merchantAsync?.name ?? authState.user.displayName ?? 'Votre commerce';
+
+        final notifyUseCase = ref.read(notifyFollowersOfPromotionProvider);
+        await notifyUseCase.call(
+          merchantId: authState.user.id,
+          merchantName: merchantName,
+          promotion: savedPromo,
         );
       },
     );

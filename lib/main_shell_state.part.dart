@@ -252,6 +252,16 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
+    // Register FCM token for this device so push notifications work.
+    unawaited(
+      (() async {
+        try {
+          final fcmService = ref.read(fcmTokenServiceProvider);
+          await fcmService.registerToken(user.id);
+        } catch (_) {}
+      })(),
+    );
+
     // Best-effort legacy cleanup for user schema drift (e.g. dotted role keys).
     // Never await this before routing: Firestore get/update can stall with no timeout
     // and leaves new users (especially client signup) stuck on splash forever.

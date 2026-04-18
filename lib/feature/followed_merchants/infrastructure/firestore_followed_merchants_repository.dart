@@ -172,4 +172,42 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
     // Keep UI responsive with a stable fallback until a server-side counter exists.
     return Right<AppFailure, Map<String, int>>(baseCounts);
   }
+
+  @override
+  Future<Result<List<String>>> getFollowerIds(String merchantId) async {
+    if (merchantId.isEmpty) {
+      return const Right<AppFailure, List<String>>([]);
+    }
+    try {
+      // Collection-group query across all users' followed_merchants subcollections.
+      // Requires a Firestore index: collectionGroup=followed_merchants, field=merchant_id ASC.
+      final snapshot = await _firestore
+          .collectionGroup('followed_merchants')
+          .where('merchant_id', isEqualTo: merchantId)
+          .get();
+
+      // The parent document of each result is the user doc → its ID is the clientId.
+      final ids = snapshot.docs
+          .map((d) => d.reference.parent.parent?.id)
+          .whereType<String>()
+          .toList();
+
+      LoggerService.logInfo(
+        'Follower IDs loaded for merchant',
+        context: {'merchantId': merchantId, 'count': ids.length},
+      );
+      return Right<AppFailure, List<String>>(ids);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError('Firebase error loading follower IDs', error: e, stackTrace: st);
+      return Left<AppFailure, List<String>>(
+        UnexpectedFailure(
+            message: 'Impossible de charger les abonnés', cause: e, stackTrace: st),
+      );
+    } catch (e, st) {
+      LoggerService.logError('Error loading follower IDs', error: e, stackTrace: st);
+      return Left<AppFailure, List<String>>(
+        UnexpectedFailure(message: 'Erreur de chargement des abonnés', cause: e, stackTrace: st),
+      );
+    }
+  }
 }
