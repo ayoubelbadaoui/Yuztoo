@@ -1,15 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "followed_merchants",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        {
-          "fieldPath": "merchant_id",
-          "order": "ASCENDING"
-        }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }
