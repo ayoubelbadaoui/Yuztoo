@@ -28,7 +28,7 @@ enum LoyaltyPassageValidation {
 /// Business rules such as [clientMustEnterPurchaseAmount] live in the domain layer.
 class LoyaltyProgramConfig extends Equatable {
   const LoyaltyProgramConfig({
-    this.programEnabled = true,
+    this.programEnabled = false,
     this.triggerType = LoyaltyTriggerType.visitCount,
     this.visitsRequired = 10,
     this.cumulativeSpendRequiredEuros = 100,
@@ -38,9 +38,9 @@ class LoyaltyProgramConfig extends Equatable {
     this.discountNextPurchasePercent = 10,
     this.freeProductSummaryLabel,
     this.pointsPerEuro = 1,
-    this.minimumPerVisitEnabled = true,
+    this.minimumPerVisitEnabled = false,
     this.minimumPerVisitEuros = 50,
-    this.rewardValidityEnabled = true,
+    this.rewardValidityEnabled = false,
     this.rewardValidityDays = 30,
     this.passageValidation = LoyaltyPassageValidation.automatic,
     this.optionalAskClientPurchaseAmount = false,

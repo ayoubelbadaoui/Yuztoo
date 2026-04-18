@@ -81,7 +81,7 @@ class LoyaltyProgramFirestoreMapper {
     }
 
     return LoyaltyProgramConfig(
-      programEnabled: b('program_enabled', fallback: true),
+      programEnabled: b('program_enabled', fallback: false),
       triggerType: trigger,
       visitsRequired: i('visits_required', 10).clamp(1, 999),
       cumulativeSpendRequiredEuros: d('cumulative_spend_required_euros', 100).clamp(1, 1e6),
