@@ -2,10 +2,8 @@ part of 'signup_ui_widgets.dart';
 
 extension _SignupLogoSectionUi on SignupLogoSection {
   Widget _buildSignupLogoSection(BuildContext context) {
-    // International standard: Signup screens use 15-18% of screen height
-    // Examples: Spotify (16%), Netflix (15%), LinkedIn (17%)
     final screenH = MediaQuery.of(context).size.height;
-    final logoSize = (screenH * 0.20).clamp(140.0, 200.0);
+    final logoSize = (screenH * 0.15).clamp(100.0, 150.0);
 
     return Column(
       children: [
@@ -17,14 +15,25 @@ extension _SignupLogoSectionUi on SignupLogoSection {
             size: logoSize * 0.4,
           ),
         ),
-        const SizedBox(height: 24), // 8pt grid: logo → title
+        const SizedBox(height: 16),
         const Text(
           'Créez votre compte',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 22,
             color: SignupConstants.textLight,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
           ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Rejoignez Yuztoo et développez votre commerce',
+          style: TextStyle(
+            fontSize: 13,
+            color: SignupConstants.textGrey,
+            fontWeight: FontWeight.w400,
+          ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -35,13 +44,13 @@ extension _SignupButtonUi on SignupButton {
   Widget _buildSignupButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 54,
       child: FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor: SignupConstants.primaryGold,
           disabledBackgroundColor: SignupConstants.borderColor,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
           shadowColor: SignupConstants.primaryGold.withValues(alpha: 0.3),
           elevation: isLoading ? 4 : 2,
@@ -49,8 +58,8 @@ extension _SignupButtonUi on SignupButton {
         onPressed: isLoading ? null : onPressed,
         child: isLoading
             ? SizedBox(
-                width: 24,
-                height: 24,
+                width: 22,
+                height: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(
@@ -60,10 +69,10 @@ extension _SignupButtonUi on SignupButton {
             : const Text(
                 'Créer un compte',
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                   color: SignupConstants.bgDark1,
-                  letterSpacing: 0.3,
+                  letterSpacing: 0.2,
                 ),
               ),
       ),
@@ -304,9 +313,9 @@ extension _SignupFooterUi on SignupFooter {
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
         const Opacity(
-          opacity: 0.6,
+          opacity: 0.5,
           child: Text(
             'En continuant, vous acceptez nos conditions d\'utilisation',
             textAlign: TextAlign.center,

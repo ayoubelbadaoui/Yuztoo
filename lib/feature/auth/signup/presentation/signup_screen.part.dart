@@ -305,21 +305,31 @@ extension _SignupScreenUi on _SignupScreenState {
           backgroundColor: MerchantColors.bgMain,
           body: SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      onPressed: widget.onBack,
-                      icon: const Icon(Icons.arrow_back),
-                      color: SignupConstants.primaryGold,
-                      iconSize: 24,
+                  // Back button — flush left, minimal vertical footprint
+                  SizedBox(
+                    height: 44,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: widget.onBack,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10),
+                          child: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: SignupConstants.primaryGold,
+                            size: 20,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 8),
                   const SignupLogoSection(),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
                   Form(
                     key: _formKey,
                     autovalidateMode: AutovalidateMode.disabled,
@@ -333,7 +343,7 @@ extension _SignupScreenUi on _SignupScreenState {
                           enabled: !_isLoading,
                           onUnfocusAll: _unfocusAllFields,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         PasswordField(
                           controller: _passwordController,
                           focusNode: _passwordFocusNode,
@@ -344,10 +354,10 @@ extension _SignupScreenUi on _SignupScreenState {
                           onFocusChanged: _onPasswordFieldFocusChanged,
                         ),
                         if (_isPasswordFocused) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           const PasswordHint(),
                         ],
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         ConfirmPasswordField(
                           controller: _confirmPasswordController,
                           passwordController: _passwordController,
@@ -357,7 +367,7 @@ extension _SignupScreenUi on _SignupScreenState {
                           enabled: !_isLoading,
                           onUnfocusAll: _unfocusAllFields,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         PhoneField(
                           controller: _phoneController,
                           focusNode: _phoneFocusNode,
@@ -373,23 +383,24 @@ extension _SignupScreenUi on _SignupScreenState {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
                   SignupButton(
                     isLoading: _isLoading,
                     onPressed:
                         (_isLoading || _isSubmitting) ? null : _handleSignup,
                   ),
-                  const SizedBox(height: 32),
-                  const SocialDivider(),
                   const SizedBox(height: 24),
+                  const SocialDivider(),
+                  const SizedBox(height: 20),
                   SocialLoginButtons(
                     isLoading: _isLoading,
                     onSocialLogin: _handleSocialLogin,
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 28),
                   SignupFooter(
                     onBack: widget.onBack,
                   ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
