@@ -4,6 +4,7 @@ extension _SignupLogoSectionUi on SignupLogoSection {
   Widget _buildSignupLogoSection(BuildContext context) {
     final screenH = MediaQuery.of(context).size.height;
     final logoSize = (screenH * 0.15).clamp(100.0, 150.0);
+    final isMerchant = role == UserRole.merchant;
 
     return Column(
       children: [
@@ -26,9 +27,11 @@ extension _SignupLogoSectionUi on SignupLogoSection {
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Rejoignez Yuztoo et développez votre commerce',
-          style: TextStyle(
+        Text(
+          isMerchant
+              ? 'Rejoignez Yuztoo et développez votre commerce'
+              : 'Découvrez les offres et commerces près de chez vous',
+          style: const TextStyle(
             fontSize: 13,
             color: SignupConstants.textGrey,
             fontWeight: FontWeight.w400,

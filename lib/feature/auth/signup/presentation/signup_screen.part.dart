@@ -328,7 +328,7 @@ extension _SignupScreenUi on _SignupScreenState {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const SignupLogoSection(),
+                  SignupLogoSection(role: widget.role),
                   const SizedBox(height: 28),
                   Form(
                     key: _formKey,
