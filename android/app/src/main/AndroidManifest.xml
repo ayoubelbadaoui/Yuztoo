@@ -52,10 +52,8 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- FCM default notification channel — must match NotificationService._channelId -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="yuztoo_promotions" />
+        <!-- FCM uses its own auto-created default channel (fcm_fallback_notification_channel).
+             No custom channelId needed — avoids silent drops on devices without the channel. -->
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

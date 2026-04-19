@@ -65,11 +65,7 @@ export const onNotificationCreated = functions
         ...(merchantId ? { merchant_id: merchantId } : {}),
       },
       android: {
-        priority: "high",
-        notification: {
-          channelId: "yuztoo_promotions",
-          clickAction: "FLUTTER_NOTIFICATION_CLICK",
-        },
+        priority: 'high',
       },
       apns: {
         payload: {
