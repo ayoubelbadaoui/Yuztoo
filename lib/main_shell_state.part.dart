@@ -33,16 +33,16 @@ class _RootShellState extends ConsumerState<_RootShell>
     WidgetsBinding.instance.addObserver(this);
     unawaited(WakelockPlus.enable());
 
-    // Initialize local notification overlay (pure Flutter — no native deps).
-    unawaited(Future.microtask(() {
+    // Attach overlay after the first frame so Overlay.of(context) is available.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final overlay = Overlay.of(context);
-        NotificationService.instance.attachOverlay(overlay);
+        NotificationService.instance.attachOverlay(Overlay.of(context));
       }
-    }));
+    });
 
     // Show banner for foreground FCM messages.
     _fcmForegroundSub = FirebaseMessaging.onMessage.listen((message) {
+      debugPrint('[FCM] foreground message: ${message.notification?.title}');
       unawaited(NotificationService.instance.showFromRemoteMessage(message));
     });
 
@@ -80,6 +80,13 @@ class _RootShellState extends ConsumerState<_RootShell>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_consumeInitialAppLink());
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-attach overlay each time context changes (first frame + any context rebuild).
+    NotificationService.instance.attachOverlay(Overlay.of(context));
   }
 
   @override
