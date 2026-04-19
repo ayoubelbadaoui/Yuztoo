@@ -53,8 +53,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- FCM uses its own auto-created default channel (fcm_fallback_notification_channel).
-             No custom channelId needed — avoids silent drops on devices without the channel. -->
+        <!-- FCM default channel — IMPORTANCE_HIGH so banners appear on Samsung/Xiaomi/etc.
+             Must match the channelId in Cloud Function and createNotificationChannel() in MainActivity. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="yuztoo_promotions" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

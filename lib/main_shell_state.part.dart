@@ -33,6 +33,12 @@ class _RootShellState extends ConsumerState<_RootShell>
     WidgetsBinding.instance.addObserver(this);
     unawaited(WakelockPlus.enable());
 
+    // Request all runtime permissions on every app start — before auth state
+    // resolves. This ensures even users who never log out see the dialogs.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_requestRuntimePermissions());
+    });
+
     // Attach overlay after the first frame so Overlay.of(context) is available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -87,6 +93,34 @@ class _RootShellState extends ConsumerState<_RootShell>
     super.didChangeDependencies();
     // Re-attach overlay each time context changes (first frame + any context rebuild).
     NotificationService.instance.attachOverlay(Overlay.of(context));
+  }
+
+  /// Requests notification permission + battery optimisation exemption on
+  /// every cold-start, regardless of auth state.
+  /// Safe to call repeatedly — Android shows the dialog only when needed.
+  Future<void> _requestRuntimePermissions() async {
+    try {
+      // 1. Notification permission (Android 13+ / iOS).
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    } catch (_) {}
+
+    try {
+      // 2. Battery optimisation exemption — prevents Samsung/Xiaomi/OPPO from
+      //    killing FCM in background. Shows a one-time system dialog.
+      const channel = MethodChannel('com.yuztoo.synerteam/battery');
+      final isExempt =
+          await channel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
+              false;
+      if (!isExempt) {
+        await channel.invokeMethod('requestIgnoreBatteryOptimizations');
+      }
+    } on MissingPluginException {
+      // Not on Android — no-op.
+    } catch (_) {}
   }
 
   @override

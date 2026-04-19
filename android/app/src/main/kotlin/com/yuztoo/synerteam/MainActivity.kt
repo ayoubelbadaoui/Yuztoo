@@ -17,6 +17,10 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        // Create the notification channel as early as possible so FCM messages
+        // have a valid IMPORTANCE_HIGH channel before the first push arrives.
+        createNotificationChannel()
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, batteryChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

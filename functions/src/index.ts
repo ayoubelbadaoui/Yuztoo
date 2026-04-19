@@ -66,6 +66,11 @@ export const onNotificationCreated = functions
       },
       android: {
         priority: 'high',
+        notification: {
+          channelId: 'yuztoo_promotions',
+          priority: 'high',
+          defaultSound: true,
+        },
       },
       apns: {
         payload: {
