@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/infrastructure/logger_service.dart';
@@ -14,6 +15,9 @@ class FcmTokenService {
 
   final FirebaseFirestore _firestore;
 
+  static const _batteryChannel =
+      MethodChannel('com.yuztoo.synerteam/battery');
+
   /// Request permission and persist the FCM token for [userId].
   ///
   /// Safe to call multiple times — uses `SetOptions(merge: true)`.
@@ -27,6 +31,10 @@ class FcmTokenService {
         badge: true,
         sound: true,
       );
+
+      // Ask Android to exempt this app from battery optimisation.
+      // Without this Samsung/Xiaomi/etc. kill FCM delivery after ~20 min idle.
+      await _requestBatteryExemption();
 
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) return;
@@ -44,6 +52,25 @@ class FcmTokenService {
         stackTrace: st,
         context: {'userId': userId},
       );
+    }
+  }
+
+  /// Opens the system dialog asking the user to exempt this app from
+  /// battery optimisation — the single most common cause of missed FCM
+  /// pushes on Samsung / Xiaomi / OPPO / OnePlus devices.
+  Future<void> _requestBatteryExemption() async {
+    try {
+      final isExempt = await _batteryChannel
+          .invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
+          false;
+      if (!isExempt) {
+        await _batteryChannel
+            .invokeMethod('requestIgnoreBatteryOptimizations');
+      }
+    } on MissingPluginException {
+      // Not on Android — no-op.
+    } catch (_) {
+      // Non-critical — don't block token registration.
     }
   }
 
