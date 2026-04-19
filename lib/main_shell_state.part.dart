@@ -21,6 +21,8 @@ class _RootShellState extends ConsumerState<_RootShell>
 
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _appLinkSubscription;
+  StreamSubscription<RemoteMessage>? _fcmForegroundSub;
+  StreamSubscription<String?>? _notifTapSub;
 
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
   String? _pendingVitrineMerchantId;
@@ -29,8 +31,31 @@ class _RootShellState extends ConsumerState<_RootShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Keep display awake while the app is in the foreground (OS may still suspend in background).
     unawaited(WakelockPlus.enable());
+
+    // Initialize local notification channels (creates Android channel so
+    // banners appear like IG/FB even when app is in foreground).
+    unawaited(NotificationService.instance.init());
+
+    // Show banner for foreground FCM messages.
+    _fcmForegroundSub = FirebaseMessaging.onMessage.listen((message) {
+      unawaited(NotificationService.instance.showFromRemoteMessage(message));
+    });
+
+    // Open notifications screen when user taps a banner while app is open.
+    _notifTapSub = NotificationService.instance.onNotificationTap.listen((_) {
+      if (mounted) _openNotificationsScreen();
+    });
+
+    // Open notifications screen when user taps a push while app was in background.
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      if (mounted) _openNotificationsScreen();
+    });
+
+    // Handle notification tap from a terminated (killed) app.
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null && mounted) _openNotificationsScreen();
+    });
 
     // Initialize to splash screen immediately
     _authScreen = ScreenId.splash;
@@ -57,6 +82,9 @@ class _RootShellState extends ConsumerState<_RootShell>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(WakelockPlus.disable());
+    _fcmForegroundSub?.cancel();
+    _notifTapSub?.cancel();
+    NotificationService.instance.dispose();
     _appLinkSubscription?.cancel();
     _authStateSub?.close();
     super.dispose();

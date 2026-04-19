@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,6 +47,7 @@ import 'feature/e_fidelite/application/screens.dart';
 import 'feature/account_preferences/application/screens.dart';
 import 'feature/merchant/application/providers.dart' as merchant_providers;
 import 'feature/client_notification/infrastructure/fcm_token_service.dart';
+import 'feature/client_notification/infrastructure/notification_service.dart';
 import 'core/config/vitrine_qr_config.dart';
 
 part 'main_shell_state.part.dart';
