@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Push Notifications capability — required for APNs/FCM.
+	     Value must be "development" for debug builds and "production" for
+	     App Store / TestFlight. Flutter/Xcode resolves this via the
+	     build configuration when CODE_SIGN_ENTITLEMENTS is set. -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

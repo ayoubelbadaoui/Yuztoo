@@ -106,6 +106,12 @@ class _RootShellState extends ConsumerState<_RootShell>
         badge: true,
         sound: true,
       );
+      // iOS: show banner + play sound + update badge when app is in foreground.
+      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
     } catch (_) {}
 
     try {

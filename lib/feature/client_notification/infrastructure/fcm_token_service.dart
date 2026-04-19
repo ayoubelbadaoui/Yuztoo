@@ -34,6 +34,13 @@ class FcmTokenService {
         sound: true,
       );
 
+      // iOS: show banner + play sound + update badge when app is in foreground.
+      await messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
       // Ask Android to exempt this app from battery optimisation.
       // Without this Samsung/Xiaomi/etc. kill FCM delivery after ~20 min idle.
       await _requestBatteryExemption();
