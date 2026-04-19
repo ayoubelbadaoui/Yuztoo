@@ -155,7 +155,25 @@ class _PromotionsManagementScreenState
           SnackBar(content: Text(failure.message), backgroundColor: Colors.red.shade700),
         );
       },
-      (_) => ref.invalidate(merchantPromotionsProvider),
+      (_) {
+        ref.invalidate(merchantPromotionsProvider);
+
+        // Notify followers only when the promotion goes online.
+        if (isOnline) {
+          final authState = ref.read(authStateProvider);
+          if (authState is Authenticated) {
+            ref.read(currentMerchantForOwnerProvider.future).then((merchant) {
+              final merchantName =
+                  merchant?.name ?? authState.user.displayName ?? 'Votre commerce';
+              ref.read(notifyFollowersOfPromotionProvider).call(
+                    merchantId: authState.user.id,
+                    merchantName: merchantName,
+                    promotion: updated,
+                  );
+            });
+          }
+        }
+      },
     );
   }
 
