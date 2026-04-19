@@ -129,7 +129,7 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
         dateFrom: _dateFrom,
         dateTo: _dateTo,
         selectedClientType: _clientType,
-        isOnline: false,
+        isOnline: true,
         imagePath: _imagePath,
       ),
     );
