@@ -33,9 +33,13 @@ class _RootShellState extends ConsumerState<_RootShell>
     WidgetsBinding.instance.addObserver(this);
     unawaited(WakelockPlus.enable());
 
-    // Initialize local notification channels (creates Android channel so
-    // banners appear like IG/FB even when app is in foreground).
-    unawaited(NotificationService.instance.init());
+    // Initialize local notification overlay (pure Flutter — no native deps).
+    unawaited(Future.microtask(() {
+      if (mounted) {
+        final overlay = Overlay.of(context);
+        NotificationService.instance.attachOverlay(overlay);
+      }
+    }));
 
     // Show banner for foreground FCM messages.
     _fcmForegroundSub = FirebaseMessaging.onMessage.listen((message) {
