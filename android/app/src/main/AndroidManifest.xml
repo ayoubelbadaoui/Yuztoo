@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for push notifications on Android 13+ (API 33+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
         android:label="flutter_yuztoo"
         android:name="${applicationName}"
@@ -50,6 +53,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- FCM default channel — IMPORTANCE_HIGH so banners appear on Samsung/Xiaomi/etc.
+             Must match the channelId in Cloud Function and createNotificationChannel() in MainActivity. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="yuztoo_promo_v2" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

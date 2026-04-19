@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/infrastructure/logger_service.dart';
@@ -14,6 +17,9 @@ class FcmTokenService {
 
   final FirebaseFirestore _firestore;
 
+  static const _batteryChannel =
+      MethodChannel('com.yuztoo.synerteam/battery');
+
   /// Request permission and persist the FCM token for [userId].
   ///
   /// Safe to call multiple times — uses `SetOptions(merge: true)`.
@@ -27,6 +33,17 @@ class FcmTokenService {
         badge: true,
         sound: true,
       );
+
+      // iOS: show banner + play sound + update badge when app is in foreground.
+      await messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      // Ask Android to exempt this app from battery optimisation.
+      // Without this Samsung/Xiaomi/etc. kill FCM delivery after ~20 min idle.
+      await _requestBatteryExemption();
 
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) return;
@@ -47,25 +64,57 @@ class FcmTokenService {
     }
   }
 
+  /// Opens the system dialog asking the user to exempt this app from
+  /// battery optimisation — the single most common cause of missed FCM
+  /// pushes on Samsung / Xiaomi / OPPO / OnePlus devices.
+  Future<void> _requestBatteryExemption() async {
+    try {
+      final isExempt = await _batteryChannel
+          .invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
+          false;
+      if (!isExempt) {
+        await _batteryChannel
+            .invokeMethod('requestIgnoreBatteryOptimizations');
+      }
+    } on MissingPluginException {
+      // Not on Android — no-op.
+    } catch (_) {
+      // Non-critical — don't block token registration.
+    }
+  }
+
   Future<void> _persistToken(String userId, String token) async {
-    await _firestore.collection('users').doc(userId).set(
+    // Store in a subcollection so we don't trigger the strict shape-validation
+    // rules on the root /users/{uid} document.
+    // Path: users/{uid}/push_tokens/device
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('push_tokens')
+        .doc('device')
+        .set(
       {
         'fcm_token': token,
-        'fcm_token_updated_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+        'platform': _platform(),
       },
       SetOptions(merge: true),
     );
     LoggerService.logInfo('FCM token saved', context: {'userId': userId});
   }
 
+  static String _platform() => Platform.isAndroid ? 'android' : 'ios';
+
   /// Remove the FCM token on sign-out so push notifications stop.
   Future<void> clearToken(String userId) async {
     if (userId.isEmpty) return;
     try {
-      await _firestore.collection('users').doc(userId).set(
-        {'fcm_token': null},
-        SetOptions(merge: true),
-      );
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('push_tokens')
+          .doc('device')
+          .delete();
     } catch (_) {}
   }
 }

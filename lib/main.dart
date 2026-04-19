@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,12 +47,25 @@ import 'feature/e_fidelite/application/screens.dart';
 import 'feature/account_preferences/application/screens.dart';
 import 'feature/merchant/application/providers.dart' as merchant_providers;
 import 'feature/client_notification/infrastructure/fcm_token_service.dart';
+import 'feature/client_notification/infrastructure/notification_service.dart';
 import 'core/config/vitrine_qr_config.dart';
 
 part 'main_shell_state.part.dart';
 
+/// Top-level background message handler — must be a top-level function.
+/// Called when a data-only FCM message arrives while the app is killed/background.
+/// The system handles notification-type messages automatically; this handles
+/// data-only payloads (e.g. silent refreshes) without any UI work needed.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // No-op: our Cloud Function always sends a `notification` block so Android
+  // shows the system banner automatically. This handler just prevents the
+  // "no background handler registered" warning and keeps the isolate alive.
+}
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(
     const ProviderScope(
       child: AppBootstrap(

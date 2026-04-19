@@ -107,6 +107,28 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
+    // Collection-group rule: lets a signed-in merchant read all followed_merchants
+    // docs where merchant_id == their own UID (used by getFollowerIds query).
+    // Requires a composite index on collection-group followed_merchants / merchant_id.
+    match /{path=**}/followed_merchants/{docId} {
+      allow read: if isSignedIn()
+        && resource.data.merchant_id == request.auth.uid;
+    }
+
+    // --- /users/{userId}/notifications/{notificationId} ---
+    // Clients read and mark their own notifications.
+    // Any signed-in user (merchant) may create notifications for others.
+    match /users/{userId}/notifications/{notificationId} {
+      allow read, update, delete: if isOwner(userId);
+      allow create: if isSignedIn();
+    }
+
+    // --- /users/{userId}/push_tokens/{tokenId} ---
+    // Device FCM tokens: owner read/write only.
+    match /users/{userId}/push_tokens/{tokenId} {
+      allow read, write: if isOwner(userId);
+    }
+
     // --- /merchants/{merchantId} -----------------------------------------
     function isMerchantOwner(merchantId) {
       return isSignedIn()

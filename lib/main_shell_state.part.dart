@@ -21,6 +21,8 @@ class _RootShellState extends ConsumerState<_RootShell>
 
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _appLinkSubscription;
+  StreamSubscription<RemoteMessage>? _fcmForegroundSub;
+  StreamSubscription<String?>? _notifTapSub;
 
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
   String? _pendingVitrineMerchantId;
@@ -29,8 +31,41 @@ class _RootShellState extends ConsumerState<_RootShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Keep display awake while the app is in the foreground (OS may still suspend in background).
     unawaited(WakelockPlus.enable());
+
+    // Request all runtime permissions on every app start — before auth state
+    // resolves. This ensures even users who never log out see the dialogs.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_requestRuntimePermissions());
+    });
+
+    // Attach overlay after the first frame so Overlay.of(context) is available.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        NotificationService.instance.attachOverlay(Overlay.of(context));
+      }
+    });
+
+    // Show banner for foreground FCM messages.
+    _fcmForegroundSub = FirebaseMessaging.onMessage.listen((message) {
+      debugPrint('[FCM] foreground message: ${message.notification?.title}');
+      unawaited(NotificationService.instance.showFromRemoteMessage(message));
+    });
+
+    // Open notifications screen when user taps a banner while app is open.
+    _notifTapSub = NotificationService.instance.onNotificationTap.listen((_) {
+      if (mounted) _openNotificationsScreen();
+    });
+
+    // Open notifications screen when user taps a push while app was in background.
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      if (mounted) _openNotificationsScreen();
+    });
+
+    // Handle notification tap from a terminated (killed) app.
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null && mounted) _openNotificationsScreen();
+    });
 
     // Initialize to splash screen immediately
     _authScreen = ScreenId.splash;
@@ -54,9 +89,53 @@ class _RootShellState extends ConsumerState<_RootShell>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-attach overlay each time context changes (first frame + any context rebuild).
+    NotificationService.instance.attachOverlay(Overlay.of(context));
+  }
+
+  /// Requests notification permission + battery optimisation exemption on
+  /// every cold-start, regardless of auth state.
+  /// Safe to call repeatedly — Android shows the dialog only when needed.
+  Future<void> _requestRuntimePermissions() async {
+    try {
+      // 1. Notification permission (Android 13+ / iOS).
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      // iOS: show banner + play sound + update badge when app is in foreground.
+      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    } catch (_) {}
+
+    try {
+      // 2. Battery optimisation exemption — prevents Samsung/Xiaomi/OPPO from
+      //    killing FCM in background. Shows a one-time system dialog.
+      const channel = MethodChannel('com.yuztoo.synerteam/battery');
+      final isExempt =
+          await channel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
+              false;
+      if (!isExempt) {
+        await channel.invokeMethod('requestIgnoreBatteryOptimizations');
+      }
+    } on MissingPluginException {
+      // Not on Android — no-op.
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(WakelockPlus.disable());
+    _fcmForegroundSub?.cancel();
+    _notifTapSub?.cancel();
+    NotificationService.instance.dispose();
     _appLinkSubscription?.cancel();
     _authStateSub?.close();
     super.dispose();
@@ -137,6 +216,7 @@ class _RootShellState extends ConsumerState<_RootShell>
 
   bool _hasReceivedFirstAuthState = false;
   bool _isNavigatingToHome = false; // Track when we're navigating to home
+  String? _lastAuthenticatedUserId; // Held for FCM token cleanup on sign-out.
 
   /// Clears transient signup/onboarding draft data to avoid leaking values
   /// between different accounts after logout.
@@ -185,6 +265,18 @@ class _RootShellState extends ConsumerState<_RootShell>
       _hasReceivedFirstAuthState = true;
 
       if (authState is Unauthenticated) {
+        // Clear FCM token so this device stops receiving pushes for the old user.
+        final prevUserId = _lastAuthenticatedUserId;
+        if (prevUserId != null) {
+          _lastAuthenticatedUserId = null;
+          unawaited(
+            (() async {
+              try {
+                await ref.read(fcmTokenServiceProvider).clearToken(prevUserId);
+              } catch (_) {}
+            })(),
+          );
+        }
         unawaited(_clearAuthTransientDrafts());
         // While splash + post-signup routing is in progress, do not clear the flag:
         // a brief Unauthenticated tick would otherwise send the user to role selection
@@ -228,6 +320,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         // If we already have a state, don't navigate away (prevents flicker)
         // The error might be temporary and will resolve on next auth state change
       } else if (authState is Authenticated) {
+        _lastAuthenticatedUserId = authState.user.id;
         // For authenticated users, compute navigation based on role
         // Keep splash screen until navigation is ready
         // Set flag and ensure splash BEFORE async operation to prevent any flicker
