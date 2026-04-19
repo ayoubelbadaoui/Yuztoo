@@ -52,8 +52,20 @@ import 'core/config/vitrine_qr_config.dart';
 
 part 'main_shell_state.part.dart';
 
+/// Top-level background message handler — must be a top-level function.
+/// Called when a data-only FCM message arrives while the app is killed/background.
+/// The system handles notification-type messages automatically; this handles
+/// data-only payloads (e.g. silent refreshes) without any UI work needed.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // No-op: our Cloud Function always sends a `notification` block so Android
+  // shows the system banner automatically. This handler just prevents the
+  // "no background handler registered" warning and keeps the isolate alive.
+}
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(
     const ProviderScope(
       child: AppBootstrap(

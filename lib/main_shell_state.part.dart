@@ -176,6 +176,7 @@ class _RootShellState extends ConsumerState<_RootShell>
 
   bool _hasReceivedFirstAuthState = false;
   bool _isNavigatingToHome = false; // Track when we're navigating to home
+  String? _lastAuthenticatedUserId; // Held for FCM token cleanup on sign-out.
 
   /// Clears transient signup/onboarding draft data to avoid leaking values
   /// between different accounts after logout.
@@ -224,6 +225,18 @@ class _RootShellState extends ConsumerState<_RootShell>
       _hasReceivedFirstAuthState = true;
 
       if (authState is Unauthenticated) {
+        // Clear FCM token so this device stops receiving pushes for the old user.
+        final prevUserId = _lastAuthenticatedUserId;
+        if (prevUserId != null) {
+          _lastAuthenticatedUserId = null;
+          unawaited(
+            (() async {
+              try {
+                await ref.read(fcmTokenServiceProvider).clearToken(prevUserId);
+              } catch (_) {}
+            })(),
+          );
+        }
         unawaited(_clearAuthTransientDrafts());
         // While splash + post-signup routing is in progress, do not clear the flag:
         // a brief Unauthenticated tick would otherwise send the user to role selection
@@ -267,6 +280,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         // If we already have a state, don't navigate away (prevents flicker)
         // The error might be temporary and will resolve on next auth state change
       } else if (authState is Authenticated) {
+        _lastAuthenticatedUserId = authState.user.id;
         // For authenticated users, compute navigation based on role
         // Keep splash screen until navigation is ready
         // Set flag and ensure splash BEFORE async operation to prevent any flicker
