@@ -59,8 +59,11 @@ class MainActivity : FlutterActivity() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java) ?: return
+            // Delete old channel so blocked state doesn't carry over.
+            manager.deleteNotificationChannel("yuztoo_promotions")
             val channel = NotificationChannel(
-                "yuztoo_promotions",
+                "yuztoo_promo_v2",
                 "Promotions & Fidélité",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
@@ -68,8 +71,7 @@ class MainActivity : FlutterActivity() {
                 enableVibration(true)
                 enableLights(true)
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
+            manager.createNotificationChannel(channel)
         }
     }
 }
