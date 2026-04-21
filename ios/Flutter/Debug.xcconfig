@@ -1,3 +1,4 @@
+# Pods live under ios/Pods; resolved from ios/Flutter/ via ../ (SRCROOT is not expanded in #include paths).
 #include? "../Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
 # Clear Pods default EXCLUDED_ARCHS arm64 for simulator (Apple Silicon).
