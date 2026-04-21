@@ -115,7 +115,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     try {
       // 2. Battery optimisation exemption — prevents Samsung/Xiaomi/OPPO from
       //    killing FCM in background. Shows a one-time system dialog.
-      const channel = MethodChannel('com.yuztoo.synerteam/battery');
+      const channel = MethodChannel('com.yuztoo.app/battery');
       final isExempt =
           await channel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
               false;

@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBvsKq-3-HFXR7ODyIUfVDlMlYlWavu25U',
-    appId: '1:20266054150:android:dbd7433817ec90a65a4987',
+    appId: '1:20266054150:android:9761ea41e69fc9295a4987',
     messagingSenderId: '20266054150',
     projectId: 'yuztoo',
     storageBucket: 'yuztoo.firebasestorage.app',
@@ -59,10 +59,13 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDk9okSTdsXuVCvn69TB3xnq6wU9KV_mro',
-    appId: '1:20266054150:ios:8dcce2d85fe94eae5a4987',
+    appId: '1:20266054150:ios:a17342947aacce925a4987',
     messagingSenderId: '20266054150',
     projectId: 'yuztoo',
     storageBucket: 'yuztoo.firebasestorage.app',
-    iosBundleId: 'com.example.flutterYuztoo',
+    androidClientId: '20266054150-912h7gr3gfm6u8r2looddsk8qq8ttojn.apps.googleusercontent.com',
+    iosClientId: '20266054150-omm1tiu719qq6rkbpvm6q5sposih75af.apps.googleusercontent.com',
+    iosBundleId: 'com.yuztoo.app',
   );
+
 }

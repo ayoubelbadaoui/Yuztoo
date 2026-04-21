@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "com.yuztoo.synerteam"
+    namespace = "com.yuztoo.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.yuztoo.synerteam"
+        applicationId = "com.yuztoo.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
