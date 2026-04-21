@@ -53,3 +53,7 @@ app.*.map.json
 
 # Local dev scripts
 send-test-notification.js
+
+# Test-only Apple signing material (never commit keys)
+.test_signing/
+apple_distribution.*

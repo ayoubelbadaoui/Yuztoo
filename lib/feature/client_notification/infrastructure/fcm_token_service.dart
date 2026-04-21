@@ -18,7 +18,7 @@ class FcmTokenService {
   final FirebaseFirestore _firestore;
 
   static const _batteryChannel =
-      MethodChannel('com.yuztoo.synerteam/battery');
+      MethodChannel('com.yuztoo.app/battery');
 
   /// Request permission and persist the FCM token for [userId].
   ///

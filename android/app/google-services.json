@@ -7,12 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:20266054150:android:dbd7433817ec90a65a4987",
+        "mobilesdk_app_id": "1:20266054150:android:9761ea41e69fc9295a4987",
         "android_client_info": {
-          "package_name": "com.yuztoo.synerteam"
+          "package_name": "com.yuztoo.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "20266054150-bhrvh3cj1fnkgc6vhu7h340pr2j32ans.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBvsKq-3-HFXR7ODyIUfVDlMlYlWavu25U"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "20266054150-bhrvh3cj1fnkgc6vhu7h340pr2j32ans.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "20266054150-6k0d9c2a0in1mc1duu1npsa70jk4k353.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.flutterYuztoo"
+              }
+            }
+          ]
         }
       }
     }

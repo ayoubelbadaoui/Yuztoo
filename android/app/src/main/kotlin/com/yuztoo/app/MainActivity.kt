@@ -1,4 +1,4 @@
-package com.yuztoo.synerteam
+package com.yuztoo.app
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -12,7 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val batteryChannel = "com.yuztoo.synerteam/battery"
+    private val batteryChannel = "com.yuztoo.app/battery"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

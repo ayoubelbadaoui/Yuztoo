@@ -1,2 +1,5 @@
-#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+// Pods under ios/Pods; ../ from ios/Flutter/.
+#include? "../Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+// Override Flutter Generated.xcconfig simulator arch exclusions for Apple Silicon.
+EXCLUDED_ARCHS[sdk=iphonesimulator*] = i386
