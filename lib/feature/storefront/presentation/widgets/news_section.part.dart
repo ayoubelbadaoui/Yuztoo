@@ -134,6 +134,41 @@ extension _NewsSectionUi on _NewsSectionState {
   }
 
   Widget _buildEmptyMediaPlaceholder() {
+    // Client view (read-only): show a friendly message, no upload hints.
+    if (!widget.showUploadButton) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+        decoration: BoxDecoration(
+          color: StorefrontColors.creamLight,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: StorefrontColors.primaryGold.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.photo_library_outlined,
+              size: 36,
+              color: StorefrontColors.primaryGold.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Retrouvez ici les actualités de ce commerce',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: StorefrontColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Merchant view: show upload-hint slots.
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxW = constraints.maxWidth;

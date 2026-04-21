@@ -31,9 +31,10 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
                 ),
               ),
               IconButton(
-                onPressed: () => onNavigate('notifications'),
+                onPressed: () => onNavigate('qr-scanner'),
+                tooltip: 'Scanner un commerce',
                 icon: const Icon(
-                  Icons.notifications_outlined,
+                  Icons.qr_code_scanner_rounded,
                   color: MerchantColors.gold,
                   size: 24,
                 ),
@@ -350,7 +351,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
         decoration: BoxDecoration(
           border: Border(
             top: BorderSide(

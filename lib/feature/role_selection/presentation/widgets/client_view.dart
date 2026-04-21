@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'role_selection_colors.dart';
 import 'qr_pattern_painter.dart';
 import '../../../../l10n/app_localizations.dart';

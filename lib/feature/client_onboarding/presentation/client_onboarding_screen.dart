@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/utils/cities.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
@@ -130,11 +131,9 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
           );
       photoUrl = upload.fold((_) => null, (u) => u);
       if (photoUrl == null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Échec du téléversement de la photo. Réessayez ou passez cette étape.'),
-            backgroundColor: Colors.red,
-          ),
+        showErrorSnackbar(
+          context,
+          'Échec du téléversement de la photo. Réessayez ou passez cette étape.',
         );
         setState(() => _isSaving = false);
         return;
@@ -154,15 +153,7 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
     result.fold(
       (failure) {
         if (!mounted) return;
-        // ignore: avoid_print
-        print('[ClientOnboarding] completeClientProfile failed: ${failure.runtimeType} – ${failure.message}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${failure.message}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 6),
-          ),
-        );
+        showErrorSnackbar(context, failure.message);
         setState(() => _isSaving = false);
       },
       (_) async {
@@ -209,15 +200,20 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
                   SizedBox(height: MediaQuery.paddingOf(context).top),
                   _buildProgressBar(),
                   Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        _buildWelcomeStep(),
-                        _buildNameStep(),
-                        _buildCityStep(),
-                        _buildPhotoStep(),
-                      ],
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.paddingOf(context).bottom,
+                      ),
+                      child: PageView(
+                        controller: _pageController,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          _buildWelcomeStep(),
+                          _buildNameStep(),
+                          _buildCityStep(),
+                          _buildPhotoStep(),
+                        ],
+                      ),
                     ),
                   ),
                 ],

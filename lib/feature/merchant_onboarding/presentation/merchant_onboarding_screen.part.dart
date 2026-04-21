@@ -2,6 +2,7 @@ part of 'merchant_onboarding_screen.dart';
 
 extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
   Widget _buildMerchantOnboardingScaffold(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantOnboardingColors.bgDark1,
@@ -12,18 +13,23 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
       ),
       child: Scaffold(
         backgroundColor: MerchantOnboardingColors.bgDark1,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
+        body: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) widget.onBack();
+          },
+          child: SafeArea(
+            bottom: false,
+            child: Column(
             children: [
               _buildProgressBar(1, 3),
               _buildHeader(),
               Expanded(
                 child: GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.72,
+                    childAspectRatio: 0.82,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                   ),
@@ -42,36 +48,82 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
               ),
               const OnboardingFooter(),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                child: ElevatedButton(
-                  onPressed: _selectedCategoryId == null ? null : _continue,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: MerchantOnboardingColors.primaryGold,
-                    foregroundColor: MerchantOnboardingColors.bgDark1,
-                    disabledBackgroundColor: MerchantOnboardingColors.primaryGold
-                        .withValues(alpha: 0.3),
-                    minimumSize: const Size.fromHeight(48),
+                padding: EdgeInsets.fromLTRB(20, 0, 20, (bottomPad > 0 ? bottomPad : 16) + 8),
+                child: GestureDetector(
+                  onTap: _selectedCategoryId == null ? null : _continue,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: 54,
+                    decoration: BoxDecoration(
+                      gradient: _selectedCategoryId != null
+                          ? const LinearGradient(
+                              colors: [
+                                Color(0xFFD4AF37),
+                                MerchantOnboardingColors.primaryGold,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      color: _selectedCategoryId == null
+                          ? MerchantOnboardingColors.primaryGold.withValues(alpha: 0.25)
+                          : null,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: _selectedCategoryId != null
+                          ? [
+                              BoxShadow(
+                                color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.35),
+                                blurRadius: 16,
+                                spreadRadius: -2,
+                                offset: const Offset(0, 6),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Continuer',
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: _selectedCategoryId != null
+                              ? MerchantOnboardingColors.bgDark1
+                              : MerchantOnboardingColors.textGrey.withValues(alpha: 0.5),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
                   ),
-                  child: const Text('Continuer'),
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildProgressBar(int current, int total) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
-          IconButton(
-            onPressed: widget.onBack,
-            icon: const Icon(Icons.arrow_back_ios),
-            color: MerchantOnboardingColors.primaryGold,
-            iconSize: 20,
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: widget.onBack,
+                behavior: HitTestBehavior.opaque,
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: MerchantOnboardingColors.primaryGold,
+                  size: 20,
+                ),
+              ),
+            ),
           ),
           Expanded(
             child: ClipRRect(
@@ -82,7 +134,7 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
                 valueColor: const AlwaysStoppedAnimation<Color>(
                   MerchantOnboardingColors.primaryGold,
                 ),
-                minHeight: 6,
+                minHeight: 5,
               ),
             ),
           ),
@@ -95,27 +147,29 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
   Widget _buildHeader() {
     return FadeTransition(
       opacity: _animationController,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Dites-nous ce que vous faites?',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
+            Text(
+              'Votre activité',
+              style: GoogleFonts.outfit(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
                 color: MerchantOnboardingColors.textLight,
-                height: 1.3,
+                height: 1.25,
+                letterSpacing: -0.3,
               ),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
-            Container(
-              height: 1,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: MerchantOnboardingColors.primaryGold
-                    .withValues(alpha: 0.2),
+            const SizedBox(height: 4),
+            Text(
+              'Sélectionnez votre secteur d\'activité',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: MerchantOnboardingColors.textGrey,
+                height: 1.4,
               ),
             ),
           ],

@@ -3,33 +3,34 @@ part of 'client_view.dart';
 extension _ClientViewUi on _ClientViewState {
   Widget _buildClientViewBody(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: BoxDecoration(
         border: Border.all(
-          color: RoleSelectionColors.primaryGold.withValues(alpha: 0.35),
-          width: 2,
+          color: RoleSelectionColors.primaryGold.withValues(alpha: 0.25),
+          width: 1.5,
         ),
         borderRadius: BorderRadius.circular(20),
-        color: RoleSelectionColors.bgDark2.withValues(alpha: 0.7),
+        color: RoleSelectionColors.bgDark2.withValues(alpha: 0.6),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // QR code preview with animated gold glow
           AnimatedBuilder(
             animation: _pulseAnimation,
             builder: (context, child) {
               return Container(
-                width: 110,
-                height: 110,
+                width: 104,
+                height: 104,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
                       color: RoleSelectionColors.primaryGold.withValues(
-                        alpha: 0.25 * _pulseAnimation.value,
+                        alpha: 0.22 * _pulseAnimation.value,
                       ),
-                      blurRadius: 20 * _pulseAnimation.value,
-                      spreadRadius: 3 * _pulseAnimation.value,
+                      blurRadius: 18 * _pulseAnimation.value,
+                      spreadRadius: 2 * _pulseAnimation.value,
                     ),
                   ],
                 ),
@@ -37,17 +38,16 @@ extension _ClientViewUi on _ClientViewState {
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: RoleSelectionColors.primaryGold.withValues(
-                        alpha: 0.4 + (0.15 * _pulseAnimation.value),
+                        alpha: 0.35 + (0.15 * _pulseAnimation.value),
                       ),
-                      width: 2,
-                      style: BorderStyle.solid,
+                      width: 1.5,
                     ),
                     borderRadius: BorderRadius.circular(14),
                     color: RoleSelectionColors.bgDark1.withValues(alpha: 0.6),
                   ),
                   child: const Center(
                     child: CustomPaint(
-                      size: Size(85, 85),
+                      size: Size(80, 80),
                       painter: QrPatternPainter(
                         color: RoleSelectionColors.primaryGold,
                       ),
@@ -57,73 +57,48 @@ extension _ClientViewUi on _ClientViewState {
               );
             },
           ),
-          const SizedBox(height: 12),
-          RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
+          const SizedBox(height: 14),
+
+          // Instruction text — fixed copy: "d'un commerce" not "de ton commerce"
+          Text.rich(
+            TextSpan(
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: RoleSelectionColors.textLight,
+                height: 1.5,
+              ),
               children: [
+                TextSpan(text: AppLocalizations.of(context)!.scanQRCode + ' '),
                 TextSpan(
-                  text: '${AppLocalizations.of(context)!.scanQRCode} ',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: RoleSelectionColors.textLight,
-                    height: 1.4,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                TextSpan(
-                  text: AppLocalizations.of(context)!.qrCode,
-                  style: const TextStyle(
+                  text: 'QR Code',
+                  style: GoogleFonts.outfit(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: RoleSelectionColors.primaryGold,
-                    height: 1.4,
+                    height: 1.5,
                   ),
                 ),
-                const TextSpan(
-                  text: ' ou la ',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: RoleSelectionColors.textLight,
-                    height: 1.4,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const TextSpan(
-                  text: 'plaque',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: RoleSelectionColors.primaryGold,
-                    height: 1.4,
-                  ),
-                ),
-                const TextSpan(
-                  text: ' de ton commerce',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: RoleSelectionColors.textLight,
-                    height: 1.4,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                const TextSpan(text: " ou la carte d'un commerce"),
               ],
             ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Text(
             AppLocalizations.of(context)!.addToYuztoo,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11,
+            style: GoogleFonts.outfit(
+              fontSize: 12,
               color: RoleSelectionColors.textGrey,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+
+          // CTAs
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Primary: Scan
               Expanded(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -151,9 +126,7 @@ extension _ClientViewUi on _ClientViewState {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      shadowColor: RoleSelectionColors.primaryGold
-                          .withValues(alpha: 0.2),
-                      elevation: widget.isScanning ? 8 : 6,
+                      elevation: widget.isScanning ? 8 : 4,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -176,20 +149,19 @@ extension _ClientViewUi on _ClientViewState {
                             color: RoleSelectionColors.bgDark1,
                             size: 20,
                           ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             widget.isScanning
                                 ? AppLocalizations.of(context)!.scanning
                                 : AppLocalizations.of(context)!.startScan,
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: GoogleFonts.outfit(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: RoleSelectionColors.bgDark1,
-                              letterSpacing: 0.2,
+                              letterSpacing: 0.1,
                             ),
                           ),
                         ),
@@ -199,6 +171,7 @@ extension _ClientViewUi on _ClientViewState {
                 ),
               ),
               const SizedBox(width: 10),
+              // Secondary: Create account
               Expanded(
                 child: SizedBox(
                   height: 48,
@@ -214,16 +187,16 @@ extension _ClientViewUi on _ClientViewState {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Créer un compte',
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: GoogleFonts.outfit(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: RoleSelectionColors.primaryGold,
-                        letterSpacing: 0.2,
+                        letterSpacing: 0.1,
                       ),
                     ),
                   ),

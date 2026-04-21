@@ -391,7 +391,9 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
               _StorefrontScreenHeader(),
               Expanded(
                 child: Center(
-                  child: CircularProgressIndicator(),
+                  child: CircularProgressIndicator(
+                    color: StorefrontColors.primaryGold,
+                  ),
                 ),
               ),
             ],

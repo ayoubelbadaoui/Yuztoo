@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'widgets/benefits/benefits_colors.dart';
 import 'widgets/benefits/benefits_data.dart';
-import 'widgets/benefits/benefits_header.dart';
-import 'widgets/benefits/benefits_subtitle.dart';
 import 'widgets/benefits/benefit_card.dart';
 import 'widgets/benefits/free_text.dart';
 
@@ -43,14 +42,24 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
 
   Widget _buildProgressBar(int current, int total) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
-          IconButton(
-            onPressed: widget.onBack,
-            icon: const Icon(Icons.arrow_back_ios),
-            color: BenefitsColors.primaryGold,
-            iconSize: 20,
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: widget.onBack,
+                behavior: HitTestBehavior.opaque,
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: BenefitsColors.primaryGold,
+                  size: 20,
+                ),
+              ),
+            ),
           ),
           Expanded(
             child: ClipRRect(
@@ -61,7 +70,7 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
                 valueColor: const AlwaysStoppedAnimation<Color>(
                   BenefitsColors.primaryGold,
                 ),
-                minHeight: 6,
+                minHeight: 5,
               ),
             ),
           ),
@@ -73,6 +82,8 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: BenefitsColors.bgDark1,
@@ -83,24 +94,62 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
       ),
       child: Scaffold(
         backgroundColor: BenefitsColors.bgDark1,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
+        body: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) widget.onBack();
+          },
+          child: SafeArea(
+            bottom: false,
+            child: Column(
             children: [
               _buildProgressBar(3, 3),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                child: Column(
-                  children: [
-                    BenefitsHeader(animationController: _animationController),
-                    const SizedBox(height: 12),
-                    BenefitsSubtitle(animationController: _animationController),
-                  ],
+
+              // Header
+              FadeTransition(
+                opacity: _animationController,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShaderMask(
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [
+                            BenefitsColors.textLight,
+                            BenefitsColors.primaryGold,
+                          ],
+                          stops: [0.5, 1.0],
+                        ).createShader(bounds),
+                        child: Text(
+                          'Yuztoo pour vous',
+                          style: GoogleFonts.outfit(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Restez dans la poche de vos clients',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: BenefitsColors.textGrey,
+                          fontStyle: FontStyle.italic,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+
               Expanded(
                 child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
                   itemCount: BenefitsData.all.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) => BenefitCard(
@@ -109,23 +158,64 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
                   ),
                 ),
               ),
+
               FreeText(animationController: _animationController),
+
+              // CTA — gradient gold, matches page 1 + 2
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                child: ElevatedButton(
-                  onPressed: widget.onNext,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: BenefitsColors.primaryGold,
-                    foregroundColor: BenefitsColors.bgDark1,
-                    minimumSize: const Size.fromHeight(50),
+                padding: EdgeInsets.fromLTRB(
+                    20, 12, 20, (bottomPad > 0 ? bottomPad : 16) + 8),
+                child: GestureDetector(
+                  onTap: widget.onNext,
+                  child: Container(
+                    height: 54,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFFD4AF37),
+                          BenefitsColors.primaryGold,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: BenefitsColors.primaryGold
+                              .withValues(alpha: 0.35),
+                          blurRadius: 16,
+                          spreadRadius: -2,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: widget.onNext,
+                        splashColor: Colors.white.withValues(alpha: 0.1),
+                        child: Center(
+                          child: Text(
+                            'Créer mon compte',
+                            style: GoogleFonts.outfit(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: BenefitsColors.bgDark1,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                  child: const Text('Créer mon compte'),
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

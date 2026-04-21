@@ -7,8 +7,6 @@ class _RootShellState extends ConsumerState<_RootShell>
   ScreenId? _authScreen; // null = loading
   // Within-app navigation (discovery, messages, etc.) - manual state
   ScreenId? _nestedScreen; // null = use _authScreen
-  ScreenId?
-      _previousNestedScreen; // remembers previous nested screen before notifications
   UserRole? _role; // For bottom nav and role-based navigation
   String _activeTab = 'home';
   // Signup/OTP flow data
@@ -286,22 +284,20 @@ class _RootShellState extends ConsumerState<_RootShell>
         }
 
         // On first auth state, if unauthenticated, go to role selection
-        // But if we're already on a home screen (shouldn't happen, but safety check), don't navigate
         // IMPORTANT: If we're navigating to home (just logged in), don't navigate away
         // This prevents race conditions where userChanges() emits null briefly
-        final onHomeScreen = _authScreen == ScreenId.clientHome ||
-            _authScreen == ScreenId.merchantStorefront;
         final inAuthFlow = _authScreen == ScreenId.login ||
             _authScreen == ScreenId.signup ||
             _authScreen == ScreenId.otp ||
             (_authScreen == ScreenId.splash && _isNavigatingToHome);
 
         // Don't navigate if we're in the middle of navigating to home (prevents logout during login)
-        if (!onHomeScreen && !inAuthFlow && !_isNavigatingToHome) {
+        if (!inAuthFlow && !_isNavigatingToHome) {
           setState(() {
             // Onboarding is only after signup for merchants (see merchantProfileForm)
             _authScreen = ScreenId.roleSelection;
             _nestedScreen = null;
+            _role = null;
           });
         }
       } else if (authState is AuthError) {
@@ -558,20 +554,15 @@ class _RootShellState extends ConsumerState<_RootShell>
     final target = map[screen];
     if (target != null) {
       setState(() {
-        // Client QR scanner is a tab – switch to it instead of nesting
-        if (_role == UserRole.client && target == ScreenId.qrScanner) {
-          _activeTab = 'qr-scanner';
-          _authScreen = ScreenId.qrScanner;
+        // For client, qrScanner and notifications are navigated as full screens
+        // (qrScanner via nested, notifications via tab).
+        if (_role == UserRole.client && target == ScreenId.notifications) {
+          _activeTab = 'notifications';
+          _authScreen = ScreenId.notifications;
           _nestedScreen = null;
-          _previousNestedScreen = null;
+          
         } else {
-          if (target == ScreenId.notifications &&
-              _nestedScreen != null &&
-              _nestedScreen != ScreenId.notifications) {
-            _previousNestedScreen = _nestedScreen;
-          } else if (target != ScreenId.notifications) {
-            _previousNestedScreen = null;
-          }
+          
           _nestedScreen = target;
         }
       });
@@ -593,14 +584,14 @@ class _RootShellState extends ConsumerState<_RootShell>
       if (_role == UserRole.merchant && tab == 'storefront') {
         _authScreen = ScreenId.merchantStorefront;
         _nestedScreen = null;
-        _previousNestedScreen = null;
+        
         return;
       }
       if (_role == UserRole.client) {
         final map = <String, ScreenId>{
           'home': ScreenId.clientHome,
           'discovery': ScreenId.discovery,
-          'qr-scanner': ScreenId.qrScanner,
+          'notifications': ScreenId.notifications,
           'loyalty': ScreenId.loyalty,
           'profile': ScreenId.clientProfile,
         };
@@ -608,7 +599,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         // All client tabs are top-level: set auth screen and clear nested
         _authScreen = target;
         _nestedScreen = null;
-        _previousNestedScreen = null;
+        
       } else {
         final map = <String, ScreenId>{
           'communaute': ScreenId.merchantClients, // Map to clients screen
@@ -627,9 +618,9 @@ class _RootShellState extends ConsumerState<_RootShell>
             target == ScreenId.merchantStorefront) {
           _authScreen = target;
           _nestedScreen = null;
-          _previousNestedScreen = null;
+          
         } else {
-          _previousNestedScreen = null;
+          
           _nestedScreen = target;
         }
       }
@@ -641,41 +632,36 @@ class _RootShellState extends ConsumerState<_RootShell>
       setState(() {
         _authScreen = ScreenId.clientHome;
         _nestedScreen = null;
-        _previousNestedScreen = null;
+        
         _activeTab = 'home';
       });
     } else {
       setState(() {
         _authScreen = ScreenId.merchantStorefront;
         _nestedScreen = null;
-        _previousNestedScreen = null;
+        
         _activeTab = 'storefront';
       });
     }
   }
 
   void _openNotificationsScreen() {
+    // Notifications is a first-class tab for clients – navigate to it as a tab.
     setState(() {
-      if (_nestedScreen != null && _nestedScreen != ScreenId.notifications) {
-        _previousNestedScreen = _nestedScreen;
-      }
-      _nestedScreen = ScreenId.notifications;
+      _authScreen = ScreenId.notifications;
+      _activeTab = 'notifications';
+      _nestedScreen = null;
+      
     });
   }
 
   /// Go back from a nested screen to its parent (the current _authScreen).
   /// Unlike _handleBackToBase, this does NOT reset to the root home/storefront.
   void _handleBackFromNested() {
-    if (_nestedScreen == ScreenId.notifications &&
-        _previousNestedScreen != null) {
-      setState(() {
-        _nestedScreen = _previousNestedScreen;
-        _previousNestedScreen = null;
-      });
-    } else if (_nestedScreen != null) {
+    if (_nestedScreen != null) {
       setState(() {
         _nestedScreen = null;
-        _previousNestedScreen = null;
+        
       });
     } else {
       _handleBackToBase();
@@ -709,7 +695,12 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
     if (currentScreen == ScreenId.merchantOnboarding) {
-      setState(() => _authScreen = ScreenId.roleSelection);
+      // Reset role on back so the unauthenticated user cannot accidentally reach
+      // authenticated screens via the generic merchant-back-to-storefront handler.
+      setState(() {
+        _authScreen = ScreenId.roleSelection;
+        _role = null;
+      });
       return;
     }
     if (currentScreen == ScreenId.merchantSubcategorySelection) {
@@ -728,9 +719,14 @@ class _RootShellState extends ConsumerState<_RootShell>
       // Client profile onboarding is mandatory until completed.
       return;
     }
+    // Role selection is the unauthenticated entry point – never go further back.
+    if (currentScreen == ScreenId.roleSelection) return;
 
     // 3) Merchant tab screens – go back to vitrine root unless already there.
-    if (_role == UserRole.merchant &&
+    // Guard: only authenticated merchants may reach the storefront this way.
+    final isAuthenticated = ref.read(authControllerProvider) is Authenticated;
+    if (isAuthenticated &&
+        _role == UserRole.merchant &&
         currentScreen != ScreenId.merchantStorefront) {
       setState(() {
         _authScreen = ScreenId.merchantStorefront;
@@ -741,7 +737,9 @@ class _RootShellState extends ConsumerState<_RootShell>
     }
 
     // 4) Client tab screens – go back to home unless already there.
-    if (_role == UserRole.client && currentScreen != ScreenId.clientHome) {
+    if (isAuthenticated &&
+        _role == UserRole.client &&
+        currentScreen != ScreenId.clientHome) {
       setState(() {
         _authScreen = ScreenId.clientHome;
         _nestedScreen = null;
@@ -757,7 +755,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     final allowed = <ScreenId>{
       ScreenId.clientHome,
       ScreenId.discovery,
-      ScreenId.qrScanner,
+      ScreenId.notifications,
       ScreenId.loyalty,
       ScreenId.clientProfile,
       ScreenId.merchantClients,
@@ -975,6 +973,12 @@ class _RootShellState extends ConsumerState<_RootShell>
                   role: _role!,
                   activeTab: _activeTab,
                   onTabChange: _handleTabChange,
+                  notificationBadgeCount: _role == UserRole.client
+                      ? ref.watch(
+                          client_notification_providers
+                              .unreadNotificationCountProvider,
+                        )
+                      : 0,
                 )
               : null,
         ),
@@ -1098,7 +1102,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
             setState(() {
-              _previousNestedScreen = null;
+              
               _nestedScreen = ScreenId.storeProfile;
             });
           },
@@ -1113,7 +1117,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
             setState(() {
-              _previousNestedScreen = null;
+              
               _nestedScreen = ScreenId.storeProfile;
             });
           },
@@ -1127,7 +1131,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
             setState(() {
-              _previousNestedScreen = null;
+              
               _nestedScreen = ScreenId.storeProfile;
             });
           },
@@ -1145,7 +1149,31 @@ class _RootShellState extends ConsumerState<_RootShell>
           onReserve: _handleBackToBase,
         );
       case ScreenId.notifications:
-        return NotificationsScreen(onBack: _handleBackFromNested);
+        return NotificationsScreen(
+          onMerchantTap: (merchantId) {
+            if (merchantId.isEmpty) {
+              // Empty-state "Découvrir" button
+              setState(() {
+                _authScreen = ScreenId.discovery;
+                _activeTab = 'discovery';
+                _nestedScreen = null;
+              });
+              return;
+            }
+            ref
+                .read(store_profile_providers
+                    .selectedStoreMerchantIdProvider.notifier)
+                .state = merchantId;
+            setState(() => _nestedScreen = ScreenId.storeProfile);
+          },
+          onPromotionTap: (merchantId, _) {
+            ref
+                .read(store_profile_providers
+                    .selectedStoreMerchantIdProvider.notifier)
+                .state = merchantId;
+            setState(() => _nestedScreen = ScreenId.storeProfile);
+          },
+        );
       case ScreenId.messages:
         return MessagesScreen(
           role: _role ?? UserRole.client,

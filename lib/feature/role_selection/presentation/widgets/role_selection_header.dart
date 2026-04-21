@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'role_selection_colors.dart';
 import '../../../../types.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -18,12 +19,11 @@ class RoleSelectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenH = MediaQuery.of(context).size.height;
-    // Keep the header usable on smaller screens (and widget tests default to 600px tall).
-    final logoSize = (screenH * 0.28).clamp(160.0, 350.0);
-    
+    final logoSize = (screenH * 0.18).clamp(100.0, 180.0);
+    final l10n = AppLocalizations.of(context);
+
     return Column(
       children: [
-        // Logo
         AppLogo(
           size: logoSize,
           fallback: Icon(
@@ -32,45 +32,40 @@ class RoleSelectionHeader extends StatelessWidget {
             color: RoleSelectionColors.primaryGold,
           ),
         ),
-        SizedBox(height: (screenH * 0.04).clamp(16.0, 36.0)),
-        
-        // Description
+        SizedBox(height: (screenH * 0.03).clamp(12.0, 28.0)),
+
+        // Tagline line 1 — white part
         Text(
-          AppLocalizations.of(context)?.allTheShops ?? 'All the shops',
-          style: const TextStyle(
+          l10n?.allTheShops ?? 'Tous vos commerces préférés,',
+          style: GoogleFonts.outfit(
             fontSize: 17,
-            color: RoleSelectionColors.textLight,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: AppLocalizations.of(context)?.youreUsedTo ?? '"You\'re used" to',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: RoleSelectionColors.primaryGold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Question
-        Text(
-          AppLocalizations.of(context)?.welcomeQuestion ?? 'Bienvenue, Vous êtes ?',
-          style: const TextStyle(
-            fontSize: 16,
             color: RoleSelectionColors.textLight,
             fontWeight: FontWeight.w400,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 4),
+
+        // Tagline line 2 — gold emphasis
+        Text(
+          l10n?.youreUsedTo ?? 'à portée de main.',
+          style: GoogleFonts.outfit(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: RoleSelectionColors.primaryGold,
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Role question
+        Text(
+          l10n?.welcomeQuestion ?? 'Bienvenue — vous êtes ?',
+          style: GoogleFonts.outfit(
+            fontSize: 15,
+            color: RoleSelectionColors.textLight.withValues(alpha: 0.7),
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        const SizedBox(height: 14),
 
         // Role Toggle
         RoleToggle(
@@ -97,12 +92,12 @@ class RoleToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: RoleSelectionColors.bgDark2.withValues(alpha: 0.4),
+        color: RoleSelectionColors.bgDark2.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(60),
         border: Border.all(
-          color: RoleSelectionColors.primaryGold.withValues(alpha: 0.12),
+          color: RoleSelectionColors.primaryGold.withValues(alpha: 0.15),
           width: 1,
         ),
       ),
@@ -148,19 +143,34 @@ class _RoleButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
         decoration: BoxDecoration(
-          color: isSelected ? RoleSelectionColors.primaryGold : Colors.transparent,
+          color: isSelected
+              ? RoleSelectionColors.primaryGold
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(50),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: RoleSelectionColors.primaryGold
+                        .withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: GoogleFonts.outfit(
             fontSize: 14,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            color: isSelected ? RoleSelectionColors.bgDark1 : RoleSelectionColors.textLight,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+            color: isSelected
+                ? RoleSelectionColors.bgDark1
+                : RoleSelectionColors.textLight.withValues(alpha: 0.7),
           ),
         ),
       ),

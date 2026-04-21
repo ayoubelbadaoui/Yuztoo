@@ -11,27 +11,41 @@ class BrandName extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text.rich(
-      TextSpan(children: [
-        TextSpan(
-          text: 'Yuz',
+    return Column(
+      children: [
+        Text.rich(
+          TextSpan(children: [
+            TextSpan(
+              text: 'Yuz',
+              style: GoogleFonts.outfit(
+                fontSize: 36,
+                fontWeight: FontWeight.w700,
+                color: MerchantColors.textWhite,
+                letterSpacing: 1.0,
+              ),
+            ),
+            TextSpan(
+              text: 'too',
+              style: GoogleFonts.outfit(
+                fontSize: 36,
+                fontWeight: FontWeight.w700,
+                color: MerchantColors.gold,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Vos commerces. Votre fidélité.',
           style: GoogleFonts.outfit(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            color: MerchantColors.textWhite,
-            letterSpacing: 0.5,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: MerchantColors.textGrey,
+            letterSpacing: 0.3,
           ),
         ),
-        TextSpan(
-          text: 'too',
-          style: GoogleFonts.outfit(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: MerchantColors.gold,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ]),
+      ],
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/shared/constants/merchant_colors.dart';
 
@@ -71,10 +72,11 @@ class LoginInputField extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                color: _textLight,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+              style: GoogleFonts.outfit(
+                color: const Color(0xFFB8C4D4),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
               ),
             ),
             const SizedBox(height: 8),
@@ -83,7 +85,7 @@ class LoginInputField extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: _bgDark2,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: formFieldState.hasError
                         ? const Color(0xFFE74C3C)
@@ -96,31 +98,32 @@ class LoginInputField extends StatelessWidget {
                   focusNode: focusNode,
                   obscureText: obscure,
                   inputFormatters: inputFormatters,
-                  validator: null, // Validation handled by outer FormField
+                  validator: null,
                   enabled: enabled,
                   keyboardType: keyboardType,
                   textInputAction: textInputAction,
                   autocorrect: autocorrect,
                   enableSuggestions: enableSuggestions,
                   enableInteractiveSelection: enableInteractiveSelection,
-                  // Disables platform spellcheck underlines (Android/iOS) when supported.
                   spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
-                  autovalidateMode: AutovalidateMode.disabled, // Validation handled by outer FormField
+                  autovalidateMode: AutovalidateMode.disabled,
                   cursorColor: _primaryGold,
-                  style: TextStyle(
+                  style: GoogleFonts.outfit(
                     color: enabled ? _textLight : _textLight.withValues(alpha: 0.6),
                     fontSize: 14,
                   ),
                   onChanged: (value) {
                     formFieldState.didChange(value);
-                    // Validate in real-time if validateOnChange is enabled (for corrections)
                     if (validateOnChange) {
                       formFieldState.validate();
                     }
                   },
                   decoration: InputDecoration(
                     hintText: hint,
-                    hintStyle: const TextStyle(color: _textGrey, fontSize: 13),
+                    hintStyle: GoogleFonts.outfit(
+                      color: _textGrey,
+                      fontSize: 13,
+                    ),
                     prefixIcon: Icon(icon, color: _primaryGold, size: 18),
                     suffixIcon: suffixIcon != null && onSuffixTap != null
                         ? IconButton(
@@ -133,7 +136,7 @@ class LoginInputField extends StatelessWidget {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
-                      vertical: 14,
+                      vertical: 15,
                     ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -141,22 +144,20 @@ class LoginInputField extends StatelessWidget {
                     errorBorder: InputBorder.none,
                     focusedErrorBorder: InputBorder.none,
                     disabledBorder: InputBorder.none,
-                    // Hide error text inside the field
                     errorText: null,
                     errorStyle: const TextStyle(height: 0, fontSize: 0),
                   ),
                 ),
               ),
             ),
-            // Show error message below the field
             if (formFieldState.hasError) ...[
               const SizedBox(height: 6),
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Text(
                   formFieldState.errorText ?? '',
-                  style: const TextStyle(
-                    color: Color(0xFFE74C3C),
+                  style: GoogleFonts.outfit(
+                    color: const Color(0xFFE74C3C),
                     fontSize: 12,
                   ),
                 ),

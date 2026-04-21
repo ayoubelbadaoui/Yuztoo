@@ -1,29 +1,39 @@
 part of 'signup_ui_widgets.dart';
 
+// ── Logo / hero section ────────────────────────────────────────────────────
+
 extension _SignupLogoSectionUi on SignupLogoSection {
   Widget _buildSignupLogoSection(BuildContext context) {
-    // International standard: Signup screens use 15-18% of screen height
-    // Examples: Spotify (16%), Netflix (15%), LinkedIn (17%)
-    final screenH = MediaQuery.of(context).size.height;
-    final logoSize = (screenH * 0.20).clamp(140.0, 200.0);
+    final isMerchant = role == UserRole.merchant;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppLogo(
-          size: logoSize,
-          fallback: Icon(
-            Icons.location_on,
-            color: SignupConstants.primaryGold,
-            size: logoSize * 0.4,
+        ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [SignupConstants.textLight, SignupConstants.primaryGold],
+            stops: [0.55, 1.0],
+          ).createShader(bounds),
+          child: Text(
+            'Créez votre compte',
+            style: GoogleFonts.outfit(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: -0.5,
+            ),
           ),
         ),
-        const SizedBox(height: 24), // 8pt grid: logo → title
-        const Text(
-          'Créez votre compte',
-          style: TextStyle(
-            fontSize: 18,
-            color: SignupConstants.textLight,
-            fontWeight: FontWeight.w500,
+        const SizedBox(height: 6),
+        Text(
+          isMerchant
+              ? 'Rejoignez Yuztoo et développez votre commerce'
+              : 'Découvrez les offres et commerces près de chez vous',
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            color: SignupConstants.textGrey,
+            fontWeight: FontWeight.w400,
+            height: 1.4,
           ),
         ),
       ],
@@ -31,71 +41,113 @@ extension _SignupLogoSectionUi on SignupLogoSection {
   }
 }
 
+// ── Primary CTA button ─────────────────────────────────────────────────────
+
 extension _SignupButtonUi on SignupButton {
   Widget _buildSignupButton(BuildContext context) {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 52,
-      child: FilledButton(
-        style: FilledButton.styleFrom(
-          backgroundColor: SignupConstants.primaryGold,
-          disabledBackgroundColor: SignupConstants.borderColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          shadowColor: SignupConstants.primaryGold.withValues(alpha: 0.3),
-          elevation: isLoading ? 4 : 2,
-        ),
-        onPressed: isLoading ? null : onPressed,
-        child: isLoading
-            ? SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                      SignupConstants.bgDark1.withValues(alpha: 0.8)),
-                ),
-              )
-            : const Text(
-                'Créer un compte',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: SignupConstants.bgDark1,
-                  letterSpacing: 0.3,
-                ),
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: isLoading
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFD4AF37),
+                  SignupConstants.primaryGold,
+                ],
               ),
+        color: isLoading ? SignupConstants.borderColor : null,
+        boxShadow: isLoading
+            ? null
+            : [
+                BoxShadow(
+                  color: SignupConstants.primaryGold.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                  spreadRadius: -2,
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: isLoading ? null : onPressed,
+          splashColor: Colors.white.withValues(alpha: 0.1),
+          child: Center(
+            child: isLoading
+                ? SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        SignupConstants.bgDark1.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  )
+                : Text(
+                    'Créer mon compte',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: SignupConstants.bgDark1,
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+          ),
+        ),
       ),
     );
   }
 }
+
+// ── "OU" divider ───────────────────────────────────────────────────────────
 
 extension _SocialDividerUi on SocialDivider {
   Widget _buildSocialDivider(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: Divider(
-            color: SignupConstants.borderColor.withValues(alpha: 0.5),
-            thickness: 1,
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  SignupConstants.borderColor.withValues(alpha: 0.7),
+                ],
+              ),
+            ),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Text(
-            'OU',
-            style: TextStyle(
+            'ou continuer avec',
+            style: GoogleFonts.outfit(
               fontSize: 11,
-              color: SignupConstants.textGrey,
-              fontWeight: FontWeight.w500,
+              color: SignupConstants.textGrey.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0.3,
             ),
           ),
         ),
         Expanded(
-          child: Divider(
-            color: SignupConstants.borderColor.withValues(alpha: 0.5),
-            thickness: 1,
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  SignupConstants.borderColor.withValues(alpha: 0.7),
+                  Colors.transparent,
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -103,14 +155,14 @@ extension _SocialDividerUi on SocialDivider {
   }
 }
 
-/// Google icon painter
+// ── Google icon ────────────────────────────────────────────────────────────
+
 class GoogleIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final scale = size.width / 24.0;
     final matrix = Matrix4.diagonal3Values(scale, scale, scale);
 
-    // Red path
     final redPath = Path()
       ..moveTo(22.56, 12.25)
       ..cubicTo(22.56, 11.47, 22.49, 10.72, 22.36, 10.0)
@@ -125,10 +177,11 @@ class GoogleIconPainter extends CustomPainter {
     redPath.transform(matrix.storage);
     canvas.drawPath(
       redPath,
-      Paint()..color = const Color(0xFFEA4335)..style = PaintingStyle.fill,
+      Paint()
+        ..color = const Color(0xFFEA4335)
+        ..style = PaintingStyle.fill,
     );
 
-    // Green path
     final greenPath = Path()
       ..moveTo(12.0, 23.0)
       ..cubicTo(14.97, 23.0, 17.46, 22.02, 19.28, 20.34)
@@ -141,10 +194,11 @@ class GoogleIconPainter extends CustomPainter {
     greenPath.transform(matrix.storage);
     canvas.drawPath(
       greenPath,
-      Paint()..color = const Color(0xFF34A853)..style = PaintingStyle.fill,
+      Paint()
+        ..color = const Color(0xFF34A853)
+        ..style = PaintingStyle.fill,
     );
 
-    // Yellow path
     final yellowPath = Path()
       ..moveTo(5.84, 14.09)
       ..cubicTo(5.62, 13.43, 5.49, 12.73, 5.49, 12.0)
@@ -159,10 +213,11 @@ class GoogleIconPainter extends CustomPainter {
     yellowPath.transform(matrix.storage);
     canvas.drawPath(
       yellowPath,
-      Paint()..color = const Color(0xFFFBBC05)..style = PaintingStyle.fill,
+      Paint()
+        ..color = const Color(0xFFFBBC05)
+        ..style = PaintingStyle.fill,
     );
 
-    // Blue path
     final bluePath = Path()
       ..moveTo(12.0, 5.38)
       ..cubicTo(13.62, 5.38, 15.06, 5.94, 16.21, 7.02)
@@ -175,7 +230,9 @@ class GoogleIconPainter extends CustomPainter {
     bluePath.transform(matrix.storage);
     canvas.drawPath(
       bluePath,
-      Paint()..color = const Color(0xFF4285F4)..style = PaintingStyle.fill,
+      Paint()
+        ..color = const Color(0xFF4285F4)
+        ..style = PaintingStyle.fill,
     );
   }
 
@@ -186,100 +243,87 @@ class GoogleIconPainter extends CustomPainter {
 extension _GoogleIconUi on GoogleIcon {
   Widget _buildGoogleIcon(BuildContext context) {
     return SizedBox(
-      width: 24,
-      height: 24,
-      child: CustomPaint(
-        painter: GoogleIconPainter(),
-      ),
+      width: 22,
+      height: 22,
+      child: CustomPaint(painter: GoogleIconPainter()),
     );
   }
 }
 
+// ── Social login buttons (compact icon row) ────────────────────────────────
+
 extension _SocialLoginButtonsUi on SocialLoginButtons {
   Widget _buildSocialLoginButtons(BuildContext context) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Expanded(
-          child: _SocialButton(
-            label: 'Google',
-            iconWidget: const GoogleIcon(),
-            onPressed: isLoading ? null : () => onSocialLogin('google'),
-          ),
+        _SocialIconButton(
+          iconWidget: const GoogleIcon(),
+          onPressed: isLoading ? null : () => onSocialLogin('google'),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _SocialButton(
-            icon: Icons.facebook,
-            label: 'Facebook',
-            iconColor: const Color(0xFF1877F2),
-            onPressed: isLoading ? null : () => onSocialLogin('facebook'),
-          ),
+        const SizedBox(width: 16),
+        _SocialIconButton(
+          icon: Icons.facebook_rounded,
+          iconColor: const Color(0xFF1877F2),
+          onPressed: isLoading ? null : () => onSocialLogin('facebook'),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _SocialButton(
-            icon: Icons.apple,
-            label: 'Apple',
-            iconColor: SignupConstants.textLight,
-            onPressed: isLoading ? null : () => onSocialLogin('apple'),
-          ),
+        const SizedBox(width: 16),
+        _SocialIconButton(
+          icon: Icons.apple,
+          iconColor: SignupConstants.textLight,
+          onPressed: isLoading ? null : () => onSocialLogin('apple'),
         ),
       ],
     );
   }
 }
 
-/// Social button widget
-class _SocialButton extends StatelessWidget {
+/// Compact circular icon-only social button.
+class _SocialIconButton extends StatelessWidget {
+  const _SocialIconButton({
+    required this.onPressed,
+    this.icon,
+    this.iconColor,
+    this.iconWidget,
+  });
+
   final IconData? icon;
-  final String? label;
   final Color? iconColor;
   final Widget? iconWidget;
   final VoidCallback? onPressed;
 
-  const _SocialButton({
-    this.icon,
-    this.label,
-    this.iconColor,
-    this.iconWidget,
-    required this.onPressed,
-  });
-
   @override
-  Widget build(BuildContext context) => _buildSocialButton(context);
-}
-
-extension _SocialButtonUi on _SocialButton {
-  Widget _buildSocialButton(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: SignupConstants.borderColor, width: 1.5),
-          color: SignupConstants.bgDark2,
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: SignupConstants.bgDark2,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: SignupConstants.borderColor,
+          width: 1.5,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            iconWidget ?? Icon(icon, color: iconColor, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              label ?? '',
-              style: const TextStyle(
-                fontSize: 10,
-                color: SignupConstants.textLight,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          splashColor: SignupConstants.primaryGold.withValues(alpha: 0.08),
+          highlightColor: SignupConstants.primaryGold.withValues(alpha: 0.04),
+          child: Center(
+            child: iconWidget ??
+                Icon(icon, color: iconColor, size: 24),
+          ),
         ),
       ),
     );
   }
 }
+
+// ── Footer ─────────────────────────────────────────────────────────────────
 
 extension _SignupFooterUi on SignupFooter {
   Widget _buildSignupFooter(BuildContext context) {
@@ -287,33 +331,36 @@ extension _SignupFooterUi on SignupFooter {
       children: [
         GestureDetector(
           onTap: onBack,
-          child: const Text.rich(
+          child: Text.rich(
             TextSpan(
-              text: 'Vous avez un compte ? ',
-              style: TextStyle(color: SignupConstants.textGrey, fontSize: 13),
+              text: 'Vous avez déjà un compte ? ',
+              style: GoogleFonts.outfit(
+                color: SignupConstants.textGrey,
+                fontSize: 13,
+              ),
               children: [
                 TextSpan(
-                  text: 'Connectez-vous',
-                  style: TextStyle(
+                  text: 'Se connecter',
+                  style: GoogleFonts.outfit(
                     color: SignupConstants.primaryGold,
                     fontWeight: FontWeight.w600,
+                    fontSize: 13,
                     decoration: TextDecoration.underline,
+                    decorationColor: SignupConstants.primaryGold,
                   ),
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 20),
-        const Opacity(
-          opacity: 0.6,
-          child: Text(
-            'En continuant, vous acceptez nos conditions d\'utilisation',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11,
-              color: SignupConstants.textGrey,
-            ),
+        const SizedBox(height: 14),
+        Text(
+          'En continuant, vous acceptez nos conditions d\'utilisation\net notre politique de confidentialité.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.outfit(
+            fontSize: 10,
+            color: SignupConstants.textGrey.withValues(alpha: 0.5),
+            height: 1.6,
           ),
         ),
       ],

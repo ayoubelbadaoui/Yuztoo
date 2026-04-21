@@ -46,6 +46,8 @@ import 'feature/merchant_settings/application/screens.dart';
 import 'feature/e_fidelite/application/screens.dart';
 import 'feature/account_preferences/application/screens.dart';
 import 'feature/merchant/application/providers.dart' as merchant_providers;
+import 'feature/client_notification/application/providers.dart'
+    as client_notification_providers;
 import 'feature/client_notification/infrastructure/fcm_token_service.dart';
 import 'feature/client_notification/infrastructure/notification_service.dart';
 import 'core/config/vitrine_qr_config.dart';

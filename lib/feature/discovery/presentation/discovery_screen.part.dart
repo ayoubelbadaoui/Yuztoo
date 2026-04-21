@@ -7,7 +7,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
       child: SafeArea(
         bottom: false,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           decoration: BoxDecoration(
             color: MerchantColors.bgHeader,
             border: Border(
@@ -348,9 +348,16 @@ class _BusinessGridCard extends StatelessWidget {
               child: Text(
                 name,
                 style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                   color: MerchantColors.textWhite,
+                  shadows: const [
+                    Shadow(
+                      color: Colors.black54,
+                      blurRadius: 6,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
