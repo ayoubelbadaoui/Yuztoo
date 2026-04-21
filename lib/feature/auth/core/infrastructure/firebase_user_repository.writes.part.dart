@@ -396,49 +396,8 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
         ),
       );
     }
-    try {
-      final methods = await FirebaseAuth.instance
-          // ignore: deprecated_member_use — signup duplicate check; email_index may be absent on legacy accounts.
-          .fetchSignInMethodsForEmail(normalizedEmail);
-      if (methods.isNotEmpty) {
-        return const Right<AuthFailure, bool>(true);
-      }
-    } on FirebaseAuthException catch (e, st) {
-      if (e.code == 'invalid-email') {
-        return const Left<AuthFailure, bool>(
-          AuthUnexpectedFailure(message: 'Adresse email invalide.'),
-        );
-      }
-      LoggerService.logError(
-        'fetchSignInMethodsForEmail',
-        error: e,
-        stackTrace: st,
-        context: {'email': normalizedEmail},
-      );
-      return Left<AuthFailure, bool>(
-        AuthUnexpectedFailure(
-          message:
-              'Impossible de vérifier l\'adresse email. Réessayez dans un instant.',
-          cause: e,
-          stackTrace: st,
-        ),
-      );
-    } catch (e, st) {
-      LoggerService.logError(
-        'fetchSignInMethodsForEmail',
-        error: e,
-        stackTrace: st,
-        context: {'email': normalizedEmail},
-      );
-      return Left<AuthFailure, bool>(
-        AuthUnexpectedFailure(
-          message:
-              'Impossible de vérifier l\'adresse email. Réessayez dans un instant.',
-          cause: e,
-          stackTrace: st,
-        ),
-      );
-    }
+    // Firebase Auth 6+ removed fetchSignInMethodsForEmail (email enumeration).
+    // Registered emails are tracked in Firestore `email_index` above.
     return const Right<AuthFailure, bool>(false);
   }
 }
