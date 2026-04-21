@@ -1,5 +1,32 @@
 part of 'signup_form_fields.dart';
 
+// Shared label style — all field labels use this.
+TextStyle _labelStyle() => GoogleFonts.outfit(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xFFB8C4D4),
+      letterSpacing: 0.6,
+    );
+
+// Shared input text style.
+const TextStyle _inputTextStyle = TextStyle(
+  color: SignupConstants.textLight,
+  fontSize: 14,
+);
+
+// Shared hint text style.
+TextStyle _hintStyle() => const TextStyle(
+      color: SignupConstants.textGrey,
+      fontSize: 13,
+    );
+
+// Shared border helper.
+OutlineInputBorder _border(double radius, Color color, double width) =>
+    OutlineInputBorder(
+      borderRadius: BorderRadius.circular(radius),
+      borderSide: BorderSide(color: color, width: width),
+    );
+
 /// Email field widget
 class EmailField extends StatelessWidget {
   final TextEditingController controller;
@@ -26,15 +53,7 @@ class EmailField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Adresse email',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: SignupConstants.textGrey,
-            letterSpacing: 0.5,
-          ),
-        ),
+        Text('ADRESSE EMAIL', style: _labelStyle()),
         const SizedBox(height: 8),
         TextFormField(
           key: fieldKey,
@@ -56,51 +75,31 @@ class EmailField extends StatelessWidget {
               });
             }
           },
-          style: const TextStyle(
-            color: SignupConstants.textLight,
-            fontSize: 14,
+          style: _inputTextStyle.copyWith(
             decoration: TextDecoration.none,
             decorationColor: Colors.transparent,
           ),
           decoration: InputDecoration(
-            hintText: 'email',
-            hintStyle: const TextStyle(
-              color: SignupConstants.textGrey,
-              fontSize: 13,
-              decoration: TextDecoration.none,
+            hintText: 'exemple@email.com',
+            hintStyle: _hintStyle(),
+            prefixIcon: const Icon(
+              Icons.mail_outline_rounded,
+              color: SignupConstants.primaryGold,
+              size: 18,
             ),
-            prefixIcon: const Icon(Icons.mail_outline, color: SignupConstants.primaryGold, size: 18),
             filled: true,
             fillColor: SignupConstants.bgDark2,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 14,
+              vertical: 15,
             ),
             isDense: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.borderColor, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.borderColor, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.primaryGold, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.errorRed, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.errorRed, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.borderColor, width: 1),
-            ),
+            border: _border(12, SignupConstants.borderColor, 1),
+            enabledBorder: _border(12, SignupConstants.borderColor, 1),
+            focusedBorder: _border(12, SignupConstants.primaryGold, 1.5),
+            errorBorder: _border(12, SignupConstants.errorRed, 1.5),
+            focusedErrorBorder: _border(12, SignupConstants.errorRed, 1.5),
+            disabledBorder: _border(12, SignupConstants.borderColor, 1),
             errorStyle: const TextStyle(
               color: SignupConstants.errorRed,
               fontSize: 11,
@@ -148,15 +147,7 @@ class _PasswordFieldState extends State<PasswordField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Mot de passe',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: SignupConstants.textGrey,
-            letterSpacing: 0.5,
-          ),
-        ),
+        Text('MOT DE PASSE', style: _labelStyle()),
         const SizedBox(height: 8),
         TextFormField(
           key: widget.fieldKey,
@@ -181,14 +172,20 @@ class _PasswordFieldState extends State<PasswordField> {
               });
             }
           },
-          style: const TextStyle(color: SignupConstants.textLight, fontSize: 14),
+          style: _inputTextStyle,
           decoration: InputDecoration(
             hintText: 'Min. 8 caractères',
-            hintStyle: const TextStyle(color: SignupConstants.textGrey, fontSize: 13),
-            prefixIcon: const Icon(Icons.lock_outline, color: SignupConstants.primaryGold, size: 18),
+            hintStyle: _hintStyle(),
+            prefixIcon: const Icon(
+              Icons.lock_outline_rounded,
+              color: SignupConstants.primaryGold,
+              size: 18,
+            ),
             suffixIcon: IconButton(
               icon: Icon(
-                _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                _isPasswordVisible
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 color: SignupConstants.primaryGold,
                 size: 20,
               ),
@@ -200,28 +197,14 @@ class _PasswordFieldState extends State<PasswordField> {
             fillColor: SignupConstants.bgDark2,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 14,
+              vertical: 15,
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.borderColor, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.borderColor, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.primaryGold, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.errorRed, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.borderColor, width: 1),
-            ),
+            border: _border(12, SignupConstants.borderColor, 1),
+            enabledBorder: _border(12, SignupConstants.borderColor, 1),
+            focusedBorder: _border(12, SignupConstants.primaryGold, 1.5),
+            errorBorder: _border(12, SignupConstants.errorRed, 1.5),
+            focusedErrorBorder: _border(12, SignupConstants.errorRed, 1.5),
+            disabledBorder: _border(12, SignupConstants.borderColor, 1),
             errorStyle: const TextStyle(
               color: SignupConstants.errorRed,
               fontSize: 11,
@@ -239,22 +222,23 @@ class PasswordHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          Icon(
-            Icons.info_outline,
-            size: 14,
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 13,
             color: SignupConstants.textGrey,
           ),
-          SizedBox(width: 6),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
-              '8+ caractères, majuscules, minuscules et chiffres',
-              style: TextStyle(
+              '8+ caractères avec majuscules, minuscules et chiffres',
+              style: GoogleFonts.outfit(
                 fontSize: 11,
                 color: SignupConstants.textGrey,
+                height: 1.4,
               ),
             ),
           ),
@@ -299,15 +283,7 @@ class _ConfirmPasswordFieldState extends State<ConfirmPasswordField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Confirmer mot de passe',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: SignupConstants.textGrey,
-            letterSpacing: 0.5,
-          ),
-        ),
+        Text('CONFIRMER LE MOT DE PASSE', style: _labelStyle()),
         const SizedBox(height: 8),
         TextFormField(
           key: widget.fieldKey,
@@ -318,7 +294,8 @@ class _ConfirmPasswordFieldState extends State<ConfirmPasswordField> {
           inputFormatters: [
             FilteringTextInputFormatter.deny(RegExp(r'\s')),
           ],
-          validator: (value) => SignupValidators.validateConfirmPassword(value, widget.passwordController.text),
+          validator: (value) => SignupValidators.validateConfirmPassword(
+              value, widget.passwordController.text),
           autovalidateMode: AutovalidateMode.disabled,
           cursorColor: SignupConstants.primaryGold,
           onTap: widget.onTap ?? () {
@@ -332,47 +309,40 @@ class _ConfirmPasswordFieldState extends State<ConfirmPasswordField> {
               });
             }
           },
-          style: const TextStyle(color: SignupConstants.textLight, fontSize: 14),
+          style: _inputTextStyle,
           decoration: InputDecoration(
             hintText: 'Répétez votre mot de passe',
-            hintStyle: const TextStyle(color: SignupConstants.textGrey, fontSize: 13),
-            prefixIcon: const Icon(Icons.lock_outline, color: SignupConstants.primaryGold, size: 18),
+            hintStyle: _hintStyle(),
+            prefixIcon: const Icon(
+              Icons.lock_outline_rounded,
+              color: SignupConstants.primaryGold,
+              size: 18,
+            ),
             suffixIcon: IconButton(
               icon: Icon(
-                _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                _isPasswordVisible
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 color: SignupConstants.primaryGold,
                 size: 20,
               ),
               onPressed: widget.enabled
-                  ? () => setState(() => _isPasswordVisible = !_isPasswordVisible)
+                  ? () => setState(
+                      () => _isPasswordVisible = !_isPasswordVisible)
                   : null,
             ),
             filled: true,
             fillColor: SignupConstants.bgDark2,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 14,
+              vertical: 15,
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.borderColor, width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.borderColor, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.primaryGold, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.errorRed, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: SignupConstants.borderColor, width: 1),
-            ),
+            border: _border(12, SignupConstants.borderColor, 1),
+            enabledBorder: _border(12, SignupConstants.borderColor, 1),
+            focusedBorder: _border(12, SignupConstants.primaryGold, 1.5),
+            errorBorder: _border(12, SignupConstants.errorRed, 1.5),
+            focusedErrorBorder: _border(12, SignupConstants.errorRed, 1.5),
+            disabledBorder: _border(12, SignupConstants.borderColor, 1),
             errorStyle: const TextStyle(
               color: SignupConstants.errorRed,
               fontSize: 11,
@@ -417,37 +387,32 @@ class PhoneField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
-          'Numéro de téléphone',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: SignupConstants.textGrey,
-            letterSpacing: 0.5,
-          ),
-        ),
+        Text('NUMÉRO DE TÉLÉPHONE', style: _labelStyle()),
         const SizedBox(height: 8),
         FormField<String>(
           key: fieldKey,
           autovalidateMode: AutovalidateMode.disabled,
-          validator: (value) {
-            return SignupValidators.validatePhone(value, selectedCountryCode);
-          },
+          validator: (value) =>
+              SignupValidators.validatePhone(value, selectedCountryCode),
           builder: (formFieldState) {
             final hasError = formFieldState.hasError;
-            final borderColorValue = hasError
+            final isFocused = focusNode.hasFocus;
+            final borderColor = hasError
                 ? SignupConstants.errorRed
-                : (focusNode.hasFocus ? SignupConstants.primaryGold : SignupConstants.borderColor);
-            final borderWidth = (hasError || focusNode.hasFocus) ? 1.5 : 1.0;
+                : (isFocused
+                    ? SignupConstants.primaryGold
+                    : SignupConstants.borderColor);
+            final borderWidth =
+                (hasError || isFocused) ? 1.5 : 1.0;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: borderColorValue,
+                      color: borderColor,
                       width: borderWidth,
                     ),
                     color: SignupConstants.bgDark2,
@@ -455,7 +420,7 @@ class PhoneField extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Country code button
+                      // Country code selector
                       GestureDetector(
                         onTap: enabled
                             ? () => CountryCodeModal.show(
@@ -467,19 +432,19 @@ class PhoneField extends StatelessWidget {
                                   phoneController: controller,
                                   onPhoneNumberUpdate: onPhoneNumberUpdate,
                                   onRevalidatePhone: onRevalidatePhone,
-                                  phoneFieldHasBeenValidated: hasBeenValidated,
+                                  phoneFieldHasBeenValidated:
+                                      hasBeenValidated,
                                 )
                             : null,
                         child: Container(
-                          height: 50,
+                          height: 52,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
-                            vertical: 14,
                           ),
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             border: Border(
                               right: BorderSide(
-                                color: SignupConstants.borderColor.withValues(alpha: 0.3),
+                                color: SignupConstants.borderColor,
                                 width: 1,
                               ),
                             ),
@@ -489,15 +454,15 @@ class PhoneField extends StatelessWidget {
                             children: [
                               Text(
                                 selectedCountryCode,
-                                style: const TextStyle(
+                                style: GoogleFonts.outfit(
                                   color: SignupConstants.textLight,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 4),
                               const Icon(
-                                Icons.expand_more,
+                                Icons.expand_more_rounded,
                                 color: SignupConstants.primaryGold,
                                 size: 18,
                               ),
@@ -505,14 +470,7 @@ class PhoneField extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Visual separator
-                      Container(
-                        width: 1,
-                        height: 30,
-                        color: SignupConstants.borderColor.withValues(alpha: 0.3),
-                      ),
-                      const SizedBox(width: 8),
-                      // Phone number field
+                      // Phone number input
                       Expanded(
                         child: TextField(
                           controller: controller,
@@ -520,40 +478,43 @@ class PhoneField extends StatelessWidget {
                           enabled: enabled,
                           keyboardType: TextInputType.phone,
                           inputFormatters: [
-                            PhoneNumberFormatter(countryCode: selectedCountryCode),
+                            PhoneNumberFormatter(
+                                countryCode: selectedCountryCode),
                           ],
                           cursorColor: SignupConstants.primaryGold,
                           onTap: () {
                             onUnfocusAll();
                             focusNode.requestFocus();
                           },
-                          style: const TextStyle(color: SignupConstants.textLight, fontSize: 14),
-                          decoration: const InputDecoration(
-                            hintText: '---',
-                            hintStyle: TextStyle(color: SignupConstants.textGrey, fontSize: 13),
+                          style: _inputTextStyle,
+                          decoration: InputDecoration(
+                            hintText: SignupConstants.countryPhoneHints[
+                                    selectedCountryCode] ??
+                                '---',
+                            hintStyle: _hintStyle(),
                             filled: false,
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             disabledBorder: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding:
+                                const EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 14,
+                              vertical: 15,
                             ),
                           ),
                           onChanged: (value) {
-                            // The formatter already handles formatting, so we just need to:
-                            // 1. Update the form field state for validation
                             formFieldState.didChange(value);
-                            
-                            // 2. Extract digits and update phone number (E.164 format) for backend
-                            final digitsOnly = value.replaceAll(RegExp(r'[^\d]'), '');
-                            final formattedPhone = PhoneFormatter.formatPhoneNumber(selectedCountryCode, digitsOnly);
+                            final digitsOnly =
+                                value.replaceAll(RegExp(r'[^\d]'), '');
+                            final formattedPhone =
+                                PhoneFormatter.formatPhoneNumber(
+                                    selectedCountryCode, digitsOnly);
                             onPhoneNumberUpdate(formattedPhone);
-                            
-                            // 3. Real-time validation if field has been validated before
-                            if (hasBeenValidated && digitsOnly.isNotEmpty) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (hasBeenValidated &&
+                                digitsOnly.isNotEmpty) {
+                              WidgetsBinding.instance
+                                  .addPostFrameCallback((_) {
                                 formFieldState.validate();
                               });
                             }
@@ -609,17 +570,12 @@ class CityDropdown extends StatelessWidget {
     return FormField<String>(
       key: fieldKey,
       initialValue: selectedCity,
-      validator: (value) {
-        // Always validate based on current selectedCity
-        return SignupValidators.validateCity(selectedCity);
-      },
+      validator: (value) => SignupValidators.validateCity(selectedCity),
       autovalidateMode: AutovalidateMode.disabled,
       builder: (FormFieldState<String> state) {
-        // Update FormField value when selectedCity changes
         if (state.value != selectedCity) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             state.didChange(selectedCity);
-            // Validate after updating value
             state.validate();
           });
         }
@@ -627,15 +583,7 @@ class CityDropdown extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Ville',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: SignupConstants.textGrey,
-                letterSpacing: 0.5,
-              ),
-            ),
+            Text('VILLE', style: _labelStyle()),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: enabled
@@ -651,11 +599,14 @@ class CityDropdown extends StatelessWidget {
                     }
                   : null,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 15),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: state.hasError ? SignupConstants.errorRed : SignupConstants.borderColor,
+                    color: state.hasError
+                        ? SignupConstants.errorRed
+                        : SignupConstants.borderColor,
                     width: state.hasError ? 1.5 : 1,
                   ),
                   color: SignupConstants.bgDark2,
@@ -673,9 +624,16 @@ class CityDropdown extends StatelessWidget {
                         selectedCity ?? 'Sélectionnez votre ville',
                         style: TextStyle(
                           fontSize: 14,
-                          color: selectedCity != null ? SignupConstants.textLight : SignupConstants.textGrey,
+                          color: selectedCity != null
+                              ? SignupConstants.textLight
+                              : SignupConstants.textGrey,
                         ),
                       ),
+                    ),
+                    Icon(
+                      Icons.expand_more_rounded,
+                      color: SignupConstants.textGrey,
+                      size: 18,
                     ),
                   ],
                 ),
@@ -700,4 +658,3 @@ class CityDropdown extends StatelessWidget {
     );
   }
 }
-

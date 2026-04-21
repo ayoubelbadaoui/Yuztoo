@@ -1,5 +1,9 @@
 part of 'store_profile_screen.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper widgets (stateless, used by both state and skeleton)
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _StoreProfileErrorBack extends StatelessWidget {
   const _StoreProfileErrorBack({required this.onBack});
 
@@ -11,17 +15,22 @@ class _StoreProfileErrorBack extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          const Icon(Icons.store_outlined,
+              size: 48, color: StorefrontColors.primaryGold),
+          const SizedBox(height: 16),
           Text(
             'Commerce introuvable',
             style: GoogleFonts.outfit(
               fontSize: 16,
+              fontWeight: FontWeight.w600,
               color: StorefrontColors.textSecondary,
             ),
           ),
           const SizedBox(height: 16),
           TextButton.icon(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back, color: StorefrontColors.primaryGold),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                color: StorefrontColors.primaryGold, size: 18),
             label: Text(
               'Retour',
               style: GoogleFonts.outfit(
@@ -36,150 +45,90 @@ class _StoreProfileErrorBack extends StatelessWidget {
   }
 }
 
-class _StoreProfileSectionTitle extends StatelessWidget {
-  const _StoreProfileSectionTitle(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      child: Text(
-        title,
-        style: GoogleFonts.outfit(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: StorefrontColors.textSecondary,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-}
-
-class _StoreProfileInfoRow extends StatelessWidget {
-  const _StoreProfileInfoRow({required this.icon, required this.text});
-
-  final IconData icon;
+/// Section header label (e.g. "Téléphone", "Adresse")
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
   final String text;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: StorefrontColors.primaryGold, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: StorefrontColors.textSecondary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StoreProfileHoursSection extends StatelessWidget {
-  const _StoreProfileHoursSection({this.hours});
-
-  final BusinessHours? hours;
-
-  @override
-  Widget build(BuildContext context) {
-    final h = hours;
-    if (h == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Text(
-          'Horaires non renseignés',
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            color: StorefrontColors.textSecondary,
-          ),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+      child: Text(
+        text.toUpperCase(),
+        style: GoogleFonts.outfit(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: StorefrontColors.textSecondary,
+          letterSpacing: 0.8,
         ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: h.allDays.map((day) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  day.dayName,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: StorefrontColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  day.displayText,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: StorefrontColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
       ),
     );
   }
 }
 
-class _StoreProfilePromotionsList extends StatelessWidget {
-  const _StoreProfilePromotionsList({required this.promotions});
-
+/// Promotions list shown in the Accueil tab.
+class _PromotionsList extends StatelessWidget {
+  const _PromotionsList({required this.promotions});
   final List<Promotion> promotions;
 
   @override
   Widget build(BuildContext context) {
     if (promotions.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Text(
-          'Aucune promotion pour le moment',
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            color: StorefrontColors.textSecondary,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: StorefrontColors.cardLight,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE8E0D0)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.local_offer_outlined,
+                  color: StorefrontColors.textSecondary, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                'Aucune promotion pour le moment',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: StorefrontColors.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: promotions.map((promo) {
           final now = DateTime.now();
-          final daysLeft = promo.dateTo.isAfter(now)
-              ? promo.dateTo.difference(now).inDays
-              : 0;
-          final validText = daysLeft > 0
-              ? 'Valide encore $daysLeft jours'
-              : 'Expiré';
+          final isExpired = !promo.dateTo.isAfter(now);
+          final daysLeft = isExpired
+              ? 0
+              : promo.dateTo.difference(now).inDays + 1;
+
+          final validText = isExpired
+              ? 'Expirée'
+              : daysLeft == 1
+                  ? 'Expire demain'
+                  : 'Valide $daysLeft jours';
+
           return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: 10),
             child: Container(
-              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: StorefrontColors.cardLight,
                 border: Border.all(
-                  color: StorefrontColors.primaryGold.withValues(alpha: 0.3),
+                  color: isExpired
+                      ? const Color(0xFFE8E0D0)
+                      : StorefrontColors.primaryGold.withValues(alpha: 0.35),
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.04),
@@ -188,56 +137,99 @@ class _StoreProfilePromotionsList extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: StorefrontColors.primaryGold.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.local_offer_outlined,
-                      color: StorefrontColors.primaryGold,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () {},
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          promo.title,
-                          style: GoogleFonts.outfit(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: StorefrontColors.textPrimary,
+                        // Icon
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: isExpired
+                                ? const Color(0xFFEEEEEE)
+                                : StorefrontColors.primaryGold
+                                    .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.local_offer_rounded,
+                            color: isExpired
+                                ? StorefrontColors.textSecondary
+                                : StorefrontColors.primaryGold,
+                            size: 22,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          promo.subtitle,
-                          style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            color: StorefrontColors.textSecondary,
+                        const SizedBox(width: 12),
+                        // Content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                promo.title,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: isExpired
+                                      ? StorefrontColors.textSecondary
+                                      : StorefrontColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                promo.subtitle,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  color: StorefrontColors.textSecondary,
+                                  height: 1.4,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isExpired
+                                      ? const Color(0xFFEEEEEE)
+                                      : StorefrontColors.primaryGold
+                                          .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  validText,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isExpired
+                                        ? StorefrontColors.textSecondary
+                                        : StorefrontColors.primaryGold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          validText,
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
+                        const SizedBox(width: 4),
+                        if (!isExpired)
+                          const Icon(
+                            Icons.chevron_right_rounded,
                             color: StorefrontColors.primaryGold,
-                            fontWeight: FontWeight.w500,
+                            size: 20,
                           ),
-                        ),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           );
@@ -246,6 +238,10 @@ class _StoreProfilePromotionsList extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bottom sheet — record a loyalty passage
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
   const _RecordLoyaltyPassageSheet({
@@ -303,20 +299,19 @@ class _RecordLoyaltyPassageSheetState
     setState(() => _busy = false);
 
     result.fold(
-      (failure) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(failure.message),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      },
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      ),
       (_) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Passage enregistré'),
+            content: Text('Passage enregistré ✓'),
             behavior: SnackBarBehavior.floating,
+            backgroundColor: StorefrontColors.primaryGold,
           ),
         );
       },
@@ -327,16 +322,28 @@ class _RecordLoyaltyPassageSheetState
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: StorefrontColors.textSecondary.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             Text(
               'Enregistrer un passage',
               style: GoogleFonts.outfit(
                 fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: StorefrontColors.textPrimary,
               ),
             ),
@@ -344,22 +351,26 @@ class _RecordLoyaltyPassageSheetState
             Text(
               widget.needsPurchaseAmount
                   ? 'Indiquez le montant de votre achat pour mettre à jour votre fidélité.'
-                  : 'Confirmez votre passage en boutique.',
+                  : 'Confirmez votre passage en boutique pour valider votre fidélité.',
               style: GoogleFonts.outfit(
                 fontSize: 14,
-                height: 1.45,
+                height: 1.5,
                 color: StorefrontColors.textSecondary,
               ),
             ),
             if (widget.needsPurchaseAmount) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               TextField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.done,
+                autofocus: true,
                 decoration: InputDecoration(
                   labelText: 'Montant (€)',
                   hintText: 'ex. 24,90',
+                  prefixIcon: const Icon(Icons.euro_rounded,
+                      color: StorefrontColors.primaryGold),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -374,21 +385,23 @@ class _RecordLoyaltyPassageSheetState
                 onSubmitted: (_) => _submit(),
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             FilledButton(
               onPressed: _busy ? null : _submit,
               style: FilledButton.styleFrom(
                 backgroundColor: StorefrontColors.primaryGold,
                 foregroundColor: StorefrontColors.navyDark,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                disabledBackgroundColor:
+                    StorefrontColors.primaryGold.withValues(alpha: 0.5),
+                padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
               child: _busy
                   ? const SizedBox(
-                      height: 22,
-                      width: 22,
+                      height: 20,
+                      width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: StorefrontColors.navyDark,
@@ -398,7 +411,7 @@ class _RecordLoyaltyPassageSheetState
                       'Valider',
                       style: GoogleFonts.outfit(
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
             ),
@@ -408,6 +421,11 @@ class _RecordLoyaltyPassageSheetState
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main UI extension
+// ─────────────────────────────────────────────────────────────────────────────
+
 extension _StoreProfileScreenUi on _StoreProfileScreenState {
   Widget _buildContent(
     BuildContext context,
@@ -416,152 +434,109 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   ) {
     final name = merchant.displayName ?? merchant.name;
     final activity = merchant.categories?.isNotEmpty == true
-        ? merchant.categories!.join(', ')
+        ? merchant.categories!.join(' · ')
         : (merchant.city.isNotEmpty ? merchant.city : 'Commerçant');
     final hours = merchant.hours != null && merchant.hours!.isNotEmpty
         ? BusinessHours.fromMap(merchant.hours)
         : null;
+
     final userId = ref.watch(currentUserIdProvider);
     final followedIdsAsync =
         ref.watch(followedMerchantIdsForCurrentUserProvider);
     final heartLevelsAsync =
         ref.watch(followedMerchantHeartLevelsForCurrentUserProvider);
     final followersCountAsync = ref.watch(
-followersCountByMerchantIdsProvider(<String>[merchant.id]),
+      followersCountByMerchantIdsProvider(<String>[merchant.id]),
     );
-    final viewedIdsAsync =
-        ref.watch(viewedMerchantIdsForCurrentUserProvider);
-    final isFollowing = followedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
-    final hasViewed = viewedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
+    final viewedIdsAsync = ref.watch(viewedMerchantIdsForCurrentUserProvider);
+
+    final isFollowing =
+        followedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
+    final hasViewed =
+        viewedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
+
     _markMerchantAsViewed(userId, merchant.id);
+
     final baseHeartLevel = isFollowing
         ? (heartLevelsAsync.valueOrNull?[merchant.id] ?? 1)
         : (hasViewed ? 1 : 0);
     final heartLevel =
-        _optimisticHeartMerchantId == merchant.id && _optimisticHeartLevel != null
+        _optimisticHeartMerchantId == merchant.id &&
+                _optimisticHeartLevel != null
             ? _optimisticHeartLevel!
             : baseHeartLevel;
-    final fetchedFollowersCount = followersCountAsync.valueOrNull?[merchant.id] ?? 0;
+
+    final fetchedFollowersCount =
+        followersCountAsync.valueOrNull?[merchant.id] ?? 0;
     final followersCount = isFollowing
         ? (fetchedFollowersCount < 1 ? 1 : fetchedFollowersCount)
         : fetchedFollowersCount;
+
     final loyaltyProgressAsync =
         ref.watch(clientLoyaltyProgressForMerchantProvider(merchant.id));
 
     return Stack(
       children: [
+        // ── Scrollable body ──────────────────────────────────────────────────
         Positioned.fill(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top,
               bottom: MediaQuery.of(context).padding.bottom + 24,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  color: StorefrontColors.backgroundLight,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _followersLabelFr(followersCount),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: StorefrontColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: widget.onNotifications,
-                        icon: const Icon(
-                          Icons.notifications_outlined,
-                          color: StorefrontColors.primaryGold,
-                          size: 24,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              StoreProfileBannerSection(
+                // Banner (full-bleed, absorbs the status-bar space)
+                StoreProfileBannerSection(
                   bannerImageUrl: merchant.bannerUrl ?? merchant.logoUrl,
                   profileImageUrl: merchant.logoUrl ?? merchant.bannerUrl,
+                  topPadding: MediaQuery.of(context).padding.top,
                 ),
-                const SizedBox(height: 56),
+                const SizedBox(height: 56), // room for the overlapping logo
+
+                // ── Profile info ─────────────────────────────────────────────
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Name + hearts
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
                             child: Text(
                               name,
                               style: GoogleFonts.outfit(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
                                 color: StorefrontColors.textPrimary,
                                 height: 1.2,
                               ),
                             ),
                           ),
-                          Material(
-                            color: Colors.transparent,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-                              child: Row(
-                                children: List.generate(3, (index) {
-                                  final target = index + 1;
-                                  final isActive = heartLevel >= target;
-                                  return Padding(
-                                    padding: EdgeInsets.only(right: index == 2 ? 0 : 5),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(16),
-                                      onTap: _isFollowToggling
-                                          ? null
-                                          : () {
-                                              final nextLevel =
-                                                  heartLevel == target ? target - 1 : target;
-                                              _setHeartLevel(
-                                                context,
-                                                userId: userId,
-                                                merchantId: merchant.id,
-                                                level: nextLevel,
-                                              );
-                                            },
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(2),
-                                        child: Icon(
-                                          Icons.favorite,
-                                          color: isActive
-                                              ? StorefrontColors.primaryGold
-                                              : StorefrontColors.textSecondary,
-                                          size: 24,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }),
-                              ),
-                            ),
-                          ),
+                          _buildHearts(context, merchant, heartLevel, userId),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
+
+                      // Category / city
                       Text(
                         activity,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w400,
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
                           color: StorefrontColors.textSecondary,
                           height: 1.4,
                         ),
                       ),
+                      const SizedBox(height: 8),
+
+                      // Followers pill
+                      _FollowersPill(count: followersCount),
+                      const SizedBox(height: 16),
+
+                      // Loyalty block
                       _buildClientLoyaltyBlock(
                         context,
                         merchant,
@@ -569,70 +544,227 @@ followersCountByMerchantIdsProvider(<String>[merchant.id]),
                         userId,
                       ),
                       const SizedBox(height: 16),
-                      const SizedBox(height: 4),
-                      _buildSuivreButton(context, merchant.id),
+
+                      // Action buttons
+                      _buildActionRow(context, merchant.id),
                     ],
                   ),
                 ),
+
                 const SizedBox(height: 24),
+
+                // ── Tabs ─────────────────────────────────────────────────────
                 NavigationTabs(
                   activeTab: _activeTab,
                   onTabChanged: _onTabChanged,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+
+                // ── Tab content ──────────────────────────────────────────────
                 if (_activeTab == 'accueil') ...[
-                  if (merchant.description != null && merchant.description!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Text(
-                        merchant.description!,
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          height: 1.5,
-                          color: StorefrontColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  if (merchant.description != null && merchant.description!.isNotEmpty)
-                    const SizedBox(height: 20),
-                  const _StoreProfileSectionTitle('Téléphone'),
-                  _StoreProfileInfoRow(
-                    icon: Icons.phone_outlined,
-                    text: merchant.phone,
+                  _AccueilTab(
+                    merchant: merchant,
+                    promotions: promotions,
                   ),
-                  const _StoreProfileSectionTitle('Adresse'),
-                  _StoreProfileInfoRow(
-                    icon: Icons.place_outlined,
-                    text: merchant.address ?? merchant.city,
-                  ),
-                  if (promotions.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    const _StoreProfileSectionTitle('Promotions'),
-                    const SizedBox(height: 4),
-                    _StoreProfilePromotionsList(promotions: promotions),
-                  ],
                 ] else if (_activeTab == 'horaires') ...[
-                  const _StoreProfileSectionTitle('Horaires d\'ouverture'),
-                  _StoreProfileHoursSection(hours: hours),
+                  _HoraireTab(hours: hours),
                 ] else if (_activeTab == 'actualite') ...[
-                  NewsSection(
-                    content: merchant.description,
+                  _ActualiteTab(
                     imageUrls: merchant.newsImageUrls ?? const [],
-                    showMedia: merchant.newsImageUrls?.isNotEmpty ?? false,
-                    showUploadButton: false,
-                    contentPlaceholder: 'Aucune actualité pour le moment.',
+                    description: merchant.description,
                   ),
                 ],
-                const SizedBox(height: 24),
+
+                const SizedBox(height: 32),
               ],
             ),
           ),
+        ),
+
+        // ── Back button overlay (always visible on top of banner) ────────────
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          left: 12,
+          child: _BackButton(onTap: widget.onBack),
         ),
       ],
     );
   }
 
-  /// Même logique que la vitrine marchand : badge + texte + progression + enregistrement passage.
+  // ── Hearts row ─────────────────────────────────────────────────────────────
+
+  Widget _buildHearts(
+    BuildContext context,
+    Merchant merchant,
+    int heartLevel,
+    String? userId,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (index) {
+        final target = index + 1;
+        final isActive = heartLevel >= target;
+        return Padding(
+          padding: EdgeInsets.only(left: index == 0 ? 8 : 4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: _isFollowToggling
+                ? null
+                : () {
+                    final next = heartLevel == target ? target - 1 : target;
+                    _setHeartLevel(
+                      context,
+                      userId: userId,
+                      merchantId: merchant.id,
+                      level: next,
+                    );
+                  },
+            child: Padding(
+              padding: const EdgeInsets.all(3),
+              child: Icon(
+                Icons.favorite_rounded,
+                color: isActive
+                    ? StorefrontColors.primaryGold
+                    : StorefrontColors.textSecondary.withValues(alpha: 0.3),
+                size: 22,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  // ── Follow / Unfollow button ───────────────────────────────────────────────
+
+  Widget _buildActionRow(BuildContext context, String merchantId) {
+    final userId = ref.watch(currentUserIdProvider);
+    final followedAsync = ref.watch(followedMerchantIdsForCurrentUserProvider);
+    final isFollowing =
+        followedAsync.valueOrNull?.contains(merchantId) ?? false;
+
+    Widget buttonChild;
+    if (_isFollowToggling) {
+      buttonChild = const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: StorefrontColors.primaryGold,
+        ),
+      );
+    } else if (isFollowing) {
+      buttonChild = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.check_rounded,
+              size: 18, color: StorefrontColors.primaryGold),
+          const SizedBox(width: 6),
+          Text(
+            'Ne plus suivre',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: StorefrontColors.primaryGold,
+            ),
+          ),
+        ],
+      );
+    } else {
+      buttonChild = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.add_rounded,
+              size: 18, color: StorefrontColors.navyDark),
+          const SizedBox(width: 6),
+          Text(
+            'Suivre ce commerce',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: StorefrontColors.navyDark,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: InkWell(
+        onTap: _isFollowToggling
+            ? null
+            : () async {
+                if (userId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content:
+                          Text('Connectez-vous pour suivre des commerces'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  return;
+                }
+                _setFollowToggling(true);
+                final toggleFollow = ref.read(toggleMerchantFollowProvider);
+                final result = await toggleFollow.call(
+                  userId: userId,
+                  merchantId: merchantId,
+                  currentlyFollowing: isFollowing,
+                );
+                if (!context.mounted) return;
+                _setFollowToggling(false);
+                if (result.isLeft) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Échec de la sauvegarde'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  return;
+                }
+                ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+                ref.invalidate(
+                    followedMerchantHeartLevelsForCurrentUserProvider);
+                ref.invalidate(clientHomeFeedProvider);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isFollowing
+                            ? 'Commerce retiré de votre carnet'
+                            : 'Commerce ajouté à votre carnet ✓',
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: StorefrontColors.primaryGold,
+                    ),
+                  );
+                }
+              },
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isFollowing
+                ? Colors.transparent
+                : StorefrontColors.primaryGold,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: StorefrontColors.primaryGold,
+              width: isFollowing ? 1.5 : 0,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: buttonChild,
+        ),
+      ),
+    );
+  }
+
+  // ── Loyalty block ──────────────────────────────────────────────────────────
+
   Widget _buildClientLoyaltyBlock(
     BuildContext context,
     Merchant merchant,
@@ -641,105 +773,118 @@ followersCountByMerchantIdsProvider(<String>[merchant.id]),
   ) {
     final summary = merchant.loyaltyClientSummaryForDisplay;
     final program = merchant.loyaltyProgram ??
-        LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: merchant.loyaltyEnabled);
+        LoyaltyProgramConfig.fallbackFromFlags(
+            loyaltyEnabled: merchant.loyaltyEnabled);
     final canRecordPassage =
         merchant.loyaltyEnabled && program.programEnabled;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: merchant.loyaltyEnabled
-                ? StorefrontColors.primaryGold.withValues(alpha: 0.15)
-                : Colors.grey.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            merchant.loyaltyEnabled ? 'Fidélité active' : 'Fidélité inactive',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: merchant.loyaltyEnabled
-                  ? StorefrontColors.navyDark
-                  : StorefrontColors.textSecondary,
-            ),
-          ),
+    if (!merchant.loyaltyEnabled) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: StorefrontColors.primaryGold.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: StorefrontColors.primaryGold.withValues(alpha: 0.25),
         ),
-        if (summary != null && summary.trim().isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(
-            summary.trim(),
-            maxLines: 8,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: StorefrontColors.textSecondary,
-              height: 1.45,
-            ),
-          ),
-        ],
-        if (canRecordPassage)
-          progressAsync.when(
-            data: (ClientMerchantLoyaltyProgress p) {
-              final line = _loyaltyProgressSubtitle(merchant, program, p);
-              if (line == null) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(
-                  line,
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: StorefrontColors.textPrimary,
-                    height: 1.45,
-                  ),
-                ),
-              );
-            },
-            loading: () => const Padding(
-              padding: EdgeInsets.only(top: 10),
-              child: SizedBox(
-                height: 18,
-                width: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              const Icon(Icons.star_rounded,
+                  color: StorefrontColors.primaryGold, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                'Programme de fidélité',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                   color: StorefrontColors.primaryGold,
                 ),
               ),
-            ),
-            error: (_, __) => const SizedBox.shrink(),
+            ],
           ),
-        if (canRecordPassage) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => _openRecordPassageSheet(context, merchant, userId),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: StorefrontColors.primaryGold,
-                side: const BorderSide(color: StorefrontColors.primaryGold),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: Text(
-                'Enregistrer un passage',
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+          if (summary != null && summary.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              summary.trim(),
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: StorefrontColors.textSecondary,
+                height: 1.45,
               ),
             ),
-          ),
+          ],
+          if (canRecordPassage)
+            progressAsync.when(
+              data: (p) {
+                final line =
+                    _loyaltyProgressSubtitle(merchant, program, p);
+                if (line == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    line,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: StorefrontColors.textPrimary,
+                      height: 1.45,
+                    ),
+                  ),
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: StorefrontColors.primaryGold,
+                  ),
+                ),
+              ),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+          if (canRecordPassage) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    _openRecordPassageSheet(context, merchant, userId),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: StorefrontColors.primaryGold,
+                  side: const BorderSide(color: StorefrontColors.primaryGold),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+                label: Text(
+                  'Enregistrer un passage',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   String? _loyaltyProgressSubtitle(
     Merchant merchant,
@@ -753,39 +898,32 @@ followersCountByMerchantIdsProvider(<String>[merchant.id]),
         return 'Vos passages seront validés par le commerçant.';
       }
       if (p.pendingPassages == 1) {
-        return '1 passage en attente de validation par le commerçant.';
+        return '1 passage en attente de validation.';
       }
-      return '${p.pendingPassages} passages en attente de validation par le commerçant.';
+      return '${p.pendingPassages} passages en attente de validation.';
     }
 
     if (program.triggerType == LoyaltyTriggerType.visitCount) {
       final need = program.visitsRequired.clamp(1, 9999);
       final v = p.validatedPassages;
-      if (v >= need) {
-        return 'Objectif atteint ($need passages validés).';
-      }
-      final remaining = need - v;
-      return '$v / $need passages validés — encore $remaining avant la récompense.';
+      if (v >= need) return 'Objectif atteint — $need passages validés ✓';
+      return '$v / $need passages — encore ${need - v} avant la récompense.';
     }
 
     final needSpend = program.cumulativeSpendRequiredEuros;
     final spent = p.cumulativeSpendEuros;
-    if (spent >= needSpend) {
-      return 'Objectif d’achats atteint.';
-    }
+    if (spent >= needSpend) return 'Objectif d\'achats atteint ✓';
     final remain = needSpend - spent;
-    final spentStr = _formatEuroDisplay(spent);
-    final needStr = _formatEuroDisplay(needSpend);
+    final spentStr = _fmtEuro(spent);
+    final needStr = _fmtEuro(needSpend);
     final remStr = remain == remain.roundToDouble()
-        ? remain.toStringAsFixed(0)
+        ? remain.toInt().toString()
         : remain.toStringAsFixed(2);
-    return '$spentStr € / $needStr € cumulés — encore $remStr €.';
+    return '$spentStr € / $needStr € — encore $remStr €.';
   }
 
-  String _formatEuroDisplay(double n) {
-    if (n == n.roundToDouble()) return n.toInt().toString();
-    return n.toStringAsFixed(2);
-  }
+  String _fmtEuro(double n) =>
+      n == n.roundToDouble() ? n.toInt().toString() : n.toStringAsFixed(2);
 
   void _openRecordPassageSheet(
     BuildContext context,
@@ -802,16 +940,18 @@ followersCountByMerchantIdsProvider(<String>[merchant.id]),
       return;
     }
     final program = merchant.loyaltyProgram ??
-        LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: merchant.loyaltyEnabled);
+        LoyaltyProgramConfig.fallbackFromFlags(
+            loyaltyEnabled: merchant.loyaltyEnabled);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: StorefrontColors.backgroundLight,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
         child: _RecordLoyaltyPassageSheet(
           merchant: merchant,
           clientUid: userId,
@@ -833,118 +973,394 @@ followersCountByMerchantIdsProvider(<String>[merchant.id]),
     );
     ref.invalidate(viewedMerchantIdsForCurrentUserProvider);
   }
+}
 
-  String _followersLabelFr(int count) {
-    if (count <= 1) return 'Ce commerce est suivi par $count personne';
-    return 'Ce commerce est suivi par $count personnes';
+// ─────────────────────────────────────────────────────────────────────────────
+// Small standalone widgets
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Gold back button with a frosted-glass circular background — sits on the banner.
+class _BackButton extends StatelessWidget {
+  const _BackButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.35),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
+        ),
+        child: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          color: Colors.white,
+          size: 18,
+        ),
+      ),
+    );
   }
+}
 
-  Widget _buildSuivreButton(BuildContext context, String merchantId) {
-    final userId = ref.watch(currentUserIdProvider);
-    final followedAsync = ref.watch(followedMerchantIdsForCurrentUserProvider);
-    final isFollowing = followedAsync.valueOrNull?.contains(merchantId) ?? false;
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab content widgets
+// ─────────────────────────────────────────────────────────────────────────────
 
-    return Row(
+/// Accueil tab — contact info + description + promotions.
+class _AccueilTab extends StatelessWidget {
+  const _AccueilTab({required this.merchant, required this.promotions});
+  final Merchant merchant;
+  final List<Promotion> promotions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: _isFollowToggling
-                ? null
-                : () async {
-                    if (userId == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Connectez-vous pour suivre des commerces'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                      return;
-                    }
-                    _setFollowToggling(true);
-                    final toggleFollow = ref.read(toggleMerchantFollowProvider);
-                    final result = await toggleFollow.call(
-                      userId: userId,
-                      merchantId: merchantId,
-                      currentlyFollowing: isFollowing,
-                    );
-                    if (!context.mounted) return;
-                    _setFollowToggling(false);
-
-                    if (result.isLeft) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Échec de la sauvegarde du suivi'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                      return;
-                    }
-                    ref.invalidate(followedMerchantIdsForCurrentUserProvider);
-                    ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
-                    ref.invalidate(clientHomeFeedProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          isFollowing
-                              ? 'Vous ne suivez plus ce commerce'
-                              : 'Commerce ajouté à votre carnet',
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: StorefrontColors.primaryGold,
-                      ),
-                    );
-                  },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: StorefrontColors.primaryGold,
-              side: const BorderSide(color: StorefrontColors.primaryGold),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+        // Description
+        if (merchant.description != null &&
+            merchant.description!.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFEEE8DE)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ),
-            child: Text(
-              _isFollowToggling
-                  ? '...'
-                  : (isFollowing ? 'Ne plus suivre' : 'Suivre le commerce'),
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Notifications en cours - bientôt disponible'),
-                  behavior: SnackBarBehavior.floating,
+              child: Text(
+                merchant.description!,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  height: 1.65,
+                  color: StorefrontColors.textSecondary,
+                  fontStyle: FontStyle.italic,
                 ),
-              );
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: StorefrontColors.primaryGold,
-              side: const BorderSide(color: StorefrontColors.primaryGold),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: Text(
-              'Notifications en cours',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),
+          const SizedBox(height: 16),
+        ],
+
+        // Info card (phone + address grouped together)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFEEE8DE)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _InfoTile(
+                  icon: Icons.phone_outlined,
+                  label: 'Téléphone',
+                  value: merchant.phone,
+                  isFirst: true,
+                ),
+                const Divider(
+                    height: 1, thickness: 1, color: Color(0xFFEEE8DE)),
+                _InfoTile(
+                  icon: Icons.place_outlined,
+                  label: 'Adresse',
+                  value: merchant.address ?? merchant.city,
+                  isFirst: false,
+                ),
+              ],
+            ),
+          ),
         ),
+
+        // Promotions
+        if (promotions.isNotEmpty) ...[
+          const _SectionLabel('Promotions en cours'),
+          const SizedBox(height: 4),
+          _PromotionsList(promotions: promotions),
+        ],
+
+        if (promotions.isEmpty) const SizedBox(height: 8),
       ],
     );
   }
 }
 
+class _InfoTile extends StatelessWidget {
+  const _InfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.isFirst,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isFirst;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, isFirst ? 14 : 12, 16, 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: StorefrontColors.primaryGold.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon,
+                color: StorefrontColors.primaryGold, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: StorefrontColors.textSecondary,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: StorefrontColors.textPrimary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Horaires tab — business hours with today highlighted.
+class _HoraireTab extends StatelessWidget {
+  const _HoraireTab({this.hours});
+  final BusinessHours? hours;
+
+  @override
+  Widget build(BuildContext context) {
+    if (hours == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFEEE8DE)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.schedule_outlined,
+                  color: StorefrontColors.textSecondary, size: 20),
+              const SizedBox(width: 12),
+              Text(
+                'Horaires non renseignés',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: StorefrontColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final todayName = _todayDayName();
+    final h = hours!;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFEEE8DE)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: h.allDays.asMap().entries.map((entry) {
+            final i = entry.key;
+            final day = entry.value;
+            final isToday =
+                day.dayName.toLowerCase() == todayName.toLowerCase();
+            return Column(
+              children: [
+                if (i > 0)
+                  const Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Color(0xFFF5F0E8),
+                      indent: 16,
+                      endIndent: 16),
+                Container(
+                  color: isToday
+                      ? StorefrontColors.primaryGold.withValues(alpha: 0.06)
+                      : Colors.transparent,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 13),
+                    child: Row(
+                      children: [
+                        if (isToday)
+                          Container(
+                            width: 6,
+                            height: 6,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: const BoxDecoration(
+                              color: StorefrontColors.primaryGold,
+                              shape: BoxShape.circle,
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 14),
+                        Text(
+                          day.dayName,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: isToday
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                            color: isToday
+                                ? StorefrontColors.primaryGold
+                                : StorefrontColors.textPrimary,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          day.displayText,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: isToday
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: isToday
+                                ? StorefrontColors.primaryGold
+                                : StorefrontColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  String _todayDayName() {
+    const days = [
+      'Lundi', 'Mardi', 'Mercredi', 'Jeudi',
+      'Vendredi', 'Samedi', 'Dimanche',
+    ];
+    return days[DateTime.now().weekday - 1];
+  }
+}
+
+/// Actualité tab — merchant's photos + merchant's description text.
+/// Read-only: the client sees what the merchant has published.
+class _ActualiteTab extends StatelessWidget {
+  const _ActualiteTab({
+    required this.imageUrls,
+    this.description,
+  });
+  final List<String> imageUrls;
+  final String? description;
+
+  @override
+  Widget build(BuildContext context) {
+    return NewsSection(
+      // Photos only — description lives in the Accueil tab
+      content: null,
+      imageUrls: imageUrls,
+      showMedia: true,
+      showDescription: false,
+      showUploadButton: false,
+    );
+  }
+}
+
+/// Compact follower count pill.
+class _FollowersPill extends StatelessWidget {
+  const _FollowersPill({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count <= 1
+        ? '$count abonné'
+        : '$count abonnés';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: StorefrontColors.primaryGold.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: StorefrontColors.primaryGold.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.people_outline_rounded,
+              size: 13, color: StorefrontColors.primaryGold),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: StorefrontColors.primaryGold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../application/providers.dart';
 import '../../application/state/forgot_password_state.dart';
 import '../../../core/application/auth_error_mapper.dart';
@@ -82,15 +83,16 @@ class _ForgotPasswordDialogState extends ConsumerState<ForgotPasswordDialog> {
     return AlertDialog(
       backgroundColor: _bgDark2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         side: const BorderSide(color: _borderColor, width: 1),
       ),
-      title: const Text(
+      title: Text(
         'Mot de passe oublié',
-        style: TextStyle(
+        style: GoogleFonts.outfit(
           color: _textLight,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
         ),
       ),
       content: Form(
@@ -99,11 +101,12 @@ class _ForgotPasswordDialogState extends ConsumerState<ForgotPasswordDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.',
-              style: TextStyle(
+              style: GoogleFonts.outfit(
                 color: _textGrey,
-                fontSize: 14,
+                fontSize: 13,
+                height: 1.5,
               ),
             ),
             const SizedBox(height: 20),
@@ -111,7 +114,7 @@ class _ForgotPasswordDialogState extends ConsumerState<ForgotPasswordDialog> {
               controller: _emailController,
               label: 'Adresse email',
               hint: 'votre@email.com',
-              icon: Icons.mail_outline,
+              icon: Icons.mail_outline_rounded,
               validator: _validateEmail,
               enabled: !isLoading,
               keyboardType: TextInputType.emailAddress,
@@ -130,36 +133,52 @@ class _ForgotPasswordDialogState extends ConsumerState<ForgotPasswordDialog> {
                   Navigator.of(context).pop();
                   ref.read(forgotPasswordControllerProvider.notifier).reset();
                 },
-          style: TextButton.styleFrom(
-            foregroundColor: _textGrey,
+          style: TextButton.styleFrom(foregroundColor: _textGrey),
+          child: Text(
+            'Annuler',
+            style: GoogleFonts.outfit(fontSize: 14),
           ),
-          child: const Text('Annuler'),
         ),
-        FilledButton(
-          onPressed: isLoading ? null : _handleSendResetEmail,
-          style: FilledButton.styleFrom(
-            backgroundColor: _primaryGold,
-            disabledBackgroundColor: _borderColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: isLoading
+                ? null
+                : const LinearGradient(
+                    colors: [Color(0xFFD4AF37), _primaryGold],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            color: isLoading ? _borderColor : null,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: isLoading ? null : _handleSendResetEmail,
+              splashColor: Colors.white.withValues(alpha: 0.1),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(_bgDark1),
+                        ),
+                      )
+                    : Text(
+                        'Envoyer',
+                        style: GoogleFonts.outfit(
+                          color: _bgDark1,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
             ),
           ),
-          child: isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(_bgDark1),
-                  ),
-                )
-              : const Text(
-                  'Envoyer',
-                  style: TextStyle(
-                    color: _bgDark1,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
         ),
       ],
     );

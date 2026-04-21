@@ -6,7 +6,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.black,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarColor: Colors.black,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(

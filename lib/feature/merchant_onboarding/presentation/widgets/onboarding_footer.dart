@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'merchant_onboarding_colors.dart';
 
 /// Footer widget for merchant onboarding screen
@@ -34,7 +35,7 @@ class OnboardingFooter extends StatelessWidget {
             Expanded(
               child: Text(
                 'Ce choix nous permet d\'adapter nos services, vous pourrez le modifier à tout moment.',
-                style: TextStyle(
+                style: GoogleFonts.outfit(
                   fontSize: 12,
                   color: MerchantOnboardingColors.textGrey.withValues(alpha: 0.9),
                   height: 1.5,

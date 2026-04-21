@@ -10,32 +10,33 @@ class StoreProfileBannerSection extends StatelessWidget {
     super.key,
     this.bannerImageUrl,
     this.profileImageUrl,
+    this.topPadding = 0,
   });
 
   final String? bannerImageUrl;
   final String? profileImageUrl;
 
+  /// Extra height added to the banner to sit behind the status bar.
+  final double topPadding;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 0),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Banner image - same height as Vitrine (180)
-          SizedBox(
-            height: 180,
-            width: double.infinity,
-            child: _buildBannerImage(),
-          ),
-          // Profile picture overlay - same position as Vitrine (left 24, bottom -48)
-          Positioned(
-            left: 24,
-            bottom: -48,
-            child: _buildProfilePicture(),
-          ),
-        ],
-      ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Banner image — height absorbs status bar space
+        SizedBox(
+          height: 180 + topPadding,
+          width: double.infinity,
+          child: _buildBannerImage(),
+        ),
+        // Profile picture overlay (left 24, bottom -48)
+        Positioned(
+          left: 24,
+          bottom: -48,
+          child: _buildProfilePicture(),
+        ),
+      ],
     );
   }
 

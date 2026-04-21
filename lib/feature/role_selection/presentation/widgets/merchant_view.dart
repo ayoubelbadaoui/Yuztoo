@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'role_selection_colors.dart';
 
 /// Merchant view widget for role selection screen
@@ -15,27 +16,28 @@ class MerchantView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenH = MediaQuery.sizeOf(context).height;
-    final gapAfterDescription = (screenH * 0.03).clamp(12.0, 28.0);
+    final gapAfterDescription = (screenH * 0.03).clamp(12.0, 24.0);
+
     return Column(
       children: [
-        // Description Text
-        const Text(
+        // Value proposition
+        Text(
           'Votre relation clients, vos données,\nvotre indépendance.',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: GoogleFonts.outfit(
             fontSize: 14,
-            color: RoleSelectionColors.textLight,
+            color: RoleSelectionColors.textLight.withValues(alpha: 0.85),
             fontWeight: FontWeight.w400,
-            height: 1.6,
+            height: 1.65,
           ),
         ),
         SizedBox(height: gapAfterDescription),
 
-        // Login Button (if user has account)
+        // Login button (returning merchant)
         if (onLogin != null) ...[
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 50,
             child: OutlinedButton(
               onPressed: onLogin,
               style: OutlinedButton.styleFrom(
@@ -44,12 +46,12 @@ class MerchantView extends StatelessWidget {
                   width: 1.5,
                 ),
                 shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(50)),
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Se connecter',
-                style: TextStyle(
+                style: GoogleFonts.outfit(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: RoleSelectionColors.primaryGold,
@@ -57,39 +59,39 @@ class MerchantView extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
         ],
 
-        // Discover Button
+        // Discover / onboarding button
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: 50,
           child: ElevatedButton(
             onPressed: onDiscover,
             style: ElevatedButton.styleFrom(
               backgroundColor: RoleSelectionColors.textLight,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(50),
+                borderRadius: BorderRadius.circular(12),
               ),
-              shadowColor: Colors.black.withValues(alpha: 0.1),
+              shadowColor: Colors.black.withValues(alpha: 0.15),
               elevation: 4,
             ),
-            child: RichText(
-              text: const TextSpan(
+            child: Text.rich(
+              TextSpan(
                 children: [
                   TextSpan(
                     text: 'Découvrir Yuz',
-                    style: TextStyle(
+                    style: GoogleFonts.outfit(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: RoleSelectionColors.bgDark1,
                     ),
                   ),
                   TextSpan(
                     text: 'too',
-                    style: TextStyle(
+                    style: GoogleFonts.outfit(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: RoleSelectionColors.primaryGold,
                     ),
                   ),
@@ -102,4 +104,3 @@ class MerchantView extends StatelessWidget {
     );
   }
 }
-

@@ -78,11 +78,12 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
                     _buildIdentityCard(fullName, email, phone),
                     const SizedBox(height: 24),
                     Text(
-                      'Villes connectees',
+                      'Villes connectées',
                       style: GoogleFonts.outfit(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                         color: MerchantColors.textWhite,
+                        letterSpacing: 0.1,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -99,12 +100,17 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 22),
                       decoration: BoxDecoration(
+                        color: MerchantColors.bgHeader,
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: MerchantColors.gold.withValues(alpha: 0.18),
+                          width: 1,
+                        ),
                       ),
                       child: Column(
                         children: [
                           Text(
-                            'Presentez votre carte Yuztoo',
+                            'Présentez votre carte Yuztoo',
                             style: GoogleFonts.outfit(
                               color: MerchantColors.textLightGrey,
                               fontSize: 15,
@@ -118,10 +124,10 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
                     Row(
                       children: [
                         Text(
-                          'Profil complete a',
+                          'Profil complété à',
                           style: GoogleFonts.outfit(
                             color: MerchantColors.textWhite,
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -158,7 +164,7 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
                         ),
                         onPressed: () {},
                         child: Text(
-                          'Creer un compte pro',
+                          'Créer un compte pro',
                           style: GoogleFonts.outfit(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -181,7 +187,12 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
+        color: MerchantColors.bgHeader,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: MerchantColors.gold.withValues(alpha: 0.22),
+          width: 1,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,13 +223,13 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
                   name,
                   style: GoogleFonts.outfit(
                     color: MerchantColors.textWhite,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Tel: $phone',
+                  'Tél : $phone',
                   style: GoogleFonts.outfit(
                     color: MerchantColors.textLightGrey,
                     fontSize: 14,

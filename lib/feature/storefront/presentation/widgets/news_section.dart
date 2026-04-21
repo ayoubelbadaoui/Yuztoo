@@ -14,9 +14,9 @@ class NewsSection extends StatefulWidget {
     this.isUploading = false,
     this.onUploadImage,
     this.showMedia = true,
+    this.showDescription = true,
     this.showUploadButton = true,
     this.onSettings,
-    /// When [content] is null, shown instead of the merchant-editor default (e.g. client vitrine).
     this.contentPlaceholder,
   });
 
@@ -27,6 +27,10 @@ class NewsSection extends StatefulWidget {
   final bool isUploading;
   final VoidCallback? onUploadImage;
   final bool showMedia;
+
+  /// Whether to show the description text card below the gallery.
+  /// Set to false on the client Actualité tab (photos only).
+  final bool showDescription;
   final bool showUploadButton;
   final VoidCallback? onSettings;
 
@@ -83,6 +87,7 @@ class _NewsSectionState extends State<NewsSection> {
               ),
             const SizedBox(height: 20),
           ],
+          if (widget.showDescription)
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(

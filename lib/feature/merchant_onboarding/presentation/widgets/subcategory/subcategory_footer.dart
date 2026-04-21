@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'subcategory_colors.dart';
 
 /// Footer widget for subcategory selection screen
@@ -8,7 +9,7 @@ class SubcategoryFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -34,7 +35,7 @@ class SubcategoryFooter extends StatelessWidget {
             Expanded(
               child: Text(
                 'Ce choix nous permet d\'adapter nos services, vous pourrez le modifier à tout moment.',
-                style: TextStyle(
+                style: GoogleFonts.outfit(
                   fontSize: 12,
                   color: SubcategoryColors.textGrey.withValues(alpha: 0.9),
                   height: 1.5,

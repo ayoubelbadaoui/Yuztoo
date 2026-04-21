@@ -3,27 +3,24 @@ import 'package:flutter/material.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 
 /// Three pulsing gold dots at the bottom of the loading screen.
-///
-/// CSS:
-///   dot-1: opacity 0.3, pulse 1.5s infinite
-///   dot-2: opacity 0.6, pulse 1.5s infinite delay 0.2s
-///   dot-3: opacity 0.3, pulse 1.5s infinite delay 0.4s
 class DecorativeDots extends StatelessWidget {
   const DecorativeDots({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Positioned(
-      bottom: 60,
+    // Respect device safe area so dots don't hide behind the home indicator.
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    return Positioned(
+      bottom: bottomPadding + 32,
       left: 0,
       right: 0,
-      child: Row(
+      child: const Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _PulsingDot(baseOpacity: 0.3, delay: Duration.zero),
-          SizedBox(width: 24),
-          _PulsingDot(baseOpacity: 0.6, delay: Duration(milliseconds: 200)),
-          SizedBox(width: 24),
+          SizedBox(width: 20),
+          _PulsingDot(baseOpacity: 0.8, delay: Duration(milliseconds: 200)),
+          SizedBox(width: 20),
           _PulsingDot(baseOpacity: 0.3, delay: Duration(milliseconds: 400)),
         ],
       ),

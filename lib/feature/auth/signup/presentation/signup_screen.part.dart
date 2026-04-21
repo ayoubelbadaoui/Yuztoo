@@ -309,81 +309,134 @@ extension _SignupScreenUi on _SignupScreenState {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Back button — flush left, minimal vertical footprint
+                  // Top bar: back arrow ← + Yuztoo brand mark →
                   SizedBox(
                     height: 44,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: GestureDetector(
-                        onTap: widget.onBack,
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 10),
-                          child: Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: SignupConstants.primaryGold,
-                            size: 20,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: widget.onBack,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 10),
+                            child: Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: SignupConstants.primaryGold,
+                              size: 20,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SignupLogoSection(role: widget.role),
-                  const SizedBox(height: 28),
-                  Form(
-                    key: _formKey,
-                    autovalidateMode: AutovalidateMode.disabled,
-                    child: Column(
-                      children: [
-                        EmailField(
-                          controller: _emailController,
-                          focusNode: _emailFocusNode,
-                          fieldKey: _emailFieldKey,
-                          hasBeenValidated: _emailFieldHasBeenValidated,
-                          enabled: !_isLoading,
-                          onUnfocusAll: _unfocusAllFields,
-                        ),
-                        const SizedBox(height: 16),
-                        PasswordField(
-                          controller: _passwordController,
-                          focusNode: _passwordFocusNode,
-                          fieldKey: _passwordFieldKey,
-                          hasBeenValidated: _passwordFieldHasBeenValidated,
-                          enabled: !_isLoading,
-                          onUnfocusAll: _unfocusAllFields,
-                          onFocusChanged: _onPasswordFieldFocusChanged,
-                        ),
-                        if (_isPasswordFocused) ...[
-                          const SizedBox(height: 8),
-                          const PasswordHint(),
-                        ],
-                        const SizedBox(height: 16),
-                        ConfirmPasswordField(
-                          controller: _confirmPasswordController,
-                          passwordController: _passwordController,
-                          focusNode: _confirmPasswordFocusNode,
-                          fieldKey: _confirmPasswordFieldKey,
-                          hasBeenValidated: _confirmPasswordFieldHasBeenValidated,
-                          enabled: !_isLoading,
-                          onUnfocusAll: _unfocusAllFields,
-                        ),
-                        const SizedBox(height: 16),
-                        PhoneField(
-                          controller: _phoneController,
-                          focusNode: _phoneFocusNode,
-                          fieldKey: _phoneFieldKey,
-                          selectedCountryCode: _selectedCountryCode,
-                          hasBeenValidated: _phoneFieldHasBeenValidated,
-                          enabled: !_isLoading,
-                          onUnfocusAll: _unfocusAllFields,
-                          onPhoneNumberUpdate: _onPhoneNumberUpdate,
-                          onCountryCodeChange: _onCountryCodeChange,
-                          onRevalidatePhone: _revalidatePhoneAfterEdit,
+                        // Inline brand mark — keeps identity without wasting space
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: SignupConstants.primaryGold,
+                                  width: 1.5,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Y',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: SignupConstants.primaryGold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Yuztoo',
+                              style: GoogleFonts.outfit(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: SignupConstants.textLight,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
+                  // Hero
+                  SignupLogoSection(role: widget.role),
+                  const SizedBox(height: 20),
+                  // Form card
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: MerchantColors.bgHeader,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: MerchantColors.gold.withValues(
+                            alpha: MerchantColors.goldBorderAlpha),
+                        width: 1,
+                      ),
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      autovalidateMode: AutovalidateMode.disabled,
+                      child: Column(
+                        children: [
+                          EmailField(
+                            controller: _emailController,
+                            focusNode: _emailFocusNode,
+                            fieldKey: _emailFieldKey,
+                            hasBeenValidated: _emailFieldHasBeenValidated,
+                            enabled: !_isLoading,
+                            onUnfocusAll: _unfocusAllFields,
+                          ),
+                          const SizedBox(height: 16),
+                          PasswordField(
+                            controller: _passwordController,
+                            focusNode: _passwordFocusNode,
+                            fieldKey: _passwordFieldKey,
+                            hasBeenValidated: _passwordFieldHasBeenValidated,
+                            enabled: !_isLoading,
+                            onUnfocusAll: _unfocusAllFields,
+                            onFocusChanged: _onPasswordFieldFocusChanged,
+                          ),
+                          if (_isPasswordFocused) ...[
+                            const SizedBox(height: 8),
+                            const PasswordHint(),
+                          ],
+                          const SizedBox(height: 16),
+                          ConfirmPasswordField(
+                            controller: _confirmPasswordController,
+                            passwordController: _passwordController,
+                            focusNode: _confirmPasswordFocusNode,
+                            fieldKey: _confirmPasswordFieldKey,
+                            hasBeenValidated:
+                                _confirmPasswordFieldHasBeenValidated,
+                            enabled: !_isLoading,
+                            onUnfocusAll: _unfocusAllFields,
+                          ),
+                          const SizedBox(height: 16),
+                          PhoneField(
+                            controller: _phoneController,
+                            focusNode: _phoneFocusNode,
+                            fieldKey: _phoneFieldKey,
+                            selectedCountryCode: _selectedCountryCode,
+                            hasBeenValidated: _phoneFieldHasBeenValidated,
+                            enabled: !_isLoading,
+                            onUnfocusAll: _unfocusAllFields,
+                            onPhoneNumberUpdate: _onPhoneNumberUpdate,
+                            onCountryCodeChange: _onCountryCodeChange,
+                            onRevalidatePhone: _revalidatePhoneAfterEdit,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   SignupButton(
                     isLoading: _isLoading,
                     onPressed:
@@ -391,12 +444,12 @@ extension _SignupScreenUi on _SignupScreenState {
                   ),
                   const SizedBox(height: 24),
                   const SocialDivider(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   SocialLoginButtons(
                     isLoading: _isLoading,
                     onSocialLogin: _handleSocialLogin,
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
                   SignupFooter(
                     onBack: widget.onBack,
                   ),

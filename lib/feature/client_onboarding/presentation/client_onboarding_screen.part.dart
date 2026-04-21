@@ -3,15 +3,26 @@ part of 'client_onboarding_screen.dart';
 extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
   Widget _buildProgressBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
-          IconButton(
-            onPressed: (_currentStep > 0 && !_isSaving) ? _goBack : null,
-            icon: const Icon(
-              Icons.arrow_back_ios,
-              color: MerchantOnboardingColors.primaryGold,
-              size: 20,
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: (_currentStep > 0 && !_isSaving) ? _goBack : null,
+                behavior: HitTestBehavior.opaque,
+                child: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: (_currentStep > 0 && !_isSaving)
+                      ? MerchantOnboardingColors.primaryGold
+                      : MerchantOnboardingColors.primaryGold
+                          .withValues(alpha: 0.3),
+                  size: 20,
+                ),
+              ),
             ),
           ),
           Expanded(
@@ -80,7 +91,7 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
 
   Widget _buildWelcomeStep() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
           const SizedBox(height: 40),
@@ -151,7 +162,7 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
 
   Widget _buildNameStep() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
           const SizedBox(height: 40),
@@ -249,7 +260,7 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
     final hasCity =
         _selectedCity != null && _selectedCity!.trim().isNotEmpty;
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
           const SizedBox(height: 40),
@@ -381,7 +392,7 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
 
   Widget _buildPhotoStep() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
           const SizedBox(height: 40),

@@ -17,22 +17,168 @@ import 'widgets/store_profile_banner_section.dart';
 
 part 'store_profile_screen.part.dart';
 
+// ── Skeleton loading screen ────────────────────────────────────────────────────
+
+class _StoreProfileSkeleton extends StatefulWidget {
+  const _StoreProfileSkeleton({required this.onBack});
+  final VoidCallback onBack;
+
+  @override
+  State<_StoreProfileSkeleton> createState() => _StoreProfileSkeletonState();
+}
+
+class _StoreProfileSkeletonState extends State<_StoreProfileSkeleton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.4, end: 0.85).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _shimmer(double w, double h, {double radius = 8}) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Opacity(
+        opacity: _anim.value,
+        child: Container(
+          width: w,
+          height: h,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8E0D0),
+            borderRadius: BorderRadius.circular(radius),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Banner placeholder
+              AnimatedBuilder(
+                animation: _anim,
+                builder: (_, __) => Opacity(
+                  opacity: _anim.value,
+                  child: Container(
+                    height: 180 + top,
+                    color: const Color(0xFFE8E0D0),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 56),
+              // Name + hearts
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _shimmer(160, 22, radius: 6),
+                        const Spacer(),
+                        _shimmer(72, 22, radius: 6),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _shimmer(100, 14, radius: 6),
+                    const SizedBox(height: 12),
+                    _shimmer(80, 26, radius: 13),
+                    const SizedBox(height: 20),
+                    _shimmer(double.infinity, 52, radius: 14),
+                    const SizedBox(height: 16),
+                    _shimmer(double.infinity, 46, radius: 14),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _shimmer(double.infinity, 14, radius: 6),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _shimmer(80, 11, radius: 4),
+                    const SizedBox(height: 10),
+                    _shimmer(180, 16, radius: 6),
+                    const SizedBox(height: 16),
+                    _shimmer(80, 11, radius: 4),
+                    const SizedBox(height: 10),
+                    _shimmer(220, 16, radius: 6),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Back button still works during loading
+        Positioned(
+          top: top + 8,
+          left: 12,
+          child: GestureDetector(
+            onTap: widget.onBack,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Client-facing store profile. Light Vitrine-style (cream background, same banner/logo layout as merchant storefront).
 class StoreProfileScreen extends ConsumerStatefulWidget {
   const StoreProfileScreen({
     super.key,
     required this.onBack,
-    required this.onNotifications,
-    required this.onMessage,
-    required this.onReserve,
+    this.onNotifications,
+    this.onMessage,
+    this.onReserve,
   });
 
   static String get path => '/store-profile';
 
   final VoidCallback onBack;
-  final VoidCallback onNotifications;
-  final VoidCallback onMessage;
-  final VoidCallback onReserve;
+  final VoidCallback? onNotifications;
+  final VoidCallback? onMessage;
+  final VoidCallback? onReserve;
 
   @override
   ConsumerState<StoreProfileScreen> createState() => _StoreProfileScreenState();
@@ -52,10 +198,12 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: StorefrontColors.backgroundLight,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: StorefrontColors.backgroundLight,
-        systemNavigationBarIconBrightness: Brightness.dark,
+        // Status bar sits over the banner — transparent so the image shows
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        // Bottom nav is dark navy
+        systemNavigationBarColor: StorefrontColors.navyDark,
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: StorefrontColors.backgroundLight,
@@ -75,16 +223,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
             });
             return _buildContent(context, merchant, data.promotions);
           },
-          loading: () => const Center(
-            child: SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(
-                color: StorefrontColors.primaryGold,
-                strokeWidth: 2,
-              ),
-            ),
-          ),
+          loading: () => _StoreProfileSkeleton(onBack: widget.onBack),
           error: (_, __) => _StoreProfileErrorBack(onBack: widget.onBack),
         ),
       ),
