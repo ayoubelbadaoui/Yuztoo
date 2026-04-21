@@ -28,7 +28,9 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks!
+  # Static linkage avoids Obj-C `@import` resolution issues with Swift-only pods (e.g. app_links)
+  # and matches FlutterFire / Firebase iOS guidance for mixed Objective-C + Swift Pods.
+  use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
@@ -58,6 +60,9 @@ post_install do |installer|
     # Force all pods to build with iOS 15.5+ (mobile_scanner / MLKit minimum)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      # Default Pod xcconfigs often set EXCLUDED_ARCHS[sdk=iphonesimulator*]=arm64 (legacy Intel).
+      # On Apple Silicon that prevents arm64 simulator slices and can break Swift module imports.
+      config.build_settings.delete('EXCLUDED_ARCHS')
     end
 
     # Strip unsupported '-GCC_WARN_INHIBIT_ALL_WARNINGS' flags that trigger
@@ -89,5 +94,20 @@ post_install do |installer|
     }
     patched = replacements.reduce(text) { |acc, (from, to)| acc.gsub(from, to) }
     File.write(grpc_basic_seq, patched) if patched != text
+  end
+
+  # app_links is Swift-only (no AppLinksIosPlugin.h). Flutter's registrant always fell through to
+  # `@import app_links`, which fails when the Swift module map is not resolved. Prefer the generated
+  # Objective-C header before `@import`.
+  registrant_path = File.expand_path('Runner/GeneratedPluginRegistrant.m', __dir__)
+  if File.exist?(registrant_path)
+    reg = File.read(registrant_path)
+    unless reg.include?('app_links-Swift.h')
+      reg.gsub!(
+        "#if __has_include(<app_links/AppLinksIosPlugin.h>)\n#import <app_links/AppLinksIosPlugin.h>\n#else\n@import app_links;\n#endif",
+        "#if __has_include(<app_links/AppLinksIosPlugin.h>)\n#import <app_links/AppLinksIosPlugin.h>\n#elif __has_include(<app_links/app_links-Swift.h>)\n#import <app_links/app_links-Swift.h>\n#else\n@import app_links;\n#endif"
+      )
+      File.write(registrant_path, reg)
+    end
   end
 end
