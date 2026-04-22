@@ -28,9 +28,31 @@ class PromotionsManagementScreen extends ConsumerStatefulWidget {
 }
 
 class _PromotionsManagementScreenState
-    extends ConsumerState<PromotionsManagementScreen> {
+    extends ConsumerState<PromotionsManagementScreen>
+    with SingleTickerProviderStateMixin {
   final ImagePicker _picker = ImagePicker();
   bool _isCreating = false;
+
+  late AnimationController _shimmerController;
+  late Animation<double> _shimmerAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+    _shimmerAnim = Tween<double>(begin: 0.35, end: 0.85).animate(
+      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
 
   Future<void> _showAddPromoSheet() async {
     final authState = ref.read(authStateProvider);
@@ -177,6 +199,8 @@ class _PromotionsManagementScreenState
     );
   }
 
+  bool _isUpdatingImage = false;
+
   Future<void> _pickImageForPromo(int index, List<Promotion> promotions) async {
     final messenger = ScaffoldMessenger.of(context);
     final source = await showModalBottomSheet<ImageSource>(
@@ -219,11 +243,39 @@ class _PromotionsManagementScreenState
         imageQuality: 80,
       );
       if (picked == null || !context.mounted) return;
-      // TODO: upload image and update promotion in Firestore
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Modification de l\'image à venir')),
+
+      setState(() => _isUpdatingImage = true);
+      final promo = promotions[index];
+      final updatePromotion = ref.read(updatePromotionProvider);
+      final result = await updatePromotion.call(
+        promo,
+        imageFilePath: picked.path,
       );
-    } catch (_) {}
+      if (!context.mounted) return;
+      setState(() => _isUpdatingImage = false);
+
+      result.fold(
+        (failure) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(failure.message),
+              backgroundColor: Colors.red.shade700,
+            ),
+          );
+        },
+        (_) {
+          ref.invalidate(merchantPromotionsProvider);
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Image mise à jour'),
+              backgroundColor: MerchantColors.gold,
+            ),
+          );
+        },
+      );
+    } catch (_) {
+      if (mounted) setState(() => _isUpdatingImage = false);
+    }
   }
 
   void _setCreating(bool value) {

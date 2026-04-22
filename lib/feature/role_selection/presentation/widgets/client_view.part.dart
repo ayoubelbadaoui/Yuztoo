@@ -68,7 +68,7 @@ extension _ClientViewUi on _ClientViewState {
                 height: 1.5,
               ),
               children: [
-                TextSpan(text: AppLocalizations.of(context)!.scanQRCode + ' '),
+                TextSpan(text: '${AppLocalizations.of(context)!.scanQRCode} '),
                 TextSpan(
                   text: 'QR Code',
                   style: GoogleFonts.outfit(
@@ -204,6 +204,22 @@ extension _ClientViewUi on _ClientViewState {
               ),
             ],
           ),
+          if (widget.onGuestDiscover != null) ...[
+            const SizedBox(height: 14),
+            GestureDetector(
+              onTap: widget.onGuestDiscover,
+              child: Text(
+                AppLocalizations.of(context)!.browseWithoutAccount,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  color: RoleSelectionColors.textGrey,
+                  decoration: TextDecoration.underline,
+                  decorationColor: RoleSelectionColors.textGrey,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

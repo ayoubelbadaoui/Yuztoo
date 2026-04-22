@@ -29,6 +29,9 @@ class Merchant extends Equatable {
     this.newsImageUrls,
     this.loyaltyEnabled = true,
     this.loyaltyProgram,
+    this.messagingEnabled = true,
+    this.notificationsAutoEnabled = true,
+    this.galerieEnabled = true,
     this.rappelsAutoClientValidation,
     this.rappelsAutoPassageValidation,
     this.rappelsMonthlyConnectedClients = 0,
@@ -86,6 +89,15 @@ class Merchant extends Equatable {
   /// Detailed loyalty settings when present on the merchant document.
   final LoyaltyProgramConfig? loyaltyProgram;
 
+  /// Service toggle: messaging / conciergerie (default true).
+  final bool messagingEnabled;
+
+  /// Service toggle: automatic notifications (default true).
+  final bool notificationsAutoEnabled;
+
+  /// Service toggle: photo gallery visible on storefront (default true).
+  final bool galerieEnabled;
+
   /// Rappels: auto-validate new clients (default true)
   final bool? rappelsAutoClientValidation;
 
@@ -137,6 +149,9 @@ class Merchant extends Equatable {
         newsImageUrls,
         loyaltyEnabled,
         loyaltyProgram,
+        messagingEnabled,
+        notificationsAutoEnabled,
+        galerieEnabled,
         rappelsAutoClientValidation,
         rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients,
@@ -165,6 +180,9 @@ class Merchant extends Equatable {
     List<String>? newsImageUrls,
     bool? loyaltyEnabled,
     LoyaltyProgramConfig? loyaltyProgram,
+    bool? messagingEnabled,
+    bool? notificationsAutoEnabled,
+    bool? galerieEnabled,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     int? rappelsMonthlyConnectedClients,
@@ -191,6 +209,10 @@ class Merchant extends Equatable {
       newsImageUrls: newsImageUrls ?? this.newsImageUrls,
       loyaltyEnabled: loyaltyEnabled ?? this.loyaltyEnabled,
       loyaltyProgram: loyaltyProgram ?? this.loyaltyProgram,
+      messagingEnabled: messagingEnabled ?? this.messagingEnabled,
+      notificationsAutoEnabled:
+          notificationsAutoEnabled ?? this.notificationsAutoEnabled,
+      galerieEnabled: galerieEnabled ?? this.galerieEnabled,
       rappelsAutoClientValidation:
           rappelsAutoClientValidation ?? this.rappelsAutoClientValidation,
       rappelsAutoPassageValidation:

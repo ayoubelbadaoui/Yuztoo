@@ -102,6 +102,10 @@ class _FakeMerchantRepository implements MerchantRepository {
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     LoyaltyProgramConfig? loyaltyProgram,
+    bool? messagingEnabled,
+    bool? notificationsAutoEnabled,
+    bool? galerieEnabled,
+    bool? loyaltyEnabledStandalone,
     bool clearCityField = false,
   }) async {
     final current = _createdMerchant;

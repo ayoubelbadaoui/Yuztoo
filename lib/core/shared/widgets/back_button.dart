@@ -30,7 +30,7 @@ class YBackButton extends StatelessWidget {
           ),
         ),
         child: Icon(
-          Icons.arrow_back_ios_new,
+          Icons.arrow_back_ios_new_rounded,
           color: iconColor ?? const Color(0xFFF5F5F5),
           size: 20,
         ),

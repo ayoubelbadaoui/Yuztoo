@@ -13,11 +13,14 @@ class ClientView extends StatefulWidget {
     required this.isScanning,
     required this.onScan,
     required this.onCreateAccount,
+    this.onGuestDiscover,
   });
 
   final bool isScanning;
   final VoidCallback onScan;
   final VoidCallback onCreateAccount;
+  /// Optional: browse merchants without creating an account.
+  final VoidCallback? onGuestDiscover;
 
   @override
   State<ClientView> createState() => _ClientViewState();

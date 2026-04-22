@@ -14,12 +14,21 @@ abstract class PromotionRepository {
   /// List all promotions for a merchant.
   Future<Result<List<Promotion>>> listByMerchantId(String merchantId);
 
-  /// Update a promotion (e.g. isOnline).
-  Future<Result<Promotion>> update(Promotion promotion);
+  /// Update a promotion (e.g. isOnline, or replace image when [imageFilePath] provided).
+  Future<Result<Promotion>> update(
+    Promotion promotion, {
+    String? imageFilePath,
+  });
 
   /// Delete a promotion.
   Future<Result<Unit>> delete({
     required String merchantId,
     required String promotionId,
+  });
+
+  /// Increment view_count for a list of promotion IDs (client viewed them).
+  Future<void> recordViews({
+    required String merchantId,
+    required List<String> promotionIds,
   });
 }

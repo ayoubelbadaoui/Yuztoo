@@ -41,6 +41,9 @@
   "stats": "Statistiques",
   "promotions": "Promotions",
   "qrCode": "Code QR",
+  "@qrCode": {
+    "description": "QR code navigation label"
+  },
   "settings": "Paramètres",
   "logout": "Déconnexion",
   "or": "OU",
@@ -87,7 +90,6 @@
   "discount": "de réduction",
   "freePastry": "Pâtisserie offerte",
   "scanQRCode": "Scanne le",
-  "qrCode": "QR code",
   "addToYuztoo": "Ajoute-le à ton carnet Yuztoo\net reçois ses infos utiles",
   "scanning": "Scan en cours...",
   "startScan": "Lancer le scan",
@@ -141,7 +143,6 @@
   "verificationCodeResent": "Code de vérification renvoyé!",
   "enterCodeSentTo": "Entrez le code envoyé au\n",
   "wrongNumber": "Numéro incorrect ?",
-  "resendCode": "Renvoyer le code",
   "resendCodeWithTimer": "Renvoyer le code ({seconds}s)",
   "@resendCodeWithTimer": {
     "placeholders": {
@@ -239,11 +240,24 @@
       }
     }
   },
-  "yesterday": "Hier",
   "healthCategory": "Santé",
   "beautyCategoryLowercase": "Beauté",
   "bakery": "Boulangerie",
   "helpCenter": "Centre d'aide",
-  "termsOfUse": "Conditions d'utilisation"
+  "termsOfUse": "Conditions d'utilisation",
+  "browseWithoutAccount": "Parcourir les commerces sans compte →",
+  "createProAccount": "Créer un compte pro",
+  "newClientsTitle": "Nouveaux clients",
+  "acknowledgeClient": "OK",
+  "noNewClients": "Aucun nouveau client",
+  "servicesYuztoo": "SERVICES YUZTOO",
+  "pendingClientsCount": "{count} en attente",
+  "@pendingClientsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
 

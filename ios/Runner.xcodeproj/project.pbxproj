@@ -196,6 +196,7 @@
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				BF3FF5A0C202041A82EDF880 /* [CP] Check Pods Manifest.lock */,
+				E7A1F9B32D16000200F4C002 /* Bump build number (pubspec, Archive only) */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
@@ -276,6 +277,23 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		E7A1F9B32D16000200F4C002 /* Bump build number (pubspec, Archive only) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${SRCROOT}/../pubspec.yaml",
+			);
+			name = "Bump build number (pubspec, Archive only)";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "exec /bin/sh \"${SRCROOT}/scripts/increment_build_number.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		19028AF5194F586CA3988B4A /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;

@@ -49,14 +49,78 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
                   ),
                   error: (e, _) => Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Impossible de charger le commerce.\n$e',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.outfit(
-                          color: MerchantColors.textLightGrey,
-                          fontSize: 14,
-                        ),
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.redAccent.withValues(alpha: 0.1),
+                            ),
+                            child: const Icon(
+                              Icons.cloud_off_outlined,
+                              color: Colors.redAccent,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Impossible de charger le programme',
+                            style: GoogleFonts.outfit(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Vérifiez votre connexion et réessayez.',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              color: MerchantColors.textGrey,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => ref.invalidate(
+                                currentMerchantForOwnerProvider),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    MerchantColors.gold,
+                                    Color(0xFFD4AF37),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: MerchantColors.gold
+                                        .withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                'Réessayer',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: MerchantColors.bgHeader,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -138,7 +202,7 @@ class _EFideliteHeader extends StatelessWidget {
                   minimumSize: const Size(40, 40),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                icon: const Icon(Icons.arrow_back_ios_new, size: 16),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
               ),
               const SizedBox(width: 4),
               Expanded(

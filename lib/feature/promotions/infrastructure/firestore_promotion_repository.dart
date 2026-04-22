@@ -145,50 +145,73 @@ class FirestorePromotionRepository implements PromotionRepository {
   }
 
   @override
-  Future<Result<Promotion>> update(Promotion promotion) async {
+  Future<Result<Promotion>> update(
+    Promotion promotion, {
+    String? imageFilePath,
+  }) async {
     if (promotion.merchantId.isEmpty || promotion.id.isEmpty) {
       return const Left(
         PromotionUnexpectedFailure(message: 'Merchant ID and Promotion ID required'),
       );
     }
     try {
-      final ref = _promotionsRef(promotion.merchantId).doc(promotion.id);
+      // Upload new image if provided.
+      String? imageUrl = promotion.imageUrl;
+      if (imageFilePath != null && imageFilePath.isNotEmpty) {
+        final file = File(imageFilePath);
+        if (file.existsSync()) {
+          final storagePath =
+              'merchants/${promotion.merchantId}/promotions/${promotion.id}.jpg';
+          final uploadResult = await _storage.uploadImage(
+            filePath: imageFilePath,
+            storagePath: storagePath,
+          );
+          uploadResult.fold(
+            (f) {
+              LoggerService.logError(
+                'Image upload failed during promo update',
+                error: f,
+              );
+            },
+            (url) => imageUrl = url,
+          );
+        }
+      }
+
+      final updated = promotion.copyWith(imageUrl: imageUrl);
+      final ref = _promotionsRef(updated.merchantId).doc(updated.id);
       final dto = PromotionDto(
-        id: promotion.id,
-        merchantId: promotion.merchantId,
-        title: promotion.title,
-        subtitle: promotion.subtitle,
-        dateFrom: promotion.dateFrom,
-        dateTo: promotion.dateTo,
-        clientType: promotion.selectedClientType.value,
-        isOnline: promotion.isOnline,
-        imageUrl: promotion.imageUrl,
+        id: updated.id,
+        merchantId: updated.merchantId,
+        title: updated.title,
+        subtitle: updated.subtitle,
+        dateFrom: updated.dateFrom,
+        dateTo: updated.dateTo,
+        clientType: updated.selectedClientType.value,
+        isOnline: updated.isOnline,
+        imageUrl: updated.imageUrl,
       );
       await ref.update(dto.toFirestore());
 
       LoggerService.logInfo(
         'Promotion updated',
-        context: {'merchantId': promotion.merchantId, 'promotionId': promotion.id},
+        context: {'merchantId': updated.merchantId, 'promotionId': updated.id},
       );
-      return Right(promotion);
+      return Right(updated);
     } on FirebaseException catch (e, st) {
       LoggerService.logError(
         'Firebase error updating promotion',
         error: e,
         stackTrace: st,
       );
-      return Left(
-        PromotionNetworkFailure(cause: e, stackTrace: st),
-      );
+      return Left(PromotionNetworkFailure(cause: e, stackTrace: st));
     } catch (e, st) {
       LoggerService.logError(
         'Unexpected error updating promotion',
         error: e,
         stackTrace: st,
       );
-      return Left(
-        PromotionUnexpectedFailure(cause: e, stackTrace: st),
-      );
+      return Left(PromotionUnexpectedFailure(cause: e, stackTrace: st));
     }
   }
 
@@ -227,6 +250,28 @@ class FirestorePromotionRepository implements PromotionRepository {
       return Left(
         PromotionUnexpectedFailure(cause: e, stackTrace: st),
       );
+    }
+  }
+
+  @override
+  Future<void> recordViews({
+    required String merchantId,
+    required List<String> promotionIds,
+  }) async {
+    if (merchantId.isEmpty || promotionIds.isEmpty) return;
+    try {
+      final batch = _firestore.batch();
+      for (final id in promotionIds) {
+        batch.set(
+          _promotionsRef(merchantId).doc(id),
+          {'view_count': FieldValue.increment(1)},
+          SetOptions(merge: true),
+        );
+      }
+      await batch.commit();
+    } catch (e) {
+      // View tracking is best-effort — never crash the app for this
+      LoggerService.logError('recordPromoViews', error: e);
     }
   }
 }

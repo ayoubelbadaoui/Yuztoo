@@ -9,6 +9,7 @@ import '../../../core/application/precache_network_images.dart';
 import '../../loyalty/domain/entities/client_merchant_loyalty_progress.dart';
 import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
+import '../../promotions/application/providers.dart' show recordPromoViewsProvider;
 import '../../promotions/domain/entities/promotion.dart';
 import '../../storefront/domain/entities/business_hours.dart';
 import '../../storefront/application/widgets.dart';
@@ -191,6 +192,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   int? _optimisticHeartLevel;
   int _heartSaveToken = 0;
   String? _lastViewedKey;
+  bool _promoViewsFired = false; // guard: fire once per screen mount
 
   @override
   Widget build(BuildContext context) {
@@ -221,6 +223,15 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                 merchant.logoUrl,
                 ...?merchant.newsImageUrls,
               ]);
+              // Record promotion views once per screen mount (best-effort)
+              if (!_promoViewsFired && data.promotions.isNotEmpty) {
+                _promoViewsFired = true;
+                ref.read(recordPromoViewsProvider).call(
+                      merchantId: merchant.id,
+                      promotionIds:
+                          data.promotions.map((p) => p.id).toList(),
+                    );
+              }
             });
             return _buildContent(context, merchant, data.promotions);
           },

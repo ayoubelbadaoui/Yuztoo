@@ -86,7 +86,7 @@ class _PromotionsList extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.local_offer_outlined,
+              const Icon(Icons.local_offer_outlined,
                   color: StorefrontColors.textSecondary, size: 20),
               const SizedBox(width: 10),
               Text(
@@ -1187,7 +1187,7 @@ class _HoraireTab extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.schedule_outlined,
+              const Icon(Icons.schedule_outlined,
                   color: StorefrontColors.textSecondary, size: 20),
               const SizedBox(width: 12),
               Text(

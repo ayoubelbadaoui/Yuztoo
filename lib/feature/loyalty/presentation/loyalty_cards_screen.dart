@@ -6,12 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
 import '../../auth/core/application/user_display_helpers.dart';
+import '../application/client_loyalty_providers.dart';
 import '../application/providers.dart';
 
 part 'loyalty_cards_screen.part.dart';
 
-/// Client fidélité — real user email / phone from Auth + Firestore (same as profile).
-/// Loyalty counts: 0 until a backend source exists.
+/// Client fidélité — real per-merchant loyalty cards backed by Firestore.
 class LoyaltyCardsScreen extends ConsumerWidget {
   const LoyaltyCardsScreen({
     super.key,
@@ -23,10 +23,6 @@ class LoyaltyCardsScreen extends ConsumerWidget {
 
   final VoidCallback onBack;
   final VoidCallback onNotifications;
-
-  /// When loyalty visits are stored in Firestore, wire them here.
-  static const int _advantagesFromBackend = 0;
-  static const int _passagesUntilRewardFromBackend = 0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -55,6 +51,7 @@ class LoyaltyCardsScreen extends ConsumerWidget {
     final basics = ref.watch(userProfileBasicsProvider(user.id)).valueOrNull;
     final email = resolveEmail(user, basics);
     final phone = resolvePhone(user, basics);
+    final feedAsync = ref.watch(clientLoyaltyFeedProvider);
 
     return PopScope(
       canPop: false,
@@ -79,17 +76,9 @@ class LoyaltyCardsScreen extends ConsumerWidget {
                   padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),
                   child: Column(
                     children: [
-                      const _AdvantageIntro(count: _advantagesFromBackend),
-                      const SizedBox(height: 16),
                       _ContactLines(email: email, phone: phone),
                       const SizedBox(height: 24),
-                      const _LoyaltyCardPlaceholder(),
-                      const SizedBox(height: 32),
-                      const _InstructionLines(),
-                      const SizedBox(height: 28),
-                      const _ProgressFooter(
-                        passagesUntilReward: _passagesUntilRewardFromBackend,
-                      ),
+                      _LoyaltyFeed(feedAsync: feedAsync),
                     ],
                   ),
                 ),

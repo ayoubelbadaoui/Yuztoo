@@ -86,17 +86,18 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           ),
           child: Row(
             children: [
-              GestureDetector(
+                    GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: widget.onBack ?? () => Navigator.of(context).maybePop(),
                 child: Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: MerchantColors.gold, width: 2),
+                    border: Border.all(color: MerchantColors.gold, width: 1.5),
                   ),
                   child: const Center(
-                    child: Icon(Icons.arrow_back_ios_new,
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
                         color: MerchantColors.gold, size: 16),
                   ),
                 ),

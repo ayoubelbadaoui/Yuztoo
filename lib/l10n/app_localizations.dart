@@ -338,10 +338,10 @@ abstract class AppLocalizations {
   /// **'Promotions'**
   String get promotions;
 
-  /// No description provided for @qrCode.
+  /// QR code navigation label
   ///
   /// In en, this message translates to:
-  /// **'QR code'**
+  /// **'QR Code'**
   String get qrCode;
 
   /// No description provided for @settings.
@@ -1153,6 +1153,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Terms of use'**
   String get termsOfUse;
+
+  /// No description provided for @browseWithoutAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse businesses without an account →'**
+  String get browseWithoutAccount;
+
+  /// No description provided for @createProAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a pro account'**
+  String get createProAccount;
+
+  /// No description provided for @newClientsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New clients'**
+  String get newClientsTitle;
+
+  /// No description provided for @acknowledgeClient.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get acknowledgeClient;
+
+  /// No description provided for @noNewClients.
+  ///
+  /// In en, this message translates to:
+  /// **'No new clients'**
+  String get noNewClients;
+
+  /// No description provided for @servicesYuztoo.
+  ///
+  /// In en, this message translates to:
+  /// **'YUZTOO SERVICES'**
+  String get servicesYuztoo;
+
+  /// No description provided for @pendingClientsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} pending'**
+  String pendingClientsCount(int count);
 }
 
 class _AppLocalizationsDelegate

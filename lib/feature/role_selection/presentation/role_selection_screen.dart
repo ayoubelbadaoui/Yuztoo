@@ -17,6 +17,7 @@ class RoleSelectionScreen extends StatefulWidget {
     this.onRoleChanged,
     this.onLogin,
     this.onSignup,
+    this.onGuestDiscover,
   });
 
   final ValueChanged<UserRole> onSelectRole;
@@ -24,6 +25,8 @@ class RoleSelectionScreen extends StatefulWidget {
   final ValueChanged<UserRole>? onRoleChanged;
   final ValueChanged<UserRole>? onLogin;
   final ValueChanged<UserRole>? onSignup;
+  /// Navigate to discovery screen without authenticating.
+  final VoidCallback? onGuestDiscover;
 
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
@@ -117,6 +120,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                         isScanning: _isScanning,
                         onScan: _handleScan,
                         onCreateAccount: _handleClientSignup,
+                        onGuestDiscover: widget.onGuestDiscover,
                       ),
                 const SizedBox(height: 20),
                 // Both roles share the same "already have account?" link widget

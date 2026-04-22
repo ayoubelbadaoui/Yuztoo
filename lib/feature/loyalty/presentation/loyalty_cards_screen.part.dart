@@ -1,5 +1,7 @@
 part of 'loyalty_cards_screen.dart';
 
+// ─── Header ────────────────────────────────────────────────────────────────────
+
 class _Header extends StatelessWidget {
   const _Header({required this.onNotifications});
 
@@ -52,6 +54,8 @@ class _Header extends StatelessWidget {
   }
 }
 
+// ─── Contact lines ─────────────────────────────────────────────────────────────
+
 class _ContactLines extends StatelessWidget {
   const _ContactLines({required this.email, required this.phone});
 
@@ -77,226 +81,343 @@ class _ContactLines extends StatelessWidget {
   }
 }
 
-class _AdvantageIntro extends StatelessWidget {
-  const _AdvantageIntro({required this.count});
+// ─── Feed (loading / empty / list) ────────────────────────────────────────────
 
-  final int count;
+class _LoyaltyFeed extends StatelessWidget {
+  const _LoyaltyFeed({required this.feedAsync});
+
+  final AsyncValue<List<ClientLoyaltyEntry>> feedAsync;
 
   @override
   Widget build(BuildContext context) {
-    final gold = GoogleFonts.outfit(
-      color: MerchantColors.gold,
-      fontWeight: FontWeight.w700,
-      fontSize: 15,
-      height: 1.5,
+    return feedAsync.when(
+      loading: () => const _LoadingCards(),
+      error: (_, __) => const _EmptyState(
+        message:
+            'Impossible de charger votre fidélité pour le moment.',
+      ),
+      data: (entries) {
+        if (entries.isEmpty) return const _EmptyState();
+        return Column(
+          children: [
+            for (final entry in entries) ...[
+              _MerchantLoyaltyCard(entry: entry),
+              const SizedBox(height: 16),
+            ],
+          ],
+        );
+      },
     );
+  }
+}
+
+// ─── Loading shimmer cards ──────────────────────────────────────────────────
+
+class _LoadingCards extends StatelessWidget {
+  const _LoadingCards();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: List.generate(
+        2,
+        (_) => Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Container(
+            height: 140,
+            decoration: BoxDecoration(
+              color: MerchantColors.navyCard,
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    this.message,
+  });
+
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
     final base = GoogleFonts.outfit(
       fontSize: 15,
       height: 1.5,
       color: MerchantColors.textLightGrey,
     );
-
-    if (count == 0) {
-      return Text.rich(
-        TextSpan(
-          style: base,
-          children: [
-            const TextSpan(
-              text:
-                  'Aucun avantage enregistré pour le moment sur votre carte fidélité ',
-            ),
-            TextSpan(text: 'Yuztoo', style: gold),
-            const TextSpan(text: '.'),
-          ],
-        ),
-        textAlign: TextAlign.center,
-      );
-    }
-    if (count == 1) {
-      return Text.rich(
-        TextSpan(
-          style: base,
-          children: [
-            const TextSpan(text: 'Déjà '),
-            TextSpan(text: '1', style: gold),
-            const TextSpan(
-              text: ' avantage obtenu grâce à votre carte fidélité ',
-            ),
-            TextSpan(text: 'Yuztoo', style: gold),
-            const TextSpan(text: '.'),
-          ],
-        ),
-        textAlign: TextAlign.center,
-      );
-    }
-    return Text.rich(
-      TextSpan(
-        style: base,
-        children: [
-          const TextSpan(text: 'Déjà '),
-          TextSpan(text: '$count', style: gold),
-          const TextSpan(
-            text: ' avantages obtenus grâce à votre carte fidélité ',
-          ),
-          TextSpan(text: 'Yuztoo', style: gold),
-          const TextSpan(text: '.'),
-        ],
-      ),
-      textAlign: TextAlign.center,
+    final gold = base.copyWith(
+      color: MerchantColors.gold,
+      fontWeight: FontWeight.w700,
     );
-  }
-}
 
-/// Placeholder card — replace image asset when final art is ready.
-class _LoyaltyCardPlaceholder extends StatelessWidget {
-  const _LoyaltyCardPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 280),
-        child: AspectRatio(
-          aspectRatio: 0.72,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: MerchantColors.gold.withValues(alpha: 0.35),
-                width: 1.5,
-              ),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  MerchantColors.bgHeader,
-                  MerchantColors.bgMain.withValues(alpha: 0.95),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AppLogo(
-                  size: 100,
-                  fallback: Icon(
-                    Icons.location_on_rounded,
-                    size: 56,
-                    color: MerchantColors.gold.withValues(alpha: 0.85),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'yuztoo',
-                  style: GoogleFonts.outfit(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: MerchantColors.gold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'pour eux, pour vous',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    color: MerchantColors.textLightGrey,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InstructionLines extends StatelessWidget {
-  const _InstructionLines();
-
-  @override
-  Widget build(BuildContext context) {
-    final style = GoogleFonts.outfit(
-      fontSize: 14,
-      height: 1.65,
-      color: MerchantColors.textLightGrey,
-    );
     return Column(
       children: [
-        Text(
-          'Présente simplement ton téléphone',
-          textAlign: TextAlign.center,
-          style: style,
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 280),
+            child: AspectRatio(
+              aspectRatio: 0.72,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.35),
+                    width: 1.5,
+                  ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      MerchantColors.bgHeader,
+                      MerchantColors.bgMain.withValues(alpha: 0.95),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AppLogo(
+                      size: 100,
+                      fallback: Icon(
+                        Icons.location_on_rounded,
+                        size: 56,
+                        color: MerchantColors.gold.withValues(alpha: 0.85),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'yuztoo',
+                      style: GoogleFonts.outfit(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: MerchantColors.gold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'pour eux, pour vous',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: MerchantColors.textLightGrey,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'Chaque passage compte',
+        const SizedBox(height: 24),
+        Text.rich(
+          TextSpan(
+            style: base,
+            children: [
+              TextSpan(
+                  text: message ??
+                      'Aucun avantage enregistré pour le moment sur votre carte fidélité '),
+              if (message == null) TextSpan(text: 'Yuztoo', style: gold),
+              if (message == null) const TextSpan(text: '.'),
+            ],
+          ),
           textAlign: TextAlign.center,
-          style: style,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Text(
-          'Un cadeau après 5, 10 ou 20 passages.',
+          'Vos passages chez un commerçant partenaire s\'afficheront ici après une visite.',
           textAlign: TextAlign.center,
-          style: style,
+          style: GoogleFonts.outfit(
+            fontSize: 14,
+            height: 1.5,
+            color: MerchantColors.textLightGrey,
+          ),
         ),
       ],
     );
   }
 }
 
-class _ProgressFooter extends StatelessWidget {
-  const _ProgressFooter({required this.passagesUntilReward});
+// ─── Per-merchant loyalty card ────────────────────────────────────────────────
 
-  final int passagesUntilReward;
+class _MerchantLoyaltyCard extends ConsumerWidget {
+  const _MerchantLoyaltyCard({required this.entry});
+
+  final ClientLoyaltyEntry entry;
 
   @override
-  Widget build(BuildContext context) {
-    final base = GoogleFonts.outfit(
-      fontSize: 14,
-      height: 1.5,
-      color: MerchantColors.textLightGrey,
-    );
-    final gold = GoogleFonts.outfit(
-      fontSize: 14,
-      height: 1.5,
-      color: MerchantColors.gold,
-      fontWeight: FontWeight.w700,
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progressAsync =
+        ref.watch(clientLoyaltyProgressForMerchantProvider(entry.merchantId));
 
-    if (passagesUntilReward <= 0) {
-      return Text(
-        'Vos passages chez un commerçant partenaire s’afficheront ici après une visite.',
-        textAlign: TextAlign.center,
-        style: base,
-      );
-    }
+    return progressAsync.when(
+      loading: () => _buildCard(
+        context,
+        fraction: 0.0,
+        label: '— passages',
+        rewardAvailable: false,
+      ),
+      error: (_, __) => _buildCard(
+        context,
+        fraction: 0.0,
+        label: 'Erreur',
+        rewardAvailable: false,
+      ),
+      data: (progress) => _buildCard(
+        context,
+        fraction: entry.progressFraction(progress),
+        label: entry.progressLabel(progress),
+        rewardAvailable: entry.isRewardAvailable(progress),
+      ),
+    );
+  }
 
-    return Text.rich(
-      TextSpan(
-        style: base,
+  Widget _buildCard(
+    BuildContext context, {
+    required double fraction,
+    required String label,
+    required bool rewardAvailable,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: MerchantColors.navyCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: rewardAvailable
+              ? MerchantColors.gold
+              : MerchantColors.gold.withValues(alpha: 0.25),
+          width: rewardAvailable ? 1.5 : 1,
+        ),
+        boxShadow: [
+          if (rewardAvailable)
+            BoxShadow(
+              color: MerchantColors.gold.withValues(alpha: 0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const TextSpan(text: 'Plus que '),
-          TextSpan(
-            text: '$passagesUntilReward',
-            style: gold,
+          // Merchant name + reward badge
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MerchantColors.bgMain,
+                  border: Border.all(
+                      color: MerchantColors.gold.withValues(alpha: 0.5)),
+                ),
+                child: ClipOval(
+                  child: entry.logoUrl != null && entry.logoUrl!.isNotEmpty
+                      ? Image.network(
+                          entry.logoUrl!,
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.storefront_outlined,
+                            color: MerchantColors.gold,
+                            size: 18,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.storefront_outlined,
+                          color: MerchantColors.gold,
+                          size: 18,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  entry.merchantName,
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (rewardAvailable)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: MerchantColors.gold,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Dispo !',
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: MerchantColors.darkOverlay,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const TextSpan(
-            text:
-                ' passages chez votre commerçant avant la prochaine récompense',
+          const SizedBox(height: 16),
+
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: fraction,
+              minHeight: 6,
+              backgroundColor:
+                  MerchantColors.gold.withValues(alpha: 0.12),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                  MerchantColors.gold),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Progress label + reward label
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  color: MerchantColors.textGrey,
+                ),
+              ),
+              Text(
+                entry.rewardLabel(),
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: MerchantColors.gold,
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      textAlign: TextAlign.center,
     );
   }
 }

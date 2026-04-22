@@ -108,6 +108,10 @@ class _FakeMerchantRepository implements MerchantRepository {
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     LoyaltyProgramConfig? loyaltyProgram,
+    bool? messagingEnabled,
+    bool? notificationsAutoEnabled,
+    bool? galerieEnabled,
+    bool? loyaltyEnabledStandalone,
     bool clearCityField = false,
   }) async {
     if (_createdMerchant == null || _createdMerchant!.id != merchantId) {
@@ -388,6 +392,10 @@ class _FailingCreateRepository implements MerchantRepository {
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     LoyaltyProgramConfig? loyaltyProgram,
+    bool? messagingEnabled,
+    bool? notificationsAutoEnabled,
+    bool? galerieEnabled,
+    bool? loyaltyEnabledStandalone,
     bool clearCityField = false,
   }) async {
     return const Left<MerchantFailure, Merchant>(
