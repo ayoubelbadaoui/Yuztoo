@@ -73,7 +73,7 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
                     border: Border.all(color: MerchantColors.gold, width: 2),
                   ),
                   child: const Center(
-                    child: Icon(Icons.arrow_back_ios_new,
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
                         color: MerchantColors.gold, size: 16),
                   ),
                 ),
@@ -228,26 +228,33 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
   Widget _buildCreateAccountButton() {
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {
-            // Placeholder – create pro account action
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: MerchantColors.gold,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onCreateProAccount,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [MerchantColors.gold, Color(0xFFD4AF37)],
             ),
-            elevation: 0,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: MerchantColors.gold.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: Text(
-            'Créer un compte pro',
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          child: Center(
+            child: Text(
+              'Créer un compte pro',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: MerchantColors.bgHeader,
+              ),
             ),
           ),
         ),

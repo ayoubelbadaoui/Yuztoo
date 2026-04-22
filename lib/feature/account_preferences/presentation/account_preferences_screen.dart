@@ -14,9 +14,15 @@ part 'account_preferences_screen.part.dart';
 /// "Profil" / account preferences screen.
 /// All data from Firestore/auth: profile, completion %, cities.
 class AccountPreferencesScreen extends ConsumerStatefulWidget {
-  const AccountPreferencesScreen({super.key, this.onBack});
+  const AccountPreferencesScreen({
+    super.key,
+    this.onBack,
+    this.onCreateProAccount,
+  });
 
   final VoidCallback? onBack;
+  /// Called when the client taps "Créer un compte pro" to start merchant onboarding.
+  final VoidCallback? onCreateProAccount;
 
   @override
   ConsumerState<AccountPreferencesScreen> createState() =>

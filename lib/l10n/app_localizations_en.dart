@@ -129,7 +129,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get promotions => 'Promotions';
 
   @override
-  String get qrCode => 'QR code';
+  String get qrCode => 'QR Code';
 
   @override
   String get settings => 'Settings';
@@ -557,4 +557,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get termsOfUse => 'Terms of use';
+
+  @override
+  String get browseWithoutAccount => 'Browse businesses without an account →';
+
+  @override
+  String get createProAccount => 'Create a pro account';
+
+  @override
+  String get newClientsTitle => 'New clients';
+
+  @override
+  String get acknowledgeClient => 'OK';
+
+  @override
+  String get noNewClients => 'No new clients';
+
+  @override
+  String get servicesYuztoo => 'YUZTOO SERVICES';
+
+  @override
+  String pendingClientsCount(int count) {
+    return '$count pending';
+  }
 }

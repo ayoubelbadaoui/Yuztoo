@@ -1021,6 +1021,12 @@ class _RootShellState extends ConsumerState<_RootShell>
             });
             ref.read(roleCacheServiceProvider).saveLastSelectedRole(role);
           },
+          onGuestDiscover: () {
+            setState(() {
+              _authScreen = ScreenId.discovery;
+              _nestedScreen = null;
+            });
+          },
         );
       case ScreenId.merchantOnboarding:
         return MerchantOnboardingScreen(
@@ -1073,7 +1079,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         return OTPScreen(
           onBack: _handleBackToLogin,
           userId: _signupUserId ?? '',
-          phone: _phoneNumber ?? '+33 XXX XXX XXX',
+          phone: _phoneNumber ?? '',
           verificationId: _verificationId,
           email: _signupEmail ?? '',
           password: _signupPassword ?? '',
@@ -1211,6 +1217,16 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.merchantAccountPreferences:
         return AccountPreferencesScreen(
           onBack: _handleBackFromNested,
+          onCreateProAccount: () {
+            setState(() {
+              _role = UserRole.merchant;
+              _authScreen = ScreenId.merchantOnboarding;
+              _nestedScreen = null;
+            });
+            ref
+                .read(roleCacheServiceProvider)
+                .saveLastSelectedRole(UserRole.merchant);
+          },
         );
       case ScreenId.merchantStats:
         return MerchantStatsScreen(onBack: _handleBackToBase);

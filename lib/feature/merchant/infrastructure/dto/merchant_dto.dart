@@ -26,6 +26,9 @@ class MerchantDto {
     this.newsImageUrls,
     this.loyaltyEnabled = true,
     this.loyaltyProgramRaw,
+    this.messagingEnabled = true,
+    this.notificationsAutoEnabled = true,
+    this.galerieEnabled = true,
     this.rappelsAutoClientValidation,
     this.rappelsAutoPassageValidation,
     this.rappelsMonthlyConnectedClients = 0,
@@ -53,6 +56,9 @@ class MerchantDto {
   final bool loyaltyEnabled;
   /// Raw `loyalty_program` map from Firestore (parsed in [toDomain]).
   final Map<String, dynamic>? loyaltyProgramRaw;
+  final bool messagingEnabled;
+  final bool notificationsAutoEnabled;
+  final bool galerieEnabled;
   final bool? rappelsAutoClientValidation;
   final bool? rappelsAutoPassageValidation;
   final int rappelsMonthlyConnectedClients;
@@ -120,6 +126,9 @@ class MerchantDto {
           : null,
       loyaltyEnabled: loyaltyEnabledEffective,
       loyaltyProgramRaw: loyaltyRaw,
+      messagingEnabled: data['messaging_enabled'] as bool? ?? true,
+      notificationsAutoEnabled: data['notifications_auto_enabled'] as bool? ?? true,
+      galerieEnabled: data['galerie_enabled'] as bool? ?? true,
       rappelsAutoClientValidation: data['rappels_auto_client_validation'] as bool?,
       rappelsAutoPassageValidation: data['rappels_auto_passage_validation'] as bool?,
       rappelsMonthlyConnectedClients:
@@ -152,6 +161,9 @@ class MerchantDto {
         loyaltyEnabled: loyaltyEnabled,
         loyaltyProgram:
             LoyaltyProgramFirestoreMapper.fromFirestoreMap(loyaltyProgramRaw),
+        messagingEnabled: messagingEnabled,
+        notificationsAutoEnabled: notificationsAutoEnabled,
+        galerieEnabled: galerieEnabled,
         rappelsAutoClientValidation: rappelsAutoClientValidation,
         rappelsAutoPassageValidation: rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients: rappelsMonthlyConnectedClients,
@@ -182,6 +194,9 @@ class MerchantDto {
         loyaltyProgramRaw: merchant.loyaltyProgram != null
             ? LoyaltyProgramFirestoreMapper.toFirestoreMap(merchant.loyaltyProgram!)
             : null,
+        messagingEnabled: merchant.messagingEnabled,
+        notificationsAutoEnabled: merchant.notificationsAutoEnabled,
+        galerieEnabled: merchant.galerieEnabled,
         rappelsAutoClientValidation: merchant.rappelsAutoClientValidation,
         rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients: merchant.rappelsMonthlyConnectedClients,
@@ -207,6 +222,9 @@ class MerchantDto {
         if (newsImageUrls != null) 'news_image_urls': newsImageUrls,
         'loyalty_enabled': loyaltyEnabled,
         if (loyaltyProgramRaw != null) 'loyalty_program': loyaltyProgramRaw,
+        'messaging_enabled': messagingEnabled,
+        'notifications_auto_enabled': notificationsAutoEnabled,
+        'galerie_enabled': galerieEnabled,
         if (rappelsAutoClientValidation != null) 'rappels_auto_client_validation': rappelsAutoClientValidation,
         if (rappelsAutoPassageValidation != null) 'rappels_auto_passage_validation': rappelsAutoPassageValidation,
         'status': status,

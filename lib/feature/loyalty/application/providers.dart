@@ -4,3 +4,6 @@ export '../../auth/core/application/providers.dart'
 
 export '../../auth/core/application/state/auth_state.dart'
     show AuthState, Authenticated;
+
+export 'client_loyalty_providers.dart' show clientLoyaltyFeedProvider, ClientLoyaltyEntry,
+    clientLoyaltyProgressForMerchantProvider;

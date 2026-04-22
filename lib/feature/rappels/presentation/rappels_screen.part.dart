@@ -68,6 +68,16 @@ extension _RappelsScreenUi on _RappelsScreenState {
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
+                    // Nouveaux clients section — shown when auto-client-validation is OFF.
+                    storefrontAsync.when(
+                      data: (storefront) => PendingClientsSection(
+                        merchantId: storefront?.id ?? '',
+                        isAutoValidation:
+                            storefront?.rappelsAutoClientValidation ?? true,
+                      ),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
                     const RappelsProductSection(),
                     storefrontAsync.when(
                       data: (storefront) {
@@ -87,12 +97,7 @@ extension _RappelsScreenUi on _RappelsScreenState {
                               : (_) {},
                         );
                       },
-                      loading: () => RappelsTogglesSection(
-                        autoClientValidation: true,
-                        autoPassageValidation: true,
-                        onClientChanged: (_) {},
-                        onPassageChanged: (_) {},
-                      ),
+                      loading: () => const _RappelsTogglesSkeleton(),
                       error: (_, __) => RappelsTogglesSection(
                         autoClientValidation: true,
                         autoPassageValidation: true,
@@ -138,6 +143,38 @@ extension _RappelsScreenUi on _RappelsScreenState {
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Toggle loading skeleton ───────────────────────────────────────────────────
+
+class _RappelsTogglesSkeleton extends StatelessWidget {
+  const _RappelsTogglesSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: List.generate(
+          2,
+          (i) => Padding(
+            padding: EdgeInsets.only(bottom: i == 0 ? 16 : 0),
+            child: Container(
+              height: 54,
+              decoration: BoxDecoration(
+                color: MerchantColors.navyCard.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: MerchantColors.gold
+                      .withValues(alpha: MerchantColors.goldBorderAlpha),
+                ),
               ),
             ),
           ),

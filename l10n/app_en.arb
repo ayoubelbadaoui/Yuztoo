@@ -44,6 +44,9 @@
   "stats": "Statistics",
   "promotions": "Promotions",
   "qrCode": "QR Code",
+  "@qrCode": {
+    "description": "QR code navigation label"
+  },
   "settings": "Settings",
   "logout": "Logout",
   "or": "OR",
@@ -90,7 +93,6 @@
   "discount": "Discount",
   "freePastry": "Free pastry",
   "scanQRCode": "Scan the",
-  "qrCode": "QR code",
   "addToYuztoo": "Add it to your Yuztoo notebook\nand receive useful information",
   "scanning": "Scanning...",
   "startScan": "Start scan",
@@ -144,7 +146,6 @@
   "verificationCodeResent": "Verification code resent!",
   "enterCodeSentTo": "Enter the code sent to\n",
   "wrongNumber": "Wrong number?",
-  "resendCode": "Resend code",
   "resendCodeWithTimer": "Resend code ({seconds}s)",
   "@resendCodeWithTimer": {
     "placeholders": {
@@ -242,11 +243,24 @@
       }
     }
   },
-  "yesterday": "Yesterday",
   "healthCategory": "Health",
   "beautyCategoryLowercase": "Beauty",
   "bakery": "Bakery",
   "helpCenter": "Help center",
-  "termsOfUse": "Terms of use"
+  "termsOfUse": "Terms of use",
+  "browseWithoutAccount": "Browse businesses without an account →",
+  "createProAccount": "Create a pro account",
+  "newClientsTitle": "New clients",
+  "acknowledgeClient": "OK",
+  "noNewClients": "No new clients",
+  "servicesYuztoo": "YUZTOO SERVICES",
+  "pendingClientsCount": "{count} pending",
+  "@pendingClientsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
 

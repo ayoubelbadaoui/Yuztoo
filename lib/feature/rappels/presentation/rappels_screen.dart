@@ -13,6 +13,7 @@ import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;
 import '../../storefront/domain/entities/storefront.dart';
+import 'widgets/pending_clients_section.dart';
 import 'widgets/notifications_auto_entry.dart';
 import 'widgets/rappels_clients_section.dart';
 import 'widgets/rappels_product_section.dart';

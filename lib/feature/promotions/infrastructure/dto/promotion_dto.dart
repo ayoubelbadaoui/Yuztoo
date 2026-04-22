@@ -15,6 +15,7 @@ class PromotionDto {
     required this.clientType,
     required this.isOnline,
     this.imageUrl,
+    this.viewCount = 0,
   });
 
   final String id;
@@ -26,6 +27,7 @@ class PromotionDto {
   final String clientType;
   final bool isOnline;
   final String? imageUrl;
+  final int viewCount;
 
   static PromotionDto fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -51,6 +53,7 @@ class PromotionDto {
       clientType: data['client_type'] as String? ?? 'gratuit',
       isOnline: data['is_online'] as bool? ?? false,
       imageUrl: data['image_url'] as String?,
+      viewCount: (data['view_count'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -64,6 +67,7 @@ class PromotionDto {
         selectedClientType: ClientTypeX.fromString(clientType),
         isOnline: isOnline,
         imageUrl: imageUrl,
+        viewCount: viewCount,
       );
 
   Map<String, dynamic> toFirestore() => {

@@ -154,6 +154,27 @@ extension _PromoCardUi on PromoCard {
           _datePill(_fmt(promo.dateFrom, prefix: 'Du ')),
           const SizedBox(width: 12),
           _datePill(_fmt(promo.dateTo, prefix: 'au ')),
+          const Spacer(),
+          // View count badge
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.visibility_outlined,
+                size: 12,
+                color: MerchantColors.gold.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${promo.viewCount}',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.gold.withValues(alpha: 0.85),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -2,6 +2,21 @@ part of 'merchant_settings_screen.dart';
 
 extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
   Widget _buildMerchantSettingsBody(BuildContext context) {
+    // Watch the merchant doc and seed local toggle state on first load.
+    final merchantAsync = ref.watch(currentMerchantForOwnerProvider);
+    merchantAsync.whenData((merchant) {
+      if (merchant != null) {
+        _seed(
+          merchant.messagingEnabled,
+          merchant.loyaltyEnabled,
+          merchant.notificationsAutoEnabled,
+          merchant.galerieEnabled,
+        );
+      }
+    });
+
+    final isLoading = !_initialised;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -16,53 +31,90 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
           children: [
             _buildHeader(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).padding.bottom + 80,
-                ),
-                child: Column(
-                  children: [
-                    _buildDescriptionSection(),
-                    SettingsPreferencesSection(
-                      onNavigate: widget.onNavigate,
-                    ),
-                    _buildInfoBox(),
-                    SettingsServicesSection(
-                      services: [
-                        ServiceToggle(
-                          icon: Icons.chat_bubble_outline,
-                          label: 'Message conciergerie',
-                          value: _messageConciergerie,
-                          onChanged: _setMessageConciergerie,
-                        ),
-                        ServiceToggle(
-                          icon: Icons.favorite_outline,
-                          label: 'Fidélité',
-                          value: _fidelite,
-                          onChanged: _setFidelite,
-                          onTap: () =>
-                              widget.onNavigate?.call('e-fidelite'),
-                        ),
-                        ServiceToggle(
-                          icon: Icons.notifications_outlined,
-                          label: 'Notifications automatique',
-                          value: _notificationsAuto,
-                          onChanged: _setNotificationsAuto,
-                        ),
-                        ServiceToggle(
-                          icon: Icons.image_outlined,
-                          label: 'Galerie',
-                          value: _galerie,
-                          onChanged: _setGalerie,
-                        ),
-                      ],
-                    ),
-                    _buildLogoutSection(),
-                  ],
+              child: isLoading
+                  ? _buildLoadingSkeleton()
+                  : _buildContent(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    final messaging = _messageConciergerie ?? true;
+    final fidelite = _fidelite ?? true;
+    final notifications = _notificationsAuto ?? true;
+    final galerie = _galerie ?? true;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 80,
+      ),
+      child: Column(
+        children: [
+          _buildDescriptionSection(),
+          SettingsPreferencesSection(
+            onNavigate: widget.onNavigate,
+          ),
+          _buildInfoBox(),
+          SettingsServicesSection(
+            services: [
+              ServiceToggle(
+                icon: Icons.chat_bubble_outline,
+                label: 'Message conciergerie',
+                value: messaging,
+                onChanged: _setMessageConciergerie,
+              ),
+              ServiceToggle(
+                icon: Icons.favorite_outline,
+                label: 'Fidélité',
+                value: fidelite,
+                onChanged: _setFidelite,
+                onTap: () => widget.onNavigate?.call('e-fidelite'),
+              ),
+              ServiceToggle(
+                icon: Icons.notifications_outlined,
+                label: 'Notifications automatique',
+                value: notifications,
+                onChanged: _setNotificationsAuto,
+              ),
+              ServiceToggle(
+                icon: Icons.image_outlined,
+                label: 'Galerie',
+                value: galerie,
+                onChanged: _setGalerie,
+              ),
+            ],
+          ),
+          _buildLogoutSection(),
+        ],
+      ),
+    );
+  }
+
+  // ── Loading skeleton (prevents toggle flicker) ────────────────────────────
+
+  Widget _buildLoadingSkeleton() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      child: Column(
+        children: List.generate(
+          6,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Container(
+              height: 54,
+              decoration: BoxDecoration(
+                color: MerchantColors.navyCard.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: MerchantColors.gold
+                      .withValues(alpha: MerchantColors.goldBorderAlpha),
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

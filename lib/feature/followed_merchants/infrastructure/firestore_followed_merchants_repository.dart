@@ -4,14 +4,20 @@ import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/failure.dart';
 import '../../../../core/domain/core/result.dart';
 import '../../../../core/infrastructure/logger_service.dart';
+import '../../rappels/infrastructure/firestore_rappels_pending_client_repository.dart';
 import '../domain/repositories/followed_merchants_repository.dart';
 
 /// Firestore: users/{userId}/followed_merchants/{merchantId}
 /// with { followed_at: timestamp, heart_level: 0..3 }.
 class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepository {
-  FirestoreFollowedMerchantsRepository({required FirebaseFirestore firestore}) : _firestore = firestore;
+  FirestoreFollowedMerchantsRepository({
+    required FirebaseFirestore firestore,
+    required FirestoreRappelsPendingClientRepository pendingClientRepo,
+  })  : _firestore = firestore,
+        _pendingClientRepo = pendingClientRepo;
 
   final FirebaseFirestore _firestore;
+  final FirestoreRappelsPendingClientRepository _pendingClientRepo;
 
   CollectionReference<Map<String, dynamic>> _followedRef(String userId) =>
       _firestore.collection('users').doc(userId).collection('followed_merchants');
@@ -29,6 +35,8 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
         'heart_level': 1,
         'merchant_id': merchantId,
       });
+      // Notify the merchant of the new follower (pending_clients subcollection).
+      await _pendingClientRepo.writePendingClient(merchantId, userId);
       LoggerService.logInfo('Followed merchant added', context: {'userId': userId, 'merchantId': merchantId});
       return const Right<AppFailure, Unit>(unit);
     } on FirebaseException catch (e, st) {
@@ -51,6 +59,8 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
     }
     try {
       await _followedRef(userId).doc(merchantId).delete();
+      // Clean up any pending notification for the merchant.
+      await _pendingClientRepo.removePendingClient(merchantId, userId);
       LoggerService.logInfo('Followed merchant removed', context: {'userId': userId, 'merchantId': merchantId});
       return const Right<AppFailure, Unit>(unit);
     } on FirebaseException catch (e, st) {

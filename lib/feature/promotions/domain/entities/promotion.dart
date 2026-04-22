@@ -32,6 +32,7 @@ class Promotion {
     required this.isOnline,
     this.imagePath,
     this.imageUrl,
+    this.viewCount = 0,
   });
 
   final String id;
@@ -46,6 +47,8 @@ class Promotion {
   final String? imagePath;
   /// Storage URL after upload (persisted in Firestore).
   final String? imageUrl;
+  /// Number of times clients have viewed this promotion.
+  final int viewCount;
 
   Promotion copyWith({
     String? id,
@@ -58,6 +61,7 @@ class Promotion {
     bool? isOnline,
     String? imagePath,
     String? imageUrl,
+    int? viewCount,
   }) =>
       Promotion(
         id: id ?? this.id,
@@ -70,6 +74,7 @@ class Promotion {
         isOnline: isOnline ?? this.isOnline,
         imagePath: imagePath ?? this.imagePath,
         imageUrl: imageUrl ?? this.imageUrl,
+        viewCount: viewCount ?? this.viewCount,
       );
 }
 

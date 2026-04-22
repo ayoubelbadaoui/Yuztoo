@@ -119,6 +119,10 @@ abstract class MerchantRepository {
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     LoyaltyProgramConfig? loyaltyProgram,
+    bool? messagingEnabled,
+    bool? notificationsAutoEnabled,
+    bool? galerieEnabled,
+    bool? loyaltyEnabledStandalone,
     bool clearCityField = false,
   });
 }

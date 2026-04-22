@@ -2,51 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../domain/entities/merchant_client_row.dart';
 
-/// A single client row: avatar + name/subtitle + arrow action button.
+/// A single client row: initials avatar + name/subtitle + segment badge + arrow.
 class ClientItemCard extends StatelessWidget {
   const ClientItemCard({
     super.key,
     required this.name,
     required this.subtitle,
+    this.segment,
     this.onTap,
   });
 
   final String name;
   final String subtitle;
+  final ClientSegment? segment;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final segColor = _segmentColor(segment);
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: MerchantColors.gold
-                  .withValues(alpha: MerchantColors.goldBorderAlpha),
-              width: 1,
-            ),
-          ),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         child: Row(
           children: [
-            // ── avatar ──
+            // ── initials avatar ──
             Container(
-              width: 56,
-              height: 56,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: MerchantColors.navyCard,
-                border: Border.all(color: MerchantColors.gold, width: 2),
+                color: segColor.withValues(alpha: 0.12),
+                border: Border.all(color: segColor.withValues(alpha: 0.6), width: 1.5),
               ),
-              child: const Icon(
-                Icons.person,
-                color: MerchantColors.gold,
-                size: 28,
+              child: Center(
+                child: Text(
+                  initial,
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: segColor,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -59,46 +61,77 @@ class ClientItemCard extends StatelessWidget {
                   Text(
                     name,
                     style: GoogleFonts.outfit(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     subtitle,
                     style: GoogleFonts.outfit(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: MerchantColors.textGrey,
+                      height: 1.3,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
 
-            // ── arrow action ──
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: MerchantColors.gold, width: 2),
-              ),
-              child: const Center(
-                child: Padding(
-                  padding: EdgeInsets.only(left: 3),
-                  child: Icon(
-                    Icons.arrow_forward_ios,
-                    color: MerchantColors.gold,
-                    size: 14,
+            const SizedBox(width: 8),
+
+            // ── segment badge ──
+            if (segment != null)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: segColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: segColor.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Text(
+                  segment!.label,
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: segColor,
                   ),
                 ),
               ),
+
+            const SizedBox(width: 8),
+
+            // ── forward arrow ──
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: MerchantColors.gold.withValues(alpha: 0.5),
+              size: 14,
             ),
           ],
         ),
       ),
     );
   }
-}
 
+  Color _segmentColor(ClientSegment? seg) {
+    switch (seg) {
+      case ClientSegment.vip:
+        return const Color(0xFFFFD700);
+      case ClientSegment.habitue:
+        return const Color(0xFF4CAF50);
+      case ClientSegment.nouveau:
+        return const Color(0xFF64B5F6);
+      case ClientSegment.abonne:
+      case null:
+        return MerchantColors.gold;
+    }
+  }
+}

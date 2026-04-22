@@ -138,6 +138,10 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     LoyaltyProgramConfig? loyaltyProgram,
+    bool? messagingEnabled,
+    bool? notificationsAutoEnabled,
+    bool? galerieEnabled,
+    bool? loyaltyEnabledStandalone,
     bool clearCityField = false,
   }) async {
     if (merchantId.isEmpty) {
@@ -218,6 +222,18 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
         updateData['loyalty_program'] =
             LoyaltyProgramFirestoreMapper.toFirestoreMap(loyaltyProgram);
         updateData['loyalty_enabled'] = loyaltyProgram.programEnabled;
+      }
+      if (messagingEnabled != null) {
+        updateData['messaging_enabled'] = messagingEnabled;
+      }
+      if (notificationsAutoEnabled != null) {
+        updateData['notifications_auto_enabled'] = notificationsAutoEnabled;
+      }
+      if (galerieEnabled != null) {
+        updateData['galerie_enabled'] = galerieEnabled;
+      }
+      if (loyaltyEnabledStandalone != null) {
+        updateData['loyalty_enabled'] = loyaltyEnabledStandalone;
       }
 
       // Merge partial fields (same as update; avoids update() on missing docs)
