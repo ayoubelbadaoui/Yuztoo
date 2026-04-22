@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/presentation/responsive_scroll_body.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../types.dart';
 import 'widgets/role_selection_header.dart';
@@ -92,9 +93,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       child: Scaffold(
         backgroundColor: MerchantColors.bgMain,
         body: SafeArea(
-          child: SingleChildScrollView(
-            // Keep primary CTA visible on smaller screens (and widget tests default to 600px tall).
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: ResponsiveScrollBody(
+            horizontalPadding: 24,
+            verticalPadding: 8,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [

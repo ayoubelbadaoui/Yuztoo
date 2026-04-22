@@ -5,6 +5,7 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
+        statusBarBrightness: Brightness.dark,
         statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: MerchantColors.bgHeader,
         systemNavigationBarIconBrightness: Brightness.light,

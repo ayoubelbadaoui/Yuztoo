@@ -292,8 +292,9 @@ extension _OTPScreenStateUi on _OTPScreenState {
         child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
           body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: ResponsiveScrollBody(
+              horizontalPadding: 24,
+              verticalPadding: 8,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

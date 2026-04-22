@@ -200,6 +200,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
       value: const SystemUiOverlayStyle(
         // Status bar sits over the banner — transparent so the image shows
         statusBarColor: Colors.transparent,
+        statusBarBrightness: Brightness.dark,
         statusBarIconBrightness: Brightness.light,
         // Bottom nav is dark navy
         systemNavigationBarColor: StorefrontColors.navyDark,

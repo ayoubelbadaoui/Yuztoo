@@ -90,8 +90,9 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
   }
 
   Widget _buildWelcomeStep() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    return ResponsiveScrollBody(
+      horizontalPadding: 24,
+      verticalPadding: 0,
       child: Column(
         children: [
           const SizedBox(height: 40),
@@ -161,8 +162,9 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
   }
 
   Widget _buildNameStep() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    return ResponsiveScrollBody(
+      horizontalPadding: 24,
+      verticalPadding: 0,
       child: Column(
         children: [
           const SizedBox(height: 40),
@@ -259,8 +261,9 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
   Widget _buildCityStep() {
     final hasCity =
         _selectedCity != null && _selectedCity!.trim().isNotEmpty;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    return ResponsiveScrollBody(
+      horizontalPadding: 24,
+      verticalPadding: 0,
       child: Column(
         children: [
           const SizedBox(height: 40),
@@ -391,8 +394,9 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
   }
 
   Widget _buildPhotoStep() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    return ResponsiveScrollBody(
+      horizontalPadding: 24,
+      verticalPadding: 0,
       child: Column(
         children: [
           const SizedBox(height: 40),

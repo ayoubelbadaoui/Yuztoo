@@ -906,9 +906,10 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: StorefrontColors.backgroundLight,
+        statusBarBrightness: Brightness.light,
         statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: StorefrontColors.backgroundLight,
-        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarIconBrightness: Brightness.light,
         systemNavigationBarContrastEnforced: false,
       ),
       child: Scaffold(

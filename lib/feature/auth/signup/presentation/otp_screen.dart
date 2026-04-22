@@ -11,6 +11,7 @@ import '../../core/application/providers.dart' as auth_core;
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
 import '../domain/signup_roles_map.dart';
+import '../../../../core/presentation/responsive_scroll_body.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import 'constants/signup_constants.dart';
 import 'utils/phone_formatter.dart';

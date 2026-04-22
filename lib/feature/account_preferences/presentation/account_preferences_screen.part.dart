@@ -10,6 +10,7 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
+        statusBarBrightness: Brightness.dark,
         statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: MerchantColors.bgHeader,
         systemNavigationBarIconBrightness: Brightness.light,

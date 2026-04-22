@@ -135,7 +135,8 @@ void main() {
       await tester.pumpWidget(createTestWidget(initialRole: UserRole.client));
       await tester.pump();
 
-      final loginText = find.text('Se connecter');
+      // LoginLink uses Text.rich — match by substring.
+      final loginText = find.textContaining('Se connecter');
       expect(loginText, findsOneWidget);
 
       await tester.ensureVisible(loginText);
@@ -151,8 +152,8 @@ void main() {
       await tester.pumpWidget(createTestWidget(initialRole: UserRole.merchant));
       await tester.pump();
 
-      // Find LoginLink widget
-      final loginLink = find.text('Vous avez déjà un compte ?');
+      // LoginLink uses Text.rich (trailing space on first span).
+      final loginLink = find.textContaining('Vous avez déjà un compte');
       expect(loginLink, findsOneWidget);
 
       // Scroll to make sure it's visible
@@ -178,8 +179,8 @@ void main() {
       // Check Découvrir button exists
       expect(find.byType(ElevatedButton), findsOneWidget);
 
-      // Check login link exists
-      expect(find.text('Vous avez déjà un compte ?'), findsOneWidget);
+      // Check login link exists (Text.rich)
+      expect(find.textContaining('Vous avez déjà un compte'), findsOneWidget);
 
       // Switch to client view
       final clientToggle = find.text('Client');
@@ -226,9 +227,9 @@ void main() {
         expect(selectedRole, UserRole.client);
       }
 
-      // Step 5: Tap Se connecter (client text link)
+      // Step 5: Tap Se connecter (client text link, Text.rich)
       selectedRole = null;
-      final loginText = find.text('Se connecter');
+      final loginText = find.textContaining('Se connecter');
       await tester.ensureVisible(loginText);
       await tester.pump();
       await tester.tap(loginText, warnIfMissed: false);

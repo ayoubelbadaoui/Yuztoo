@@ -123,4 +123,17 @@ post_install do |installer|
     end
     File.write(registrant_path, reg)
   end
+
+  # Pods_Runner.framework is built at ${PODS_CONFIGURATION_BUILD_DIR}/; generated xcconfigs only list
+  # per-pod subfolders, so linking fails with "Framework 'Pods_Runner' not found" without this path.
+  Dir.glob(File.join(installer.sandbox.root, 'Target Support Files', 'Pods-Runner', 'Pods-Runner.*.xcconfig')).each do |xcconfig_path|
+    contents = File.read(xcconfig_path)
+    next if contents.include?('$(inherited) "${PODS_CONFIGURATION_BUILD_DIR}" "${PODS_CONFIGURATION_BUILD_DIR}/')
+
+    patched = contents.sub(
+      /FRAMEWORK_SEARCH_PATHS = \$\(inherited\) /,
+      'FRAMEWORK_SEARCH_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}" '
+    )
+    File.write(xcconfig_path, patched) if patched != contents
+  end
 end

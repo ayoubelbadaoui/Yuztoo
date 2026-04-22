@@ -5,7 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/utils/city_input.dart';
+import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/utils/city_input.dart';
 import '../application/profile_edit_state.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';

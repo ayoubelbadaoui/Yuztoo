@@ -25,23 +25,29 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
               _buildProgressBar(1, 3),
               _buildHeader(),
               Expanded(
-                child: GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.82,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: _MerchantOnboardingScreenState._categories.length,
-                  itemBuilder: (context, index) {
-                    final category =
-                        _MerchantOnboardingScreenState._categories[index];
-                    return CategoryCard(
-                      category: category,
-                      isSelected: _selectedCategoryId == category.id,
-                      animationDelay: index * 45,
-                      onTap: () => _selectCategory(category.id),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 520;
+                    final crossAxisCount = wide ? 3 : 2;
+                    return GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        childAspectRatio: wide ? 0.88 : 0.82,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
+                      itemCount: _MerchantOnboardingScreenState._categories.length,
+                      itemBuilder: (context, index) {
+                        final category =
+                            _MerchantOnboardingScreenState._categories[index];
+                        return CategoryCard(
+                          category: category,
+                          isSelected: _selectedCategoryId == category.id,
+                          animationDelay: index * 45,
+                          onTap: () => _selectCategory(category.id),
+                        );
+                      },
                     );
                   },
                 ),

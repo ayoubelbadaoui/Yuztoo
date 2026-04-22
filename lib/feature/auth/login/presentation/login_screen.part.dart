@@ -677,8 +677,9 @@ extension _LoginScreenUi on _LoginScreenState {
           child: Scaffold(
             backgroundColor: _bgDark1,
             body: SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ResponsiveScrollBody(
+                horizontalPadding: 24,
+                verticalPadding: 0,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
