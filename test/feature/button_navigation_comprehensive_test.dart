@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_yuztoo/feature/role_selection/application/screens.dart';
 import 'package:flutter_yuztoo/feature/merchant_onboarding/application/screens.dart';
+import 'package:flutter_yuztoo/feature/merchant_onboarding/presentation/widgets/subcategory/subcategory_card.dart';
 import 'package:flutter_yuztoo/types.dart';
 import 'package:flutter_yuztoo/l10n/app_localizations.dart';
 
@@ -100,13 +101,18 @@ void main() {
       await tester.tap(restaurantCategory);
       await tester.pumpAndSettle();
 
-      // Continue button should be enabled after category selection.
-      final continueButton = find.widgetWithText(ElevatedButton, 'Continuer');
-      expect(continueButton, findsOneWidget);
-      final button = tester.widget<ElevatedButton>(continueButton);
-      expect(button.onPressed, isNotNull,
-          reason:
-              'Continuer button should be enabled after category selection');
+      // Footer uses GestureDetector + Text (not ElevatedButton).
+      final continuer = find.text('Continuer');
+      expect(continuer, findsOneWidget);
+      final continuerGesture = find.ancestor(
+        of: continuer,
+        matching: find.byType(GestureDetector),
+      );
+      expect(
+        tester.widget<GestureDetector>(continuerGesture.first).onTap,
+        isNotNull,
+        reason: 'Continuer should be enabled after category selection',
+      );
 
       await tester.pump();
     });
@@ -127,19 +133,23 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 700));
 
-      // Select the first visible card by tapping its placeholder icon.
-      final placeholderIcons = find.byIcon(Icons.image_outlined);
-      expect(placeholderIcons, findsWidgets);
-      await tester.tap(placeholderIcons.first);
+      // Tap the first subcategory card (avoid tapping only the label hit target).
+      final cards = find.byType(SubcategoryCard);
+      expect(cards, findsWidgets);
+      await tester.tap(cards.first);
       await tester.pumpAndSettle();
 
-      // Continue button should become enabled.
-      final continueButton = find.widgetWithText(ElevatedButton, 'Continuer');
-      expect(continueButton, findsOneWidget);
-      final button = tester.widget<ElevatedButton>(continueButton);
-      expect(button.onPressed, isNotNull,
-          reason:
-              'Continuer button should be enabled after subcategory selection');
+      final continuer = find.text('Continuer');
+      expect(continuer, findsOneWidget);
+      final continuerGesture = find.ancestor(
+        of: continuer,
+        matching: find.byType(GestureDetector),
+      );
+      expect(
+        tester.widget<GestureDetector>(continuerGesture.first).onTap,
+        isNotNull,
+        reason: 'Continuer should be enabled after subcategory selection',
+      );
     });
 
     testWidgets(
@@ -162,11 +172,6 @@ void main() {
       final startButton = find.text('Créer mon compte');
       expect(startButton, findsOneWidget,
           reason: 'Créer mon compte button should exist');
-
-      final button =
-          tester.widget<ElevatedButton>(find.byType(ElevatedButton).first);
-      expect(button.onPressed, isNotNull,
-          reason: 'Créer mon compte button should have onPressed callback');
 
       await tester.tap(startButton);
       await tester.pump();

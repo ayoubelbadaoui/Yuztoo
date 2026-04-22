@@ -5,6 +5,7 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
+        statusBarBrightness: Brightness.dark,
         statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: MerchantColors.bgHeader,
         systemNavigationBarIconBrightness: Brightness.light,

@@ -304,8 +304,9 @@ extension _SignupScreenUi on _SignupScreenState {
         child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
           body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: ResponsiveScrollBody(
+              horizontalPadding: 24,
+              verticalPadding: 8,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [

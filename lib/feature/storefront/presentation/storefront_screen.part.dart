@@ -148,9 +148,12 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: StorefrontColors.backgroundLight,
+        // iOS: light status area → dark clock/battery (statusBarIconBrightness is Android).
+        statusBarBrightness: Brightness.light,
         statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: StorefrontColors.backgroundLight,
-        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarContrastEnforced: false,
       ),
       child: Scaffold(
         backgroundColor: StorefrontColors.backgroundLight,

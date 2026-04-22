@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/application/auth_error_mapper.dart';
 import '../../core/application/providers.dart' as auth_providers;
 import '../../core/domain/value_objects/email_address.dart';
+import '../../../../core/presentation/responsive_scroll_body.dart';
 import '../../../../core/utils/cities.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
@@ -12,7 +13,6 @@ import '../application/providers.dart';
 import '../application/state/login_flow_state.dart';
 import 'widgets/input_field.dart';
 import 'widgets/forgot_password_dialog.dart';
-import '../../../../../core/shared/widgets/app_logo.dart';
 import '../../../../../core/shared/constants/merchant_colors.dart';
 
 part 'login_screen.part.dart';
