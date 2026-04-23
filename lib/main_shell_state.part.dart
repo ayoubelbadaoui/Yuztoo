@@ -1220,6 +1220,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.merchantAccountPreferences:
         return AccountPreferencesScreen(
           onBack: _handleBackFromNested,
+          onEditProfile: () => setState(() => _nestedScreen = ScreenId.merchantSecurity),
           onCreateProAccount: () {
             setState(() {
               _role = UserRole.merchant;

@@ -25,32 +25,38 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
       ),
       child: Scaffold(
         backgroundColor: MerchantColors.bgMain,
-        body: Column(
-          children: [
-            _buildHeader(context),
-            Expanded(
-              child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).padding.bottom + 24,
-                ),
-                child: Column(
-                  children: [
-                    const ProfileAvatarSection(),
-                    _buildConnectionsSection(partnerCount),
-                    const CitiesSection(),
-                    const YuztooCardBox(),
-                    _buildCompletionSection(
-                        storefrontAsync.valueOrNull?.profileCompletionPercentage ??
-                            0),
-                    _buildInfoSection(),
-                    if (!isMerchant) _buildCreateAccountButton(),
-                    const SizedBox(height: 24),
-                  ],
+        body: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) widget.onBack?.call();
+          },
+          child: Column(
+            children: [
+              _buildHeader(context),
+              Expanded(
+                child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom + 24,
+                  ),
+                  child: Column(
+                    children: [
+                      ProfileAvatarSection(onEditProfile: widget.onEditProfile),
+                      _buildConnectionsSection(partnerCount),
+                      const CitiesSection(),
+                      const YuztooCardBox(),
+                      _buildCompletionSection(
+                          storefrontAsync.valueOrNull?.profileCompletionPercentage ??
+                              0),
+                      _buildInfoSection(),
+                      if (!isMerchant) _buildCreateAccountButton(),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -309,23 +315,26 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
 
   Widget _buildCreateAccountButton() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onCreateProAccount,
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          height: 54,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [MerchantColors.gold, Color(0xFFD4AF37)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: MerchantColors.gold.withValues(alpha: 0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: MerchantColors.gold.withValues(alpha: 0.35),
+                blurRadius: 16,
+                spreadRadius: -2,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -333,9 +342,10 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
             child: Text(
               'Créer un compte pro',
               style: GoogleFonts.outfit(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: MerchantColors.bgHeader,
+                letterSpacing: 0.2,
               ),
             ),
           ),

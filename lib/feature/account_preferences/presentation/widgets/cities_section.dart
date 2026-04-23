@@ -22,7 +22,7 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1A2332),
+      backgroundColor: MerchantColors.navyCard,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),

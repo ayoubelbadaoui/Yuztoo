@@ -53,23 +53,27 @@ extension _ProfileAvatarSectionUi on _ProfileAvatarSectionState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            name,
-                            style: GoogleFonts.outfit(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: widget.onEditProfile,
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              style: GoogleFonts.outfit(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.edit_outlined,
-                            color: MerchantColors.gold, size: 15),
-                      ],
+                          const SizedBox(width: 6),
+                          const Icon(Icons.edit_outlined,
+                              color: MerchantColors.gold, size: 15),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 4),
                     if (city.isNotEmpty) _ProfileAvatarInfoLine(city),

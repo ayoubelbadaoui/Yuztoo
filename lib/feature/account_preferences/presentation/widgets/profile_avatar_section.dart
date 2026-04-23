@@ -17,7 +17,10 @@ part 'profile_avatar_section.part.dart';
 /// Separate from business/merchant profile - this is the user's personal account info.
 /// Allows user to select and save personal profile picture.
 class ProfileAvatarSection extends ConsumerStatefulWidget {
-  const ProfileAvatarSection({super.key});
+  const ProfileAvatarSection({super.key, this.onEditProfile});
+
+  /// Called when the user taps the name / edit-icon to open identification settings.
+  final VoidCallback? onEditProfile;
 
   @override
   ConsumerState<ProfileAvatarSection> createState() => _ProfileAvatarSectionState();
