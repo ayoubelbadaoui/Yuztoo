@@ -51,7 +51,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
   Widget _buildTabBar() {
     return Container(
       height: 44,
-      color: MerchantColors.bgHeader,
+      color: MerchantColors.bgMain,
       child: Stack(
         children: [
           Positioned(
@@ -186,7 +186,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
-      color: MerchantColors.bgHeader,
+      color: MerchantColors.bgMain,
       child: TextField(
         controller: _searchCtrl,
         style: GoogleFonts.outfit(fontSize: 14, color: Colors.white),
@@ -249,7 +249,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
 
     return Container(
       height: 50,
-      color: MerchantColors.bgHeader,
+      color: MerchantColors.bgMain,
       child: Stack(
         children: [
           // Bottom border
