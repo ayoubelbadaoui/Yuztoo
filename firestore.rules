@@ -86,7 +86,10 @@ service cloud.firestore {
     // Block self-service status changes once set; allow first write to "active" (or omit).
     // (Keep conditions inline: resource/request are match-scoped.)
     match /users/{userId} {
-      allow get: if isOwner(userId);
+      // Merchant CRM: allow a signed-in merchant to read a client's profile only
+      // if that client follows them (exists users/{userId}/followed_merchants/{auth.uid}).
+      allow get: if isOwner(userId)
+        || (isSignedIn() && exists(/databases/$(database)/documents/users/$(userId)/followed_merchants/$(request.auth.uid)));
       allow list: if false;
 
       allow create: if isOwner(userId) && (
