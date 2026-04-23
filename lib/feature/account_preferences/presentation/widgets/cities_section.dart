@@ -135,11 +135,21 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Ville(s) connectée(s)',
+            'VILLES CONNECTÉES',
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: MerchantColors.textGrey,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Ville(s) où vous êtes visible',
             style: GoogleFonts.outfit(
               fontSize: 14,
+              fontWeight: FontWeight.w600,
               color: Colors.white,
-              height: 1.5,
             ),
           ),
           const SizedBox(height: 12),
@@ -148,7 +158,7 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
             runSpacing: 12,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              ...cities.map((name) => _buildPill(name)),
+              ...cities.map((name) => _buildPill(name, uid)),
               _buildAddButton(uid),
             ],
           ),
@@ -157,21 +167,56 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
     );
   }
 
-  Widget _buildPill(String name) {
+  Widget _buildPill(String name, String? uid) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.only(left: 14, right: 4, top: 6, bottom: 6),
       decoration: BoxDecoration(
         color: MerchantColors.gold,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        name,
-        style: GoogleFonts.outfit(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: MerchantColors.darkOverlay,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            name,
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: MerchantColors.darkOverlay,
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: uid == null ? null : () => _removeCity(uid, name),
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: MerchantColors.darkOverlay.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close_rounded,
+                  color: MerchantColors.darkOverlay, size: 12),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Future<void> _removeCity(String uid, String city) async {
+    final current =
+        ref.read(connectedCitiesProvider(uid)).value ?? [];
+    final updated = current.where((c) => c != city).toList();
+    final result = await ref.read(setConnectedCitiesProvider).call(
+          uid: uid,
+          cities: updated,
+        );
+    if (!context.mounted) return;
+    result.fold(
+      (f) => ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(f.message))),
+      (_) => ref.invalidate(connectedCitiesProvider(uid)),
     );
   }
 

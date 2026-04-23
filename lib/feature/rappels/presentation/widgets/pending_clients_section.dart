@@ -16,12 +16,16 @@ class PendingClientsSection extends ConsumerStatefulWidget {
     super.key,
     required this.merchantId,
     required this.isAutoValidation,
+    this.showDummyWhenEmpty = false,
   });
 
   final String merchantId;
 
   /// When true (auto ON) the section is hidden — auto-handled.
   final bool isAutoValidation;
+
+  /// When true, shows dummy clients if the real list is empty (for design preview).
+  final bool showDummyWhenEmpty;
 
   @override
   ConsumerState<PendingClientsSection> createState() =>
@@ -99,7 +103,11 @@ class _PendingClientsSectionState extends ConsumerState<PendingClientsSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isAutoValidation || widget.merchantId.isEmpty) {
+    if (!widget.showDummyWhenEmpty &&
+        (widget.isAutoValidation || widget.merchantId.isEmpty)) {
+      return const SizedBox.shrink();
+    }
+    if (widget.merchantId.isEmpty && !widget.showDummyWhenEmpty) {
       return const SizedBox.shrink();
     }
 

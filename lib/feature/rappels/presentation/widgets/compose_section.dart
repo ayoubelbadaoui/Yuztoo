@@ -49,7 +49,7 @@ class ComposeSection extends StatelessWidget {
               cursorColor: MerchantColors.gold,
               style: GoogleFonts.outfit(
                 fontSize: 14,
-                color: MerchantColors.textLightGrey,
+                color: Colors.white,
               ),
               decoration: InputDecoration(
                 hintText: isEditing
@@ -60,7 +60,7 @@ class ComposeSection extends StatelessWidget {
                   color: MerchantColors.textGrey,
                 ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 counterStyle: GoogleFonts.outfit(
                   fontSize: 11,
                   color: MerchantColors.textGrey,

@@ -192,7 +192,6 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   int? _optimisticHeartLevel;
   int _heartSaveToken = 0;
   String? _lastViewedKey;
-  bool _promoViewsFired = false; // guard: fire once per screen mount
 
   @override
   Widget build(BuildContext context) {
@@ -223,15 +222,6 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                 merchant.logoUrl,
                 ...?merchant.newsImageUrls,
               ]);
-              // Record promotion views once per screen mount (best-effort)
-              if (!_promoViewsFired && data.promotions.isNotEmpty) {
-                _promoViewsFired = true;
-                ref.read(recordPromoViewsProvider).call(
-                      merchantId: merchant.id,
-                      promotionIds:
-                          data.promotions.map((p) => p.id).toList(),
-                    );
-              }
             });
             return _buildContent(context, merchant, data.promotions);
           },

@@ -14,12 +14,16 @@ class ActiveNotificationsList extends StatelessWidget {
     required this.onToggle,
     required this.onEdit,
     required this.onDelete,
+    this.onTest,
   });
 
   final List<ActiveNotification> notifications;
   final void Function(int index, bool value) onToggle;
   final ValueChanged<int> onEdit;
   final ValueChanged<int> onDelete;
+
+  /// Optional test callback — passes the notification index.
+  final ValueChanged<int>? onTest;
 
   @override
   Widget build(BuildContext context) {
@@ -76,20 +80,22 @@ class ActiveNotificationsList extends StatelessWidget {
                   onToggle: (v) => onToggle(i, v),
                   onEdit: () => onEdit(i),
                   onDelete: () => onDelete(i),
+                  onTest: onTest != null ? () => onTest!(i) : null,
                 ),
               );
             }),
 
           const SizedBox(height: 20),
-          Text(
-            'Configurez vos notifications pour rester en contact avec vos clients automatiquement',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              color: MerchantColors.textLightGrey,
-              height: 1.6,
+          if (notifications.isEmpty)
+            Text(
+              'Configurez vos notifications pour rester en contact avec vos clients automatiquement',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: MerchantColors.textLightGrey,
+                height: 1.6,
+              ),
             ),
-          ),
         ],
       ),
     );

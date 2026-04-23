@@ -25,69 +25,107 @@ extension _RappelsClientsSectionUi on RappelsClientsSection {
           _buildClientsRow(),
           const SizedBox(height: 16),
           _buildStatsBox(),
-          const SizedBox(height: 16),
-          _buildInfoBox(),
         ],
       ),
     );
   }
 
   Widget _buildClientsRow() {
-    final previewCount = connectedClientsThisMonth > 4
-        ? 4
-        : connectedClientsThisMonth;
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Row(
       children: [
         Container(
-          width: 52,
-          height: 52,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: MerchantColors.navyCard,
-            border: Border.all(color: MerchantColors.gold, width: 3),
+            color: MerchantColors.gold.withValues(alpha: 0.15),
+            border: Border.all(color: MerchantColors.gold, width: 2),
           ),
           child: const Center(
-            child: Icon(Icons.emoji_events, color: MerchantColors.gold, size: 26),
+            child: Icon(Icons.people_outline_rounded,
+                color: MerchantColors.gold, size: 22),
           ),
         ),
-        ...List.generate(previewCount, (_) => _avatar()),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                connectedClientsThisMonth == 0
+                    ? 'Aucun nouveau client ce mois-ci'
+                    : '$connectedClientsThisMonth nouveau${connectedClientsThisMonth > 1 ? 'x' : ''} client${connectedClientsThisMonth > 1 ? 's' : ''} ce mois',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              if (pendingLoyaltyPassagesToConfirm > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(
+                    '$pendingLoyaltyPassagesToConfirm passage${pendingLoyaltyPassagesToConfirm > 1 ? 's' : ''} en attente',
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: MerchantColors.gold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
         Tooltip(
           message: !isManualPassageValidation
-              ? 'Les passages fidélité sont validés automatiquement.'
+              ? 'Appuyez pour modifier le mode de validation'
               : (pendingLoyaltyPassagesToConfirm <= 0
                   ? 'Aucun passage en attente pour le moment.'
                   : 'Voir les passages à valider'),
-          child: ElevatedButton(
-            onPressed: isManualPassageValidation &&
-                    pendingLoyaltyPassagesToConfirm > 0 &&
-                    onConfirmPendingPassagesTap != null
-                ? onConfirmPendingPassagesTap
-                : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: MerchantColors.gold,
-              foregroundColor: MerchantColors.darkOverlay,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              shape: RoundedRectangleBorder(
+          child: GestureDetector(
+            onTap: !isManualPassageValidation
+                ? onAutoTap
+                : (isManualPassageValidation &&
+                        pendingLoyaltyPassagesToConfirm > 0 &&
+                        onConfirmPendingPassagesTap != null
+                    ? onConfirmPendingPassagesTap
+                    : null),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+              decoration: BoxDecoration(
+                gradient: isManualPassageValidation &&
+                        pendingLoyaltyPassagesToConfirm > 0
+                    ? const LinearGradient(
+                        colors: [MerchantColors.gold, Color(0xFFD4AF37)],
+                      )
+                    : null,
+                color: isManualPassageValidation &&
+                        pendingLoyaltyPassagesToConfirm > 0
+                    ? null
+                    : MerchantColors.navyCard,
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.4),
+                  width: 1,
+                ),
               ),
-              elevation: 0,
-              disabledBackgroundColor: MerchantColors.navyCard,
-              disabledForegroundColor: MerchantColors.textLightGrey,
-              textStyle: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+              child: Text(
+                !isManualPassageValidation
+                    ? 'Auto'
+                    : (pendingLoyaltyPassagesToConfirm > 0
+                        ? 'Confirmer ($pendingLoyaltyPassagesToConfirm)'
+                        : 'Confirmer'),
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isManualPassageValidation &&
+                          pendingLoyaltyPassagesToConfirm > 0
+                      ? MerchantColors.darkOverlay
+                      : MerchantColors.textLightGrey,
+                ),
               ),
-            ),
-            child: Text(
-              !isManualPassageValidation
-                  ? 'Auto'
-                  : (pendingLoyaltyPassagesToConfirm > 0
-                      ? 'Confirmer ($pendingLoyaltyPassagesToConfirm)'
-                      : 'Confirmer'),
             ),
           ),
         ),
@@ -95,86 +133,80 @@ extension _RappelsClientsSectionUi on RappelsClientsSection {
     );
   }
 
-  Widget _avatar() {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: MerchantColors.navyCard,
-        border: Border.all(
-          color: MerchantColors.gold.withValues(alpha: 0.5),
-          width: 2,
+  Widget _buildStatsBox() {
+    return Row(
+      children: [
+        Expanded(
+          child: _statCard(
+            icon: Icons.person_add_outlined,
+            value: '$connectedClientsThisMonth',
+            label: 'Clients connectés',
+          ),
         ),
-      ),
-      child: const Center(
-        child: Icon(Icons.person_outline, color: MerchantColors.gold, size: 20),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _statCard(
+            icon: Icons.loyalty_outlined,
+            value: '$validatedPassagesThisMonth',
+            label: 'Passages validés',
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildStatsBox() {
+  Widget _statCard({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
       decoration: BoxDecoration(
         color: MerchantColors.navyCard,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color:
+              MerchantColors.gold.withValues(alpha: MerchantColors.goldBorderAlpha),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(icon, color: MerchantColors.gold, size: 18),
+          const SizedBox(height: 8),
           Text(
-            'Ce mois-ci:',
+            value,
             style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
               color: Colors.white,
+              height: 1,
             ),
           ),
-          const SizedBox(height: 8),
-          _statItem('$connectedClientsThisMonth clients connectés'),
           const SizedBox(height: 4),
-          _statItem('$validatedPassagesThisMonth passages validés'),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              color: MerchantColors.textGrey,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Ce mois-ci',
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                color: MerchantColors.gold.withValues(alpha: 0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _statItem(String text) {
-    return Row(
-      children: [
-        const Icon(Icons.check, color: MerchantColors.gold, size: 14),
-        const SizedBox(width: 6),
-        Text(text,
-            style: GoogleFonts.outfit(fontSize: 12, color: MerchantColors.gold)),
-      ],
-    );
-  }
-
-  Widget _buildInfoBox() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: MerchantColors.gold.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: MerchantColors.gold
-              .withValues(alpha: MerchantColors.goldBorderStronger),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        isManualPassageValidation
-            ? 'Les demandes de passages fidélité (validation manuelle) apparaissent dans la section « Passages à valider » sous ce bloc, ou via le bouton Confirmer.'
-            : 'Retrouvez ici les clients ayant scannés votre QR code pour valider un passage',
-        style: GoogleFonts.outfit(
-          fontSize: 12,
-          color: MerchantColors.textLightGrey,
-          height: 1.6,
-        ),
-      ),
-    );
-  }
 }

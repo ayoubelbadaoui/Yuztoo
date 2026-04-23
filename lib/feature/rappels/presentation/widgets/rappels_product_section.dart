@@ -88,15 +88,31 @@ class RappelsProductSection extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 140),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: MerchantColors.cream,
+        color: MerchantColors.navyCard,
         borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.shopping_bag_outlined,
-          color: MerchantColors.gold,
-          size: 64,
+        border: Border.all(
+          color: MerchantColors.gold
+              .withValues(alpha: MerchantColors.goldBorderAlpha),
+          width: 1,
         ),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.nfc_rounded,
+            color: MerchantColors.gold,
+            size: 56,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Disponible prochainement',
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              color: MerchantColors.textGrey,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ),
     );
   }

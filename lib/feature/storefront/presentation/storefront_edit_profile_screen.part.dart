@@ -916,110 +916,143 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
         backgroundColor: StorefrontColors.backgroundLight,
         appBar: AppBar(
           backgroundColor: StorefrontColors.backgroundLight,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leadingWidth: 96,
-        leading: TextButton.icon(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.chevron_left, color: StorefrontColors.primaryGold),
-          label: const Text(
-            'Back',
-            style: TextStyle(
-              color: StorefrontColors.primaryGold,
-              fontWeight: FontWeight.w600,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          leadingWidth: 64,
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: StorefrontColors.primaryGold, width: 2),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: StorefrontColors.primaryGold,
+                    size: 16,
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-        title: const Text(
-          'Edit Profile',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: StorefrontColors.textPrimary,
+          title: Text(
+            'Modifier le profil',
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: StorefrontColors.textPrimary,
+            ),
           ),
-        ),
-        centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: ElevatedButton(
-              onPressed: state.isSaving
-                  ? null
-                  : () async {
-                      // Flush latest text fields into state so Ville (and others) reach Firestore.
-                      notifier.setBusinessName(_nameCtrl.text);
-                      notifier.setDescription(_descCtrl.text);
-                      notifier.setPhoneNumber(_phoneCtrl.text);
-                      notifier.setCity(_cityCtrl.text);
-                      notifier.setWebsiteUrl(_webCtrl.text);
-                      notifier.setAddress(_addrCtrl.text);
-                      await notifier.save();
-                      if (!context.mounted) return;
-                      
-                      // Check for errors
-                      final currentState = ref.read(storefrontProfileEditProvider);
-                      if (currentState.errorMessage != null) {
-                        // Show error message
+          centerTitle: true,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: GestureDetector(
+                onTap: state.isSaving
+                    ? null
+                    : () async {
+                        notifier.setBusinessName(_nameCtrl.text);
+                        notifier.setDescription(_descCtrl.text);
+                        notifier.setPhoneNumber(_phoneCtrl.text);
+                        notifier.setCity(_cityCtrl.text);
+                        notifier.setWebsiteUrl(_webCtrl.text);
+                        notifier.setAddress(_addrCtrl.text);
+                        await notifier.save();
+                        if (!context.mounted) return;
+
+                        final currentState =
+                            ref.read(storefrontProfileEditProvider);
+                        if (currentState.errorMessage != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(currentState.errorMessage!,
+                                  style: GoogleFonts.outfit(
+                                      color: Colors.white)),
+                              backgroundColor: Colors.red.shade700,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                          ref
+                              .read(storefrontProfileEditProvider.notifier)
+                              .clearError();
+                          return;
+                        }
+
+                        ref.invalidate(storefrontProvider);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(currentState.errorMessage!),
-                            backgroundColor: Colors.red,
+                            content: Text('Profil enregistré',
+                                style: GoogleFonts.outfit(
+                                    color: StorefrontColors.navyDark,
+                                    fontWeight: FontWeight.w600)),
+                            backgroundColor: StorefrontColors.primaryGold,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            duration: const Duration(seconds: 4),
                           ),
                         );
-                        // Clear error message
-                        ref.read(storefrontProfileEditProvider.notifier).clearError();
-                        return; // Don't navigate away on error
-                      }
-                      
-                      // Success - invalidate storefront provider to refresh with new data
-                      ref.invalidate(storefrontProvider);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Enregistré'),
-                          backgroundColor: StorefrontColors.primaryGold,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                        Navigator.of(context).pop();
+                      },
+                child: AnimatedOpacity(
+                  opacity: state.isSaving ? 0.6 : 1.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          StorefrontColors.primaryGold,
+                          Color(0xFFD4AF37),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: StorefrontColors.primaryGold
+                              .withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
                         ),
-                      );
-                      Navigator.of(context).pop();
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: StorefrontColors.primaryGold,
-                foregroundColor: StorefrontColors.navyDark,
-                elevation: 0,
-                shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
+                      ],
+                    ),
+                    child: Center(
+                      child: state.isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: StorefrontColors.navyDark,
+                              ),
+                            )
+                          : Text(
+                              'Enregistrer',
+                              style: GoogleFonts.outfit(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: StorefrontColors.navyDark,
+                              ),
+                            ),
+                    ),
+                  ),
                 ),
               ),
-              child: state.isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          StorefrontColors.navyDark,
-                        ),
-                      ),
-                    )
-                  : const Text(
-                      'Save',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -1028,12 +1061,12 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SectionTitle('Visuals'),
+              const _SectionTitle('Visuels'),
               const SizedBox(height: 12),
               _BannerEditable(
                 imageUrl: state.bannerImageUrl,
                 imageFile: _bannerImageFile,
-                onTap: () => _showImagePickerSheet(context, title: 'Change Banner', isBanner: true),
+                onTap: () => _showImagePickerSheet(context, title: 'Changer la bannière', isBanner: true),
                 onDelete: (_bannerImageFile != null || (!state.bannerImageUrl.contains('aida-public') && state.bannerImageUrl.isNotEmpty))
                     ? () async {
                         _clearBannerFile();
@@ -1052,7 +1085,7 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                   _ProfileEditable(
                     imageUrl: state.profileImageUrl,
                     imageFile: _profileImageFile,
-                    onTap: () => _showImagePickerSheet(context, title: 'Profile Photo', isBanner: false),
+                    onTap: () => _showImagePickerSheet(context, title: 'Photo de profil', isBanner: false),
                     onDelete: (_profileImageFile != null || (!state.profileImageUrl.contains('aida-public') && state.profileImageUrl.isNotEmpty))
                         ? () async {
                             _clearProfileFile();
@@ -1071,7 +1104,7 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Profile Photo',
+                          'Photo de profil',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -1080,7 +1113,7 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'High resolution recommended',
+                          'Haute résolution recommandée',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -1093,10 +1126,10 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                 ],
               ),
               const SizedBox(height: 28),
-              const _SectionTitle('General Information'),
+              const _SectionTitle('Informations générales'),
               const SizedBox(height: 14),
               _Field(
-                label: 'Business Name',
+                label: 'Nom du commerce',
                 controller: _nameCtrl,
                 onChanged: notifier.setBusinessName,
                 isRequired: true,
@@ -1106,18 +1139,40 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
               ),
               const SizedBox(height: 14),
               _SelectField(
-                label: 'Category',
+                label: 'Catégorie',
                 value: _getValidCategoryValue(state.category, const [
-                  'Artisan Jewelry',
-                  'Handmade Decor',
-                  'Fashion Boutique',
-                  'Gourmet Food',
+                  'Café / Bar',
+                  'Restaurant / Brasserie',
+                  'Restauration rapide',
+                  'Boulangerie / Pâtisserie',
+                  'Boucherie / Charcuterie',
+                  'Poissonnerie',
+                  'Fromagerie / Crèmerie',
+                  'Confiserie / Chocolatier',
+                  'Glacier',
+                  'Caviste & Épicerie',
+                  'Maraîcher',
+                  'Ferme / Produit Locaux',
+                  'Artisans marché',
+                  'Boutique BIO',
+                  'Traiteur',
                 ]),
                 options: const [
-                  'Artisan Jewelry',
-                  'Handmade Decor',
-                  'Fashion Boutique',
-                  'Gourmet Food',
+                  'Café / Bar',
+                  'Restaurant / Brasserie',
+                  'Restauration rapide',
+                  'Boulangerie / Pâtisserie',
+                  'Boucherie / Charcuterie',
+                  'Poissonnerie',
+                  'Fromagerie / Crèmerie',
+                  'Confiserie / Chocolatier',
+                  'Glacier',
+                  'Caviste & Épicerie',
+                  'Maraîcher',
+                  'Ferme / Produit Locaux',
+                  'Artisans marché',
+                  'Boutique BIO',
+                  'Traiteur',
                 ],
                 onChanged: (v) => notifier.setCategory(v ?? ''),
                 isRequired: true,
@@ -1137,10 +1192,10 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                 onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 28),
-              const _SectionTitle('Contact Details'),
+              const _SectionTitle('Coordonnées'),
               const SizedBox(height: 14),
               _Field(
-                label: 'Phone Number',
+                label: 'Téléphone',
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
                 prefixIcon: Icons.call,
@@ -1164,7 +1219,7 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
               ),
               const SizedBox(height: 14),
               _Field(
-                label: 'Website URL',
+                label: 'Site web',
                 controller: _webCtrl,
                 keyboardType: TextInputType.url,
                 prefixIcon: Icons.language,
@@ -1176,7 +1231,7 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
               ),
               const SizedBox(height: 14),
               _AddressField(
-                label: 'Physical Address',
+                label: 'Adresse',
                 controller: _addrCtrl,
                 onChanged: notifier.setAddress,
                 onPlaceSelected: (address) {
@@ -1188,6 +1243,14 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                 helpText: 'Ajoutez l\'adresse physique de votre commerce. Les clients pourront vous localiser facilement.',
                 onShowHelp: _showHelpDialog,
               ),
+              const SizedBox(height: 28),
+              const _SectionTitle('Horaires d\'ouverture'),
+              const SizedBox(height: 16),
+              _HoursEditorWrapper(ref: ref),
+              const SizedBox(height: 28),
+              const _SectionTitle('Galerie / Actualités'),
+              const SizedBox(height: 16),
+              const _GalleryEditorSection(),
             ],
           ),
         ),
@@ -1270,3 +1333,358 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
   }
 }
 
+/// Thin wrapper that reads the merchantId from auth state and passes it
+/// to [HoursSection], which handles its own Firestore save.
+class _HoursEditorWrapper extends ConsumerWidget {
+  const _HoursEditorWrapper({required this.ref});
+
+  // ignore: prefer_typing_uninitialized_variables
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context, WidgetRef widgetRef) {
+    final authState = widgetRef.watch(auth_providers.authStateProvider);
+    final merchantId =
+        authState is Authenticated ? authState.user.id : '';
+    if (merchantId.isEmpty) return const SizedBox.shrink();
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: StorefrontColors.primaryGold.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: HoursSection(merchantId: merchantId),
+      ),
+    );
+  }
+}
+
+/// Gallery / News image editor — reads current images from [storefrontProvider]
+/// and uploads/deletes directly via use cases (same pattern as hours).
+class _GalleryEditorSection extends ConsumerStatefulWidget {
+  const _GalleryEditorSection();
+
+  @override
+  ConsumerState<_GalleryEditorSection> createState() =>
+      _GalleryEditorSectionState();
+}
+
+class _GalleryEditorSectionState extends ConsumerState<_GalleryEditorSection> {
+  final _picker = ImagePicker();
+  bool _isUploading = false;
+  final Set<String> _deletingUrls = {};
+
+  Future<void> _addImage(String merchantId) async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1400,
+      imageQuality: 86,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _isUploading = true);
+    try {
+      final result = await ref
+          .read(storage_providers.uploadNewsImageProvider)
+          .call(filePath: picked.path, merchantId: merchantId);
+
+      final url = result.fold((_) => null, (u) => u);
+      if (!mounted) return;
+      if (url == null) {
+        _showSnack('Échec du téléversement');
+        return;
+      }
+      final storefront = ref.read(storefrontProvider).valueOrNull;
+      final currentUrls = storefront?.newsImageUrls ?? [];
+      final updatedUrls = [...currentUrls, url];
+      final saveResult =
+          await ref.read(merchant_providers.updateStorefrontProvider).call(
+                merchantId: merchantId,
+                newsImageUrls: updatedUrls,
+              );
+      saveResult.fold(
+        (_) => _showSnack('Échec de la sauvegarde'),
+        (_) => ref.invalidate(storefrontProvider),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _deleteImage(String merchantId, String url, List<String> currentUrls) async {
+    setState(() => _deletingUrls.add(url));
+    try {
+      final updatedUrls = currentUrls.where((u) => u != url).toList();
+      final result =
+          await ref.read(merchant_providers.updateStorefrontProvider).call(
+                merchantId: merchantId,
+                newsImageUrls: updatedUrls,
+              );
+      result.fold(
+        (_) => _showSnack('Impossible de supprimer l\'image'),
+        (_) {
+          // Best-effort Storage cleanup — derive the path from the URL segment.
+          // URL format: .../o/merchants%2F{id}%2Fnews%2F{file}?...
+          try {
+            final uri = Uri.parse(url);
+            final encoded = uri.pathSegments
+                .skipWhile((s) => s != 'o')
+                .skip(1)
+                .firstOrNull;
+            if (encoded != null && encoded.isNotEmpty) {
+              final storagePath = Uri.decodeComponent(encoded);
+              ref
+                  .read(storage_providers.deleteStorageImageProvider)
+                  .call(storagePath);
+            }
+          } catch (_) {
+            // Non-fatal: Firestore is already updated.
+          }
+          ref.invalidate(storefrontProvider);
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _deletingUrls.remove(url));
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(auth_providers.authStateProvider);
+    final merchantId =
+        authState is Authenticated ? authState.user.id : '';
+    final storefront = ref.watch(storefrontProvider).valueOrNull;
+    final urls = storefront?.newsImageUrls ?? [];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: StorefrontColors.primaryGold.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: StorefrontColors.primaryGold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.photo_library_outlined,
+                    color: StorefrontColors.primaryGold, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Photos actualité',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: StorefrontColors.textPrimary,
+                  ),
+                ),
+              ),
+              if (_isUploading)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: StorefrontColors.primaryGold,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Apparaissent dans la section actualité de votre boutique',
+            style: TextStyle(
+              fontSize: 12,
+              color: StorefrontColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              ...urls.map((url) => _ImageTile(
+                    url: url,
+                    isDeleting: _deletingUrls.contains(url),
+                    onDelete: merchantId.isEmpty
+                        ? null
+                        : () => _deleteImage(merchantId, url, urls),
+                  )),
+              if (!_isUploading)
+                _AddImageButton(
+                  onTap: merchantId.isEmpty
+                      ? null
+                      : () => _addImage(merchantId),
+                ),
+            ],
+          ),
+          if (urls.isEmpty && !_isUploading)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Aucune photo pour l\'instant. Ajoutez des images pour attirer vos clients.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: StorefrontColors.textSecondary.withValues(alpha: 0.7),
+                  height: 1.4,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageTile extends StatelessWidget {
+  const _ImageTile({
+    required this.url,
+    required this.isDeleting,
+    this.onDelete,
+  });
+
+  final String url;
+  final bool isDeleting;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 90,
+      height: 90,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              url,
+              width: 90,
+              height: 90,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: Colors.grey[200],
+                child: const Icon(Icons.broken_image_outlined,
+                    color: StorefrontColors.textSecondary, size: 28),
+              ),
+            ),
+          ),
+          if (isDeleting)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.4),
+                child: const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  ),
+                ),
+              ),
+            )
+          else if (onDelete != null)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: onDelete,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 14),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddImageButton extends StatelessWidget {
+  const _AddImageButton({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 90,
+        height: 90,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: StorefrontColors.primaryGold.withValues(alpha: 0.5),
+            width: 1.5,
+            strokeAlign: BorderSide.strokeAlignInside,
+          ),
+          color: StorefrontColors.primaryGold.withValues(alpha: 0.06),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_photo_alternate_outlined,
+                color: StorefrontColors.primaryGold.withValues(alpha: 0.8),
+                size: 28),
+            const SizedBox(height: 4),
+            Text(
+              'Ajouter',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: StorefrontColors.primaryGold.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

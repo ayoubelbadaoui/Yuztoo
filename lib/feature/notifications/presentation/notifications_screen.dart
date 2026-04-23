@@ -8,7 +8,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
+import '../../client_home/application/providers.dart';
 import '../../client_notification/application/providers.dart';
+import '../../promotions/application/providers.dart' show recordPromoViewsProvider;
+import '../../promotions/domain/entities/promotion.dart';
 
 part 'notifications_screen.part.dart';
 
@@ -31,6 +34,8 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  String _activeTab = 'alertes'; // 'alertes' | 'promos'
+
   Future<void> _markAllRead() async {
     final authState = ref.read(authStateProvider);
     if (authState is! Authenticated) return;
@@ -53,9 +58,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
   }
 
+  void _setTab(String tab) => setState(() => _activeTab = tab);
+
   @override
   Widget build(BuildContext context) {
     final notificationsAsync = ref.watch(clientNotificationsStreamProvider);
-    return _buildScaffold(context, notificationsAsync);
+    final authState = ref.watch(authStateProvider);
+    final isGuest = authState is! Authenticated;
+    return _buildScaffold(context, notificationsAsync, isGuest);
   }
 }

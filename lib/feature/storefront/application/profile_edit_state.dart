@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/city_input.dart';
+import '../../../../core/infrastructure/firebase_providers.dart';
 import '../domain/entities/storefront.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../auth/core/application/providers.dart' as auth_providers;

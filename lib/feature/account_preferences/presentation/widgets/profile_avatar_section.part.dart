@@ -24,10 +24,12 @@ extension _ProfileAvatarSectionUi on _ProfileAvatarSectionState {
 
     return _ProfileAvatarSectionChrome(
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _ProfileAvatarCircle(
             imageFile: _profileImageFile,
+            photoUrl: authState.user.photoUrl,
+            isUploading: _isUploading,
             onTap: () => _showImagePickerSheet(context),
           ),
           const SizedBox(width: 16),
@@ -49,30 +51,34 @@ extension _ProfileAvatarSectionUi on _ProfileAvatarSectionState {
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      name,
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: GoogleFonts.outfit(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.edit_outlined,
+                            color: MerchantColors.gold, size: 15),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     if (city.isNotEmpty) _ProfileAvatarInfoLine(city),
-                    if (phone.isNotEmpty) _ProfileAvatarInfoLine('Tel: $phone'),
-                    if (email.isNotEmpty) _ProfileAvatarInfoLine(email),
-                    if (name == 'Utilisateur' &&
-                        email.isEmpty &&
-                        phone.isEmpty &&
-                        city.isEmpty)
-                      _ProfileAvatarInfoLine(
-                        'Chargement...',
-                        style: TextStyle(
-                          color: MerchantColors.textGrey.withValues(alpha: 0.5),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
+                    if (phone.isNotEmpty)
+                      _ProfileAvatarInfoLine(phone,
+                          icon: Icons.phone_outlined),
+                    if (email.isNotEmpty)
+                      _ProfileAvatarInfoLine(email,
+                          icon: Icons.mail_outline_rounded),
                   ],
                 );
               },
@@ -82,41 +88,20 @@ extension _ProfileAvatarSectionUi on _ProfileAvatarSectionState {
                   Text(
                     'Chargement...',
                     style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
                       color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _ProfileAvatarInfoLine(
-                    'Chargement des données...',
-                    style: TextStyle(
-                      color: MerchantColors.textGrey.withValues(alpha: 0.5),
-                      fontStyle: FontStyle.italic,
                     ),
                   ),
                 ],
               ),
-              error: (error, stack) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Utilisateur',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _ProfileAvatarInfoLine(
-                    'Impossible de charger les données',
-                    style: TextStyle(
-                      color: Colors.red.withValues(alpha: 0.7),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
+              error: (_, __) => Text(
+                'Utilisateur',
+                style: GoogleFonts.outfit(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -128,10 +113,11 @@ extension _ProfileAvatarSectionUi on _ProfileAvatarSectionState {
   Widget _buildLoadingState() {
     return _ProfileAvatarSectionChrome(
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _ProfileAvatarCircle(
             imageFile: _profileImageFile,
+            isUploading: _isUploading,
             onTap: () {
               final authState = ref.read(authStateProvider);
               if (authState is Authenticated) {
@@ -238,61 +224,77 @@ class _ProfileAvatarCircle extends StatelessWidget {
   const _ProfileAvatarCircle({
     required this.imageFile,
     required this.onTap,
+    this.photoUrl,
+    this.isUploading = false,
   });
 
   final File? imageFile;
+  final String? photoUrl;
+  final bool isUploading;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final hasImage =
+        imageFile != null || (photoUrl != null && photoUrl!.isNotEmpty);
+
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 100,
-        height: 100,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: MerchantColors.navyCard,
-          border: Border.all(color: MerchantColors.gold, width: 3),
-        ),
+      child: SizedBox(
+        width: 88,
+        height: 88,
         child: Stack(
-          fit: StackFit.expand,
           children: [
-            if (imageFile != null)
-              ClipOval(
-                child: Image.file(
-                  imageFile!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Center(
-                      child: Icon(
-                        Icons.person,
-                        color: MerchantColors.gold,
-                        size: 48,
-                      ),
-                    );
-                  },
-                ),
-              )
-            else
-              const Center(
-                child: Icon(
-                  Icons.person,
-                  color: MerchantColors.gold,
-                  size: 48,
-                ),
-              ),
+            // ── avatar circle ────────────────────────────────────────────
             Container(
+              width: 88,
+              height: 88,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.black.withValues(alpha: 0.3),
+                color: MerchantColors.navyCard,
+                border: Border.all(color: MerchantColors.gold, width: 2.5),
               ),
-              child: const Center(
-                child: Icon(
-                  Icons.camera_alt,
-                  color: Colors.white,
-                  size: 24,
+              child: ClipOval(
+                child: imageFile != null
+                    ? Image.file(
+                        imageFile!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _placeholder(),
+                      )
+                    : (photoUrl != null && photoUrl!.isNotEmpty)
+                        ? Image.network(
+                            photoUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _placeholder(),
+                          )
+                        : _placeholder(),
+              ),
+            ),
+            // ── bottom-right camera badge ──────────────────────────────
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MerchantColors.gold,
+                  border: Border.all(color: MerchantColors.bgMain, width: 2),
                 ),
+                child: isUploading
+                    ? const Padding(
+                        padding: EdgeInsets.all(5),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: MerchantColors.bgHeader,
+                        ),
+                      )
+                    : Icon(
+                        hasImage ? Icons.edit : Icons.camera_alt,
+                        color: MerchantColors.bgHeader,
+                        size: 13,
+                      ),
               ),
             ),
           ],
@@ -300,26 +302,40 @@ class _ProfileAvatarCircle extends StatelessWidget {
       ),
     );
   }
+
+  Widget _placeholder() => const Center(
+        child: Icon(Icons.person, color: MerchantColors.gold, size: 40),
+      );
 }
 
 class _ProfileAvatarInfoLine extends StatelessWidget {
-  const _ProfileAvatarInfoLine(this.text, {this.style});
+  const _ProfileAvatarInfoLine(this.text, {this.icon});
 
   final String text;
-  final TextStyle? style;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Text(
-        text,
-        style: style ??
-            GoogleFonts.outfit(
-              fontSize: 13,
-              color: MerchantColors.textGrey,
-              height: 1.5,
+      padding: const EdgeInsets.only(top: 3),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: MerchantColors.textGrey, size: 12),
+            const SizedBox(width: 4),
+          ],
+          Flexible(
+            child: Text(
+              text,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: MerchantColors.textGrey,
+                height: 1.4,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
+          ),
+        ],
       ),
     );
   }

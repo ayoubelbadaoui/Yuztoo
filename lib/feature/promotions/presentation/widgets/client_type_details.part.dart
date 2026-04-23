@@ -1,5 +1,12 @@
 part of 'client_type_details.dart';
 
+// Segment definitions: key → display label
+const _kSegments = [
+  ('vip', 'VIP'),
+  ('soutien', 'Soutien'),
+  ('habitue', 'Habitué'),
+];
+
 extension _ClientTypeDetailsUi on ClientTypeDetails {
   Widget _buildGratuit() {
     return Container(
@@ -19,7 +26,6 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
   }
 
   Widget _buildPremium() {
-    final targets = ['VIP', 'Soutien', 'Habitué'];
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -27,7 +33,7 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
       child: Column(
         children: [
           Text(
-            'Quels clients voulez-vous cibler?',
+            'Quels clients voulez-vous cibler ?',
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
               fontSize: 12,
@@ -36,18 +42,44 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(targets.length, (i) {
-              return Padding(
-                padding: EdgeInsets.only(left: i > 0 ? 8 : 0),
-                child: _selectableChip(
-                  targets[i],
-                  isSelected: selectedTargetIndex == i,
-                  onTap: () => onTargetChanged(i),
+          // Multi-select segment chips
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: _kSegments.map((seg) {
+              final isSelected = selectedSegments.contains(seg.$1);
+              return GestureDetector(
+                onTap: () => onSegmentToggled(seg.$1),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? MerchantColors.gold
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? MerchantColors.gold
+                          : MerchantColors.textGrey.withValues(alpha: 0.4),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    seg.$2,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected
+                          ? MerchantColors.darkOverlay
+                          : MerchantColors.textLightGrey,
+                    ),
+                  ),
                 ),
               );
-            }),
+            }).toList(),
           ),
           const SizedBox(height: 14),
           _filterRow('Clients actifs depuis', '15/01/2025'),
@@ -57,6 +89,23 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
           _filterRow('Clients connectés depuis', '01/01/2025'),
           const SizedBox(height: 6),
           _filterRow('Top X clients du mois', 'Top 10'),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.construction_rounded,
+                  size: 11, color: MerchantColors.textGrey),
+              const SizedBox(width: 4),
+              Text(
+                'Filtres avancés bientôt disponibles',
+                style: GoogleFonts.outfit(
+                  fontSize: 10,
+                  fontStyle: FontStyle.italic,
+                  color: MerchantColors.textGrey,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 14),
           Text.rich(
             TextSpan(children: [
@@ -65,37 +114,19 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
                   style:
                       GoogleFonts.outfit(fontSize: 11, color: Colors.white)),
               TextSpan(
-                  text: 'X',
+                  text: selectedSegments.isEmpty
+                      ? 'tous'
+                      : '${selectedSegments.length} segment${selectedSegments.length > 1 ? 's' : ''}',
                   style: GoogleFonts.outfit(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: MerchantColors.gold)),
               TextSpan(
-                  text: ' clients\nsur un total de ',
-                  style:
-                      GoogleFonts.outfit(fontSize: 11, color: Colors.white)),
-              TextSpan(
-                  text: 'X',
-                  style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: MerchantColors.gold)),
-              TextSpan(
-                  text: ' clients connectés',
+                  text: ' — Tarif: 5 € HT ou inclus avec abonnement premium',
                   style:
                       GoogleFonts.outfit(fontSize: 11, color: Colors.white)),
             ]),
             textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tarif: 5 \u20AC HT ou inclus avec abonnement premium',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              fontSize: 10,
-              fontStyle: FontStyle.italic,
-              color: MerchantColors.gold,
-            ),
           ),
         ],
       ),
@@ -103,8 +134,7 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
   }
 
   Widget _buildPayant() {
-    final distances = ['Villes', 'Quartier', 'Proche de vous'];
-    final counts = ['500', '200', 'Max 100'];
+    const zones = PromotionZone.values;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -112,7 +142,7 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
       child: Column(
         children: [
           Text(
-            'A quelle distance autour de vous?',
+            'À quelle distance autour de vous ?',
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
               fontSize: 12,
@@ -123,10 +153,10 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(distances.length, (i) {
+            children: List.generate(zones.length, (i) {
               return _distanceOption(
-                distances[i],
-                counts[i],
+                zones[i].label,
+                '${zones[i].estimatedReach}',
                 isSelected: selectedDistanceIndex == i,
                 onTap: () => onDistanceChanged(i),
               );
@@ -153,7 +183,8 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
                     color: MerchantColors.textLightGrey),
               ),
               TextSpan(
-                text: '50\u20AC',
+                text:
+                    '${(zones[selectedDistanceIndex].estimatedReach * 0.10).toStringAsFixed(0)}€',
                 style: GoogleFonts.outfit(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -161,7 +192,7 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
                     color: MerchantColors.gold),
               ),
               TextSpan(
-                text: ' pour cette notification',
+                text: ' pour cette zone',
                 style: GoogleFonts.outfit(
                     fontSize: 10,
                     fontStyle: FontStyle.italic,
@@ -171,39 +202,6 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
             textAlign: TextAlign.center,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _selectableChip(
-    String label, {
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? MerchantColors.gold : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? MerchantColors.gold
-                : MerchantColors.textGrey.withValues(alpha: 0.4),
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: isSelected
-                ? MerchantColors.darkOverlay
-                : MerchantColors.textLightGrey,
-          ),
-        ),
       ),
     );
   }
@@ -246,8 +244,10 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
       onTap: onTap,
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: isSelected ? MerchantColors.gold : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
@@ -281,7 +281,8 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
               ),
               TextSpan(
                 text: ' clients',
-                style: GoogleFonts.outfit(fontSize: 10, color: Colors.white),
+                style:
+                    GoogleFonts.outfit(fontSize: 10, color: Colors.white),
               ),
             ]),
           ),

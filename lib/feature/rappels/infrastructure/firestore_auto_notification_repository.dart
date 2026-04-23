@@ -41,6 +41,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
         text: notification.text,
         trigger: notification.trigger,
         audience: notification.audience,
+        targetSegments: notification.targetSegments,
         isEnabled: notification.isEnabled,
         createdAt: DateTime.now(),
       );
@@ -134,6 +135,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
         text: notification.text,
         trigger: notification.trigger,
         audience: notification.audience,
+        targetSegments: notification.targetSegments,
         isEnabled: notification.isEnabled,
         createdAt: notification.createdAt,
       );

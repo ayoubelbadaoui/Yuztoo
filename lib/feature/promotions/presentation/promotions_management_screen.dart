@@ -32,6 +32,8 @@ class _PromotionsManagementScreenState
     with SingleTickerProviderStateMixin {
   final ImagePicker _picker = ImagePicker();
   bool _isCreating = false;
+  bool _showAllActive = false;
+  bool _showAllExpired = false;
 
   late AnimationController _shimmerController;
   late Animation<double> _shimmerAnim;
@@ -282,9 +284,19 @@ class _PromotionsManagementScreenState
     setState(() => _isCreating = value);
   }
 
+  // ignore: invalid_use_of_protected_member
+  void _rebuild(VoidCallback fn) => setState(fn);
+
   @override
   Widget build(BuildContext context) {
     final promotionsAsync = ref.watch(merchantPromotionsProvider);
     return _buildPromotionsScaffold(context, promotionsAsync);
+  }
+
+  Future<void> _onRefresh() async {
+    ref.invalidate(merchantPromotionsProvider);
+    await ref
+        .read(merchantPromotionsProvider.future)
+        .catchError((_) => <Promotion>[]);
   }
 }

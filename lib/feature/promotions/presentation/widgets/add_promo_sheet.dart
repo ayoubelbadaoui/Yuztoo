@@ -27,8 +27,16 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
   DateTime _dateTo = DateTime.now().add(const Duration(days: 14));
   ClientType _clientType = ClientType.gratuit;
   String? _imagePath;
-  int _selectedTargetIndex = 0;
+  Set<String> _selectedSegments = {};
   int _selectedDistanceIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild to update char counters and live subtitle preview.
+    _titleCtrl.addListener(() => setState(() {}));
+    _subtitleCtrl.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -115,6 +123,16 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
       );
       return;
     }
+    if (!_dateTo.isAfter(_dateFrom)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: MerchantColors.navyCard,
+          content: Text('La date de fin doit être après la date de début',
+              style: GoogleFonts.outfit(color: Colors.white)),
+        ),
+      );
+      return;
+    }
     final subtitle = _subtitleCtrl.text.trim().isNotEmpty
         ? _subtitleCtrl.text.trim()
         : 'Valide du ${_fmtD(_dateFrom)} au ${_fmtD(_dateTo)}';
@@ -131,15 +149,27 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
         selectedClientType: _clientType,
         isOnline: true,
         imagePath: _imagePath,
+        targetSegments: _clientType == ClientType.premium
+            ? _selectedSegments.toList()
+            : const [],
+        diffusionZone: _clientType == ClientType.payant
+            ? PromotionZone.values[_selectedDistanceIndex]
+            : null,
       ),
     );
   }
 
   String _fmtD(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
-  void _onTargetChanged(int i) {
-    setState(() => _selectedTargetIndex = i);
+  void _onSegmentToggled(String segmentKey) {
+    setState(() {
+      if (_selectedSegments.contains(segmentKey)) {
+        _selectedSegments = {..._selectedSegments}..remove(segmentKey);
+      } else {
+        _selectedSegments = {..._selectedSegments, segmentKey};
+      }
+    });
   }
 
   void _onDistanceChanged(int i) {
@@ -147,8 +177,15 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
   }
 
   void _onClientTypeSelected(ClientType type) {
-    setState(() => _clientType = type);
+    setState(() {
+      _clientType = type;
+      // Reset targeting when switching type.
+      _selectedSegments = {};
+      _selectedDistanceIndex = 0;
+    });
   }
+
+  void _clearImage() => setState(() => _imagePath = null);
 
   // ── build ──────────────────────────────────────────────────────────────────
 
@@ -156,9 +193,14 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
+    return PopScope(
+      canPop: true,
+      child: Container(
       margin: const EdgeInsets.only(top: 80),
-      padding: EdgeInsets.only(bottom: bottomInset),
+      padding: EdgeInsets.only(
+          bottom: bottomInset == 0
+              ? MediaQuery.of(context).padding.bottom
+              : bottomInset),
       decoration: const BoxDecoration(
         color: MerchantColors.bgMain,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -175,9 +217,19 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
                 children: [
                   _buildImagePicker(),
                   const SizedBox(height: 20),
-                  _buildField(_titleCtrl, 'Titre de la promotion'),
+                  _buildField(
+                    _titleCtrl,
+                    'Ex. : -20 % sur toute la carte',
+                    maxLength: _kTitleMax,
+                    label: 'Titre de la promotion',
+                  ),
                   const SizedBox(height: 12),
-                  _buildField(_subtitleCtrl, 'Description (optionnel)'),
+                  _buildField(
+                    _subtitleCtrl,
+                    'Description (optionnel)',
+                    maxLength: _kDescMax,
+                  ),
+                  _buildSubtitlePreview(),
                   const SizedBox(height: 20),
                   _buildDateSection(),
                   const SizedBox(height: 20),
@@ -185,9 +237,9 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
                   const SizedBox(height: 16),
                   ClientTypeDetails(
                     clientType: _clientType,
-                    selectedTargetIndex: _selectedTargetIndex,
+                    selectedSegments: _selectedSegments,
                     selectedDistanceIndex: _selectedDistanceIndex,
-                    onTargetChanged: _onTargetChanged,
+                    onSegmentToggled: _onSegmentToggled,
                     onDistanceChanged: _onDistanceChanged,
                   ),
                   const SizedBox(height: 24),
@@ -199,6 +251,7 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
           ),
         ],
       ),
+    ),
     );
   }
 }

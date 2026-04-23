@@ -121,7 +121,15 @@ class StorefrontProfileEditNotifier
       }
 
       final userId = authState.user.id;
-      final merchantId = userId; // MVP: merchantId == userId
+
+      // Resolve the real merchant document ID from the user doc.
+      // In MVP, merchantId == userId, but linkExistingMerchantToUser can differ.
+      final firestore = ref.read(firebaseFirestoreProvider);
+      final userDoc = await firestore.collection('users').doc(userId).get();
+      final merchantId =
+          ((userDoc.data()?['merchant_id'] as String?)?.trim().isNotEmpty ?? false)
+              ? (userDoc.data()?['merchant_id'] as String).trim()
+              : userId;
       
       // Extract logo file path if a new image was selected
       String? logoFilePath;

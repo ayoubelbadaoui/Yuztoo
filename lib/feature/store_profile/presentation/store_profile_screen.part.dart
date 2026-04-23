@@ -69,8 +69,12 @@ class _SectionLabel extends StatelessWidget {
 
 /// Promotions list shown in the Accueil tab.
 class _PromotionsList extends StatelessWidget {
-  const _PromotionsList({required this.promotions});
+  const _PromotionsList({
+    required this.promotions,
+    required this.onPromoTap,
+  });
   final List<Promotion> promotions;
+  final void Function(Promotion) onPromoTap;
 
   @override
   Widget build(BuildContext context) {
@@ -137,12 +141,14 @@ class _PromotionsList extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Material(
+                child: Material(
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(14),
-                  onTap: () {},
+                  onTap: isExpired
+                      ? null
+                      : () => onPromoTap(promo),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Row(
@@ -237,6 +243,7 @@ class _PromotionsList extends StatelessWidget {
       ),
     );
   }
+
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -565,6 +572,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                   _AccueilTab(
                     merchant: merchant,
                     promotions: promotions,
+                    onPromoTap: (promo) => _showPromoDetail(context, promo),
                   ),
                 ] else if (_activeTab == 'horaires') ...[
                   _HoraireTab(hours: hours),
@@ -973,6 +981,191 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     );
     ref.invalidate(viewedMerchantIdsForCurrentUserProvider);
   }
+
+  // ── Promo detail modal ──────────────────────────────────────────────────────
+  void _showPromoDetail(BuildContext context, Promotion promo) {
+    // Record a view when the client actually opens a promotion detail.
+    // Best-effort: uses the same FieldValue.increment(1) batch under the hood.
+    ref.read(recordPromoViewsProvider).call(
+      merchantId: promo.merchantId,
+      promotionIds: [promo.id],
+    );
+
+    String fmt(DateTime d) =>
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        margin: const EdgeInsets.only(top: 80),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0D8CC),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Promo image (if available)
+            if (promo.imageUrl != null && promo.imageUrl!.isNotEmpty)
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+                child: Image.network(
+                  promo.imageUrl!,
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              )
+            else
+              const SizedBox(height: 8),
+
+            const SizedBox(height: 16),
+
+            // Icon + title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: StorefrontColors.primaryGold
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.local_offer_rounded,
+                      color: StorefrontColors.primaryGold,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          promo.title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: StorefrontColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          promo.subtitle,
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            color: StorefrontColors.textSecondary,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: StorefrontColors.creamLight),
+            const SizedBox(height: 14),
+
+            // Validity dates
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 14, color: StorefrontColors.primaryGold),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Du ${fmt(promo.dateFrom)} au ${fmt(promo.dateTo)}',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: StorefrontColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // View count
+            if (promo.viewCount > 0) ...[
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility_outlined,
+                        size: 14,
+                        color: StorefrontColors.primaryGold
+                            .withValues(alpha: 0.7)),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${promo.viewCount} vue${promo.viewCount > 1 ? 's' : ''}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: StorefrontColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 22),
+            // Close CTA
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  24, 0, 24, MediaQuery.of(context).padding.bottom + 20),
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: StorefrontColors.navyDark,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Fermer',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1014,9 +1207,14 @@ class _BackButton extends StatelessWidget {
 
 /// Accueil tab — contact info + description + promotions.
 class _AccueilTab extends StatelessWidget {
-  const _AccueilTab({required this.merchant, required this.promotions});
+  const _AccueilTab({
+    required this.merchant,
+    required this.promotions,
+    required this.onPromoTap,
+  });
   final Merchant merchant;
   final List<Promotion> promotions;
+  final void Function(Promotion) onPromoTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1098,7 +1296,10 @@ class _AccueilTab extends StatelessWidget {
         if (promotions.isNotEmpty) ...[
           const _SectionLabel('Promotions en cours'),
           const SizedBox(height: 4),
-          _PromotionsList(promotions: promotions),
+          _PromotionsList(
+            promotions: promotions,
+            onPromoTap: onPromoTap,
+          ),
         ],
 
         if (promotions.isEmpty) const SizedBox(height: 8),

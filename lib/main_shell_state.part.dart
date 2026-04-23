@@ -549,6 +549,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       'notifications-auto': ScreenId.merchantNotificationsAuto,
       'e-fidelite': ScreenId.merchantEFidelite,
       'account-preferences': ScreenId.merchantAccountPreferences,
+      'security': ScreenId.merchantSecurity,
     };
 
     final target = map[screen];
@@ -837,7 +838,8 @@ class _RootShellState extends ConsumerState<_RootShell>
         currentScreen == ScreenId.merchantNotificationsAuto;
     final isMerchantProfile = currentScreen == ScreenId.merchantProfile;
     final isEFidelite = currentScreen == ScreenId.merchantEFidelite;
-    final isAccountPrefs = currentScreen == ScreenId.merchantAccountPreferences;
+    final isAccountPrefs = currentScreen == ScreenId.merchantAccountPreferences ||
+        currentScreen == ScreenId.merchantSecurity;
     final isMerchantClients = currentScreen == ScreenId.merchantClients;
     final isClientProfile = currentScreen == ScreenId.clientProfile;
     final isClientHome = currentScreen == ScreenId.clientHome;
@@ -935,6 +937,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                       currentScreen == ScreenId.merchantProfile ||
                       currentScreen == ScreenId.merchantEFidelite ||
                       currentScreen == ScreenId.merchantAccountPreferences ||
+                      currentScreen == ScreenId.merchantSecurity ||
                       currentScreen == ScreenId.merchantClients ||
                       currentScreen == ScreenId.clientProfile ||
                       currentScreen == ScreenId.clientHome ||
@@ -1226,6 +1229,16 @@ class _RootShellState extends ConsumerState<_RootShell>
             ref
                 .read(roleCacheServiceProvider)
                 .saveLastSelectedRole(UserRole.merchant);
+          },
+        );
+      case ScreenId.merchantSecurity:
+        return IdentificationSecurityScreen(
+          onBack: _handleBackFromNested,
+          onAccountDeleted: () {
+            setState(() {
+              _nestedScreen = null;
+              _authScreen = ScreenId.login;
+            });
           },
         );
       case ScreenId.merchantStats:

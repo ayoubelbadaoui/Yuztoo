@@ -109,10 +109,14 @@ service cloud.firestore {
 
     // Collection-group rule: lets a signed-in merchant read all followed_merchants
     // docs where merchant_id == their own UID (used by getFollowerIds query).
+    // Also allows the merchant OWNER to read even when merchantId != authUid
+    // (e.g. merchants created via linkExistingMerchantToUser).
     // Requires a composite index on collection-group followed_merchants / merchant_id.
     match /{path=**}/followed_merchants/{docId} {
       allow read: if isSignedIn()
-        && resource.data.merchant_id == request.auth.uid;
+        && (resource.data.merchant_id == request.auth.uid
+          || (exists(/databases/$(database)/documents/merchants/$(resource.data.merchant_id))
+            && get(/databases/$(database)/documents/merchants/$(resource.data.merchant_id)).data.owner_uid == request.auth.uid));
     }
 
     // --- /users/{userId}/notifications/{notificationId} ---
@@ -146,6 +150,21 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && resource.data.owner_uid == request.auth.uid
         && request.resource.data.owner_uid == resource.data.owner_uid;
+
+      // Any signed-in user (e.g. a client following the merchant) may increment
+      // only the monthly connected-clients counter fields. The diff() check ensures
+      // no other field is touched.
+      allow update: if isSignedIn()
+        && request.resource.data.owner_uid == resource.data.owner_uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['rappels_monthly_connected_clients', 'rappels_monthly_connected_ym']);
+
+      // Any signed-in user (client completing a passage) may increment only the
+      // validated-passage counter fields.
+      allow update: if isSignedIn()
+        && request.resource.data.owner_uid == resource.data.owner_uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['rappels_monthly_validated_passages', 'rappels_monthly_validated_ym']);
 
       allow delete: if false;
     }
@@ -209,11 +228,31 @@ service cloud.firestore {
     match /merchants/{merchantId}/promotions/{promoId} {
       allow read: if true;
       allow create, update, delete: if isMerchantOwner(merchantId);
+      // Any signed-in user (client viewing a storefront) may increment view_count only.
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['view_count']);
+    }
+
+    // --- /merchants/{merchantId}/pending_clients/{clientId} ---
+    // Written by the client when they follow (so the merchant sees new followers).
+    // Merchant reads and deletes (acknowledge). Client can also delete (unfollow cleanup).
+    match /merchants/{merchantId}/pending_clients/{clientId} {
+      allow read, delete: if isMerchantOwner(merchantId);
+      allow create, update: if isSignedIn() && request.auth.uid == clientId;
+      allow delete: if isSignedIn() && request.auth.uid == clientId;
     }
 
     match /merchants/{merchantId}/auto_notifications/{notificationId} {
       allow read: if true;
       allow create, update, delete: if isMerchantOwner(merchantId);
+    }
+
+    match /merchants/{merchantId}/sent_notifications/{notificationId} {
+      allow read: if isMerchantOwner(merchantId);
+      // Written by the app (merchant sending a quick notification).
+      allow create: if isMerchantOwner(merchantId);
+      allow update, delete: if false;
     }
   }
 }

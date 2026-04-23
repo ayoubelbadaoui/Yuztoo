@@ -38,13 +38,17 @@ final recordPromoViewsProvider = Provider<RecordPromoViews>((ref) {
 });
 
 /// List of promotions for the current merchant (from auth).
+/// Throws on failure so the UI can show the error state (not a silent empty list).
 final merchantPromotionsProvider = FutureProvider<List<Promotion>>((ref) async {
   final authState = ref.watch(auth_providers.authStateProvider);
   if (authState is! Authenticated) return [];
   final merchantId = authState.user.id; // MVP: merchantId == userId
   final useCase = ref.read(listPromotionsByMerchantProvider);
   final result = await useCase.call(merchantId);
-  return result.fold((_) => [], (list) => list);
+  return result.fold(
+    (failure) => throw failure,
+    (list) => list,
+  );
 });
 
 /// Sum of view_count across all active promotions for the current merchant.

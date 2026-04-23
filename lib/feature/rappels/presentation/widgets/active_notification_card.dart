@@ -17,12 +17,16 @@ class ActiveNotificationCard extends StatelessWidget {
     required this.onToggle,
     required this.onEdit,
     required this.onDelete,
+    this.onTest,
   });
 
   final ActiveNotification notification;
   final ValueChanged<bool> onToggle;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
+  /// Called when the merchant taps "Tester" to send a test push to themselves.
+  final VoidCallback? onTest;
 
   @override
   Widget build(BuildContext context) => _buildActiveNotificationCard(context);

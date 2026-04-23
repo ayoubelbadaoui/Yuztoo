@@ -5,22 +5,23 @@ import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../domain/entities/promotion.dart';
 
 part 'client_type_details.part.dart';
-
 /// Displays the detail panel for the currently selected [ClientType].
 class ClientTypeDetails extends StatelessWidget {
   const ClientTypeDetails({
     super.key,
     required this.clientType,
-    required this.selectedTargetIndex,
+    required this.selectedSegments,
     required this.selectedDistanceIndex,
-    required this.onTargetChanged,
+    required this.onSegmentToggled,
     required this.onDistanceChanged,
   });
 
   final ClientType clientType;
-  final int selectedTargetIndex;
+  /// Active segment keys for premium type (multi-select).
+  final Set<String> selectedSegments;
   final int selectedDistanceIndex;
-  final ValueChanged<int> onTargetChanged;
+  /// Called with the toggled segment key (e.g. 'vip', 'soutien', 'habitue').
+  final ValueChanged<String> onSegmentToggled;
   final ValueChanged<int> onDistanceChanged;
 
   BoxDecoration get _detailBox => BoxDecoration(

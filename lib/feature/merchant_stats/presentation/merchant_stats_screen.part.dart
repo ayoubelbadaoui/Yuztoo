@@ -42,7 +42,7 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
         statusBarColor: MerchantColors.bgHeader,
         statusBarBrightness: Brightness.dark,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarColor: MerchantColors.bgMain,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: PopScope(
@@ -141,7 +141,7 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
       child: SafeArea(
         bottom: false,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
           decoration: BoxDecoration(
             color: MerchantColors.bgHeader,
             border: Border(
@@ -158,31 +158,35 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onBack,
                 child: Container(
-                  width: 36,
-                  height: 36,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border:
-                        Border.all(color: MerchantColors.gold, width: 1.5),
+                        Border.all(color: MerchantColors.gold, width: 2),
                   ),
                   child: const Center(
                     child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       color: MerchantColors.gold,
-                      size: 15,
+                      size: 16,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Statistiques',
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'Statistiques',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
+              const SizedBox(width: 44),
             ],
           ),
         ),

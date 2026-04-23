@@ -15,6 +15,7 @@ class RappelsClientsSection extends StatelessWidget {
     this.pendingLoyaltyPassagesToConfirm = 0,
     this.isManualPassageValidation = false,
     this.onConfirmPendingPassagesTap,
+    this.onAutoTap,
   });
 
   /// Clients connectés ce mois (Firestore `rappels_monthly_connected_clients`).
@@ -31,6 +32,9 @@ class RappelsClientsSection extends StatelessWidget {
 
   /// Défile vers la liste « Passages à valider » (fidélité).
   final VoidCallback? onConfirmPendingPassagesTap;
+
+  /// Tapping "Auto" badge scrolls to the toggles section to change mode.
+  final VoidCallback? onAutoTap;
 
   @override
   Widget build(BuildContext context) => _buildRappelsClientsBody(context);

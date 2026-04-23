@@ -93,8 +93,13 @@ final clientHomeFeedProvider = FutureProvider<ClientHomeFeed>((ref) async {
   for (final result in promoResults) {
     result.fold((_) => null, (list) => allPromos.addAll(list));
   }
-  allPromos.sort((a, b) => b.dateTo.compareTo(a.dateTo));
-  return (merchants: merchants, promotions: allPromos);
+  // Only show promos that are live and not expired.
+  final now = DateTime.now();
+  final filteredPromos = allPromos
+      .where((p) => p.isOnline && p.dateTo.isAfter(now))
+      .toList();
+  filteredPromos.sort((a, b) => b.dateTo.compareTo(a.dateTo));
+  return (merchants: merchants, promotions: filteredPromos);
 });
 
 /// Derived — resolves from [clientHomeFeedProvider] (same underlying future).

@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../auth/core/application/user_display_helpers.dart';
+import '../../../auth/core/application/providers.dart' show updateAuthUserProfileProvider;
+import '../../../storage/application/providers.dart' show uploadClientAvatarProvider;
 import '../../application/providers.dart';
 
 part 'profile_avatar_section.part.dart';
@@ -24,6 +26,7 @@ class ProfileAvatarSection extends ConsumerStatefulWidget {
 class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
   final ImagePicker _picker = ImagePicker();
   File? _profileImageFile;
+  bool _isUploading = false;
 
   void _loadProfileImageFromCache(String? imagePath) {
     if (!mounted) return;
@@ -87,9 +90,11 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
         final file = File(pickedFile.path);
         setState(() {
           _profileImageFile = file;
+          _isUploading = true;
         });
 
         await _saveProfileImageToCache(file.path);
+        await _uploadAvatarToCloud(file);
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -103,7 +108,38 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
           ),
         ),
       );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
+  }
+
+  Future<void> _uploadAvatarToCloud(File file) async {
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) return;
+
+    final uid = authState.user.id;
+    final uploadResult = await ref
+        .read(uploadClientAvatarProvider)
+        .call(filePath: file.path, uid: uid);
+
+    await uploadResult.fold(
+      (failure) async {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Photo sauvegardée localement (sync cloud échouée)'),
+            backgroundColor: MerchantColors.navyCard,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      },
+      (downloadUrl) async {
+        await ref
+            .read(updateAuthUserProfileProvider)
+            .call(photoUrl: downloadUrl);
+      },
+    );
   }
 
   Future<void> _saveProfileImageToCache(String imagePath) async {

@@ -3,13 +3,19 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/utils/city_input.dart';
 import '../application/profile_edit_state.dart';
 import '../application/providers.dart';
+import 'widgets/hours_section.dart';
 import 'widgets/storefront_colors.dart';
+import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../auth/core/application/state/auth_state.dart';
+import '../../storage/application/providers.dart' as storage_providers;
+import '../../merchant/application/providers.dart' as merchant_providers;
 
 part 'storefront_edit_profile_screen.part.dart';
 
@@ -84,14 +90,14 @@ class _StorefrontEditProfileScreenState
   /// Get valid category value that exists in options list (DDD: presentation layer validation)
   String _getValidCategoryValue(String category, List<String> options) {
     if (category.isEmpty) {
-      return options.isNotEmpty ? options.first : 'Artisan Jewelry';
+      return options.isNotEmpty ? options.first : 'Café / Bar';
     }
     // Check if category exists in options
     if (options.contains(category)) {
       return category;
     }
     // Fallback to first option if category doesn't match
-    return options.isNotEmpty ? options.first : 'Artisan Jewelry';
+    return options.isNotEmpty ? options.first : 'Café / Bar';
   }
 
   /// Load image files from state if they are file paths (DDD: presentation layer handles file loading)

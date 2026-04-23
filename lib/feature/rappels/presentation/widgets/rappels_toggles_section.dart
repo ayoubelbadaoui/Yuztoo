@@ -25,13 +25,17 @@ class RappelsTogglesSection extends StatelessWidget {
       child: Column(
         children: [
           _toggleItem(
+            icon: Icons.person_add_outlined,
             label: 'Validation client automatique',
+            subtitle: 'Accepte les nouveaux followers sans action manuelle',
             value: autoClientValidation,
             onChanged: onClientChanged,
           ),
           const SizedBox(height: 16),
           _toggleItem(
+            icon: Icons.loyalty_outlined,
             label: 'Validation passage automatique',
+            subtitle: 'Valide les passages fidélité sans confirmation manuelle',
             value: autoPassageValidation,
             onChanged: onPassageChanged,
           ),
@@ -41,53 +45,96 @@ class RappelsTogglesSection extends StatelessWidget {
   }
 
   Widget _toggleItem({
+    required IconData icon,
     required String label,
+    required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: MerchantColors.navyCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: MerchantColors.gold
-              .withValues(alpha: MerchantColors.goldBorderStronger),
-          width: 1,
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: value
+                ? MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderStronger)
+                : MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+            width: 1,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.check, color: MerchantColors.gold, size: 18),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: value
+                    ? MerchantColors.gold.withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.05),
+              ),
+              child: Icon(
+                icon,
+                color:
+                    value ? MerchantColors.gold : MerchantColors.textGrey,
+                size: 18,
               ),
             ),
-          ),
-          GestureDetector(
-            onTap: () => onChanged(!value),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: MerchantColors.textLightGrey,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
               width: 48,
               height: 28,
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                color: value ? MerchantColors.gold : const Color(0xFF444444),
+                color: value
+                    ? MerchantColors.gold
+                    : const Color(0xFF2A3B55),
+                border: value
+                    ? null
+                    : Border.all(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        width: 1),
               ),
               child: AnimatedAlign(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 250),
                 alignment:
                     value ? Alignment.centerRight : Alignment.centerLeft,
                 child: Container(
-                  width: 24,
-                  height: 24,
+                  width: 22,
+                  height: 22,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white,
@@ -95,8 +142,8 @@ class RappelsTogglesSection extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
