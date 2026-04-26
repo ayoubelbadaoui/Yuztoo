@@ -9,6 +9,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'l10n/app_localizations.dart';
 
 import 'core/app_bootstrap.dart';
+import 'feature/auth/core/application/auth_controller.dart';
 import 'feature/auth/core/application/providers.dart';
 import 'feature/auth/core/infrastructure/user_repository_provider.dart';
 import 'feature/auth/core/application/state/auth_state.dart';
@@ -43,11 +44,14 @@ import 'feature/storefront/application/providers.dart' as storefront_providers;
 import 'feature/merchant/application/screens.dart';
 import 'feature/rappels/application/screens.dart';
 import 'feature/merchant_settings/application/screens.dart';
+import 'feature/merchant_notifications/presentation/merchant_notifications_hub_screen.dart';
+import 'feature/merchant_partners/presentation/merchant_partners_screen.dart';
 import 'feature/e_fidelite/application/screens.dart';
 import 'feature/account_preferences/application/screens.dart';
 import 'feature/merchant/application/providers.dart' as merchant_providers;
 import 'feature/client_notification/application/providers.dart'
     as client_notification_providers;
+import 'feature/client_list/application/providers.dart' as crm_providers;
 import 'feature/client_notification/infrastructure/fcm_token_service.dart';
 import 'feature/client_notification/infrastructure/notification_service.dart';
 import 'core/config/vitrine_qr_config.dart';
@@ -69,8 +73,21 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(
-    const ProviderScope(
-      child: AppBootstrap(
+    ProviderScope(
+      overrides: [
+        authControllerProvider.overrideWith((ref) {
+          return AuthController(
+            signOut: ref.watch(signOutProvider),
+            watchAuthState: ref.watch(watchAuthStateProvider),
+            onClearDevicePushToken: (uid) async {
+              try {
+                await ref.read(fcmTokenServiceProvider).clearToken(uid);
+              } catch (_) {}
+            },
+          );
+        }),
+      ],
+      child: const AppBootstrap(
         child: YuztooApp(),
       ),
     ),

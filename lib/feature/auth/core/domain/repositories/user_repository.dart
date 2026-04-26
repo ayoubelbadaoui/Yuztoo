@@ -161,4 +161,16 @@ abstract class UserRepository {
   ///
   /// Used before signup to show an error early instead of letting Firebase Auth reject later.
   Future<Result<bool>> isEmailRegistered(String email);
+
+  /// Adds the client role to an existing merchant account (dual-profile).
+  ///
+  /// Sets `roles.client = true` and initialises `onboarding.client = 'not_started'`
+  /// when not already set. Safe to call multiple times (idempotent).
+  Future<Result<Unit>> addSecondaryClientRole(String uid);
+
+  /// Adds the merchant role to an existing client account (dual-profile).
+  ///
+  /// Sets `roles.merchant = true`, `roles.provider = true`, and initialises
+  /// `onboarding.merchant = 'not_started'` when not already set. Idempotent.
+  Future<Result<Unit>> addSecondaryMerchantRole(String uid);
 }

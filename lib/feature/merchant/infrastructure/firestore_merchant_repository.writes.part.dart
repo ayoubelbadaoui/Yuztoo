@@ -8,7 +8,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     if (merchantId.isEmpty || userId.isEmpty) {
       return const Left<MerchantFailure, Unit>(
         MerchantUnexpectedFailure(
-          message: 'Merchant ID and User ID are required',
+          message: 'L\'identifiant du commerce et l\'identifiant utilisateur sont requis',
         ),
       );
     }
@@ -27,7 +27,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
         );
         return const Left<MerchantFailure, Unit>(
           MerchantUnexpectedFailure(
-            message: 'Merchant not found / Le commerce n\'existe pas',
+            message: 'Le commerce est introuvable',
           ),
         );
       }
@@ -46,7 +46,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
         );
         return const Left<MerchantFailure, Unit>(
           MerchantUnexpectedFailure(
-            message: 'Merchant owner mismatch / Le propriétaire du commerce ne correspond pas',
+            message: 'Le propriétaire du commerce ne correspond pas',
           ),
         );
       }
@@ -93,7 +93,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       if (e.code == 'permission-denied') {
         return const Left<MerchantFailure, Unit>(
           UnableToCreateMerchantFailure(
-            message: 'Unable to link merchant / Impossible de lier le commerce',
+            message: 'Impossible de lier le commerce à votre compte',
           ),
         );
       }
@@ -113,7 +113,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       );
       return Left<MerchantFailure, Unit>(
         MerchantUnexpectedFailure(
-          message: 'Unable to link merchant / Impossible de lier le commerce',
+          message: 'Impossible de lier le commerce à votre compte',
           cause: e,
           stackTrace: st,
         ),
@@ -147,7 +147,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     if (merchantId.isEmpty) {
       return const Left<MerchantFailure, Merchant>(
         MerchantUnexpectedFailure(
-          message: 'Merchant ID is required',
+          message: 'L\'identifiant du commerce est requis',
         ),
       );
     }
@@ -159,7 +159,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
         return const Left<MerchantFailure, Merchant>(
           MerchantUnexpectedFailure(
             message:
-                'Profil commerçant introuvable. Terminez l\'onboarding ou contactez le support. / Merchant profile not found. Complete onboarding first.',
+                'Profil commerçant introuvable. Terminez l\'onboarding ou contactez le support.',
           ),
         );
       }
@@ -248,7 +248,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
         );
         return const Left<MerchantFailure, Merchant>(
           MerchantUnexpectedFailure(
-            message: 'Could not save storefront / Impossible d\'enregistrer la vitrine',
+            message: 'Impossible d\'enregistrer la vitrine',
           ),
         );
       }
@@ -323,7 +323,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       if (e.code == 'permission-denied') {
         return const Left<MerchantFailure, Merchant>(
           MerchantUnexpectedFailure(
-            message: 'Permission denied (Firestore rules) / Permission refusée (règles Firestore). Could not save storefront / Impossible d\'enregistrer la vitrine.',
+            message: 'Permission refusée (règles Firestore). Impossible d\'enregistrer la vitrine.',
           ),
         );
       }
@@ -343,7 +343,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       );
       return Left<MerchantFailure, Merchant>(
         MerchantUnexpectedFailure(
-          message: 'Could not save storefront / Impossible d\'enregistrer la vitrine',
+          message: 'Impossible d\'enregistrer la vitrine',
           cause: e,
           stackTrace: st,
         ),

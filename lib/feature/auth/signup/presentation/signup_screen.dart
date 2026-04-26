@@ -1,13 +1,19 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../application/providers.dart';
+import '../domain/signup_roles_map.dart';
+import '../../login/application/providers.dart' as login_providers;
 import '../../core/application/auth_error_mapper.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../../../types.dart';
+import '../../../../core/domain/core/result.dart';
 import '../../../../core/presentation/responsive_scroll_body.dart';
+import '../../core/domain/entities/auth_user.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import 'constants/signup_constants.dart';
 import 'utils/phone_formatter.dart';
@@ -58,6 +64,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   late FocusNode _phoneFocusNode;
 
   bool _isLoading = false;
+  bool _isSocialLoading = false;
   bool _isSubmitting = false;
   bool _isPasswordFocused = false;
   String? _phoneNumber;

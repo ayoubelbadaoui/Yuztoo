@@ -8,5 +8,8 @@
 	     build configuration when CODE_SIGN_ENTITLEMENTS is set. -->
 	<key>aps-environment</key>
 	<string>development</string>
+	<!-- Sign In with Apple capability -->
+	<key>com.apple.developer.applesignin</key>
+	<array><string>Default</string></array>
 </dict>
 </plist>

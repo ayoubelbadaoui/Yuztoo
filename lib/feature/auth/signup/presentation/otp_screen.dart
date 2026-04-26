@@ -157,7 +157,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     if (_isProgrammaticOtpUpdate) return;
     
     // Keep only digits (handles keyboards that insert spaces/dashes).
-    final digitsOnly = value.replaceAll(RegExp(r'\\D'), '');
+    final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
     
     // Empty -> possibly backspace.
     if (digitsOnly.isEmpty) {
@@ -175,7 +175,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
     // Paste/autofill into a single box (or user pasted multiple digits).
     if (digitsOnly.length > 1) {
-      _applyPastedCode(startIndex: index, digits: digitsOnly);
+      _applyPastedCode(startIndex: index, digits: digitsOnly.substring(0, digitsOnly.length.clamp(0, 6)));
       return;
     }
 
@@ -205,9 +205,10 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   }
 
   void _applyPastedCode({required int startIndex, required String digits}) {
-    // Take only the remaining digits and distribute starting from startIndex.
+    // Take only the remaining slots and up to digits.length characters.
     final remaining = (6 - startIndex).clamp(0, 6);
-    final chars = digits.substring(0, remaining).split('');
+    final take = remaining.clamp(0, digits.length);
+    final chars = digits.substring(0, take).split('');
 
     var writeIndex = startIndex;
     _isProgrammaticOtpUpdate = true;

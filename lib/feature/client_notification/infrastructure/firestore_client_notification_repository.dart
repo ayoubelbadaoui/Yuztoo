@@ -44,7 +44,7 @@ class FirestoreClientNotificationRepository
       ClientNotification notification) async {
     if (notification.clientId.isEmpty) {
       return const Left(ClientNotificationUnexpectedFailure(
-          message: 'Client ID requis pour créer une notification.'));
+          message: 'Identifiant client requis pour créer une notification.'));
     }
     try {
       final ref = _notificationsRef(notification.clientId).doc();

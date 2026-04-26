@@ -28,14 +28,14 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
       final doc = await userRef.get();
       if (!doc.exists) {
         return const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'User document does not exist'),
+          AuthUnexpectedFailure(message: 'Le document utilisateur est introuvable.'),
         );
       }
 
       final data = doc.data();
       if (data == null) {
         return const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'User document data is null'),
+          AuthUnexpectedFailure(message: 'Données utilisateur absentes.'),
         );
       }
 
@@ -390,7 +390,7 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
       return Left<AuthFailure, bool>(
         AuthUnexpectedFailure(
           message:
-              'Impossible de vérifier l\'adresse email. Vérifiez votre connexion et réessayez.',
+              'Impossible de vérifier l\'adresse e-mail. Vérifiez votre connexion et réessayez.',
           cause: e,
           stackTrace: st,
         ),
@@ -399,5 +399,59 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
     // Firebase Auth 6+ removed fetchSignInMethodsForEmail (email enumeration).
     // Registered emails are tracked in Firestore `email_index` above.
     return const Right<AuthFailure, bool>(false);
+  }
+
+  Future<Result<Unit>> addSecondaryClientRole(String uid) async {
+    try {
+      final userRef = _firestore.collection('users').doc(uid);
+      final snap = await userRef.get();
+      final data = snap.data() ?? {};
+      final onboarding = Map<String, dynamic>.from(
+          (data['onboarding'] as Map<String, dynamic>?) ?? {});
+      // Use update() so dotted keys are treated as nested field paths,
+      // not literal top-level keys (which would violate noLegacyDottedRoleKeys rule).
+      final updates = <String, dynamic>{
+        'roles.client': true,
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+      if (!onboarding.containsKey('client')) {
+        updates['onboarding.client'] = 'not_started';
+      }
+      await userRef.update(updates);
+      LoggerService.logInfo('Secondary client role added', context: {'uid': uid});
+      return const Right<AuthFailure, Unit>(unit);
+    } catch (e, st) {
+      LoggerService.logError('Error adding secondary client role',
+          error: e, stackTrace: st, context: {'uid': uid});
+      return Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(message: e.toString(), cause: e, stackTrace: st));
+    }
+  }
+
+  Future<Result<Unit>> addSecondaryMerchantRole(String uid) async {
+    try {
+      final userRef = _firestore.collection('users').doc(uid);
+      final snap = await userRef.get();
+      final data = snap.data() ?? {};
+      final onboarding = Map<String, dynamic>.from(
+          (data['onboarding'] as Map<String, dynamic>?) ?? {});
+      // Use update() so dotted keys are treated as nested field paths.
+      final updates = <String, dynamic>{
+        'roles.merchant': true,
+        'roles.provider': true,
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+      if (!onboarding.containsKey('merchant')) {
+        updates['onboarding.merchant'] = 'not_started';
+      }
+      await userRef.update(updates);
+      LoggerService.logInfo('Secondary merchant role added', context: {'uid': uid});
+      return const Right<AuthFailure, Unit>(unit);
+    } catch (e, st) {
+      LoggerService.logError('Error adding secondary merchant role',
+          error: e, stackTrace: st, context: {'uid': uid});
+      return Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(message: e.toString(), cause: e, stackTrace: st));
+    }
   }
 }

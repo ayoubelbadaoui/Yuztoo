@@ -71,6 +71,9 @@ class Promotion {
     this.viewCount = 0,
     this.targetSegments = const [],
     this.diffusionZone,
+    this.targetScope,
+    this.targetZoneLabel,
+    this.estimatedReach = 0,
   });
 
   final String id;
@@ -91,6 +94,12 @@ class Promotion {
   final List<String> targetSegments;
   /// Geographic broadcast zone for payant promos.
   final PromotionZone? diffusionZone;
+  /// Distribution scope: 'mes_clients' | 'yuztoo' | 'ville' | 'quartier' | 'proche'.
+  final String? targetScope;
+  /// Human-readable zone label (e.g. "Paris 11e").
+  final String? targetZoneLabel;
+  /// Estimated number of clients reached (0 = unknown / not computed yet).
+  final int estimatedReach;
 
   Promotion copyWith({
     String? id,
@@ -106,6 +115,9 @@ class Promotion {
     int? viewCount,
     List<String>? targetSegments,
     PromotionZone? diffusionZone,
+    String? targetScope,
+    String? targetZoneLabel,
+    int? estimatedReach,
   }) =>
       Promotion(
         id: id ?? this.id,
@@ -121,6 +133,9 @@ class Promotion {
         viewCount: viewCount ?? this.viewCount,
         targetSegments: targetSegments ?? this.targetSegments,
         diffusionZone: diffusionZone ?? this.diffusionZone,
+        targetScope: targetScope ?? this.targetScope,
+        targetZoneLabel: targetZoneLabel ?? this.targetZoneLabel,
+        estimatedReach: estimatedReach ?? this.estimatedReach,
       );
 }
 

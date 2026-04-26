@@ -9,6 +9,8 @@ import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/email_addr
 import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/password.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/entities/user_profile_basics.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/repositories/user_repository.dart';
+import 'package:flutter_yuztoo/feature/auth/core/application/providers.dart'
+    as auth_core;
 import 'package:flutter_yuztoo/feature/auth/core/infrastructure/auth_repository_provider.dart';
 import 'package:flutter_yuztoo/feature/auth/core/infrastructure/user_repository_provider.dart';
 import 'package:flutter_yuztoo/feature/auth/signup/application/screens.dart';
@@ -18,6 +20,17 @@ import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 
 class _FakeAuthRepository implements AuthRepository {
+  _FakeAuthRepository({
+    this.googleSignInResult,
+    this.appleSignInResult,
+  });
+
+  /// When null, Google tap returns a generic Left (legacy test behaviour).
+  final Result<AuthUser>? googleSignInResult;
+  final Result<AuthUser>? appleSignInResult;
+
+  int googleSignInCallCount = 0;
+
   @override
   Future<Result<AuthUser>> signInWithEmailAndPassword({
     required EmailAddress email,
@@ -80,6 +93,23 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<Result<Unit>> signOut() async {
     return const Right<AuthFailure, Unit>(unit);
+  }
+
+  @override
+  Future<Result<AuthUser>> signInWithGoogle() async {
+    googleSignInCallCount++;
+    return googleSignInResult ??
+        const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Not used in signup test'),
+        );
+  }
+
+  @override
+  Future<Result<AuthUser>> signInWithApple() async {
+    return appleSignInResult ??
+        const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Not used in signup test'),
+        );
   }
 
   @override
@@ -196,6 +226,26 @@ class _FakeUserRepository implements UserRepository {
   @override
   Future<Result<bool>> checkUserProfileComplete(String uid) =>
       throw UnimplementedError();
+}
+
+/// Firestore `/users/{uid}` exists (OAuth user already registered in app).
+class _FakeUserRepositoryWithProfile extends _FakeUserRepository {
+  _FakeUserRepositoryWithProfile({
+    super.phoneRegistered,
+    super.emailRegistered,
+    super.phoneCheckFailure,
+  });
+
+  @override
+  Future<Result<UserProfileBasics?>> getUserProfileBasics(String uid) async {
+    return const Right<AuthFailure, UserProfileBasics?>(
+      UserProfileBasics(
+        email: 'oauth@example.com',
+        phone: '+33601020304',
+        city: 'Paris',
+      ),
+    );
+  }
 }
 
 void main() {
@@ -434,6 +484,90 @@ void main() {
         find.textContaining('verification'),
         findsWidgets,
       );
+    },
+  );
+
+  testWidgets(
+    'Signup: Google tap shows error when sign-in fails',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(
+              _FakeAuthRepository(
+                googleSignInResult: const Left<AuthFailure, AuthUser>(
+                  InvalidCredentialsFailure(),
+                ),
+              ),
+            ),
+            userRepositoryProvider.overrideWithValue(_FakeUserRepository()),
+          ],
+          child: MaterialApp(
+            home: SignupScreen(
+              role: UserRole.client,
+              onBack: () {},
+              onNavigateToOtp: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final googleTarget = find.bySemanticsLabel('Google social sign-in');
+      await tester.ensureVisible(googleTarget);
+      await tester.pumpAndSettle();
+      await tester.tap(googleTarget);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Identifiants invalides'),
+        findsWidgets,
+      );
+    },
+  );
+
+  testWidgets(
+    'Signup: Google tap with existing Firestore profile clears OAuth gate',
+    (tester) async {
+      final oauthAuth = _FakeAuthRepository(
+        googleSignInResult: Right<AuthFailure, AuthUser>(
+          AuthUser(id: 'oauth-uid', email: 'google@example.com'),
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(oauthAuth),
+            userRepositoryProvider.overrideWithValue(
+              _FakeUserRepositoryWithProfile(),
+            ),
+          ],
+          child: MaterialApp(
+            home: SignupScreen(
+              role: UserRole.client,
+              onBack: () {},
+              onNavigateToOtp: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final container =
+          ProviderScope.containerOf(tester.element(find.byType(SignupScreen)));
+      expect(container.read(auth_core.oauthFirestoreProfilePendingProvider),
+          isFalse);
+
+      final googleTarget = find.bySemanticsLabel('Google social sign-in');
+      await tester.ensureVisible(googleTarget);
+      await tester.pumpAndSettle();
+      await tester.tap(googleTarget);
+      await tester.pumpAndSettle();
+
+      expect(container.read(auth_core.oauthFirestoreProfilePendingProvider),
+          isFalse);
+      expect(oauthAuth.googleSignInCallCount, 1);
     },
   );
 }

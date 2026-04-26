@@ -15,10 +15,11 @@ class PromoAnalytics extends StatelessWidget {
     final now = DateTime.now();
     final totalViews =
         promotions.fold<int>(0, (sum, p) => sum + p.viewCount);
-    // "Active" = online AND not expired (matches filters on the client side)
     final activeCount =
         promotions.where((p) => p.isOnline && p.dateTo.isAfter(now)).length;
     final totalCount = promotions.length;
+    final totalEstimatedReach =
+        promotions.fold<int>(0, (sum, p) => sum + p.estimatedReach);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -63,6 +64,15 @@ class PromoAnalytics extends StatelessWidget {
                   value: '$totalViews',
                   locked: false,
                 ),
+                const SizedBox(height: 10),
+                _statRow(
+                  icon: Icons.people_outline_rounded,
+                  label: 'Clients ciblés',
+                  value: totalEstimatedReach > 0
+                      ? '$totalEstimatedReach'
+                      : '—',
+                  locked: false,
+                ),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Divider(
@@ -73,21 +83,21 @@ class PromoAnalytics extends StatelessWidget {
                 _statRow(
                   icon: Icons.ads_click_outlined,
                   label: 'Impressions',
-                  value: 'Premium',
+                  value: '—',
                   locked: true,
                 ),
                 const SizedBox(height: 10),
                 _statRow(
                   icon: Icons.touch_app_outlined,
-                  label: 'Clics',
-                  value: 'Premium',
+                  label: 'Visites',
+                  value: '—',
                   locked: true,
                 ),
                 const SizedBox(height: 10),
                 _statRow(
                   icon: Icons.person_add_outlined,
                   label: 'Nouveaux clients',
-                  value: 'Premium',
+                  value: '—',
                   locked: true,
                 ),
               ],
@@ -96,25 +106,38 @@ class PromoAnalytics extends StatelessWidget {
           const SizedBox(height: 12),
 
           // ── upgrade CTA ──
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [MerchantColors.gold, Color(0xFFD4AF37)],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  'Passez en Premium — débloquez toutes les stats',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: MerchantColors.darkOverlay,
+          Builder(
+            builder: (ctx) => TextButton(
+              onPressed: () {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Bientôt disponible.',
+                      style: GoogleFonts.outfit(),
+                    ),
+                    backgroundColor: MerchantColors.navyCard,
                   ),
+                );
+              },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                minimumSize: const Size(double.infinity, 0),
+                backgroundColor:
+                    MerchantColors.gold.withValues(alpha: 0.12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: MerchantColors.gold
+                        .withValues(alpha: MerchantColors.goldBorderStronger),
+                  ),
+                ),
+              ),
+              child: Text(
+                'Statistiques avancées — Bientôt disponible',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.gold,
                 ),
               ),
             ),
@@ -152,7 +175,7 @@ class PromoAnalytics extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.lock_outline_rounded,
-                  size: 12, color: MerchantColors.textGrey),
+                  size: 12, color: MerchantColors.gold),
               const SizedBox(width: 4),
               Text(
                 value,

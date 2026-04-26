@@ -17,7 +17,7 @@ extension _RappelsClientsSectionUi on RappelsClientsSection {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const RappelsSectionHeader(
-            icon: Icons.people_outline,
+            icon: Icons.people_outline_rounded,
             title: 'Nouveaux clients et Passage',
             subtitle: 'fidélité à confirmer',
           ),

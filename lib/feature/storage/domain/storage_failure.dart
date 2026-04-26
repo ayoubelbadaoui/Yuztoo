@@ -23,7 +23,7 @@ final class StoragePermissionDeniedFailure extends StorageFailure {
     Object? cause,
     StackTrace? stackTrace,
   }) : super(
-          'Permission denied / Permission refusée',
+          'Permission refusée',
           cause: cause,
           stackTrace: stackTrace,
         );

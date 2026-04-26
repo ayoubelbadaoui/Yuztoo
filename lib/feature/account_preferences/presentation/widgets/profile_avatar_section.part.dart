@@ -308,7 +308,7 @@ class _ProfileAvatarCircle extends StatelessWidget {
   }
 
   Widget _placeholder() => const Center(
-        child: Icon(Icons.person, color: MerchantColors.gold, size: 40),
+        child: Icon(Icons.person_rounded, color: MerchantColors.gold, size: 40),
       );
 }
 

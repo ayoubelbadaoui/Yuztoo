@@ -33,6 +33,8 @@ class MerchantDto {
     this.rappelsAutoPassageValidation,
     this.rappelsMonthlyConnectedClients = 0,
     this.rappelsMonthlyValidatedPassages = 0,
+    this.weeklyNotifSentCount = 0,
+    this.weeklyNotifResetAt,
   });
 
   final String id;
@@ -63,6 +65,8 @@ class MerchantDto {
   final bool? rappelsAutoPassageValidation;
   final int rappelsMonthlyConnectedClients;
   final int rappelsMonthlyValidatedPassages;
+  final int weeklyNotifSentCount;
+  final DateTime? weeklyNotifResetAt;
 
   /// Create DTO from Firestore document snapshot.
   factory MerchantDto.fromFirestore(
@@ -135,6 +139,8 @@ class MerchantDto {
           nonNegativeInt(data['rappels_monthly_connected_clients']),
       rappelsMonthlyValidatedPassages:
           nonNegativeInt(data['rappels_monthly_validated_passages']),
+      weeklyNotifSentCount: nonNegativeInt(data['weekly_notif_sent_count']),
+      weeklyNotifResetAt: parseTimestamp(data['weekly_notif_reset_at']),
     );
   }
 
@@ -168,6 +174,8 @@ class MerchantDto {
         rappelsAutoPassageValidation: rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients: rappelsMonthlyConnectedClients,
         rappelsMonthlyValidatedPassages: rappelsMonthlyValidatedPassages,
+        weeklyNotifSentCount: weeklyNotifSentCount,
+        weeklyNotifResetAt: weeklyNotifResetAt,
       );
 
   /// Convert domain entity to DTO.
@@ -201,6 +209,8 @@ class MerchantDto {
         rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients: merchant.rappelsMonthlyConnectedClients,
         rappelsMonthlyValidatedPassages: merchant.rappelsMonthlyValidatedPassages,
+        weeklyNotifSentCount: merchant.weeklyNotifSentCount,
+        weeklyNotifResetAt: merchant.weeklyNotifResetAt,
       );
 
   /// Convert DTO to Firestore map.

@@ -30,8 +30,6 @@ class SubcategoryHeader extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: YBackButton(
                   onPressed: onBack,
-                  backgroundColor: SubcategoryColors.bgDark2,
-                  borderColor: SubcategoryColors.borderColor,
                   iconColor: SubcategoryColors.textLight,
                 ),
               ),

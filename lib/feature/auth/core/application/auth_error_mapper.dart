@@ -20,16 +20,16 @@ class AuthErrorMapper {
 
   static String? _getAuthFailureMessage(AuthFailure failure) {
     if (failure is InvalidCredentialsFailure) {
-      return 'Identifiants invalides. Vérifiez votre email et mot de passe.';
+      return 'Identifiants incorrects. Vérifiez votre adresse e-mail et votre mot de passe.';
     }
     if (failure is AccountDisabledFailure) {
       return 'Compte désactivé.';
     }
     if (failure is AuthNetworkFailure) {
-      return 'Erreur de connexion réseau. Vérifiez votre connexion internet.';
+      return 'Erreur réseau. Vérifiez votre connexion à Internet.';
     }
     if (failure is UserCancelledFailure) {
-      return 'Opération annulée par l\'utilisateur.';
+      return 'Opération annulée.';
     }
     if (failure is ProfileIncompleteFailure) {
       return 'Profil incomplet';

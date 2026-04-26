@@ -191,20 +191,13 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: widget.onBack,
-                  child: Container(
+                  child: const SizedBox(
                     width: 44,
                     height: 44,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: MerchantColors.gold, width: 2),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: MerchantColors.gold,
-                        size: 16,
-                      ),
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: MerchantColors.gold,
+                      size: 20,
                     ),
                   ),
                 )
@@ -463,7 +456,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                     color: MerchantColors.gold,
                   ),
                   child: const Center(
-                    child: Icon(Icons.add,
+                    child: Icon(Icons.add_rounded,
                         color: MerchantColors.darkOverlay, size: 20),
                   ),
                 ),

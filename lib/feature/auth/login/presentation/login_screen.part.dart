@@ -72,6 +72,7 @@ class _LoginSocialButton extends StatelessWidget {
     this.iconWidget,
     required this.onPressed,
     required this.isLoading,
+    this.semanticsLabel,
   });
 
   final IconData? icon;
@@ -79,9 +80,21 @@ class _LoginSocialButton extends StatelessWidget {
   final Widget? iconWidget;
   final VoidCallback onPressed;
   final bool isLoading;
+  /// Optional accessibility / widget-test target (e.g. Google sign-in).
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
+    final inkWell = InkWell(
+      customBorder: const CircleBorder(),
+      onTap: isLoading ? null : onPressed,
+      splashColor: _primaryGold.withValues(alpha: 0.08),
+      highlightColor: _primaryGold.withValues(alpha: 0.04),
+      child: Center(
+        child: iconWidget ?? Icon(icon, color: iconColor, size: 24),
+      ),
+    );
+
     return Container(
       width: 56,
       height: 56,
@@ -93,15 +106,13 @@ class _LoginSocialButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: isLoading ? null : onPressed,
-          splashColor: _primaryGold.withValues(alpha: 0.08),
-          highlightColor: _primaryGold.withValues(alpha: 0.04),
-          child: Center(
-            child: iconWidget ?? Icon(icon, color: iconColor, size: 24),
-          ),
-        ),
+        child: semanticsLabel != null
+            ? Semantics(
+                label: semanticsLabel,
+                button: true,
+                child: inkWell,
+              )
+            : inkWell,
       ),
     );
   }
@@ -118,6 +129,7 @@ class _LoginSocialLoginRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -125,21 +137,17 @@ class _LoginSocialLoginRow extends StatelessWidget {
           iconWidget: const _LoginGoogleIcon(),
           onPressed: () => onSocial('google'),
           isLoading: isLoading,
+          semanticsLabel: 'Google social sign-in',
         ),
-        const SizedBox(width: 16),
-        _LoginSocialButton(
-          icon: Icons.facebook_rounded,
-          iconColor: const Color(0xFF1877F2),
-          onPressed: () => onSocial('facebook'),
-          isLoading: isLoading,
-        ),
-        const SizedBox(width: 16),
-        _LoginSocialButton(
-          icon: Icons.apple,
-          iconColor: _textLight,
-          onPressed: () => onSocial('apple'),
-          isLoading: isLoading,
-        ),
+        if (isIos) ...[
+          const SizedBox(width: 16),
+          _LoginSocialButton(
+            icon: Icons.apple,
+            iconColor: _textLight,
+            onPressed: () => onSocial('apple'),
+            isLoading: isLoading,
+          ),
+        ],
       ],
     );
   }
@@ -778,7 +786,7 @@ extension _LoginScreenUi on _LoginScreenState {
                         children: [
                           LoginInputField(
                             controller: _emailController,
-                            label: 'Adresse email',
+                            label: 'Adresse e-mail',
                             hint: 'votre@email.com',
                             icon: Icons.mail_outline_rounded,
                             validator: _validateEmail,

@@ -26,7 +26,7 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
   Future<Result<Unit>> add(String userId, String merchantId) async {
     if (userId.isEmpty || merchantId.isEmpty) {
       return const Left<AppFailure, Unit>(
-        UnexpectedFailure(message: 'User ID and merchant ID are required'),
+        UnexpectedFailure(message: 'Identifiant utilisateur et identifiant commerce requis'),
       );
     }
     try {
@@ -185,7 +185,7 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
   Future<Result<Unit>> setHeartLevel(String userId, String merchantId, int heartLevel) async {
     if (userId.isEmpty || merchantId.isEmpty) {
       return const Left<AppFailure, Unit>(
-        UnexpectedFailure(message: 'User ID and merchant ID are required'),
+        UnexpectedFailure(message: 'Identifiant utilisateur et identifiant commerce requis'),
       );
     }
     final safeLevel = heartLevel.clamp(0, 3);

@@ -14,7 +14,6 @@ import 'widgets/stats_cards.dart';
 import 'widgets/navigation_tabs.dart';
 import 'widgets/news_section.dart';
 import 'widgets/hours_section.dart';
-import 'widgets/storefront_qr_section.dart';
 import 'storefront_edit_profile_screen.dart';
 import '../application/profile_edit_state.dart';
 import '../domain/entities/storefront.dart';
@@ -25,7 +24,10 @@ part 'storefront_screen.part.dart';
 
 /// Storefront screen - main UI for merchant storefront management
 class StorefrontScreen extends ConsumerStatefulWidget {
-  const StorefrontScreen({super.key});
+  const StorefrontScreen({super.key, this.onNavigate, this.isDualProfile = false});
+
+  final ValueChanged<String>? onNavigate;
+  final bool isDualProfile;
 
   @override
   ConsumerState<StorefrontScreen> createState() => _StorefrontScreenState();

@@ -102,7 +102,7 @@ class _ForgotPasswordDialogState extends ConsumerState<ForgotPasswordDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.',
+              'Saisissez votre adresse e-mail : nous vous enverrons un lien pour réinitialiser votre mot de passe.',
               style: GoogleFonts.outfit(
                 color: _textGrey,
                 fontSize: 13,
@@ -112,7 +112,7 @@ class _ForgotPasswordDialogState extends ConsumerState<ForgotPasswordDialog> {
             const SizedBox(height: 20),
             LoginInputField(
               controller: _emailController,
-              label: 'Adresse email',
+              label: 'Adresse e-mail',
               hint: 'votre@email.com',
               icon: Icons.mail_outline_rounded,
               validator: _validateEmail,

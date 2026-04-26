@@ -10,6 +10,7 @@ class YBottomNav extends StatelessWidget {
     required this.activeTab,
     required this.onTabChange,
     this.notificationBadgeCount = 0,
+    this.merchantClientCount = 0,
   });
 
   final UserRole role;
@@ -18,6 +19,9 @@ class YBottomNav extends StatelessWidget {
 
   /// Number shown on the notifications tab badge. 0 = hidden.
   final int notificationBadgeCount;
+
+  /// Live client count shown on the "Vos clients" tab badge. 0 = hidden.
+  final int merchantClientCount;
 
   @override
   Widget build(BuildContext context) {
@@ -34,12 +38,17 @@ class YBottomNav extends StatelessWidget {
             const _TabItem(id: 'loyalty', label: 'Fidélité', icon: Icons.star_border),
             const _TabItem(id: 'profile', label: 'Profil', icon: Icons.person_outline),
           ]
-        : const [
-            _TabItem(id: 'communaute', label: 'Vos clients', icon: Icons.people_outline),
-            _TabItem(id: 'rappels', label: 'Rappels', icon: Icons.notifications_outlined),
-            _TabItem(id: 'storefront', label: 'Vitrine', icon: Icons.storefront),
-            _TabItem(id: 'promotions', label: 'Promotions', icon: Icons.local_offer_outlined),
-            _TabItem(id: 'profile', label: 'Profil', icon: Icons.person_outline),
+        : [
+            _TabItem(
+              id: 'communaute',
+              label: 'Vos clients',
+              icon: Icons.people_outline,
+              badgeCount: merchantClientCount,
+            ),
+            const _TabItem(id: 'rappels', label: 'Notifications', icon: Icons.notifications_outlined),
+            const _TabItem(id: 'storefront', label: 'Vitrine', icon: Icons.storefront),
+            const _TabItem(id: 'promotions', label: 'Promotions', icon: Icons.local_offer_outlined),
+            const _TabItem(id: 'profile', label: 'Profil', icon: Icons.person_outline),
           ];
 
     return Container(
@@ -169,13 +178,13 @@ class _MerchantNavItemState extends State<_MerchantNavItem> {
                         right: 2,
                         child: Container(
                           constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFD4A017),
-                            shape: BoxShape.circle,
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD4A017),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            widget.badgeCount > 9 ? '9+' : '${widget.badgeCount}',
+                            widget.badgeCount > 99 ? '99+' : '${widget.badgeCount}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 9,

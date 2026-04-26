@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../auth/core/application/state/auth_state.dart';
 import '../../loyalty/application/client_loyalty_providers.dart'
     show merchantClientLoyaltyProgressProvider;
 import '../../merchant/application/providers.dart' as merchant_providers;
@@ -13,6 +15,7 @@ import '../../promotions/application/providers.dart'
 import '../application/providers.dart' as crm_providers;
 import '../domain/entities/merchant_client_row.dart';
 import 'widgets/client_item_card.dart';
+import 'widgets/client_qr_box.dart';
 
 part 'client_list_screen.part.dart';
 
@@ -53,12 +56,18 @@ class ClientListScreen extends ConsumerStatefulWidget {
     super.key,
     required this.onBack,
     required this.onClientSelect,
+    this.isDualProfile = false,
+    this.onSwitchRole,
+    this.onShowQr,
   });
 
   static String get path => '/merchant-clients';
 
   final VoidCallback onBack;
   final VoidCallback onClientSelect;
+  final bool isDualProfile;
+  final VoidCallback? onSwitchRole;
+  final VoidCallback? onShowQr;
 
   @override
   ConsumerState<ClientListScreen> createState() => _ClientListScreenState();

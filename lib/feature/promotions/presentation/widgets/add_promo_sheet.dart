@@ -137,6 +137,16 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
         ? _subtitleCtrl.text.trim()
         : 'Valide du ${_fmtD(_dateFrom)} au ${_fmtD(_dateTo)}';
 
+    final zone = _clientType == ClientType.payant
+        ? PromotionZone.values[_selectedDistanceIndex]
+        : null;
+
+    final targetScope = switch (_clientType) {
+      ClientType.gratuit => 'mes_clients',
+      ClientType.premium => 'yuztoo',
+      ClientType.payant => zone?.value ?? 'mes_clients',
+    };
+
     Navigator.pop(
       context,
       Promotion(
@@ -152,9 +162,10 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
         targetSegments: _clientType == ClientType.premium
             ? _selectedSegments.toList()
             : const [],
-        diffusionZone: _clientType == ClientType.payant
-            ? PromotionZone.values[_selectedDistanceIndex]
-            : null,
+        diffusionZone: zone,
+        targetScope: targetScope,
+        targetZoneLabel: zone?.label,
+        estimatedReach: zone?.estimatedReach ?? 0,
       ),
     );
   }

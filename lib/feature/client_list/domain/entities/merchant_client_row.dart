@@ -5,7 +5,8 @@ enum ClientSegment {
   nouveau,
   vip,
   habitue,
-  abonne;
+  abonne,
+  inactif;
 
   String get label {
     switch (this) {
@@ -17,6 +18,8 @@ enum ClientSegment {
         return 'Habitué';
       case ClientSegment.abonne:
         return 'Abonné';
+      case ClientSegment.inactif:
+        return 'Inactif';
     }
   }
 }
@@ -46,6 +49,11 @@ class MerchantClientRow extends Equatable {
     if (followedAt != null &&
         now.difference(followedAt!).inDays < 14) {
       return ClientSegment.nouveau;
+    }
+    if (followedAt != null &&
+        now.difference(followedAt!).inDays > 60 &&
+        heartLevel < 2) {
+      return ClientSegment.inactif;
     }
     return ClientSegment.abonne;
   }

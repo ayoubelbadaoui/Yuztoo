@@ -121,10 +121,15 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: widget.onBack,
-                    icon: const Icon(Icons.arrow_back,
-                        color: MerchantColors.gold, size: 26),
+                  GestureDetector(
+                    onTap: widget.onBack,
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Icon(Icons.arrow_back_ios_new_rounded,
+                          color: MerchantColors.gold, size: 22),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Container(
@@ -209,40 +214,6 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
                             style: GoogleFonts.outfit(
                               fontSize: 13,
                               color: MerchantColors.textLightGrey,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                HapticFeedback.mediumImpact();
-                                final demo = VitrineQrConfig.uriStringForMerchant(
-                                    'demo');
-                                final id =
-                                    VitrineQrConfig.tryParseMerchantId(demo);
-                                if (id != null) {
-                                  widget.onVitrineMerchantFound(id);
-                                }
-                              },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: MerchantColors.gold,
-                                side: const BorderSide(
-                                    color: MerchantColors.gold, width: 2),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              icon: const Icon(Icons.qr_code_scanner, size: 20),
-                              label: Text(
-                                'Scanner un code de test',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
                             ),
                           ),
                         ],

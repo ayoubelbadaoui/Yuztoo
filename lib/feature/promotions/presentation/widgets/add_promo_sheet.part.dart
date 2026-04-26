@@ -298,7 +298,7 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
         const SizedBox(height: 12),
         Row(
           children: [
-            _chip('Mes clients', ClientType.gratuit, Icons.people_outline,
+            _chip('Mes clients', ClientType.gratuit, Icons.people_outline_rounded,
                 subtitle: 'Gratuit'),
             const SizedBox(width: 8),
             _chip('Ciblés', ClientType.premium, Icons.tune_rounded,

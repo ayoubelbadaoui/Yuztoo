@@ -398,6 +398,7 @@ class _AddressField extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -413,6 +414,7 @@ class _AddressField extends StatelessWidget {
           }
           
           return Container(
+            color: Colors.white,
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
               top: 16,
@@ -444,8 +446,18 @@ class _AddressField extends StatelessWidget {
                 TextField(
                   controller: searchController,
                   autofocus: true,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: StorefrontColors.textPrimary,
+                  ),
+                  cursorColor: StorefrontColors.primaryGold,
                   decoration: InputDecoration(
                     hintText: 'Tapez une adresse...',
+                    hintStyle: const TextStyle(
+                      fontSize: 14,
+                      color: StorefrontColors.textTertiary,
+                    ),
                     prefixIcon: const Icon(Icons.search, color: StorefrontColors.primaryGold),
                     filled: true,
                     fillColor: Colors.white,
@@ -588,6 +600,7 @@ class _Field extends StatelessWidget {
                   controller: controller,
                   keyboardType: keyboardType,
                   onChanged: onChanged,
+                  cursorColor: StorefrontColors.primaryGold,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -712,6 +725,7 @@ class _MultilineField extends StatelessWidget {
               onChanged: onChanged,
               minLines: minLines,
               maxLines: minLines,
+              cursorColor: StorefrontColors.primaryGold,
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -810,6 +824,12 @@ class _SelectField extends StatelessWidget {
             child: DropdownButton<String>(
               value: options.contains(value) ? value : (options.isNotEmpty ? options.first : null),
               isExpanded: true,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: StorefrontColors.textPrimary,
+              ),
+              dropdownColor: Colors.white,
               icon: const Icon(
                 Icons.expand_more,
                 color: StorefrontColors.primaryGold,
@@ -908,156 +928,19 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
         statusBarColor: StorefrontColors.backgroundLight,
         statusBarBrightness: Brightness.light,
         statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: MerchantColors.bgHeader,
-        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: StorefrontColors.backgroundLight,
+        systemNavigationBarIconBrightness: Brightness.dark,
         systemNavigationBarContrastEnforced: false,
       ),
       child: Scaffold(
         backgroundColor: StorefrontColors.backgroundLight,
-        appBar: AppBar(
-          backgroundColor: StorefrontColors.backgroundLight,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
-          leadingWidth: 64,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                      color: StorefrontColors.primaryGold, width: 2),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: StorefrontColors.primaryGold,
-                    size: 16,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          title: Text(
-            'Modifier le profil',
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: StorefrontColors.textPrimary,
-            ),
-          ),
-          centerTitle: true,
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: GestureDetector(
-                onTap: state.isSaving
-                    ? null
-                    : () async {
-                        notifier.setBusinessName(_nameCtrl.text);
-                        notifier.setDescription(_descCtrl.text);
-                        notifier.setPhoneNumber(_phoneCtrl.text);
-                        notifier.setCity(_cityCtrl.text);
-                        notifier.setWebsiteUrl(_webCtrl.text);
-                        notifier.setAddress(_addrCtrl.text);
-                        await notifier.save();
-                        if (!context.mounted) return;
-
-                        final currentState =
-                            ref.read(storefrontProfileEditProvider);
-                        if (currentState.errorMessage != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(currentState.errorMessage!,
-                                  style: GoogleFonts.outfit(
-                                      color: Colors.white)),
-                              backgroundColor: Colors.red.shade700,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              duration: const Duration(seconds: 4),
-                            ),
-                          );
-                          ref
-                              .read(storefrontProfileEditProvider.notifier)
-                              .clearError();
-                          return;
-                        }
-
-                        ref.invalidate(storefrontProvider);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Profil enregistré',
-                                style: GoogleFonts.outfit(
-                                    color: StorefrontColors.navyDark,
-                                    fontWeight: FontWeight.w600)),
-                            backgroundColor: StorefrontColors.primaryGold,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        );
-                        Navigator.of(context).pop();
-                      },
-                child: AnimatedOpacity(
-                  opacity: state.isSaving ? 0.6 : 1.0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          StorefrontColors.primaryGold,
-                          Color(0xFFD4AF37),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(999),
-                      boxShadow: [
-                        BoxShadow(
-                          color: StorefrontColors.primaryGold
-                              .withValues(alpha: 0.3),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: state.isSaving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: StorefrontColors.navyDark,
-                              ),
-                            )
-                          : Text(
-                              'Enregistrer',
-                              style: GoogleFonts.outfit(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: StorefrontColors.navyDark,
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+        body: Column(
+          children: [
+            _buildEditHeader(context, state, notifier),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1244,10 +1127,6 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                 onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 28),
-              const _SectionTitle('Horaires d\'ouverture'),
-              const SizedBox(height: 16),
-              _HoursEditorWrapper(ref: ref),
-              const SizedBox(height: 28),
               const _SectionTitle('Galerie / Actualités'),
               const SizedBox(height: 16),
               const _GalleryEditorSection(),
@@ -1255,6 +1134,144 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
           ),
         ),
       ),
+    ],
+  ),
+    ),
+  );
+  }
+
+  Widget _buildEditHeader(
+    BuildContext context,
+    StorefrontProfileEditState state,
+    StorefrontProfileEditNotifier notifier,
+  ) {
+    return Container(
+      color: StorefrontColors.backgroundLight,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+          decoration: BoxDecoration(
+            color: StorefrontColors.backgroundLight,
+            border: Border(
+              bottom: BorderSide(
+                color: StorefrontColors.primaryGold.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                behavior: HitTestBehavior.opaque,
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: StorefrontColors.primaryGold,
+                    size: 20,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'Modifier le profil',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: StorefrontColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: state.isSaving
+                    ? null
+                    : () async {
+                        notifier.setBusinessName(_nameCtrl.text);
+                        notifier.setDescription(_descCtrl.text);
+                        notifier.setPhoneNumber(_phoneCtrl.text);
+                        notifier.setCity(_cityCtrl.text);
+                        notifier.setWebsiteUrl(_webCtrl.text);
+                        notifier.setAddress(_addrCtrl.text);
+                        await notifier.save();
+                        if (!context.mounted) return;
+                        final currentState = ref.read(storefrontProfileEditProvider);
+                        if (currentState.errorMessage != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(currentState.errorMessage!,
+                                  style: GoogleFonts.outfit(color: Colors.white)),
+                              backgroundColor: Colors.red.shade700,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                          ref.read(storefrontProfileEditProvider.notifier).clearError();
+                          return;
+                        }
+                        ref.invalidate(storefrontProvider);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Profil enregistré',
+                                style: GoogleFonts.outfit(
+                                    color: StorefrontColors.navyDark,
+                                    fontWeight: FontWeight.w600)),
+                            backgroundColor: StorefrontColors.primaryGold,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        );
+                        Navigator.of(context).pop();
+                      },
+                child: AnimatedOpacity(
+                  opacity: state.isSaving ? 0.6 : 1.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [StorefrontColors.primaryGold, Color(0xFFD4AF37)],
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: StorefrontColors.primaryGold.withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: state.isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: StorefrontColors.navyDark),
+                            )
+                          : Text(
+                              'Enregistrer',
+                              style: GoogleFonts.outfit(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: StorefrontColors.navyDark,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1330,43 +1347,6 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
         ),
       );
     }
-  }
-}
-
-/// Thin wrapper that reads the merchantId from auth state and passes it
-/// to [HoursSection], which handles its own Firestore save.
-class _HoursEditorWrapper extends ConsumerWidget {
-  const _HoursEditorWrapper({required this.ref});
-
-  // ignore: prefer_typing_uninitialized_variables
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context, WidgetRef widgetRef) {
-    final authState = widgetRef.watch(auth_providers.authStateProvider);
-    final merchantId =
-        authState is Authenticated ? authState.user.id : '';
-    if (merchantId.isEmpty) return const SizedBox.shrink();
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: StorefrontColors.primaryGold.withValues(alpha: 0.3),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: HoursSection(merchantId: merchantId),
-      ),
-    );
   }
 }
 

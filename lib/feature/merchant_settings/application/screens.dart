@@ -1,2 +1,4 @@
 export '../presentation/merchant_settings_screen.dart';
 export '../presentation/identification_security_screen.dart';
+export '../presentation/data_privacy_screen.dart';
+export '../presentation/merchant_profile_summary_screen.dart';

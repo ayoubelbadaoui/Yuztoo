@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +50,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordFocusNode = FocusNode();
   bool _isPasswordVisible = false;
   bool _isLoginSubmitting = false; // simple debounce to prevent rapid taps
+  bool _isSocialLoading = false; // loading state for Google / Apple sign-in
   bool _shouldValidateRequired = false; // Track if we should show "required" errors
   bool _emailHasBeenValidated = false; // Track if email field has been validated (blurred)
 
@@ -194,11 +196,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       },
     );
 
-    return _buildLoginContent(context, isLoading);
+    return _buildLoginContent(context, isLoading || _isSocialLoading);
   }
 
   Future<void> _handleSocialLogin(String provider) async {
-    // TODO: Implement social login (Google, Facebook, Apple)
-    showErrorSnackbar(context, 'Connexion $provider bientôt disponible');
+    switch (provider) {
+      case 'google':
+        await _signInWithGoogle();
+        return;
+      case 'apple':
+        await _signInWithApple();
+        return;
+      default:
+        showErrorSnackbar(context, 'Connexion avec $provider bientôt disponible');
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isSocialLoading = true);
+    final result = await ref.read(signInWithGoogleProvider).call();
+    if (!mounted) return;
+    setState(() => _isSocialLoading = false);
+    result.fold(
+      (failure) => showErrorSnackbar(
+        context,
+        AuthErrorMapper.getFrenchMessage(failure) ??
+            'Une erreur s\'est produite. Veuillez réessayer.',
+      ),
+      (_) {/* auth-state listener handles navigation */},
+    );
+  }
+
+  Future<void> _signInWithApple() async {
+    setState(() => _isSocialLoading = true);
+    final result = await ref.read(signInWithAppleProvider).call();
+    if (!mounted) return;
+    setState(() => _isSocialLoading = false);
+    result.fold(
+      (failure) => showErrorSnackbar(
+        context,
+        AuthErrorMapper.getFrenchMessage(failure) ??
+            'Une erreur s\'est produite. Veuillez réessayer.',
+      ),
+      (_) {/* auth-state listener handles navigation */},
+    );
   }
 }

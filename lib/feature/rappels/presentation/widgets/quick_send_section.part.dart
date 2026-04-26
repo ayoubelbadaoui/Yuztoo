@@ -29,6 +29,8 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
           _buildCompose(context),
           const SizedBox(height: 14),
           _buildAudienceChips(),
+          const SizedBox(height: 10),
+          _buildQuotaRow(),
           const SizedBox(height: 16),
           _buildSendButton(context),
           if (widget.history.isNotEmpty || widget.historyLoading) ...[
@@ -69,6 +71,8 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: InputBorder.none,
+          filled: true,
+          fillColor: Colors.transparent,
           counterStyle: GoogleFonts.outfit(
             fontSize: 10,
             color: MerchantColors.textGrey,
@@ -140,10 +144,35 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
     );
   }
 
+  // ── Quota row ─────────────────────────────────────────────────────────────
+
+  Widget _buildQuotaRow() {
+    final exceeded = widget.quotaExceeded;
+    return Row(
+      children: [
+        Icon(
+          exceeded ? Icons.lock_outline_rounded : Icons.bolt_rounded,
+          size: 13,
+          color: exceeded ? Colors.red[300] : MerchantColors.textGrey,
+        ),
+        const SizedBox(width: 5),
+        Text(
+          exceeded
+              ? 'Quota hebdomadaire atteint (${widget.quotaLabel})'
+              : 'Quota hebdo : ${widget.quotaLabel} envois',
+          style: GoogleFonts.outfit(
+            fontSize: 11,
+            color: exceeded ? Colors.red[300] : MerchantColors.textGrey,
+          ),
+        ),
+      ],
+    );
+  }
+
   // ── Send button ───────────────────────────────────────────────────────────
 
   Widget _buildSendButton(BuildContext context) {
-    final canSend = _ctrl.text.trim().isNotEmpty && !_sending;
+    final canSend = _ctrl.text.trim().isNotEmpty && !_sending && !widget.quotaExceeded;
     return GestureDetector(
       onTap: canSend ? _onSendTap : null,
       child: AnimatedContainer(
@@ -283,7 +312,7 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.people_outline,
+                      const Icon(Icons.people_outline_rounded,
                           size: 11, color: MerchantColors.textGrey),
                       const SizedBox(width: 3),
                       Text(

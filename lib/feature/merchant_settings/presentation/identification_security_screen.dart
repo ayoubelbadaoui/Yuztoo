@@ -57,6 +57,8 @@ class _IdentificationSecurityScreenState
     super.dispose();
   }
 
+  // ─── helpers ───────────────────────────────────────────────────────────────
+
   void _startEditName() {
     setState(() {
       _editingName = true;
@@ -108,7 +110,7 @@ class _IdentificationSecurityScreenState
     if (authState is! Authenticated) return;
     final email = authState.user.email;
     if (email == null || email.isEmpty) {
-      _showSnack('Aucune adresse email associée à ce compte', isError: true);
+      _showSnack('Aucune adresse e-mail associée à ce compte', isError: true);
       return;
     }
 
@@ -177,11 +179,20 @@ class _IdentificationSecurityScreenState
     final authState = ref.watch(authStateProvider);
     final email =
         authState is Authenticated ? (authState.user.email ?? '') : '';
+    final phoneNumber =
+        authState is Authenticated ? (authState.user.phoneNumber ?? '') : '';
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    // Derive connected providers heuristically from available auth data
+    final List<String> connectedProviders = [
+      if (email.isNotEmpty) 'password',
+      if (phoneNumber.isNotEmpty) 'phone',
+    ];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
+        statusBarBrightness: Brightness.dark,
         statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: MerchantColors.bgMain,
         systemNavigationBarIconBrightness: Brightness.light,
@@ -190,7 +201,12 @@ class _IdentificationSecurityScreenState
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
-          body: Column(
+          body: PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) widget.onBack?.call();
+            },
+            child: Column(
             children: [
               _buildHeader(context),
               Expanded(
@@ -208,9 +224,20 @@ class _IdentificationSecurityScreenState
                       const SizedBox(height: 10),
                       _buildNameCard(),
                       const SizedBox(height: 28),
-                      _sectionLabel('Mot de passe'),
+                      _sectionLabel('Connexion'),
                       const SizedBox(height: 10),
+                      _buildEmailCard(email),
+                      const SizedBox(height: 12),
                       _buildPasswordCard(email),
+                      const SizedBox(height: 28),
+                      _sectionLabel('Sécurité avancée'),
+                      const SizedBox(height: 10),
+                      _buildTwoFactorCard(),
+                      if (connectedProviders.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _buildConnectedProvidersCard(
+                            connectedProviders, email, phoneNumber),
+                      ],
                       const SizedBox(height: 28),
                       _sectionLabel('Zone dangereuse'),
                       const SizedBox(height: 10),
@@ -223,7 +250,8 @@ class _IdentificationSecurityScreenState
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -246,18 +274,13 @@ class _IdentificationSecurityScreenState
           child: Row(
             children: [
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: widget.onBack,
-                child: Container(
+                child: const SizedBox(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MerchantColors.gold, width: 2),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.arrow_back_ios_new_rounded,
-                        color: MerchantColors.gold, size: 16),
-                  ),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: MerchantColors.gold, size: 20),
                 ),
               ),
               const SizedBox(width: 12),
@@ -383,7 +406,7 @@ class _IdentificationSecurityScreenState
                       height: 44,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [MerchantColors.gold, Color(0xFFD4AF37)],
+                          colors: [MerchantColors.gold, MerchantColors.goldLight],
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -423,6 +446,307 @@ class _IdentificationSecurityScreenState
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  // ── email card ─────────────────────────────────────────────────────────────
+  Widget _buildEmailCard(String email) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: MerchantColors.navyCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: MerchantColors.gold.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: MerchantColors.gold.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.email_outlined,
+                color: MerchantColors.gold, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Adresse e-mail',
+                  style: GoogleFonts.outfit(
+                      fontSize: 12, color: MerchantColors.textGrey),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  email.isNotEmpty ? email : 'Non défini',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: email.isNotEmpty
+                        ? Colors.white
+                        : MerchantColors.textGrey.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => _showEmailChangeInfo(context),
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  'Modifier',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: MerchantColors.gold,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEmailChangeInfo(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: MerchantColors.navyCard,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+            24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: MerchantColors.textGrey.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Icon(Icons.info_outline,
+                color: MerchantColors.gold, size: 36),
+            const SizedBox(height: 14),
+            Text(
+              'Changement d\'email',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Pour changer votre email, utilisez le lien de réinitialisation envoyé à votre adresse actuelle. Cette fonctionnalité est en cours d\'amélioration.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: MerchantColors.textGrey,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [MerchantColors.gold, MerchantColors.goldLight],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Compris',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: MerchantColors.bgHeader,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── two-factor card ────────────────────────────────────────────────────────
+  Widget _buildTwoFactorCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: MerchantColors.navyCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: MerchantColors.gold.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: MerchantColors.gold.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.verified_user_outlined,
+                color: MerchantColors.gold, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Double authentification',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Bientôt disponible',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: MerchantColors.textGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: MerchantColors.gold.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Bientôt',
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                color: MerchantColors.gold,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── connected providers card ───────────────────────────────────────────────
+  Widget _buildConnectedProvidersCard(
+    List<String> providers,
+    String email,
+    String phone,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: MerchantColors.navyCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: MerchantColors.gold.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.devices_outlined,
+                  color: MerchantColors.gold, size: 18),
+              const SizedBox(width: 10),
+              Text(
+                'Méthodes de connexion',
+                style: GoogleFonts.outfit(
+                    fontSize: 12, color: MerchantColors.textGrey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...providers.map(
+            (pid) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    pid == 'phone'
+                        ? Icons.phone_outlined
+                        : pid == 'google.com'
+                            ? Icons.g_mobiledata_rounded
+                            : Icons.email_outlined,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      pid == 'phone'
+                          ? phone
+                          : pid == 'google.com'
+                              ? 'Google'
+                              : email,
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1B7A4B).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Actif',
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
+                        color: const Color(0xFF4CAF50),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

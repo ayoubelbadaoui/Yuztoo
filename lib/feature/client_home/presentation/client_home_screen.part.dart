@@ -30,6 +30,31 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
                   ),
                 ),
               ),
+              if (isDualProfile)
+                GestureDetector(
+                  onTap: () => onNavigate('switch-to-merchant'),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: MerchantColors.gold
+                            .withValues(alpha: MerchantColors.goldBorderStronger),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.storefront_outlined,
+                        color: MerchantColors.gold,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
               IconButton(
                 onPressed: () => onNavigate('qr-scanner'),
                 tooltip: 'Scanner un commerce',

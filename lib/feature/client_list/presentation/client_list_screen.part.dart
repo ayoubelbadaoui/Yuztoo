@@ -145,19 +145,13 @@ extension _ClientListScreenUi on _ClientListScreenState {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onBack,
-                child: Container(
+                child: const SizedBox(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MerchantColors.gold, width: 2),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold,
-                      size: 16,
-                    ),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: MerchantColors.gold,
+                    size: 20,
                   ),
                 ),
               ),
@@ -173,7 +167,29 @@ extension _ClientListScreenUi on _ClientListScreenState {
                   ),
                 ),
               ),
-              const SizedBox(width: 44),
+              GestureDetector(
+                onTap: widget.onSwitchRole,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: MerchantColors.gold
+                          .withValues(alpha: MerchantColors.goldBorderAlpha),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.switch_account,
+                      color: MerchantColors.gold,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -199,11 +215,11 @@ extension _ClientListScreenUi on _ClientListScreenState {
           hintStyle:
               GoogleFonts.outfit(fontSize: 14, color: MerchantColors.textGrey),
           prefixIcon:
-              const Icon(Icons.search, color: MerchantColors.textGrey, size: 20),
+              const Icon(Icons.search_rounded, color: MerchantColors.textGrey, size: 20),
           suffixIcon: _searchQuery.isNotEmpty
               ? GestureDetector(
                   onTap: clearSearch,
-                  child: const Icon(Icons.close,
+                  child: const Icon(Icons.close_rounded,
                       color: MerchantColors.textGrey, size: 18),
                 )
               : null,
@@ -243,6 +259,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
       ClientSegment.vip,
       ClientSegment.habitue,
       ClientSegment.abonne,
+      ClientSegment.inactif,
     ];
 
     final anyFilterActive = _segmentFilter != null || _searchQuery.isNotEmpty;
@@ -490,45 +507,61 @@ extension _ClientListScreenUi on _ClientListScreenState {
   }
 
   Widget _buildEmptyClients() {
+    final authState = ref.read(auth_providers.authStateProvider);
+    final merchantId = authState is Authenticated ? authState.user.id : '';
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(32, 48, 32, 48),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: MerchantColors.gold.withValues(alpha: 0.08),
-              ),
-              child: Icon(Icons.group_outlined,
-                  color: MerchantColors.gold.withValues(alpha: 0.6), size: 28),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 48,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 40),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: MerchantColors.gold.withValues(alpha: 0.08),
+                  ),
+                  child: Icon(Icons.group_outlined,
+                      color: MerchantColors.gold.withValues(alpha: 0.6),
+                      size: 28),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Aucun client pour l\'instant',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Faites scanner votre QR pour connecter\nvotre premier client.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: MerchantColors.textGrey,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Aucun client pour l\'instant',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Partagez votre QR code pour que\nvos clients vous rejoignent.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                color: MerchantColors.textGrey,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 32),
+          ClientQrBox(
+            merchantId: merchantId,
+            onTap: widget.onShowQr,
+          ),
+        ],
       ),
     );
   }
@@ -642,17 +675,26 @@ extension _ClientListScreenUi on _ClientListScreenState {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).padding.bottom + 80,
         ),
-        itemCount: clients.length + 1,
+        itemCount: clients.length + 2, // +1 QR banner, +1 list header
         itemBuilder: (_, i) {
           if (i == 0) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+              child: ClientQrBox(
+                merchantId: merchantId,
+                onTap: widget.onShowQr,
+              ),
+            );
+          }
+          if (i == 1) {
             return _buildListHeader(
               filtered: clients.length,
               total: allClients.length,
               isFiltered: isFiltered,
             );
           }
-          final client = clients[i - 1];
-          final isLast = i == clients.length;
+          final client = clients[i - 2];
+          final isLast = i == clients.length + 1;
           return _InsetDividerWrapper(
             showDivider: !isLast,
             child: ClientItemCard(
@@ -719,6 +761,8 @@ extension _ClientListScreenUi on _ClientListScreenState {
           allClients.where((c) => c.segment == ClientSegment.abonne).length,
       ClientSegment.nouveau:
           allClients.where((c) => c.segment == ClientSegment.nouveau).length,
+      ClientSegment.inactif:
+          allClients.where((c) => c.segment == ClientSegment.inactif).length,
     };
 
     return SingleChildScrollView(
@@ -738,7 +782,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
                 child: _statCard(
                   icon: Icons.people_outline_rounded,
                   value: '$total',
-                  label: 'Abonnés total',
+                  label: 'Total des abonnés',
                   color: MerchantColors.gold,
                 ),
               ),
@@ -748,7 +792,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
                   icon: Icons.person_add_alt_1_rounded,
                   value: '$nouveaux',
                   label: _apercuPeriod == _ApercuPeriod.all
-                      ? 'Nouveaux total'
+                      ? 'Total des nouveaux'
                       : 'Nouveaux (${_apercuPeriod.label})',
                   color: const Color(0xFF4FC3F7),
                 ),
@@ -771,7 +815,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
                 child: _statCard(
                   icon: Icons.visibility_outlined,
                   value: promoViews,
-                  label: 'Vues promos',
+                  label: 'Vues des promotions',
                   color: const Color(0xFF64B5F6),
                 ),
               ),
@@ -955,13 +999,15 @@ extension _ClientListScreenUi on _ClientListScreenState {
       ClientSegment.habitue,
       ClientSegment.abonne,
       ClientSegment.nouveau,
+      ClientSegment.inactif,
     ];
-    const labels = ['VIP', 'Habitué', 'Abonné', 'Nouveau'];
+    const labels = ['VIP', 'Habitué', 'Abonné', 'Nouveau', 'Inactif'];
     const colors = [
       Color(0xFFFFD700),
       Color(0xFF4CAF50),
       MerchantColors.gold,
       Color(0xFF4FC3F7),
+      Colors.grey,
     ];
 
     final maxVal = segments
@@ -1403,6 +1449,8 @@ class _ClientDetailSheet extends ConsumerWidget {
         return const Color(0xFF64B5F6);
       case ClientSegment.abonne:
         return MerchantColors.gold;
+      case ClientSegment.inactif:
+        return Colors.grey;
     }
   }
 

@@ -44,7 +44,7 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
 
     const duplicateEmailMsg = AuthUnexpectedFailure(
       message:
-          'Cette adresse email est déjà utilisée. Connectez-vous ou utilisez une autre adresse.',
+          'Cette adresse e-mail est déjà utilisée. Connectez-vous ou utilisez une autre adresse.',
     );
 
     final normalizedEmail = email.trim().toLowerCase();

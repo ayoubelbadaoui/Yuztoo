@@ -33,7 +33,7 @@ class FirestorePromotionRepository implements PromotionRepository {
   }) async {
     if (merchantId.isEmpty) {
       return const Left(
-        PromotionUnexpectedFailure(message: 'Merchant ID is required'),
+        PromotionUnexpectedFailure(message: 'L\'identifiant du commerce est requis'),
       );
     }
     try {
@@ -171,7 +171,7 @@ class FirestorePromotionRepository implements PromotionRepository {
   }) async {
     if (promotion.merchantId.isEmpty || promotion.id.isEmpty) {
       return const Left(
-        PromotionUnexpectedFailure(message: 'Merchant ID and Promotion ID required'),
+        PromotionUnexpectedFailure(message: 'Identifiant du commerce et identifiant de la promotion requis'),
       );
     }
     try {
@@ -255,7 +255,7 @@ class FirestorePromotionRepository implements PromotionRepository {
   }) async {
     if (merchantId.isEmpty || promotionId.isEmpty) {
       return const Left(
-        PromotionUnexpectedFailure(message: 'Merchant ID and Promotion ID required'),
+        PromotionUnexpectedFailure(message: 'Identifiant du commerce et identifiant de la promotion requis'),
       );
     }
     try {

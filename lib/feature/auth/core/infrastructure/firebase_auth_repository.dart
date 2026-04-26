@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../domain/auth_failure.dart';
 import '../domain/entities/auth_user.dart';
@@ -59,7 +61,7 @@ abstract class _FirebaseAuthRepositoryBase {
       case 'email-already-in-use':
         return const AuthUnexpectedFailure(
           message:
-              'Vous avez déjà un compte avec cette adresse email — impossible d’en créer un second. Connectez-vous.',
+              'Vous avez déjà un compte avec cette adresse e-mail — impossible d’en créer un second. Connectez-vous.',
         );
       case 'credential-already-in-use':
       case 'account-exists-with-different-credential':
@@ -123,13 +125,13 @@ abstract class _FirebaseAuthRepositoryBase {
       case 'email-already-in-use':
         return const AuthUnexpectedFailure(
           message:
-              'Vous avez déjà un compte avec cette adresse email — impossible d’en créer un second. Connectez-vous.',
+              'Vous avez déjà un compte avec cette adresse e-mail — impossible d’en créer un second. Connectez-vous.',
         );
       case 'weak-password':
         return const AuthUnexpectedFailure(
             message: 'Le mot de passe est trop faible');
       case 'invalid-email':
-        return const AuthUnexpectedFailure(message: 'Adresse email invalide');
+        return const AuthUnexpectedFailure(message: 'Adresse e-mail non valide');
       case 'phone-number-already-exists':
         return const AuthUnexpectedFailure(
           message:

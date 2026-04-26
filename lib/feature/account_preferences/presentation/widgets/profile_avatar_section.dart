@@ -103,7 +103,10 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur lors de la sélection de l\'image: ${e.toString()}'),
+          content: Text(
+            'Erreur lors de la sélection de l\'image: ${e.toString()}',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -130,7 +133,10 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Photo sauvegardée localement (sync cloud échouée)'),
+            content: Text(
+              'Photo sauvegardée localement (sync cloud échouée)',
+              style: GoogleFonts.outfit(color: Colors.white),
+            ),
             backgroundColor: MerchantColors.navyCard,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

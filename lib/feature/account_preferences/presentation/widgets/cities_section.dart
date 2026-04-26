@@ -74,7 +74,15 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
                             (failure) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(failure.message),
+                                  content: Text(
+                                    failure.message,
+                                    style: GoogleFonts.outfit(color: Colors.white),
+                                  ),
+                                  backgroundColor: MerchantColors.navyCard,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                               );
                             },
@@ -214,8 +222,19 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
         );
     if (!context.mounted) return;
     result.fold(
-      (f) => ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(f.message))),
+      (f) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            f.message,
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+          backgroundColor: MerchantColors.navyCard,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
       (_) => ref.invalidate(connectedCitiesProvider(uid)),
     );
   }
@@ -237,7 +256,7 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
           shape: BoxShape.circle,
           border: Border.all(color: MerchantColors.gold, width: 2),
         ),
-        child: const Icon(Icons.add, color: MerchantColors.gold, size: 20),
+        child: const Icon(Icons.add_rounded, color: MerchantColors.gold, size: 20),
       ),
     );
   }

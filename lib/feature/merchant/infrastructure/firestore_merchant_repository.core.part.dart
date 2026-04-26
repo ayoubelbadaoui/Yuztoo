@@ -62,7 +62,7 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
       if (!merchantToCreate.isValid()) {
         return const Left<MerchantFailure, Merchant>(
           MerchantUnexpectedFailure(
-            message: 'Unable to create merchant / Impossible de créer le profil commerçant',
+            message: 'Impossible de créer le profil commerçant',
           ),
         );
       }
@@ -109,7 +109,7 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
         );
         return const Left<MerchantFailure, Merchant>(
           UnableToCreateMerchantFailure(
-            message: 'Unable to create merchant / Impossible de créer le profil commerçant',
+            message: 'Impossible de créer le profil commerçant',
           ),
         );
       }
@@ -142,7 +142,7 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
         return const Left<MerchantFailure, Merchant>(
           UnableToCreateMerchantFailure(
             message:
-                'Permission denied (Firestore rules) / Permission refusée (règles Firestore). Impossible de créer le profil commerçant.',
+                'Permission refusée (règles Firestore). Impossible de créer le profil commerçant.',
           ),
         );
       }
@@ -165,7 +165,7 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
       );
       return Left<MerchantFailure, Merchant>(
         MerchantUnexpectedFailure(
-          message: 'Unable to create merchant / Impossible de créer le profil commerçant',
+          message: 'Impossible de créer le profil commerçant',
           cause: e,
           stackTrace: st,
         ),

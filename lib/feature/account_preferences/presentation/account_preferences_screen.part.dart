@@ -84,16 +84,13 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => widget.onBack?.call(),
-                child: Container(
+                child: const SizedBox(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MerchantColors.gold, width: 2),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.arrow_back_ios_new_rounded,
-                        color: MerchantColors.gold, size: 16),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: MerchantColors.gold,
+                    size: 20,
                   ),
                 ),
               ),
@@ -324,7 +321,7 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
           height: 54,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [MerchantColors.gold, Color(0xFFD4AF37)],
+              colors: [MerchantColors.gold, MerchantColors.goldLight],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

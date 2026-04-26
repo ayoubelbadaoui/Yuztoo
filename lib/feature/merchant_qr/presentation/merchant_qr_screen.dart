@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/config/vitrine_qr_config.dart';
 import '../../merchant/application/providers.dart';
 
 /// Merchant QR Code screen — real QR backed by the merchant's Firestore ID.
@@ -160,17 +161,11 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onBack,
-                child: Container(
+                child: const SizedBox(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MerchantColors.gold, width: 2),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.arrow_back_ios_new_rounded,
-                        color: MerchantColors.gold, size: 16),
-                  ),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: MerchantColors.gold, size: 20),
                 ),
               ),
               const SizedBox(width: 4),
@@ -252,7 +247,7 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
                     ),
                     padding: const EdgeInsets.all(16),
                     child: QrImageView(
-                      data: merchantId,
+                      data: VitrineQrConfig.uriStringForMerchant(merchantId),
                       version: QrVersions.auto,
                       size: 220,
                       gapless: true,

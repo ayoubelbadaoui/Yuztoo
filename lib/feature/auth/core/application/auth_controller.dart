@@ -12,19 +12,34 @@ class AuthController extends StateNotifier<AuthState> {
   AuthController({
     required SignOut signOut,
     required WatchAuthState watchAuthState,
+    /// Runs **before** Firebase Auth sign-out so Firestore rules still see
+    /// `request.auth.uid` (e.g. delete `users/{uid}/push_tokens/device`).
+    Future<void> Function(String uid)? onClearDevicePushToken,
   })  : _signOut = signOut,
         _watchAuthState = watchAuthState,
+        _onClearDevicePushToken = onClearDevicePushToken,
         super(const AuthInitial()) {
     _listenToAuthStream();
   }
 
   final SignOut _signOut;
   final WatchAuthState _watchAuthState;
+  final Future<void> Function(String uid)? _onClearDevicePushToken;
 
   StreamSubscription<Result<AuthUser?>>? _authSubscription;
 
   Future<void> signOut() async {
+    final uid = switch (state) {
+      Authenticated(:final user) => user.id,
+      _ => null,
+    };
     state = const AuthLoading();
+    final clearPush = _onClearDevicePushToken;
+    if (uid != null && clearPush != null) {
+      try {
+        await clearPush(uid);
+      } catch (_) {}
+    }
     final result = await _signOut();
     state = result.fold<AuthState>(
       (failure) => AuthError(failure),

@@ -167,7 +167,7 @@ extension _SignupScreenUi on _SignupScreenState {
         showErrorSnackbar(
           context,
           (emailError == null || emailError.isEmpty)
-              ? 'Impossible de vérifier l\'adresse email.'
+              ? 'Impossible de vérifier l\'adresse e-mail.'
               : emailError,
         );
         _withSetState(() {
@@ -257,7 +257,307 @@ extension _SignupScreenUi on _SignupScreenState {
   }
 
   Future<void> _handleSocialLogin(String provider) async {
-    showErrorSnackbar(context, 'Connexion $provider bientôt disponible');
+    switch (provider) {
+      case 'apple':
+        if (!Platform.isIOS) {
+          showErrorSnackbar(
+            context,
+            'Connexion Apple disponible sur iPhone et iPad.',
+          );
+          return;
+        }
+        await _completeOAuthSignup(
+          () => ref.read(login_providers.signInWithAppleProvider).call(),
+        );
+        return;
+      case 'google':
+        await _completeOAuthSignup(
+          () => ref.read(login_providers.signInWithGoogleProvider).call(),
+        );
+        return;
+      default:
+        showErrorSnackbar(context, 'Connexion $provider bientôt disponible');
+    }
+  }
+
+  /// Google / Apple: existing Firestore profile → same as login. New Auth user
+  /// without `/users/{uid}` → phone dialog then [CreateUserDocument].
+  Future<void> _completeOAuthSignup(
+    Future<Result<AuthUser>> Function() signIn,
+  ) async {
+    ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+        true;
+    _withSetState(() => _isSocialLoading = true);
+    try {
+      final result = await signIn();
+      if (!mounted) return;
+
+      if (result.isLeft) {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+        final failure = result.leftOrNull;
+        final msg = failure != null
+            ? (AuthErrorMapper.getFrenchMessage(failure) ??
+                'Une erreur s\'est produite. Veuillez réessayer.')
+            : 'Une erreur s\'est produite. Veuillez réessayer.';
+        showErrorSnackbar(context, msg);
+        return;
+      }
+
+      final authUser = result.rightOrNull;
+      if (authUser == null) {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+        return;
+      }
+
+      final basicsResult = await ref
+          .read(auth_core.getUserProfileBasicsProvider)
+          .call(authUser.id);
+      if (!mounted) return;
+      final hasProfile = basicsResult.fold((_) => false, (b) => b != null);
+
+      if (hasProfile) {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+        await ref.read(auth_core.authControllerProvider.notifier).refreshAuthState();
+        return;
+      }
+
+      final email = authUser.email?.trim();
+      if (email == null || email.isEmpty) {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+        if (!mounted) return;
+        showErrorSnackbar(
+          context,
+          'Aucune adresse e-mail n\'est associée à ce compte. Utilisez l\'inscription par e-mail.',
+        );
+        await ref.read(auth_core.authControllerProvider.notifier).signOut();
+        return;
+      }
+
+      final emailCheck = await ref
+          .read(verifyEmailAvailableForSignupProvider)
+          .call(email: email);
+      if (!mounted) return;
+      if (emailCheck.isLeft) {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+        final f = emailCheck.leftOrNull;
+        showErrorSnackbar(
+          context,
+          f != null
+              ? (AuthErrorMapper.getFrenchMessage(f) ??
+                  'Cette adresse e-mail ne peut pas être utilisée.')
+              : 'Cette adresse e-mail ne peut pas être utilisée.',
+        );
+        await ref.read(auth_core.authControllerProvider.notifier).signOut();
+        return;
+      }
+
+      final phoneE164 = await _promptPhoneForOAuthCompletion();
+      if (!mounted) return;
+
+      if (phoneE164 == null || phoneE164.isEmpty) {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+        await ref.read(auth_core.authControllerProvider.notifier).signOut();
+        return;
+      }
+
+      final phoneCheck = await ref
+          .read(verifyPhoneAvailableForSignupProvider)
+          .call(phoneNumber: phoneE164);
+      if (!mounted) return;
+      if (phoneCheck.isLeft) {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+        final f = phoneCheck.leftOrNull;
+        showErrorSnackbar(
+          context,
+          f != null
+              ? (AuthErrorMapper.getFrenchMessage(f) ??
+                  'Ce numéro ne peut pas être utilisé.')
+              : 'Ce numéro ne peut pas être utilisé.',
+        );
+        await ref.read(auth_core.authControllerProvider.notifier).signOut();
+        return;
+      }
+
+      final createResult = await ref.read(createUserDocumentProvider).call(
+            uid: authUser.id,
+            email: email,
+            phone: phoneE164,
+            roles: signupRolesMap(widget.role),
+          );
+      if (!mounted) return;
+
+      if (createResult.isLeft) {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+        final f = createResult.leftOrNull;
+        showErrorSnackbar(
+          context,
+          f != null
+              ? (AuthErrorMapper.getFrenchMessage(f) ??
+                  'Impossible de finaliser l\'inscription.')
+              : 'Impossible de finaliser l\'inscription.',
+        );
+        await ref.read(auth_core.authControllerProvider.notifier).signOut();
+        return;
+      }
+
+      ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+          false;
+      try {
+        await ref.read(auth_core.patchUserDocumentProvider).call(authUser.id);
+      } catch (_) {}
+      try {
+        await ref.read(auth_core.updateLastLoginAtProvider).call(authUser.id);
+      } catch (_) {}
+      await ref.read(auth_core.authControllerProvider.notifier).refreshAuthState();
+    } catch (_) {
+      ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+          false;
+      if (mounted) {
+        showErrorSnackbar(
+          context,
+          'Une erreur s\'est produite. Veuillez réessayer.',
+        );
+        await ref.read(auth_core.authControllerProvider.notifier).signOut();
+      }
+    } finally {
+      if (mounted) {
+        _withSetState(() => _isSocialLoading = false);
+      }
+    }
+  }
+
+  /// E.164 phone to attach to a new OAuth account before [CreateUserDocument].
+  Future<String?> _promptPhoneForOAuthCompletion() async {
+    final initial = (_phoneNumber != null && _phoneNumber!.trim().isNotEmpty)
+        ? _phoneNumber!.trim()
+        : '';
+    final controller = TextEditingController(text: initial);
+
+    final submitted = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        String? fieldError;
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            return AlertDialog(
+              backgroundColor: SignupConstants.bgDark2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: SignupConstants.borderColor),
+              ),
+              title: Text(
+                'Finaliser votre inscription',
+                style: GoogleFonts.outfit(
+                  color: SignupConstants.textLight,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pour sécuriser votre compte, indiquez votre numéro de mobile (format international).',
+                      style: GoogleFonts.outfit(
+                        color: SignupConstants.textGrey,
+                        fontSize: 13,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: controller,
+                      keyboardType: TextInputType.phone,
+                      autocorrect: false,
+                      style: GoogleFonts.outfit(
+                        color: SignupConstants.textLight,
+                        fontSize: 15,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '+33 6 12 34 56 78',
+                        hintStyle: GoogleFonts.outfit(
+                          color: SignupConstants.textGrey,
+                          fontSize: 14,
+                        ),
+                        errorText: fieldError,
+                        filled: true,
+                        fillColor: SignupConstants.bgDark1,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              const BorderSide(color: SignupConstants.borderColor),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              const BorderSide(color: SignupConstants.borderColor),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: SignupConstants.primaryGold,
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(
+                    'Annuler',
+                    style: GoogleFonts.outfit(color: SignupConstants.textGrey),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final raw = controller.text.trim();
+                    final formatted = raw.startsWith('+')
+                        ? raw.replaceAll(RegExp(r'\s'), '')
+                        : PhoneFormatter.formatPhoneNumber(
+                            _selectedCountryCode,
+                            raw,
+                          );
+                    if (!PhoneFormatter.isValidE164(formatted)) {
+                      setModal(() {
+                        fieldError = 'Numéro invalide (ex. +33 6 12 34 56 78).';
+                      });
+                      return;
+                    }
+                    setModal(() => fieldError = null);
+                    Navigator.of(dialogContext).pop(formatted);
+                  },
+                  child: Text(
+                    'Continuer',
+                    style: GoogleFonts.outfit(
+                      color: SignupConstants.primaryGold,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return submitted;
   }
 
   void _onPasswordFieldFocusChanged(bool isFocused) {
@@ -447,7 +747,7 @@ extension _SignupScreenUi on _SignupScreenState {
                   const SocialDivider(),
                   const SizedBox(height: 16),
                   SocialLoginButtons(
-                    isLoading: _isLoading,
+                    isLoading: _isLoading || _isSocialLoading,
                     onSocialLogin: _handleSocialLogin,
                   ),
                   const SizedBox(height: 24),

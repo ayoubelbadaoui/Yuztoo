@@ -10,4 +10,9 @@ abstract class ISentNotificationRepository {
 
   /// Persists a record after a batch send (id is empty — repo assigns one).
   Future<Result<SentNotification>> create(SentNotification notification);
+
+  /// Increments the rolling weekly quota counter on the merchant doc.
+  /// Resets the counter to 1 + updates [weekly_notif_reset_at] if 7+ days
+  /// have passed since the last reset (or if never set).
+  Future<void> incrementWeeklyNotifCount(String merchantId);
 }

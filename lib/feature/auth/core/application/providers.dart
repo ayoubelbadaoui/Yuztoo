@@ -81,6 +81,8 @@ final authControllerProvider =
   return AuthController(
     signOut: ref.watch(signOutProvider),
     watchAuthState: ref.watch(watchAuthStateProvider),
+    // Wired with FCM cleanup in `main.dart` [ProviderScope.overrides].
+    onClearDevicePushToken: null,
   );
 });
 
@@ -98,6 +100,10 @@ final currentUserIdProvider = Provider<String?>((ref) {
 final roleCacheServiceProvider = Provider<RoleCacheService>((ref) {
   return RoleCacheService();
 });
+
+/// While true, [main.dart] defers routing when Firebase Auth is signed in but
+/// `/users/{uid}` is missing — signup is collecting phone to create the profile.
+final oauthFirestoreProfilePendingProvider = StateProvider<bool>((ref) => false);
 
 /// Use case provider for getting user role
 final getUserRoleProvider = Provider<GetUserRole>((ref) {

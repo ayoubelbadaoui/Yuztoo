@@ -8,8 +8,11 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../client_list/application/providers.dart' as crm_providers;
 import '../../client_list/domain/entities/merchant_client_row.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
+import '../../promotions/application/providers.dart' as promo_providers;
+import '../../promotions/domain/entities/promotion.dart';
 import '../../rappels/application/providers.dart' as rappels_providers;
 import '../../rappels/domain/entities/pending_client_row.dart';
+import '../../rappels/domain/entities/sent_notification.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;
 import '../../storefront/domain/entities/storefront.dart';
 
@@ -65,6 +68,10 @@ class _MerchantStatsScreenState extends ConsumerState<MerchantStatsScreen>
         : ref.watch(
             rappels_providers.pendingClientsForMerchantProvider(merchantId),
           );
+    final sentNotifAsync = merchantId.isEmpty
+        ? const AsyncValue<List<SentNotification>>.data([])
+        : ref.watch(rappels_providers.sentNotificationsProvider(merchantId));
+    final promotionsAsync = ref.watch(promo_providers.merchantPromotionsProvider);
 
     return _buildStatsBody(
       context,
@@ -72,6 +79,8 @@ class _MerchantStatsScreenState extends ConsumerState<MerchantStatsScreen>
       clientsAsync: clientsAsync,
       storefrontAsync: storefrontAsync,
       pendingAsync: pendingAsync,
+      sentNotifAsync: sentNotifAsync,
+      promotionsAsync: promotionsAsync,
     );
   }
 }

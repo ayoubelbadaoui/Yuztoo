@@ -48,7 +48,7 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
   @override
   Future<Result<SentNotification>> create(SentNotification notification) async {
     if (notification.merchantId.isEmpty) {
-      return const Left(UnexpectedFailure(message: 'merchantId is required'));
+      return const Left(UnexpectedFailure(message: 'L\'identifiant du commerce est requis'));
     }
     try {
       final dto = SentNotificationDto(
@@ -70,6 +70,35 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
     } catch (e, st) {
       LoggerService.logError('createSentNotification', error: e, stackTrace: st);
       return Left(UnexpectedFailure(message: 'Erreur d\'enregistrement', cause: e, stackTrace: st));
+    }
+  }
+
+  @override
+  Future<void> incrementWeeklyNotifCount(String merchantId) async {
+    if (merchantId.isEmpty) return;
+    try {
+      final docRef = _firestore.collection('merchants').doc(merchantId);
+      final snap = await docRef.get();
+      final data = snap.data();
+      final resetAt = data?['weekly_notif_reset_at'];
+      DateTime? lastReset;
+      if (resetAt is Timestamp) lastReset = resetAt.toDate();
+
+      final shouldReset = lastReset == null ||
+          DateTime.now().difference(lastReset).inDays >= 7;
+
+      if (shouldReset) {
+        await docRef.update({
+          'weekly_notif_sent_count': 1,
+          'weekly_notif_reset_at': FieldValue.serverTimestamp(),
+        });
+      } else {
+        await docRef.update({
+          'weekly_notif_sent_count': FieldValue.increment(1),
+        });
+      }
+    } catch (e, st) {
+      LoggerService.logError('incrementWeeklyNotifCount', error: e, stackTrace: st);
     }
   }
 }

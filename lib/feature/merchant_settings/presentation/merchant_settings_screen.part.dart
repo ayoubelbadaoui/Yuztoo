@@ -61,30 +61,25 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
           SettingsPreferencesSection(
             onNavigate: widget.onNavigate,
           ),
-          _buildInfoBox(),
           SettingsServicesSection(
             services: [
               ServiceToggle(
-                icon: Icons.chat_bubble_outline,
                 label: 'Message conciergerie',
                 value: messaging,
                 onChanged: _setMessageConciergerie,
               ),
               ServiceToggle(
-                icon: Icons.favorite_outline,
                 label: 'Fidélité',
                 value: fidelite,
                 onChanged: _setFidelite,
                 onTap: () => widget.onNavigate?.call('e-fidelite'),
               ),
               ServiceToggle(
-                icon: Icons.notifications_outlined,
                 label: 'Notifications automatique',
                 value: notifications,
                 onChanged: _setNotificationsAuto,
               ),
               ServiceToggle(
-                icon: Icons.image_outlined,
                 label: 'Galerie',
                 value: galerie,
                 onChanged: _setGalerie,
@@ -232,45 +227,38 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
         ),
       ),
       child: Center(
-        child: Text(
-          'Gérez ici tous les paramètres de l\'application',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            color: MerchantColors.textLightGrey,
-            height: 1.6,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: MerchantColors.gold.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: MerchantColors.gold.withValues(alpha: 0.4),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.workspace_premium_rounded,
+                  color: MerchantColors.gold, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                'Plan Gratuit',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.gold,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoBox() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: MerchantColors.gold.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: MerchantColors.gold.withValues(alpha: 0.4),
-            width: 1,
-          ),
-        ),
-        child: Text(
-            'Gardez le contrôle sur vos données et activez vos fonctionnalités préférées.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
-            fontSize: 13,
-            color: MerchantColors.textLightGrey,
-            height: 1.6,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildLogoutSection() {
     return Column(

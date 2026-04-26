@@ -129,6 +129,8 @@ class ClientItemCard extends StatelessWidget {
         return const Color(0xFF4CAF50);
       case ClientSegment.nouveau:
         return const Color(0xFF64B5F6);
+      case ClientSegment.inactif:
+        return Colors.grey;
       case ClientSegment.abonne:
       case null:
         return MerchantColors.gold;

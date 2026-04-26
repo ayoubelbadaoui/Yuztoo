@@ -161,17 +161,11 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onBack ?? () => Navigator.of(context).maybePop(),
-                child: Container(
+                child: const SizedBox(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MerchantColors.gold, width: 2),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.arrow_back_ios_new_rounded,
-                        color: MerchantColors.gold, size: 16),
-                  ),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: MerchantColors.gold, size: 20),
                 ),
               ),
               Expanded(

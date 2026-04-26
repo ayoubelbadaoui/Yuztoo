@@ -53,7 +53,7 @@ class EmailField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('ADRESSE EMAIL', style: _labelStyle()),
+        Text('ADRESSE E-MAIL', style: _labelStyle()),
         const SizedBox(height: 8),
         TextFormField(
           key: fieldKey,

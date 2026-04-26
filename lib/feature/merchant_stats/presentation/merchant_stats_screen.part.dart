@@ -7,6 +7,8 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
     required AsyncValue<List<MerchantClientRow>> clientsAsync,
     required AsyncValue<Storefront?> storefrontAsync,
     required AsyncValue<List<PendingClientRow>> pendingAsync,
+    required AsyncValue<List<SentNotification>> sentNotifAsync,
+    required AsyncValue<List<Promotion>> promotionsAsync,
   }) {
     final clients = clientsAsync.valueOrNull ?? <MerchantClientRow>[];
     final storefront = storefrontAsync.valueOrNull;
@@ -77,25 +79,25 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
                           mainAxisSpacing: 12,
                           children: [
                             _buildKpiCard(
-                              icon: Icons.people_outline,
+                              icon: Icons.people_outline_rounded,
                               value: '${clients.length}',
                               label: 'Abonnés',
                               isLoading: clientsAsync.isLoading,
                             ),
                             _buildKpiCard(
-                              icon: Icons.person_add_outlined,
+                              icon: Icons.person_add_alt_1_rounded,
                               value: '$connectedThisMonth',
                               label: 'Nouveaux ce mois',
                               isLoading: storefrontAsync.isLoading,
                             ),
                             _buildKpiCard(
-                              icon: Icons.loyalty_outlined,
+                              icon: Icons.loyalty_rounded,
                               value: '$passagesThisMonth',
                               label: 'Passages ce mois',
                               isLoading: storefrontAsync.isLoading,
                             ),
                             _buildKpiCard(
-                              icon: Icons.pending_outlined,
+                              icon: Icons.pending_rounded,
                               value: '$pendingCount',
                               label: 'En attente',
                               isLoading: pendingAsync.isLoading,
@@ -122,6 +124,16 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
 
                         const SizedBox(height: 16),
                       ],
+
+                      // ── Notification performance ──────────────────────
+                      _buildNotifPerformanceSection(sentNotifAsync),
+
+                      const SizedBox(height: 16),
+
+                      // ── Promo performance ─────────────────────────────
+                      _buildPromoPerformanceSection(promotionsAsync),
+
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -157,20 +169,13 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onBack,
-                child: Container(
+                child: const SizedBox(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border:
-                        Border.all(color: MerchantColors.gold, width: 2),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold,
-                      size: 16,
-                    ),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: MerchantColors.gold,
+                    size: 20,
                   ),
                 ),
               ),
@@ -611,6 +616,265 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
         return const Color(0xFF64B5F6);
       case ClientSegment.abonne:
         return MerchantColors.gold;
+      case ClientSegment.inactif:
+        return Colors.grey;
     }
+  }
+
+  // ── Notification performance section ─────────────────────────────────────
+  Widget _buildNotifPerformanceSection(
+      AsyncValue<List<SentNotification>> sentNotifAsync) {
+    final notifications = sentNotifAsync.valueOrNull ?? [];
+    final isLoading = sentNotifAsync.isLoading;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PERFORMANCE DES NOTIFICATIONS',
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: MerchantColors.textGrey,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(
+                    color: MerchantColors.gold, strokeWidth: 2),
+              ),
+            )
+          else if (notifications.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: MerchantColors.navyCard,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.notifications_none_rounded,
+                      color: MerchantColors.textGrey, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Aucune notification envoyée ce mois.',
+                    style: GoogleFonts.outfit(
+                        fontSize: 13, color: MerchantColors.textGrey),
+                  ),
+                ],
+              ),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _notifKpiCard(
+                    icon: Icons.send_rounded,
+                    value: '${notifications.length}',
+                    label: 'Envoyées',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _notifKpiCard(
+                    icon: Icons.people_outline_rounded,
+                    value: '${notifications.first.sentCount}',
+                    label: 'Dernière portée',
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _notifKpiCard({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+      decoration: BoxDecoration(
+        color: MerchantColors.navyCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: MerchantColors.gold.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: MerchantColors.gold, size: 20),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              color: MerchantColors.textGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Promo performance section ──────────────────────────────────────────────
+  Widget _buildPromoPerformanceSection(
+      AsyncValue<List<Promotion>> promotionsAsync) {
+    final promotions = promotionsAsync.valueOrNull ?? [];
+    final active = promotions.where((p) => p.isOnline).toList();
+    final isLoading = promotionsAsync.isLoading;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PERFORMANCE DES PROMOTIONS',
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: MerchantColors.textGrey,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(
+                    color: MerchantColors.gold, strokeWidth: 2),
+              ),
+            )
+          else if (active.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: MerchantColors.navyCard,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.local_offer_outlined,
+                      color: MerchantColors.textGrey, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Aucune promotion active.',
+                    style: GoogleFonts.outfit(
+                        fontSize: 13, color: MerchantColors.textGrey),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: MerchantColors.navyCard,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.2)),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: active.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  color: MerchantColors.gold.withValues(alpha: 0.12),
+                ),
+                itemBuilder: (context, i) {
+                  final promo = active[i];
+                  final startStr = _formatDate(promo.dateFrom);
+                  final endStr = _formatDate(promo.dateTo);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: MerchantColors.gold.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.local_offer_rounded,
+                              color: MerchantColors.gold, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                promo.title,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '$startStr → $endStr',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  color: MerchantColors.textGrey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: MerchantColors.gold.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${promo.viewCount} vues',
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              color: MerchantColors.gold,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}';
   }
 }

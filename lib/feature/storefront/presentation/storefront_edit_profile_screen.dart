@@ -6,11 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/utils/city_input.dart';
 import '../application/profile_edit_state.dart';
 import '../application/providers.dart';
-import 'widgets/hours_section.dart';
 import 'widgets/storefront_colors.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';

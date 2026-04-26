@@ -260,12 +260,7 @@ extension _SocialLoginButtonsUi on SocialLoginButtons {
         _SocialIconButton(
           iconWidget: const GoogleIcon(),
           onPressed: isLoading ? null : () => onSocialLogin('google'),
-        ),
-        const SizedBox(width: 16),
-        _SocialIconButton(
-          icon: Icons.facebook_rounded,
-          iconColor: const Color(0xFF1877F2),
-          onPressed: isLoading ? null : () => onSocialLogin('facebook'),
+          semanticsLabel: 'Google social sign-in',
         ),
         const SizedBox(width: 16),
         _SocialIconButton(
@@ -285,15 +280,27 @@ class _SocialIconButton extends StatelessWidget {
     this.icon,
     this.iconColor,
     this.iconWidget,
+    this.semanticsLabel,
   });
 
   final IconData? icon;
   final Color? iconColor;
   final Widget? iconWidget;
   final VoidCallback? onPressed;
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
+    final inkWell = InkWell(
+      customBorder: const CircleBorder(),
+      onTap: onPressed,
+      splashColor: SignupConstants.primaryGold.withValues(alpha: 0.08),
+      highlightColor: SignupConstants.primaryGold.withValues(alpha: 0.04),
+      child: Center(
+        child: iconWidget ?? Icon(icon, color: iconColor, size: 24),
+      ),
+    );
+
     return Container(
       width: 56,
       height: 56,
@@ -308,16 +315,13 @@ class _SocialIconButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onPressed,
-          splashColor: SignupConstants.primaryGold.withValues(alpha: 0.08),
-          highlightColor: SignupConstants.primaryGold.withValues(alpha: 0.04),
-          child: Center(
-            child: iconWidget ??
-                Icon(icon, color: iconColor, size: 24),
-          ),
-        ),
+        child: semanticsLabel != null
+            ? Semantics(
+                label: semanticsLabel,
+                button: true,
+                child: inkWell,
+              )
+            : inkWell,
       ),
     );
   }

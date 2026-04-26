@@ -1205,8 +1205,8 @@ class _BackButton extends StatelessWidget {
 // Tab content widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Accueil tab — contact info + description + promotions.
-class _AccueilTab extends StatelessWidget {
+/// Accueil tab — contact info + description + promotions + partner recommendations.
+class _AccueilTab extends ConsumerWidget {
   const _AccueilTab({
     required this.merchant,
     required this.promotions,
@@ -1217,7 +1217,12 @@ class _AccueilTab extends StatelessWidget {
   final void Function(Promotion) onPromoTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final partnersAsync = ref
+        .watch(partners_providers.merchantPartnersProvider(merchant.id));
+    final partners = partnersAsync.valueOrNull ?? [];
+    final confirmedPartners =
+        partners.where((p) => !p.isPending).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1303,6 +1308,81 @@ class _AccueilTab extends StatelessWidget {
         ],
 
         if (promotions.isEmpty) const SizedBox(height: 8),
+
+        // Recommended partners — only shown when partners exist
+        if (confirmedPartners.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const _SectionLabel('Recommandés par ce commerce'),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 90,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              itemCount: confirmedPartners.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, i) {
+                final p = confirmedPartners[i];
+                return GestureDetector(
+                  onTap: () {
+                    ref
+                        .read(selectedStoreMerchantIdProvider.notifier)
+                        .state = p.partnerMerchantId;
+                  },
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: StorefrontColors.primaryGold
+                              .withValues(alpha: 0.08),
+                          border: Border.all(
+                            color: StorefrontColors.primaryGold
+                                .withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: p.partnerLogoUrl != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  p.partnerLogoUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.store_rounded,
+                                    color: StorefrontColors.primaryGold,
+                                    size: 24,
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.store_rounded,
+                                color: StorefrontColors.primaryGold,
+                                size: 24,
+                              ),
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        width: 64,
+                        child: Text(
+                          p.partnerName,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            fontSize: 10,
+                            color: StorefrontColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ],
     );
   }

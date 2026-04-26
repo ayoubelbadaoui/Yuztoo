@@ -19,6 +19,8 @@ class QuickSendSection extends ConsumerStatefulWidget {
     required this.onSend,
     this.history = const [],
     this.historyLoading = false,
+    this.quotaLabel = '0/5',
+    this.quotaExceeded = false,
   });
 
   final String merchantId;
@@ -34,6 +36,12 @@ class QuickSendSection extends ConsumerStatefulWidget {
   /// Pre-loaded sent notification history (newest first).
   final List<SentNotification> history;
   final bool historyLoading;
+
+  /// E.g. "2/5" — shown as quota indicator.
+  final String quotaLabel;
+
+  /// When true, the send button is disabled.
+  final bool quotaExceeded;
 
   @override
   ConsumerState<QuickSendSection> createState() => _QuickSendSectionState();
@@ -59,7 +67,7 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
   }
 
   Future<void> _onSendTap() async {
-    if (_ctrl.text.trim().isEmpty) return;
+    if (_ctrl.text.trim().isEmpty || widget.quotaExceeded) return;
     setState(() => _sending = true);
 
     final option = _audienceOptions[_audienceIndex];

@@ -58,7 +58,7 @@ class SendMerchantNotification {
       result.fold((_) {}, (_) => sent++);
     }
 
-    // 3. Persist the send record.
+    // 3. Persist the send record + update quota counter.
     await _sentNotifRepo.create(SentNotification(
       id: '',
       merchantId: merchantId,
@@ -68,6 +68,7 @@ class SendMerchantNotification {
       sentCount: sent,
       sentAt: DateTime.now(),
     ));
+    await _sentNotifRepo.incrementWeeklyNotifCount(merchantId);
 
     return Right(sent);
   }

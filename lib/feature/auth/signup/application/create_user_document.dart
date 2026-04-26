@@ -17,7 +17,7 @@ class CreateUserDocument {
     if (uid.isEmpty) {
       return Future<Result<Unit>>.value(
         const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'User ID is required.'),
+          AuthUnexpectedFailure(message: 'L\'identifiant utilisateur est requis.'),
         ),
       );
     }
@@ -25,7 +25,7 @@ class CreateUserDocument {
     if (email.isEmpty) {
       return Future<Result<Unit>>.value(
         const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'Email is required.'),
+          AuthUnexpectedFailure(message: 'L\'adresse e-mail est requise.'),
         ),
       );
     }
@@ -33,7 +33,7 @@ class CreateUserDocument {
     if (phone.isEmpty) {
       return Future<Result<Unit>>.value(
         const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'Phone number is required.'),
+          AuthUnexpectedFailure(message: 'Le numéro de téléphone est requis.'),
         ),
       );
     }

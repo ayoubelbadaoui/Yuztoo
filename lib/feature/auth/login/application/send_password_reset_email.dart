@@ -13,7 +13,7 @@ class SendPasswordResetEmail {
     if (!EmailAddress.isValid(email)) {
       return Future<Result<Unit>>.value(
         const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'Adresse email invalide.'),
+          AuthUnexpectedFailure(message: 'Adresse e-mail non valide.'),
         ),
       );
     }
