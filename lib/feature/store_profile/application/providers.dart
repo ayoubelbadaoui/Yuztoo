@@ -16,7 +16,11 @@ export '../../client_home/application/providers.dart'
         viewedMerchantsLocalServiceProvider,
         clientHomeFeedProvider;
 export '../../followed_merchants/application/providers.dart'
-    show toggleMerchantFollowProvider, ensureFollowedAndSetHeartLevelProvider;
+    show
+        toggleMerchantFollowProvider,
+        ensureFollowedAndSetHeartLevelProvider,
+        merchantMuteStateProvider,
+        setMuteStateProvider;
 export '../../loyalty/application/client_loyalty_providers.dart'
     show
         clientLoyaltyProgressForMerchantProvider,
@@ -49,7 +53,10 @@ final storeProfilePageDataProvider =
   );
   final promotions = (results[1] as Result<List<Promotion>>).fold(
     (_) => <Promotion>[],
-    (List<Promotion> list) => list,
+    // Only show promotions that are online and not yet expired.
+    (List<Promotion> list) => list
+        .where((p) => p.isOnline && p.dateTo.isAfter(DateTime.now()))
+        .toList(),
   );
 
   return (merchant: merchant, promotions: promotions);

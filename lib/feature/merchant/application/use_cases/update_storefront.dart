@@ -59,7 +59,7 @@ class UpdateStorefront {
     if (merchantId.isEmpty) {
       return const Left(
         MerchantUnexpectedFailure(
-          message: 'Merchant ID is required',
+          message: 'L\'identifiant du commerce est requis',
         ),
       );
     }
@@ -83,14 +83,14 @@ class UpdateStorefront {
         return uploadResult.fold<Result<Merchant>>(
           (failure) => Left(
             MerchantUnexpectedFailure(
-              message: 'Upload failed / Échec du téléversement',
+              message: 'Échec du téléversement',
               cause: failure.cause,
               stackTrace: failure.stackTrace,
             ),
           ),
           (_) => const Left(
             MerchantUnexpectedFailure(
-              message: 'Upload failed / Échec du téléversement',
+              message: 'Échec du téléversement',
             ),
           ),
         );
@@ -113,14 +113,14 @@ class UpdateStorefront {
         return uploadResult.fold<Result<Merchant>>(
           (failure) => Left(
             MerchantUnexpectedFailure(
-              message: 'Banner upload failed / Échec du téléversement de la bannière',
+              message: 'Échec du téléversement de la bannière',
               cause: failure.cause,
               stackTrace: failure.stackTrace,
             ),
           ),
           (_) => const Left(
             MerchantUnexpectedFailure(
-              message: 'Banner upload failed / Échec du téléversement de la bannière',
+              message: 'Échec du téléversement de la bannière',
             ),
           ),
         );

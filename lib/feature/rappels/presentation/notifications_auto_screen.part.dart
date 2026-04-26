@@ -1,5 +1,29 @@
 part of 'notifications_auto_screen.dart';
 
+// ── DUMMY: remove the 15 lines below before shipping ─────────────────────────
+const _kNotifDummy = false;
+const _kDummyNotifications = [
+  ActiveNotification(
+    id: 'dummy_1',
+    merchantId: '',
+    text: 'Bonjour ! Merci pour votre visite, revenez bientôt 👋',
+    trigger: '1er passage fidélité',
+    audience: 'Tous mes clients',
+    isEnabled: true,
+    targetSegments: [],
+  ),
+  ActiveNotification(
+    id: 'dummy_2',
+    merchantId: '',
+    text: 'Vous êtes à 1 passage de votre récompense ! 🎁',
+    trigger: 'Avant-dernier passage',
+    audience: 'Certains clients',
+    isEnabled: false,
+    targetSegments: ['Clients fidèles'],
+  ),
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
 extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
   Widget _buildNotificationsAutoRoot(
     String? merchantId,
@@ -10,56 +34,104 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
         statusBarColor: MerchantColors.bgHeader,
         statusBarBrightness: Brightness.dark,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarColor: MerchantColors.bgMain,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
-      child: Scaffold(
-        backgroundColor: MerchantColors.bgMain,
-        body: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 32),
-                child: Column(
-                  children: [
-                    ComposeSection(
-                      controller: _textCtrl,
-                      isEditing: _editingIndex != null,
-                      onCancelEdit: _cancelEdit,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) {
+            if (widget.onBack != null) {
+              widget.onBack!();
+            } else {
+              Navigator.of(context).maybePop();
+            }
+          }
+        },
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Scaffold(
+            backgroundColor: MerchantColors.bgMain,
+            body: Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 32),
+                    child: Column(
+                      children: [
+                        ComposeSection(
+                          controller: _textCtrl,
+                          isEditing: _editingIndex != null,
+                          onCancelEdit: _cancelEdit,
+                        ),
+                        AudienceSection(
+                          selectedIndex: _clientSelection,
+                          onChanged: _onClientSelectionChanged,
+                          targetSegments: _targetSegments,
+                          onSegmentToggled: _onSegmentToggled,
+                        ),
+                        _buildTriggerSection(),
+                        _buildActionButton(merchantId),
+                        notificationsAsync.when(
+                          data: (notifications) {
+                            final display = (_kNotifDummy && notifications.isEmpty)
+                                ? _kDummyNotifications
+                                : notifications;
+                            return ActiveNotificationsList(
+                              notifications: display,
+                              onToggle: (i, v) => _onToggle(
+                                  merchantId ?? '', display[i], v),
+                              onEdit: (i) => _edit(display, i),
+                              onDelete: (i) =>
+                                  _delete(merchantId ?? '', display, i),
+                              onTest: (i) =>
+                                  _onTest(merchantId ?? '', display[i]),
+                            );
+                          },
+                          loading: () => const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                  color: MerchantColors.gold),
+                            ),
+                          ),
+                          error: (err, __) => Padding(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 24, horizontal: 16),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade900.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: Colors.red.shade400.withValues(alpha: 0.5)),
+                              ),
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error_outline_rounded,
+                                      color: Colors.red.shade300, size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Impossible de charger les notifications automatiques.',
+                                      style: GoogleFonts.outfit(
+                                          fontSize: 13,
+                                          color: Colors.red.shade200),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    AudienceSection(
-                      selectedIndex: _clientSelection,
-                      onChanged: _onClientSelectionChanged,
-                    ),
-                    _buildTriggerSection(),
-                    _buildActionButton(merchantId),
-                    notificationsAsync.when(
-                      data: (notifications) => ActiveNotificationsList(
-                        notifications: notifications,
-                        onToggle: (i, v) =>
-                            _onToggle(merchantId!, notifications[i], v),
-                        onEdit: (i) => _edit(notifications, i),
-                        onDelete: (i) => _delete(merchantId!, notifications, i),
-                      ),
-                      loading: () => ActiveNotificationsList(
-                        notifications: const [],
-                        onToggle: (_, __) {},
-                        onEdit: (_) {},
-                        onDelete: (_) {},
-                      ),
-                      error: (_, __) => ActiveNotificationsList(
-                        notifications: const [],
-                        onToggle: (_, __) {},
-                        onEdit: (_) {},
-                        onDelete: (_) {},
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -73,7 +145,7 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
       child: SafeArea(
         bottom: false,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
           decoration: BoxDecoration(
             color: MerchantColors.bgHeader,
             border: Border(
@@ -86,31 +158,29 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           ),
           child: Row(
             children: [
-                    GestureDetector(
+              GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onBack ?? () => Navigator.of(context).maybePop(),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MerchantColors.gold, width: 1.5),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.arrow_back_ios_new_rounded,
-                        color: MerchantColors.gold, size: 16),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: MerchantColors.gold, size: 20),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'Notifications auto.',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Notifications auto.',
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
+              const SizedBox(width: 44),
             ],
           ),
         ),
@@ -226,6 +296,7 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
     final audienceLabel =
         _clientSelection == 0 ? 'Tous mes clients' : 'Certains clients';
     final text = _textCtrl.text.trim();
+    final segments = _clientSelection == 1 ? _targetSegments : const <String>[];
 
     if (_editingNotification != null) {
       final updateUseCase =
@@ -234,6 +305,7 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
         text: text,
         trigger: triggerLabel,
         audience: audienceLabel,
+        targetSegments: segments,
       );
       final result = await updateUseCase.call(updated);
       result.fold(
@@ -254,6 +326,7 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
             _editingIndex = null;
             _editingNotification = null;
             _textCtrl.clear();
+            _targetSegments = const [];
           });
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -280,6 +353,7 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           text: text,
           trigger: triggerLabel,
           audience: audienceLabel,
+          targetSegments: segments,
         ),
       );
       result.fold(
@@ -296,7 +370,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
         },
         (_) {
           ref.invalidate(rappels_providers.autoNotificationsProvider(merchantId));
-          _withSetState(() => _textCtrl.clear());
+          _withSetState(() {
+            _textCtrl.clear();
+            _targetSegments = const [];
+          });
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -316,14 +393,24 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
       _editingIndex = null;
       _editingNotification = null;
       _textCtrl.clear();
+      _targetSegments = const [];
     });
   }
 
   void _edit(List<ActiveNotification> notifications, int i) {
+    final notif = notifications[i];
+    // Restore trigger index from the saved label string
+    final triggerIdx = triggerLabels.indexOf(notif.trigger);
+    // Restore audience index: 0 = Tous, 1 = Certains
+    final audienceIdx = notif.audience == 'Tous mes clients' ? 0 : 1;
     _withSetState(() {
       _editingIndex = i;
-      _editingNotification = notifications[i];
-      _textCtrl.text = notifications[i].text;
+      // Only set _editingNotification for real (non-dummy) entries.
+      _editingNotification = notif.id.startsWith('dummy_') ? null : notif;
+      _textCtrl.text = notif.text;
+      _selectedTrigger = triggerIdx >= 0 ? triggerIdx : 0;
+      _clientSelection = audienceIdx;
+      _targetSegments = List<String>.from(notif.targetSegments);
     });
   }
 
@@ -359,6 +446,18 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
     int i,
   ) {
     final notification = notifications[i];
+    // Dummy entries can't be deleted from Firestore.
+    if (notification.id.startsWith('dummy_')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Données de démo — non supprimable',
+              style: GoogleFonts.outfit()),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: MerchantColors.navyCard,
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -406,6 +505,62 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
                 style: GoogleFonts.outfit(color: Colors.red)),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Sends a test notification to the merchant's own device.
+  Future<void> _onTest(
+    String merchantId,
+    ActiveNotification notification,
+  ) async {
+    final auth = ref.read(firebaseAuthProvider);
+    final ownerUid = auth.currentUser?.uid;
+    if (ownerUid == null || ownerUid.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Utilisateur non connecté', style: GoogleFonts.outfit()),
+          backgroundColor: Colors.red[400],
+        ),
+      );
+      return;
+    }
+
+    // Fetch merchant name for the notification title.
+    final storefrontAsync =
+        ref.read(storefront_providers.storefrontProvider).valueOrNull;
+    final merchantName = storefrontAsync?.merchantName ?? 'Votre commerce';
+
+    final notifRepo = ref.read(clientNotificationRepositoryProvider);
+    final result = await notifRepo.create(
+      ClientNotification(
+        id: '',
+        clientId: ownerUid,
+        merchantId: merchantId,
+        merchantName: merchantName,
+        type: ClientNotificationType.auto,
+        title: merchantName,
+        body: notification.text,
+        isRead: false,
+        createdAt: DateTime.now(),
+      ),
+    );
+    if (!mounted) return;
+    result.fold(
+      (_) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('Erreur lors de l\'envoi du test', style: GoogleFonts.outfit()),
+          backgroundColor: Colors.red[400],
+        ),
+      ),
+      (_) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Notification test envoyée sur votre téléphone 📱',
+              style: GoogleFonts.outfit()),
+          backgroundColor: MerchantColors.gold,
+        ),
       ),
     );
   }

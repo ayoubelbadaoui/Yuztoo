@@ -27,7 +27,7 @@ class AppBootstrap extends ConsumerWidget {
       error: (error, _) => MaterialApp(
         home: Scaffold(
           body: Center(
-            child: Text('Failed to initialize Firebase: $error'),
+            child: Text('Impossible d\'initialiser Firebase : $error'),
           ),
         ),
       ),

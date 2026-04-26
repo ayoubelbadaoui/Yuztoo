@@ -238,7 +238,7 @@ class _MerchantOnboardingFlowScreenState
         children: [
           IconButton(
             onPressed: _goBack,
-            icon: const Icon(Icons.arrow_back_ios),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
             color: MerchantOnboardingColors.primaryGold,
             iconSize: 20,
           ),

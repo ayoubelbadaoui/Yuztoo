@@ -8,6 +8,7 @@ abstract final class MerchantColors {
   static const bgMain = Color(0xFF0E2A44);
   static const bgHeader = Color(0xFF0B1F33);
   static const gold = Color(0xFFD4A017);
+  static const goldLight = Color(0xFFD4AF37);
   static const navyCard = Color(0xFF1A2B4D);
   static const cream = Color(0xFFE8D5B7);
   static const textGrey = Color(0xFF999999);

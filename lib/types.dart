@@ -28,6 +28,12 @@ enum ScreenId {
   merchantStorefront,
   merchantRappels,
   merchantNotificationsAuto,
+  merchantNotificationsHub,
+  merchantPartners,
   merchantEFidelite,
   merchantAccountPreferences,
+  merchantSecurity,
+  merchantDataPrivacy,
+  merchantProfileSummary,
+  guestShell,
 }

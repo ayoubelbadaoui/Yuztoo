@@ -24,7 +24,7 @@ class FirebaseStorageRepository implements StorageRepository {
     if (filePath.isEmpty || storagePath.isEmpty) {
       return const Left<StorageFailure, String>(
         StorageUnexpectedFailure(
-          message: 'File path and storage path are required',
+          message: 'Chemin du fichier et chemin de stockage requis',
         ),
       );
     }
@@ -105,7 +105,7 @@ class FirebaseStorageRepository implements StorageRepository {
     if (storagePath.isEmpty) {
       return const Left<StorageFailure, Unit>(
         StorageUnexpectedFailure(
-          message: 'Storage path is required',
+          message: 'Chemin de stockage requis',
         ),
       );
     }

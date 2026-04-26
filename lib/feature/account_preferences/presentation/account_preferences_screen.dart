@@ -18,11 +18,14 @@ class AccountPreferencesScreen extends ConsumerStatefulWidget {
     super.key,
     this.onBack,
     this.onCreateProAccount,
+    this.onEditProfile,
   });
 
   final VoidCallback? onBack;
   /// Called when the client taps "Créer un compte pro" to start merchant onboarding.
   final VoidCallback? onCreateProAccount;
+  /// Called when the user taps the edit icon next to their name.
+  final VoidCallback? onEditProfile;
 
   @override
   ConsumerState<AccountPreferencesScreen> createState() =>

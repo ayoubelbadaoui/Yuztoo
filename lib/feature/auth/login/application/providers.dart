@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/application/providers.dart';
 import '../../core/application/state/auth_state.dart';
 import 'sign_in_with_email_password.dart';
+import 'sign_in_with_social.dart';
 import 'send_password_reset_email.dart';
 import 'login_controller.dart';
 import 'login_flow_controller.dart';
@@ -14,6 +15,14 @@ final signInWithEmailPasswordProvider =
     Provider<SignInWithEmailPassword>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return SignInWithEmailPassword(repository);
+});
+
+final signInWithGoogleProvider = Provider<SignInWithGoogle>((ref) {
+  return SignInWithGoogle(ref.watch(authRepositoryProvider));
+});
+
+final signInWithAppleProvider = Provider<SignInWithApple>((ref) {
+  return SignInWithApple(ref.watch(authRepositoryProvider));
 });
 
 /// Login-specific controller that extends the core AuthController

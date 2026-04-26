@@ -39,7 +39,7 @@ class VerifyPhoneAndCreateUser {
     if (!EmailAddress.isValid(email)) {
       return Future<Result<AuthUser>>.value(
         const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(message: 'Adresse email invalide.'),
+          AuthUnexpectedFailure(message: 'Adresse e-mail non valide.'),
         ),
       );
     }

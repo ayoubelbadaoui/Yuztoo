@@ -8,6 +8,7 @@ import '../../../core/shared/widgets/app_logo.dart';
 import '../../auth/core/application/user_display_helpers.dart';
 import '../application/client_loyalty_providers.dart';
 import '../application/providers.dart';
+import '../domain/entities/client_merchant_loyalty_progress.dart' show ClientLoyaltyTier;
 
 part 'loyalty_cards_screen.part.dart';
 
@@ -17,12 +18,15 @@ class LoyaltyCardsScreen extends ConsumerWidget {
     super.key,
     required this.onBack,
     required this.onNotifications,
+    this.onStoreTap,
   });
 
   static String get path => '/loyalty';
 
   final VoidCallback onBack;
   final VoidCallback onNotifications;
+  /// Called with merchant id when the user taps a loyalty card.
+  final ValueChanged<String>? onStoreTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,8 +53,7 @@ class LoyaltyCardsScreen extends ConsumerWidget {
 
     final user = authState.user;
     final basics = ref.watch(userProfileBasicsProvider(user.id)).valueOrNull;
-    final email = resolveEmail(user, basics);
-    final phone = resolvePhone(user, basics);
+    final firstName = resolveDisplayName(user, basics).split(' ').first;
     final feedAsync = ref.watch(clientLoyaltyFeedProvider);
 
     return PopScope(
@@ -75,10 +78,17 @@ class LoyaltyCardsScreen extends ConsumerWidget {
                 child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _ContactLines(email: email, phone: phone),
+                      _GreetingBlock(
+                        firstName: firstName,
+                        feedAsync: feedAsync,
+                      ),
                       const SizedBox(height: 24),
-                      _LoyaltyFeed(feedAsync: feedAsync),
+                      _LoyaltyFeed(
+                        feedAsync: feedAsync,
+                        onStoreTap: onStoreTap,
+                      ),
                     ],
                   ),
                 ),

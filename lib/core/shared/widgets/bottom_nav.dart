@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../types.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../feature/storefront/application/widgets.dart';
+import '../../../l10n/app_localizations.dart';
 
 class YBottomNav extends StatelessWidget {
   const YBottomNav({
@@ -10,6 +11,7 @@ class YBottomNav extends StatelessWidget {
     required this.activeTab,
     required this.onTabChange,
     this.notificationBadgeCount = 0,
+    this.merchantClientCount = 0,
   });
 
   final UserRole role;
@@ -19,27 +21,36 @@ class YBottomNav extends StatelessWidget {
   /// Number shown on the notifications tab badge. 0 = hidden.
   final int notificationBadgeCount;
 
+  /// Live client count shown on the "Vos clients" tab badge. 0 = hidden.
+  final int merchantClientCount;
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final tabs = role == UserRole.client
         ? [
-            const _TabItem(id: 'home', label: 'Accueil', icon: Icons.home_outlined),
-            const _TabItem(id: 'discovery', label: 'Découvrir', icon: Icons.search),
+            _TabItem(id: 'home', label: l10n.home, icon: Icons.home_outlined),
+            _TabItem(id: 'discovery', label: l10n.discovery, icon: Icons.search),
             _TabItem(
               id: 'notifications',
-              label: 'Alertes',
+              label: l10n.navAlerts,
               icon: Icons.notifications_none_rounded,
               badgeCount: notificationBadgeCount,
             ),
-            const _TabItem(id: 'loyalty', label: 'Fidélité', icon: Icons.star_border),
-            const _TabItem(id: 'profile', label: 'Profil', icon: Icons.person_outline),
+            _TabItem(id: 'loyalty', label: l10n.loyalty, icon: Icons.star_border),
+            _TabItem(id: 'profile', label: l10n.profile, icon: Icons.person_outline),
           ]
-        : const [
-            _TabItem(id: 'communaute', label: 'Vos clients', icon: Icons.people_outline),
-            _TabItem(id: 'rappels', label: 'Rappels', icon: Icons.notifications_outlined),
-            _TabItem(id: 'storefront', label: 'Vitrine', icon: Icons.storefront),
-            _TabItem(id: 'promotions', label: 'Promotions', icon: Icons.local_offer_outlined),
-            _TabItem(id: 'profile', label: 'Profil', icon: Icons.person_outline),
+        : [
+            _TabItem(
+              id: 'communaute',
+              label: l10n.navYourClients,
+              icon: Icons.people_outline,
+              badgeCount: merchantClientCount,
+            ),
+            _TabItem(id: 'rappels', label: l10n.navNotifications, icon: Icons.notifications_outlined),
+            _TabItem(id: 'storefront', label: l10n.navStorefront, icon: Icons.storefront),
+            _TabItem(id: 'promotions', label: l10n.promotions, icon: Icons.local_offer_outlined),
+            _TabItem(id: 'profile', label: l10n.profile, icon: Icons.person_outline),
           ];
 
     return Container(
@@ -169,13 +180,13 @@ class _MerchantNavItemState extends State<_MerchantNavItem> {
                         right: 2,
                         child: Container(
                           constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFD4A017),
-                            shape: BoxShape.circle,
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD4A017),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            widget.badgeCount > 9 ? '9+' : '${widget.badgeCount}',
+                            widget.badgeCount > 99 ? '99+' : '${widget.badgeCount}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 9,

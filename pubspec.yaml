@@ -1,7 +1,7 @@
 name: flutter_yuztoo
 description: Flutter UI recreation of the High-Fidelity Yuztoo design.
 publish_to: "none"
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -38,6 +38,14 @@ dependencies:
   # 7.x requires Dart ^3.10 / Flutter >=3.38.1; keep 6.x for Flutter 3.35.x (Dart 3.9.x).
   app_links: ^6.4.1
   intl: ^0.20.2
+  share_plus: ^12.0.2
+  path_provider: ^2.1.5
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^7.0.1
+  url_launcher: ^6.3.2
+  flutter_nfc_kit: ^3.6.2
+  ndef: ^0.4.0
+  universal_platform: ^1.1.0
 
 dev_dependencies:
   flutter_test:
@@ -48,6 +56,7 @@ dev_dependencies:
   json_serializable: ^6.8.0
   mockito: ^5.4.4
   mocktail: ^1.0.1
+  fake_cloud_firestore: ^4.1.0+1
 
 flutter:
   uses-material-design: true

@@ -37,9 +37,29 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                           },
                         ),
                         _NavItem(
+                          icon: Icons.shield_outlined,
+                          label: 'Sécurité & Confidentialité',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (ctx) => DataPrivacyScreen(
+                                  onBack: () => Navigator.of(ctx).pop(),
+                                  onAccountDeleted: () => Navigator.of(ctx).pop(),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        _NavItem(
                           icon: Icons.credit_card,
                           label: l10n.paymentMethods,
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const _PaymentStubScreen(),
+                              ),
+                            );
+                          },
                           isLast: true,
                         ),
                       ],
@@ -48,14 +68,50 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                       sectionLabel: l10n.support,
                       items: [
                         _NavItem(
-                          icon: Icons.help_outline,
+                          icon: Icons.help_outline_rounded,
                           label: l10n.helpCenter,
-                          onTap: () {},
+                          onTap: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final url = Uri.parse('https://yuztoo.app/aide');
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url,
+                                  mode: LaunchMode.externalApplication);
+                            } else {
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Centre d\'aide bientôt disponible',
+                                    style: GoogleFonts.outfit(fontSize: 13),
+                                  ),
+                                  backgroundColor: MerchantColors.bgHeader,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          },
                         ),
                         _NavItem(
-                          icon: Icons.description_outlined,
+                          icon: Icons.article_outlined,
                           label: l10n.termsOfUse,
-                          onTap: () {},
+                          onTap: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final url = Uri.parse('https://yuztoo.app/cgu');
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url,
+                                  mode: LaunchMode.externalApplication);
+                            } else {
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Conditions d\'utilisation bientôt disponibles',
+                                    style: GoogleFonts.outfit(fontSize: 13),
+                                  ),
+                                  backgroundColor: MerchantColors.bgHeader,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          },
                           isLast: true,
                         ),
                       ],
@@ -225,11 +281,132 @@ class _NavItem extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right,
+            const Icon(Icons.chevron_right_rounded,
                 color: MerchantColors.textGrey, size: 20),
           ],
         ),
       ),
     );
+  }
+}
+
+// ── Payment stub ─────────────────────────────────────────────────────────────
+
+class _PaymentStubScreen extends StatelessWidget {
+  const _PaymentStubScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: MerchantColors.bgHeader,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: MerchantColors.bgMain,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: MerchantColors.bgMain,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // Custom top bar
+              Container(
+                color: MerchantColors.bgHeader,
+                padding: const EdgeInsets.fromLTRB(8, 12, 20, 12),
+                decoration: BoxDecoration(
+                  color: MerchantColors.bgHeader,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: MerchantColors.gold
+                          .withValues(alpha: MerchantColors.goldBorderAlpha),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      behavior: HitTestBehavior.opaque,
+                      child: const SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Center(
+                          child: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: MerchantColors.gold,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Moyens de paiement',
+                      style: GoogleFonts.outfit(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: MerchantColors.textWhite,
+                      ),
+                    ),
+                    const Spacer(),
+                    const SizedBox(width: 44),
+                  ],
+                ),
+              ), // end top bar Container
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: MerchantColors.gold.withValues(alpha: 0.1),
+                    border: Border.all(
+                      color: MerchantColors.gold
+                          .withValues(alpha: MerchantColors.goldBorderStronger),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.credit_card_rounded,
+                    color: MerchantColors.gold,
+                    size: 38,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Bientôt disponible',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: MerchantColors.textWhite,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'La gestion des moyens de paiement sera disponible prochainement.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: MerchantColors.textLightGrey,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+              ), // end Expanded
+            ], // end Column children
+          ), // end Column
+        ), // end Scaffold body SafeArea
+      ), // end Scaffold
+    ); // end AnnotatedRegion
   }
 }

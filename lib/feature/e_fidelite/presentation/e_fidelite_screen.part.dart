@@ -26,7 +26,7 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
           statusBarColor: MerchantColors.bgHeader,
           statusBarBrightness: Brightness.dark,
           statusBarIconBrightness: Brightness.light,
-          systemNavigationBarColor: MerchantColors.bgHeader,
+          systemNavigationBarColor: MerchantColors.bgMain,
           systemNavigationBarIconBrightness: Brightness.light,
         ),
         child: Scaffold(
@@ -191,18 +191,18 @@ class _EFideliteHeader extends StatelessWidget {
           ),
           child: Row(
             children: [
-              IconButton(
-                onPressed: onBack,
-                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                style: IconButton.styleFrom(
-                  foregroundColor: MerchantColors.gold,
-                  side: const BorderSide(color: MerchantColors.gold, width: 2),
-                  shape: const CircleBorder(),
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(40, 40),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onBack,
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: MerchantColors.gold,
+                    size: 20,
+                  ),
                 ),
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
               ),
               const SizedBox(width: 4),
               Expanded(

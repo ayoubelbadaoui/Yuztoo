@@ -10,7 +10,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
         statusBarColor: MerchantColors.bgHeader,
         statusBarBrightness: Brightness.dark,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarColor: MerchantColors.bgMain,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: PopScope(
@@ -29,23 +29,44 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                     child: promotionsAsync.when(
                       loading: _buildLoading,
                       error: (err, _) => _buildError(err),
-                      data: (promotions) => SingleChildScrollView(
-                        padding: EdgeInsets.only(
-                          bottom:
-                              MediaQuery.of(context).padding.bottom + 80,
-                        ),
-                        child: Column(
-                          children: [
-                            _buildAddPromoSection(),
-                            if (promotions.isEmpty)
-                              _buildEmpty()
-                            else
-                              _buildPromoList(promotions),
-                            const PromoAnalytics(),
-                            _buildNotificationsAutoButton(),
-                          ],
-                        ),
-                      ),
+                    data: (promotions) {
+                        final now = DateTime.now();
+                        final active = promotions
+                            .where((p) =>
+                                p.isOnline && p.dateTo.isAfter(now))
+                            .toList();
+                        final others = promotions
+                            .where((p) =>
+                                !p.isOnline || !p.dateTo.isAfter(now))
+                            .toList();
+                        return RefreshIndicator(
+                          color: MerchantColors.gold,
+                          backgroundColor: MerchantColors.navyCard,
+                          onRefresh: _onRefresh,
+                          child: SingleChildScrollView(
+                            physics:
+                                const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.only(
+                              bottom: MediaQuery.of(context).padding.bottom +
+                                  80,
+                            ),
+                            child: Column(
+                              children: [
+                                _buildAddPromoSection(),
+                                if (promotions.isEmpty)
+                                  _buildEmpty()
+                                else ...[
+                                  _buildActiveSection(active),
+                                  if (others.isNotEmpty)
+                                    _buildOthersSection(others),
+                                  PromoAnalytics(promotions: promotions),
+                                ],
+                                _buildNotificationsAutoButton(),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -142,12 +163,18 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
   // ── Header with back button ──────────────────────────────────────────────
 
   Widget _buildHeader() {
+    final promotions =
+        ref.watch(merchantPromotionsProvider).valueOrNull ?? [];
+    final activeCount = promotions
+        .where((p) => p.isOnline && p.dateTo.isAfter(DateTime.now()))
+        .length;
+
     return Container(
       color: MerchantColors.bgHeader,
       child: SafeArea(
         bottom: false,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
           decoration: BoxDecoration(
             color: MerchantColors.bgHeader,
             border: Border(
@@ -164,34 +191,56 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: widget.onBack,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: MerchantColors.gold, width: 1.5),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: MerchantColors.gold,
-                        size: 15,
-                      ),
+                  child: const SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: MerchantColors.gold,
+                      size: 20,
                     ),
                   ),
                 )
               else
-                const SizedBox(width: 36),
-              const SizedBox(width: 12),
-              Text(
-                'Promotions',
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                const SizedBox(width: 44),
+              Expanded(
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Promotions',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      if (activeCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: MerchantColors.gold,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$activeCount',
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: MerchantColors.bgHeader,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(width: 44),
             ],
           ),
         ),
@@ -394,8 +443,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: MerchantColors.gold.withValues(alpha: 0.5),
-                width: 2,
-                strokeAlign: BorderSide.strokeAlignCenter,
+                width: 1,
               ),
             ),
             child: Row(
@@ -408,7 +456,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                     color: MerchantColors.gold,
                   ),
                   child: const Center(
-                    child: Icon(Icons.add,
+                    child: Icon(Icons.add_rounded,
                         color: MerchantColors.darkOverlay, size: 20),
                   ),
                 ),
@@ -429,14 +477,68 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
     );
   }
 
-  // ── Promo list ────────────────────────────────────────────────────────────
+  // ── Active promos section ─────────────────────────────────────────────────
 
-  Widget _buildPromoList(List<Promotion> promotions) {
+  static const _kPreviewCount = 3;
+
+  Widget _buildActiveSection(List<Promotion> active) {
+    if (active.isEmpty) return const SizedBox.shrink();
+
+    final displayed = _showAllActive
+        ? active
+        : active.take(_kPreviewCount).toList();
+    final hidden = active.length - _kPreviewCount;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ...promotions.asMap().entries.map((entry) {
+          // Section header
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF4ADE80),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Actives',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: MerchantColors.textLightGrey,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 7, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4ADE80).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${active.length}',
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF4ADE80),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Cards
+          ...displayed.asMap().entries.map((entry) {
             final index = entry.key;
             final promo = entry.value;
             return Padding(
@@ -445,19 +547,187 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                 promo: promo,
                 onToggle: (v) => _onToggle(promo, v),
                 onDelete: () => _confirmDelete(promo),
-                onPickImage: () => _pickImageForPromo(index, promotions),
+                onPickImage: () =>
+                    _pickImageForPromo(index, active),
               ),
             );
           }),
-          Text(
-            'Créez et publiez des promotions pour vos clients mais aussi pour la communauté Yuztoo locale',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              color: MerchantColors.textLightGrey,
-              height: 1.6,
+          // Voir plus / Voir moins
+          if (active.length > _kPreviewCount) ...[
+            GestureDetector(
+              onTap: () => _rebuild(() => _showAllActive = !_showAllActive),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: MerchantColors.navyCard,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: MerchantColors.gold
+                        .withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _showAllActive
+                          ? 'Voir moins'
+                          : 'Voir les $hidden autre${hidden > 1 ? 's' : ''}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: MerchantColors.gold,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      _showAllActive
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: MerchantColors.gold,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── Expired / offline section ─────────────────────────────────────────────
+
+  Widget _buildOthersSection(List<Promotion> others) {
+    final displayed = _showAllExpired
+        ? others
+        : others.take(_kPreviewCount).toList();
+    final hidden = others.length - _kPreviewCount;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Toggle header — collapsed by default
+          GestureDetector(
+            onTap: () =>
+                _rebuild(() => _showAllExpired = !_showAllExpired),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: MerchantColors.textGrey,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Expirées / Hors ligne',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: MerchantColors.textLightGrey,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: MerchantColors.textGrey.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${others.length}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: MerchantColors.textGrey,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _showAllExpired
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: MerchantColors.textGrey,
+                    size: 18,
+                  ),
+                ],
+              ),
             ),
           ),
+          // Cards (only when expanded)
+          if (_showAllExpired) ...[
+            ...displayed.asMap().entries.map((entry) {
+              final index = entry.key;
+              final promo = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: PromoCard(
+                  promo: promo,
+                  onToggle: (v) => _onToggle(promo, v),
+                  onDelete: () => _confirmDelete(promo),
+                  onPickImage: () =>
+                      _pickImageForPromo(index, others),
+                ),
+              );
+            }),
+            if (others.length > _kPreviewCount)
+              GestureDetector(
+                onTap: () => _rebuild(
+                    () => _showAllExpired = !_showAllExpired),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: MerchantColors.navyCard,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: MerchantColors.gold.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _showAllExpired && displayed.length > _kPreviewCount
+                            ? 'Voir moins'
+                            : 'Voir les $hidden autre${hidden > 1 ? 's' : ''}',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: MerchantColors.gold,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        _showAllExpired
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: MerchantColors.gold,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -478,8 +748,9 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
             color: MerchantColors.navyCard,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: MerchantColors.gold.withValues(alpha: 0.5),
-              width: 2,
+              color: MerchantColors.gold
+                  .withValues(alpha: MerchantColors.goldBorderStronger),
+              width: 1,
             ),
           ),
           child: Row(
@@ -498,13 +769,25 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'Notifications automatiques',
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Notifications automatiques',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'Relancez vos clients au bon moment',
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        color: MerchantColors.textGrey,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const Icon(Icons.arrow_forward_ios_rounded,

@@ -2,6 +2,7 @@ part of 'discovery_screen.dart';
 
 extension _DiscoveryScreenUi on _DiscoveryScreenState {
   Widget _buildHeader(BuildContext context) {
+    final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
     return Container(
       color: MerchantColors.bgHeader,
       child: SafeArea(
@@ -19,27 +20,98 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
               ),
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  'Recommandations',
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: MerchantColors.textWhite,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Découvrir',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: MerchantColors.textWhite,
+                      ),
+                    ),
                   ),
-                ),
+                  IconButton(
+                    onPressed: widget.onNotifications,
+                    icon: const Icon(
+                      Icons.notifications_outlined,
+                      color: MerchantColors.gold,
+                      size: 24,
+                    ),
+                  ),
+                ],
               ),
-              IconButton(
-                onPressed: widget.onNotifications,
-                icon: const Icon(
-                  Icons.notifications_outlined,
-                  color: MerchantColors.gold,
-                  size: 24,
+              if (widget.isDualProfile) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _typeChip(
+                      label: 'Particuliers',
+                      value: 'b2c',
+                      current: typeFilter,
+                      onTap: () {
+                        ref
+                            .read(discoveryMerchantTypeFilterProvider.notifier)
+                            .state = 'b2c';
+                        ref.invalidate(discoveryMerchantsProvider);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    _typeChip(
+                      label: 'Professionnels',
+                      value: 'b2b',
+                      current: typeFilter,
+                      onTap: () {
+                        ref
+                            .read(discoveryMerchantTypeFilterProvider.notifier)
+                            .state = 'b2b';
+                        ref.invalidate(discoveryMerchantsProvider);
+                      },
+                    ),
+                  ],
                 ),
-              ),
+              ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _typeChip({
+    required String label,
+    required String value,
+    required String current,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = current == value;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? MerchantColors.gold
+              : MerchantColors.gold.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? MerchantColors.gold
+                : MerchantColors.gold.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? MerchantColors.bgHeader : MerchantColors.textGrey,
           ),
         ),
       ),
@@ -120,41 +192,102 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
   Widget _buildPromoBanner(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 140,
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [MerchantColors.bgHeader, MerchantColors.gold],
+      child: Container(
+        height: 130,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0B2540), Color(0xFF0E2A44)],
+          ),
+          border: Border.all(
+            color: MerchantColors.gold.withValues(alpha: 0.3),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
-          ),
-          child: Stack(
-            children: [
-              Center(
-                child: Icon(
-                  Icons.image_outlined,
-                  size: 48,
-                  color: MerchantColors.textWhite.withValues(alpha: 0.3),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Decorative circle
+            Positioned(
+              right: -20,
+              top: -20,
+              child: Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MerchantColors.gold.withValues(alpha: 0.06),
                 ),
               ),
-              Positioned(
-                left: 16,
-                bottom: 14,
-                child: Text(
-                  'À venir…',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: MerchantColors.textWhite.withValues(alpha: 0.6),
+            ),
+            Positioned(
+              right: 20,
+              bottom: -30,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MerchantColors.gold.withValues(alpha: 0.04),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: MerchantColors.gold.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: MerchantColors.gold.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Text(
+                      'NOUVEAUTÉS',
+                      style: GoogleFonts.outfit(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: MerchantColors.gold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Découvrez les commerces\nde votre quartier',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: MerchantColors.textWhite,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Recommandés par votre réseau',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: MerchantColors.textGrey,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -164,20 +297,12 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     return Container(
       height: height,
       width: height != null ? double.infinity : null,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [MerchantColors.gold, MerchantColors.cream],
-        ),
-      ),
+      color: MerchantColors.bgHeader,
       child: Center(
-        child: Text(
-          'Image commerce',
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            color: MerchantColors.textGrey,
-          ),
+        child: Icon(
+          Icons.storefront_outlined,
+          size: height != null ? 32 : 24,
+          color: MerchantColors.gold.withValues(alpha: 0.4),
         ),
       ),
     );
@@ -191,38 +316,38 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
         onChanged: _onSearchQueryChanged,
         style: GoogleFonts.outfit(
           fontSize: 13,
-          color: Colors.black,
+          color: MerchantColors.textWhite,
         ),
+        cursorColor: MerchantColors.gold,
         decoration: InputDecoration(
           hintText: AppLocalizations.of(context)!.searchStore,
           hintStyle: GoogleFonts.outfit(
             fontSize: 13,
-            color: Colors.black54,
+            color: MerchantColors.textGrey,
           ),
           prefixIcon: const Icon(
-            Icons.search,
-            color: Colors.black54,
-            size: 22,
+            Icons.search_rounded,
+            color: MerchantColors.gold,
+            size: 20,
           ),
           filled: true,
-          fillColor: MerchantColors.textWhite,
+          fillColor: MerchantColors.bgHeader,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+                color: MerchantColors.gold.withValues(alpha: 0.2)),
           ),
-          enabledBorder: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(20)),
-            borderSide: BorderSide.none,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+                color: MerchantColors.gold.withValues(alpha: 0.2)),
           ),
-          focusedBorder: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(20)),
-            borderSide: BorderSide.none,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: MerchantColors.gold),
           ),
-          disabledBorder: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(20)),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
     );
@@ -276,22 +401,52 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: SizedBox(
         width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {},
-          style: ElevatedButton.styleFrom(
-            backgroundColor: MerchantColors.gold,
-            foregroundColor: MerchantColors.bgHeader,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+        child: GestureDetector(
+          onTap: () {
+            SharePlus.instance.share(
+              ShareParams(
+                text:
+                    '📍 Rejoins Yuztoo — l\'app qui connecte les commerçants locaux et leurs clients !\n\nhttps://yuztoo.app/invite',
+                subject: 'Rejoins Yuztoo',
+              ),
+            );
+          },
+          child: Container(
+            height: 54,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFD4AF37), Color(0xFFD4A017)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: MerchantColors.gold.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  spreadRadius: -2,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            elevation: 0,
-          ),
-          child: Text(
-            'Invite un commerçant',
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.share_rounded,
+                      color: MerchantColors.bgHeader, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Invite un commerçant',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: MerchantColors.bgHeader,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -317,13 +472,16 @@ class _BusinessGridCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = merchant.displayName ?? merchant.name;
     final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
+    final category =
+        (merchant.categories?.isNotEmpty == true) ? merchant.categories!.first : null;
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(14),
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // Background image / placeholder
             imageUrl != null && imageUrl.isNotEmpty
                 ? Image.network(
                     imageUrl,
@@ -331,16 +489,70 @@ class _BusinessGridCard extends StatelessWidget {
                     errorBuilder: (_, __, ___) => placeholderBuilder(),
                   )
                 : placeholderBuilder(),
-            if (hasViewed)
-              const Positioned(
-                top: 8,
-                right: 8,
-                child: Icon(
-                  Icons.star,
-                  size: 16,
-                  color: MerchantColors.gold,
+            // Dark gradient overlay
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.72),
+                  ],
+                  stops: const [0.4, 1.0],
                 ),
               ),
+            ),
+            // "Viewed" star badge
+            if (hasViewed)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withValues(alpha: 0.45),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.star_rounded,
+                      size: 14,
+                      color: MerchantColors.gold,
+                    ),
+                  ),
+                ),
+              ),
+            // Category pill (top-left)
+            if (category != null)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: MerchantColors.gold.withValues(alpha: 0.4),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    category,
+                    style: GoogleFonts.outfit(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: MerchantColors.gold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            // Merchant name bottom
             Positioned(
               left: 8,
               right: 8,
@@ -349,12 +561,12 @@ class _BusinessGridCard extends StatelessWidget {
                 name,
                 style: GoogleFonts.outfit(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: MerchantColors.textWhite,
                   shadows: const [
                     Shadow(
                       color: Colors.black54,
-                      blurRadius: 6,
+                      blurRadius: 8,
                       offset: Offset(0, 1),
                     ),
                   ],

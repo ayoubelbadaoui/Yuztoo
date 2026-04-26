@@ -16,6 +16,11 @@ class PromotionDto {
     required this.isOnline,
     this.imageUrl,
     this.viewCount = 0,
+    this.targetSegments = const [],
+    this.diffusionZone,
+    this.targetScope,
+    this.targetZoneLabel,
+    this.estimatedReach = 0,
   });
 
   final String id;
@@ -28,19 +33,30 @@ class PromotionDto {
   final bool isOnline;
   final String? imageUrl;
   final int viewCount;
+  final List<String> targetSegments;
+  final String? diffusionZone;
+  final String? targetScope;
+  final String? targetZoneLabel;
+  final int estimatedReach;
 
-  static PromotionDto fromFirestore(
+  static PromotionDto? fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
     String merchantId,
   ) {
     final data = doc.data();
-    if (data == null) throw Exception('Promotion document data is null');
+    if (data == null) return null;
 
     DateTime parseDate(dynamic v) {
       if (v == null) return DateTime.now();
       if (v is Timestamp) return v.toDate();
       if (v is DateTime) return v;
       return DateTime.now();
+    }
+
+    List<String> parseSegments(dynamic v) {
+      if (v == null) return const [];
+      if (v is! List) return const [];
+      return v.whereType<String>().toList();
     }
 
     return PromotionDto(
@@ -54,6 +70,11 @@ class PromotionDto {
       isOnline: data['is_online'] as bool? ?? false,
       imageUrl: data['image_url'] as String?,
       viewCount: (data['view_count'] as num?)?.toInt() ?? 0,
+      targetSegments: parseSegments(data['target_segments']),
+      diffusionZone: data['diffusion_zone'] as String?,
+      targetScope: data['target_scope'] as String?,
+      targetZoneLabel: data['target_zone_label'] as String?,
+      estimatedReach: (data['estimated_reach'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -68,6 +89,11 @@ class PromotionDto {
         isOnline: isOnline,
         imageUrl: imageUrl,
         viewCount: viewCount,
+        targetSegments: targetSegments,
+        diffusionZone: PromotionZoneX.fromString(diffusionZone),
+        targetScope: targetScope,
+        targetZoneLabel: targetZoneLabel,
+        estimatedReach: estimatedReach,
       );
 
   Map<String, dynamic> toFirestore() => {
@@ -78,5 +104,10 @@ class PromotionDto {
         'client_type': clientType,
         'is_online': isOnline,
         if (imageUrl != null) 'image_url': imageUrl,
+        'target_segments': targetSegments,
+        if (diffusionZone != null) 'diffusion_zone': diffusionZone,
+        if (targetScope != null) 'target_scope': targetScope,
+        if (targetZoneLabel != null) 'target_zone_label': targetZoneLabel,
+        'estimated_reach': estimatedReach,
       };
 }

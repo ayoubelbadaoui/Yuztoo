@@ -1,0 +1,85 @@
+rules_version = '2';
+
+// Yuztoo — Firebase Storage security rules
+//
+// Deploy: firebase deploy --only storage
+// Paths covered:
+//   merchants/{merchantId}/logo.png          — merchant logo
+//   merchants/{merchantId}/banner.png        — merchant banner
+//   merchants/{merchantId}/news/{file}       — news/gallery images
+//   merchants/{merchantId}/promotions/{file} — promotion images
+//   users/{userId}/avatar.jpg                — client avatar
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnerUid(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    /// Verify the authenticated user owns the given merchant document.
+    /// Reads merchants/{merchantId}.owner_uid from Firestore to confirm.
+    function isMerchantOwner(merchantId) {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/merchants/$(merchantId))
+        && firestore.get(/databases/(default)/documents/merchants/$(merchantId)).data.owner_uid
+             == request.auth.uid;
+    }
+
+    /// 5 MB file size cap for all uploads.
+    function sizeOk() {
+      return request.resource.size <= 5 * 1024 * 1024;
+    }
+
+    /// Accepted image MIME types.
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // ── Merchant assets ────────────────────────────────────────────────────
+
+    // Logo / banner (single file per merchant)
+    match /merchants/{merchantId}/logo.png {
+      allow read: if true;
+      allow write: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+    }
+
+    match /merchants/{merchantId}/banner.png {
+      allow read: if true;
+      allow write: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+    }
+
+    // News / gallery slider images  (merchants/{merchantId}/news/{file})
+    match /merchants/{merchantId}/news/{file} {
+      allow read: if true;
+      allow write: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+      allow delete: if isMerchantOwner(merchantId);
+    }
+
+    // Promotion images  (merchants/{merchantId}/promotions/{file})
+    match /merchants/{merchantId}/promotions/{file} {
+      allow read: if true;
+      allow write: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+      allow delete: if isMerchantOwner(merchantId);
+    }
+
+    // ── Client / user assets ───────────────────────────────────────────────
+
+    // Client avatar
+    match /users/{userId}/avatar.jpg {
+      allow read: if true;
+      allow write: if isOwnerUid(userId) && sizeOk() && isImage();
+      allow delete: if isOwnerUid(userId);
+    }
+
+    // ── Default deny ───────────────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

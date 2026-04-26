@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/infrastructure/firebase_providers.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../client_notification/domain/entities/client_notification.dart';
+import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;
 import '../application/providers.dart' as rappels_providers;
 import '../domain/entities/active_notification.dart';
@@ -32,6 +35,7 @@ class _NotificationsAutoScreenState
 
   int _clientSelection = 0;
   int _selectedTrigger = 0;
+  List<String> _targetSegments = const [];
   int? _editingIndex;
   ActiveNotification? _editingNotification;
 
@@ -58,10 +62,21 @@ class _NotificationsAutoScreenState
   }
 
   void _onClientSelectionChanged(int v) {
-    _withSetState(() => _clientSelection = v);
+    _withSetState(() {
+      _clientSelection = v;
+      if (v == 0) _targetSegments = const []; // reset segments when switching to "Tous"
+    });
   }
 
   void _onTriggerSelected(int i) {
     _withSetState(() => _selectedTrigger = i);
+  }
+
+  void _onSegmentToggled(String segment) {
+    _withSetState(() {
+      final list = List<String>.from(_targetSegments);
+      list.contains(segment) ? list.remove(segment) : list.add(segment);
+      _targetSegments = list;
+    });
   }
 }

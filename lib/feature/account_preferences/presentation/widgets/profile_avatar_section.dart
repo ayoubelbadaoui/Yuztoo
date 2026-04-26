@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../auth/core/application/user_display_helpers.dart';
+import '../../../auth/core/application/providers.dart' show updateAuthUserProfileProvider;
+import '../../../storage/application/providers.dart' show uploadClientAvatarProvider;
 import '../../application/providers.dart';
 
 part 'profile_avatar_section.part.dart';
@@ -15,7 +17,10 @@ part 'profile_avatar_section.part.dart';
 /// Separate from business/merchant profile - this is the user's personal account info.
 /// Allows user to select and save personal profile picture.
 class ProfileAvatarSection extends ConsumerStatefulWidget {
-  const ProfileAvatarSection({super.key});
+  const ProfileAvatarSection({super.key, this.onEditProfile});
+
+  /// Called when the user taps the name / edit-icon to open identification settings.
+  final VoidCallback? onEditProfile;
 
   @override
   ConsumerState<ProfileAvatarSection> createState() => _ProfileAvatarSectionState();
@@ -24,6 +29,7 @@ class ProfileAvatarSection extends ConsumerStatefulWidget {
 class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
   final ImagePicker _picker = ImagePicker();
   File? _profileImageFile;
+  bool _isUploading = false;
 
   void _loadProfileImageFromCache(String? imagePath) {
     if (!mounted) return;
@@ -87,15 +93,20 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
         final file = File(pickedFile.path);
         setState(() {
           _profileImageFile = file;
+          _isUploading = true;
         });
 
         await _saveProfileImageToCache(file.path);
+        await _uploadAvatarToCloud(file);
       }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur lors de la sélection de l\'image: ${e.toString()}'),
+          content: Text(
+            'Erreur lors de la sélection de l\'image: ${e.toString()}',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -103,7 +114,41 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
           ),
         ),
       );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
+  }
+
+  Future<void> _uploadAvatarToCloud(File file) async {
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) return;
+
+    final uid = authState.user.id;
+    final uploadResult = await ref
+        .read(uploadClientAvatarProvider)
+        .call(filePath: file.path, uid: uid);
+
+    await uploadResult.fold(
+      (failure) async {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Photo sauvegardée localement (sync cloud échouée)',
+              style: GoogleFonts.outfit(color: Colors.white),
+            ),
+            backgroundColor: MerchantColors.navyCard,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      },
+      (downloadUrl) async {
+        await ref
+            .read(updateAuthUserProfileProvider)
+            .call(photoUrl: downloadUrl);
+      },
+    );
   }
 
   Future<void> _saveProfileImageToCache(String imagePath) async {

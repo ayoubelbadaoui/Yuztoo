@@ -66,7 +66,7 @@ class NotificationsAutoEntry extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right,
+          const Icon(Icons.chevron_right_rounded,
                   color: MerchantColors.gold, size: 24),
             ],
           ),

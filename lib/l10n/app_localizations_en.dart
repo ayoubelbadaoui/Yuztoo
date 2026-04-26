@@ -132,6 +132,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get qrCode => 'QR Code';
 
   @override
+  String get navAlerts => 'Alerts';
+
+  @override
+  String get navStorefront => 'Storefront';
+
+  @override
+  String get navYourClients => 'Your clients';
+
+  @override
+  String get navNotifications => 'Notifications';
+
+  @override
   String get settings => 'Settings';
 
   @override

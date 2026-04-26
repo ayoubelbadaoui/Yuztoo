@@ -18,6 +18,7 @@ class ClientHomeScreen extends ConsumerWidget {
     super.key,
     required this.onNavigate,
     this.onStoreSelect,
+    this.isDualProfile = false,
   });
 
   static String get path => '/client-home';
@@ -25,6 +26,8 @@ class ClientHomeScreen extends ConsumerWidget {
   final ValueChanged<String> onNavigate;
   /// When user taps a business, call with merchant id so store profile loads that merchant.
   final ValueChanged<String>? onStoreSelect;
+  /// True when this user also has a merchant account — shows the switch-to-merchant icon.
+  final bool isDualProfile;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -67,11 +70,11 @@ class ClientHomeScreen extends ConsumerWidget {
                           context,
                           feed.merchants,
                           heartLevelsAsync.valueOrNull ?? const <String, int>{},
-                          followedIds:
-                              feed.merchants.map((m) => m.id).toList(),
+                          followedIds: feed.followedIds,
+                          ownMerchantId: feed.ownMerchantId,
                         ),
                         loading: () => _buildBusinessCardLoading(context),
-                        error: (_, __) => _buildBusinessCardLoading(context),
+                        error: (e, _) => _buildBusinessCardError(context, ref),
                       ),
                       const SizedBox(height: 24),
                       _buildQuickActions(context),

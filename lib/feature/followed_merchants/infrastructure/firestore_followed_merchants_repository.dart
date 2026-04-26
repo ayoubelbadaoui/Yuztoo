@@ -26,7 +26,7 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
   Future<Result<Unit>> add(String userId, String merchantId) async {
     if (userId.isEmpty || merchantId.isEmpty) {
       return const Left<AppFailure, Unit>(
-        UnexpectedFailure(message: 'User ID and merchant ID are required'),
+        UnexpectedFailure(message: 'Identifiant utilisateur et identifiant commerce requis'),
       );
     }
     try {
@@ -37,6 +37,12 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
       });
       // Notify the merchant of the new follower (pending_clients subcollection).
       await _pendingClientRepo.writePendingClient(merchantId, userId);
+      // Increment the monthly "clients connectés" counter on the merchant doc.
+      await _incrementMerchantMonthlyCounter(
+        merchantId: merchantId,
+        counterField: 'rappels_monthly_connected_clients',
+        ymField: 'rappels_monthly_connected_ym',
+      );
       LoggerService.logInfo('Followed merchant added', context: {'userId': userId, 'merchantId': merchantId});
       return const Right<AppFailure, Unit>(unit);
     } on FirebaseException catch (e, st) {
@@ -49,6 +55,38 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
       return Left<AppFailure, Unit>(
         UnexpectedFailure(message: 'Erreur lors du suivi du commerce', cause: e, stackTrace: st),
       );
+    }
+  }
+
+  /// Increments a monthly counter on the merchant document.
+  /// If the stored year-month differs from the current one, the counter is reset
+  /// to 1 instead of being incremented (first event of the new month).
+  Future<void> _incrementMerchantMonthlyCounter({
+    required String merchantId,
+    required String counterField,
+    required String ymField,
+  }) async {
+    final now = DateTime.now();
+    final currentYm =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final merchantRef =
+        _firestore.collection('merchants').doc(merchantId);
+    try {
+      await _firestore.runTransaction((tx) async {
+        final snap = await tx.get(merchantRef);
+        final storedYm = snap.data()?[ymField] as String?;
+        final newCount = storedYm == currentYm
+            ? FieldValue.increment(1)
+            : 1;
+        tx.set(
+          merchantRef,
+          {counterField: newCount, ymField: currentYm},
+          SetOptions(merge: true),
+        );
+      });
+    } catch (e) {
+      // Best-effort — never crash the app for a stats counter.
+      LoggerService.logError('incrementMerchantMonthlyCounter', error: e);
     }
   }
 
@@ -147,7 +185,7 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
   Future<Result<Unit>> setHeartLevel(String userId, String merchantId, int heartLevel) async {
     if (userId.isEmpty || merchantId.isEmpty) {
       return const Left<AppFailure, Unit>(
-        UnexpectedFailure(message: 'User ID and merchant ID are required'),
+        UnexpectedFailure(message: 'Identifiant utilisateur et identifiant commerce requis'),
       );
     }
     final safeLevel = heartLevel.clamp(0, 3);
@@ -168,6 +206,66 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
       return Left<AppFailure, Unit>(
         UnexpectedFailure(message: 'Erreur lors de la sauvegarde', cause: e, stackTrace: st),
       );
+    }
+  }
+
+  @override
+  Future<Result<bool>> getMuteState(String userId, String merchantId) async {
+    if (userId.isEmpty || merchantId.isEmpty) {
+      return const Right<AppFailure, bool>(false);
+    }
+    try {
+      final doc = await _followedRef(userId).doc(merchantId).get();
+      final muted = doc.data()?['is_muted'] as bool? ?? false;
+      return Right<AppFailure, bool>(muted);
+    } catch (_) {
+      return const Right<AppFailure, bool>(false);
+    }
+  }
+
+  @override
+  Future<Result<Unit>> setMuteState(
+      String userId, String merchantId, {required bool muted}) async {
+    if (userId.isEmpty || merchantId.isEmpty) {
+      return const Left<AppFailure, Unit>(
+        UnexpectedFailure(message: 'Identifiants requis'),
+      );
+    }
+    try {
+      await _followedRef(userId).doc(merchantId).set(
+        {'is_muted': muted, 'merchant_id': merchantId},
+        SetOptions(merge: true),
+      );
+      return const Right<AppFailure, Unit>(unit);
+    } on FirebaseException catch (e, st) {
+      return Left<AppFailure, Unit>(
+        UnexpectedFailure(
+            message: 'Impossible de modifier les notifications', cause: e, stackTrace: st),
+      );
+    } catch (e, st) {
+      return Left<AppFailure, Unit>(
+        UnexpectedFailure(message: 'Erreur', cause: e, stackTrace: st),
+      );
+    }
+  }
+
+  @override
+  Future<Result<Set<String>>> getMutedMerchantIds(String userId) async {
+    if (userId.isEmpty) {
+      return const Right<AppFailure, Set<String>>(<String>{});
+    }
+    try {
+      final snapshot = await _followedRef(userId)
+          .where('is_muted', isEqualTo: true)
+          .get();
+      final ids = snapshot.docs.map((d) => d.id).toSet();
+      return Right<AppFailure, Set<String>>(ids);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError('Firebase error loading muted merchants', error: e, stackTrace: st);
+      return const Right<AppFailure, Set<String>>(<String>{});
+    } catch (e, st) {
+      LoggerService.logError('Error loading muted merchants', error: e, stackTrace: st);
+      return const Right<AppFailure, Set<String>>(<String>{});
     }
   }
 

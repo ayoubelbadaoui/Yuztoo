@@ -344,6 +344,30 @@ abstract class AppLocalizations {
   /// **'QR Code'**
   String get qrCode;
 
+  /// Bottom nav: Alerts tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts'**
+  String get navAlerts;
+
+  /// Bottom nav: Storefront tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Storefront'**
+  String get navStorefront;
+
+  /// Bottom nav: Your clients tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Your clients'**
+  String get navYourClients;
+
+  /// Bottom nav: Merchant notifications tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get navNotifications;
+
   /// No description provided for @settings.
   ///
   /// In en, this message translates to:

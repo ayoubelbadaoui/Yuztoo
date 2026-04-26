@@ -33,6 +33,10 @@ class MerchantDto {
     this.rappelsAutoPassageValidation,
     this.rappelsMonthlyConnectedClients = 0,
     this.rappelsMonthlyValidatedPassages = 0,
+    this.weeklyNotifSentCount = 0,
+    this.weeklyNotifResetAt,
+    this.merchantType = 'b2c',
+    this.welcomeGiftDescription,
   });
 
   final String id;
@@ -63,6 +67,10 @@ class MerchantDto {
   final bool? rappelsAutoPassageValidation;
   final int rappelsMonthlyConnectedClients;
   final int rappelsMonthlyValidatedPassages;
+  final int weeklyNotifSentCount;
+  final DateTime? weeklyNotifResetAt;
+  final String merchantType;
+  final String? welcomeGiftDescription;
 
   /// Create DTO from Firestore document snapshot.
   factory MerchantDto.fromFirestore(
@@ -135,6 +143,10 @@ class MerchantDto {
           nonNegativeInt(data['rappels_monthly_connected_clients']),
       rappelsMonthlyValidatedPassages:
           nonNegativeInt(data['rappels_monthly_validated_passages']),
+      weeklyNotifSentCount: nonNegativeInt(data['weekly_notif_sent_count']),
+      weeklyNotifResetAt: parseTimestamp(data['weekly_notif_reset_at']),
+      merchantType: data['merchant_type'] as String? ?? 'b2c',
+      welcomeGiftDescription: data['welcome_gift_description'] as String?,
     );
   }
 
@@ -168,9 +180,11 @@ class MerchantDto {
         rappelsAutoPassageValidation: rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients: rappelsMonthlyConnectedClients,
         rappelsMonthlyValidatedPassages: rappelsMonthlyValidatedPassages,
+        weeklyNotifSentCount: weeklyNotifSentCount,
+        weeklyNotifResetAt: weeklyNotifResetAt,
+        merchantType: merchantType,
+        welcomeGiftDescription: welcomeGiftDescription,
       );
-
-  /// Convert domain entity to DTO.
   factory MerchantDto.fromDomain(Merchant merchant) => MerchantDto(
         id: merchant.id,
         ownerUid: merchant.ownerUid,
@@ -201,9 +215,11 @@ class MerchantDto {
         rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients: merchant.rappelsMonthlyConnectedClients,
         rappelsMonthlyValidatedPassages: merchant.rappelsMonthlyValidatedPassages,
+        weeklyNotifSentCount: merchant.weeklyNotifSentCount,
+        weeklyNotifResetAt: merchant.weeklyNotifResetAt,
+        merchantType: merchant.merchantType,
+        welcomeGiftDescription: merchant.welcomeGiftDescription,
       );
-
-  /// Convert DTO to Firestore map.
   /// Note: 'id' is not included as it's the Firestore document ID.
   Map<String, dynamic> toFirestore() => <String, dynamic>{
         'owner_uid': ownerUid,
@@ -227,6 +243,9 @@ class MerchantDto {
         'galerie_enabled': galerieEnabled,
         if (rappelsAutoClientValidation != null) 'rappels_auto_client_validation': rappelsAutoClientValidation,
         if (rappelsAutoPassageValidation != null) 'rappels_auto_passage_validation': rappelsAutoPassageValidation,
+        'merchant_type': merchantType,
+        if (welcomeGiftDescription != null)
+          'welcome_gift_description': welcomeGiftDescription,
         'status': status,
         'created_at': createdAt != null
             ? Timestamp.fromDate(createdAt!)

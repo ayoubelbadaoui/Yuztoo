@@ -12,7 +12,7 @@ class VerifyEmailAvailableForSignup {
 
   static const AppFailure _duplicateEmail = AuthUnexpectedFailure(
     message:
-        'Cette adresse email est déjà utilisée. Connectez-vous ou utilisez une autre adresse.',
+        'Cette adresse e-mail est déjà utilisée. Connectez-vous ou utilisez une autre adresse.',
   );
 
   Future<Result<Unit>> call({required String email}) {
@@ -20,7 +20,7 @@ class VerifyEmailAvailableForSignup {
     if (normalized.isEmpty) {
       return Future<Result<Unit>>.value(
         const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'L\'adresse email est requise.'),
+          AuthUnexpectedFailure(message: 'L\'adresse e-mail est requise.'),
         ),
       );
     }

@@ -36,6 +36,10 @@ class Merchant extends Equatable {
     this.rappelsAutoPassageValidation,
     this.rappelsMonthlyConnectedClients = 0,
     this.rappelsMonthlyValidatedPassages = 0,
+    this.weeklyNotifSentCount = 0,
+    this.weeklyNotifResetAt,
+    this.merchantType = 'b2c',
+    this.welcomeGiftDescription,
   });
 
   /// Unique identifier for the merchant document
@@ -110,6 +114,35 @@ class Merchant extends Equatable {
   /// Rappels: passages validés ce mois (agrégat Firestore, défaut 0)
   final int rappelsMonthlyValidatedPassages;
 
+  /// Number of manual notifications sent this week.
+  final int weeklyNotifSentCount;
+
+  /// When the weekly counter was last reset. Null = never sent.
+  final DateTime? weeklyNotifResetAt;
+
+  /// Merchant type: 'b2c' (default, sells to consumers) or 'b2b' (service providers).
+  final String merchantType;
+
+  /// Optional description of a welcome gift for new followers.
+  final String? welcomeGiftDescription;
+
+  /// Free-tier allows 5 manual notifications per rolling 7-day window.
+  bool get canSendNotification {
+    if (weeklyNotifResetAt == null) return true;
+    final daysSinceReset = DateTime.now().difference(weeklyNotifResetAt!).inDays;
+    if (daysSinceReset >= 7) return true;
+    return weeklyNotifSentCount < 5;
+  }
+
+  /// Current week quota label, e.g. "2/5".
+  String get weeklyQuotaLabel {
+    if (weeklyNotifResetAt == null ||
+        DateTime.now().difference(weeklyNotifResetAt!).inDays >= 7) {
+      return '0/5';
+    }
+    return '${weeklyNotifSentCount.clamp(0, 5)}/5';
+  }
+
   /// Merchant visibility: `active` = en ligne, `inactive` = hors ligne (défaut)
   final String status;
 
@@ -156,6 +189,10 @@ class Merchant extends Equatable {
         rappelsAutoPassageValidation,
         rappelsMonthlyConnectedClients,
         rappelsMonthlyValidatedPassages,
+        weeklyNotifSentCount,
+        weeklyNotifResetAt,
+        merchantType,
+        welcomeGiftDescription,
       ];
 
   /// Creates a copy of the merchant with updated fields
@@ -187,6 +224,10 @@ class Merchant extends Equatable {
     bool? rappelsAutoPassageValidation,
     int? rappelsMonthlyConnectedClients,
     int? rappelsMonthlyValidatedPassages,
+    int? weeklyNotifSentCount,
+    DateTime? weeklyNotifResetAt,
+    String? merchantType,
+    String? welcomeGiftDescription,
   }) {
     return Merchant(
       id: id ?? this.id,
@@ -221,6 +262,10 @@ class Merchant extends Equatable {
           rappelsMonthlyConnectedClients ?? this.rappelsMonthlyConnectedClients,
       rappelsMonthlyValidatedPassages:
           rappelsMonthlyValidatedPassages ?? this.rappelsMonthlyValidatedPassages,
+      weeklyNotifSentCount: weeklyNotifSentCount ?? this.weeklyNotifSentCount,
+      weeklyNotifResetAt: weeklyNotifResetAt ?? this.weeklyNotifResetAt,
+      merchantType: merchantType ?? this.merchantType,
+      welcomeGiftDescription: welcomeGiftDescription ?? this.welcomeGiftDescription,
     );
   }
 

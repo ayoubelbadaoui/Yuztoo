@@ -44,5 +44,9 @@ abstract class AuthRepository {
 
   Future<Result<Unit>> deleteCurrentUser();
 
+  Future<Result<AuthUser>> signInWithGoogle();
+
+  Future<Result<AuthUser>> signInWithApple();
+
   Stream<Result<AuthUser?>> watchAuthState();
 }

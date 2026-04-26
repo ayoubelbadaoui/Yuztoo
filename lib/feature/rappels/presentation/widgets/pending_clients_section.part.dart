@@ -1,5 +1,13 @@
 part of 'pending_clients_section.dart';
 
+// ── DUMMY: remove the 5 lines below before shipping ───────────────────────────
+const _kDummyPendingClients = [
+  PendingClientRow(clientUid: 'dummy_1', displayName: 'Marie Dupont'),
+  PendingClientRow(clientUid: 'dummy_2', displayName: 'Lucas Martin'),
+  PendingClientRow(clientUid: 'dummy_3', displayName: 'Sophie Bernard'),
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
 extension _PendingClientsSectionUi on _PendingClientsSectionState {
   Widget _buildBody(
     BuildContext context,
@@ -9,7 +17,11 @@ extension _PendingClientsSectionUi on _PendingClientsSectionState {
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
       data: (List<PendingClientRow> rows) {
-        if (rows.isEmpty) return const SizedBox.shrink();
+        // Use dummy data when real list is empty and dummy mode is ON.
+        final display = (widget.showDummyWhenEmpty && rows.isEmpty)
+            ? _kDummyPendingClients
+            : rows;
+        if (display.isEmpty) return const SizedBox.shrink();
         return Container(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
           child: Column(
@@ -37,7 +49,7 @@ extension _PendingClientsSectionUi on _PendingClientsSectionState {
                       ),
                     ),
                     child: Text(
-                      '${rows.length}',
+                      '${display.length}',
                       style: GoogleFonts.outfit(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -59,7 +71,7 @@ extension _PendingClientsSectionUi on _PendingClientsSectionState {
               const SizedBox(height: 12),
 
               // Client cards
-              ...rows.map((PendingClientRow row) {
+              ...display.map((PendingClientRow row) {
                 final busy = _busy.contains(row.clientUid) || _busyAll;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -144,7 +156,7 @@ extension _PendingClientsSectionUi on _PendingClientsSectionState {
               }),
 
               // Tout acquitter bulk button
-              if (rows.length > 1) ...[
+              if (display.length > 1) ...[
                 const SizedBox(height: 4),
                 SizedBox(
                   width: double.infinity,
@@ -163,8 +175,8 @@ extension _PendingClientsSectionUi on _PendingClientsSectionState {
                           ),
                         )
                       : _GradientButton(
-                          label: 'Tout acquitter (${rows.length})',
-                          onTap: () => _onAcknowledgeAll(rows),
+                          label: 'Tout acquitter (${display.length})',
+                          onTap: () => _onAcknowledgeAll(display),
                           fullWidth: true,
                         ),
                 ),

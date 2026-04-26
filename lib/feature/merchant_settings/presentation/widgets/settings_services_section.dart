@@ -5,14 +5,14 @@ import '../../../../core/shared/constants/merchant_colors.dart';
 
 /// Service toggle item data.
 class ServiceToggle {
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
   final VoidCallback? onTap;
 
   const ServiceToggle({
-    required this.icon,
+    this.icon,
     required this.label,
     required this.value,
     required this.onChanged,
@@ -37,9 +37,9 @@ class SettingsServicesSection extends StatelessWidget {
             'SERVICES YUZTOO',
             style: GoogleFonts.outfit(
               fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: MerchantColors.textGrey,
-              letterSpacing: 0.5,
+              letterSpacing: 0.8,
             ),
           ),
           const SizedBox(height: 8),
@@ -75,8 +75,10 @@ class SettingsServicesSection extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(service.icon, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
+            if (service.icon != null) ...[
+              Icon(service.icon, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+            ],
             Expanded(
               child: Text(
                 service.label,
@@ -86,11 +88,6 @@ class SettingsServicesSection extends StatelessWidget {
                 ),
               ),
             ),
-            if (service.onTap != null) ...[
-              const Icon(Icons.chevron_right,
-                  color: MerchantColors.textGrey, size: 20),
-              const SizedBox(width: 8),
-            ],
             GestureDetector(
               onTap: () => service.onChanged(!service.value),
               child: AnimatedContainer(

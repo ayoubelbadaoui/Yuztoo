@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../auth/core/application/state/auth_state.dart';
 import '../../loyalty/application/client_loyalty_providers.dart'
     show merchantClientLoyaltyProgressProvider;
 import '../../merchant/application/providers.dart' as merchant_providers;
@@ -13,59 +15,9 @@ import '../../promotions/application/providers.dart'
 import '../application/providers.dart' as crm_providers;
 import '../domain/entities/merchant_client_row.dart';
 import 'widgets/client_item_card.dart';
+import 'widgets/client_qr_box.dart';
 
 part 'client_list_screen.part.dart';
-
-// ── DUMMY DATA — remove this block when real Firestore clients are available ──
-final _kDummyClients = <MerchantClientRow>[
-  MerchantClientRow(
-    clientUid: 'dummy_1',
-    displayName: 'Sophie Martin',
-    city: 'Paris',
-    followedAt: DateTime.now().subtract(const Duration(days: 3)),
-    heartLevel: 3,
-  ),
-  MerchantClientRow(
-    clientUid: 'dummy_2',
-    displayName: 'Karim Benali',
-    city: 'Lyon',
-    followedAt: DateTime.now().subtract(const Duration(days: 45)),
-    heartLevel: 2,
-  ),
-  MerchantClientRow(
-    clientUid: 'dummy_3',
-    displayName: 'Lucie Fontaine',
-    city: 'Marseille',
-    followedAt: DateTime.now().subtract(const Duration(days: 90)),
-    heartLevel: 1,
-  ),
-  MerchantClientRow(
-    clientUid: 'dummy_4',
-    displayName: 'Amine Touati',
-    city: 'Paris',
-    followedAt: DateTime.now().subtract(const Duration(days: 5)),
-    heartLevel: 1,
-  ),
-  MerchantClientRow(
-    clientUid: 'dummy_5',
-    displayName: 'Nadia Rouill',
-    city: 'Bordeaux',
-    followedAt: DateTime.now().subtract(const Duration(days: 120)),
-    heartLevel: 3,
-  ),
-  MerchantClientRow(
-    clientUid: 'dummy_6',
-    displayName: 'Thomas Girard',
-    city: 'Nantes',
-    followedAt: DateTime.now().subtract(const Duration(days: 60)),
-    heartLevel: 2,
-  ),
-];
-
-// DUMMY — total promo views shown in stats panel.
-// Replace with: sum of view_count across all merchant promotions from Firestore.
-const int _kDummyPromoViews = 47;
-// ─────────────────────────────────────────────────────────────────────────────
 
 enum _Section { list, apercu }
 
@@ -104,12 +56,18 @@ class ClientListScreen extends ConsumerStatefulWidget {
     super.key,
     required this.onBack,
     required this.onClientSelect,
+    this.isDualProfile = false,
+    this.onSwitchRole,
+    this.onShowQr,
   });
 
   static String get path => '/merchant-clients';
 
   final VoidCallback onBack;
   final VoidCallback onClientSelect;
+  final bool isDualProfile;
+  final VoidCallback? onSwitchRole;
+  final VoidCallback? onShowQr;
 
   @override
   ConsumerState<ClientListScreen> createState() => _ClientListScreenState();

@@ -33,7 +33,7 @@ class FirestorePromotionRepository implements PromotionRepository {
   }) async {
     if (merchantId.isEmpty) {
       return const Left(
-        PromotionUnexpectedFailure(message: 'Merchant ID is required'),
+        PromotionUnexpectedFailure(message: 'L\'identifiant du commerce est requis'),
       );
     }
     try {
@@ -49,10 +49,27 @@ class FirestorePromotionRepository implements PromotionRepository {
             filePath: imageFilePath,
             storagePath: storagePath,
           );
-          uploadResult.fold(
-            (_) {},
-            (url) => imageUrl = url,
+          final uploadFailed = uploadResult.fold(
+            (f) {
+              LoggerService.logError(
+                'Image upload failed during promo create',
+                error: f,
+                context: {'merchantId': merchantId, 'promotionId': id},
+              );
+              return true;
+            },
+            (url) {
+              imageUrl = url;
+              return false;
+            },
           );
+          if (uploadFailed) {
+            return const Left(
+              PromotionUnexpectedFailure(
+                message: 'Échec du téléchargement de l\'image. Veuillez réessayer.',
+              ),
+            );
+          }
         }
       }
 
@@ -71,6 +88,8 @@ class FirestorePromotionRepository implements PromotionRepository {
         clientType: promo.selectedClientType.value,
         isOnline: promo.isOnline,
         imageUrl: promo.imageUrl,
+        targetSegments: promo.targetSegments,
+        diffusionZone: promo.diffusionZone?.value,
       );
       await ref.set(dto.toFirestore());
 
@@ -113,7 +132,8 @@ class FirestorePromotionRepository implements PromotionRepository {
           .get();
 
       final list = snapshot.docs
-          .map((d) => PromotionDto.fromFirestore(d, merchantId).toDomain())
+          .map((d) => PromotionDto.fromFirestore(d, merchantId)?.toDomain())
+          .whereType<Promotion>()
           .toList();
 
       LoggerService.logInfo(
@@ -151,7 +171,7 @@ class FirestorePromotionRepository implements PromotionRepository {
   }) async {
     if (promotion.merchantId.isEmpty || promotion.id.isEmpty) {
       return const Left(
-        PromotionUnexpectedFailure(message: 'Merchant ID and Promotion ID required'),
+        PromotionUnexpectedFailure(message: 'Identifiant du commerce et identifiant de la promotion requis'),
       );
     }
     try {
@@ -166,15 +186,26 @@ class FirestorePromotionRepository implements PromotionRepository {
             filePath: imageFilePath,
             storagePath: storagePath,
           );
-          uploadResult.fold(
+          final uploadFailed = uploadResult.fold(
             (f) {
               LoggerService.logError(
                 'Image upload failed during promo update',
                 error: f,
               );
+              return true;
             },
-            (url) => imageUrl = url,
+            (url) {
+              imageUrl = url;
+              return false;
+            },
           );
+          if (uploadFailed) {
+            return const Left(
+              PromotionUnexpectedFailure(
+                message: 'Échec du téléchargement de l\'image. Veuillez réessayer.',
+              ),
+            );
+          }
         }
       }
 
@@ -190,6 +221,8 @@ class FirestorePromotionRepository implements PromotionRepository {
         clientType: updated.selectedClientType.value,
         isOnline: updated.isOnline,
         imageUrl: updated.imageUrl,
+        targetSegments: updated.targetSegments,
+        diffusionZone: updated.diffusionZone?.value,
       );
       await ref.update(dto.toFirestore());
 
@@ -222,11 +255,41 @@ class FirestorePromotionRepository implements PromotionRepository {
   }) async {
     if (merchantId.isEmpty || promotionId.isEmpty) {
       return const Left(
-        PromotionUnexpectedFailure(message: 'Merchant ID and Promotion ID required'),
+        PromotionUnexpectedFailure(message: 'Identifiant du commerce et identifiant de la promotion requis'),
       );
     }
     try {
-      await _promotionsRef(merchantId).doc(promotionId).delete();
+      final ref = _promotionsRef(merchantId).doc(promotionId);
+
+      // Read the image URL before deleting so we can clean up Storage.
+      String? imageUrl;
+      try {
+        final snap = await ref.get();
+        imageUrl = snap.data()?['image_url'] as String?;
+      } catch (_) {
+        // Best-effort — proceed even if we can't read the doc first.
+      }
+
+      await ref.delete();
+
+      // Best-effort Storage cleanup — don't fail delete if image removal fails.
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        final storagePath =
+            'merchants/$merchantId/promotions/$promotionId.jpg';
+        final deleteResult = await _storage.deleteImage(storagePath);
+        deleteResult.fold(
+          (f) => LoggerService.logError(
+            'Storage cleanup failed after promotion delete',
+            error: f,
+            context: {'storagePath': storagePath},
+          ),
+          (_) => LoggerService.logInfo(
+            'Storage image cleaned up',
+            context: {'storagePath': storagePath},
+          ),
+        );
+      }
+
       LoggerService.logInfo(
         'Promotion deleted',
         context: {'merchantId': merchantId, 'promotionId': promotionId},

@@ -62,7 +62,13 @@ class _StorefrontImagePickerOption extends StatelessWidget {
 }
 
 class _StorefrontScreenHeader extends StatelessWidget {
-  const _StorefrontScreenHeader();
+  const _StorefrontScreenHeader({
+    this.isDualProfile = false,
+    this.onSwitchRole,
+  });
+
+  final bool isDualProfile;
+  final VoidCallback? onSwitchRole;
 
   @override
   Widget build(BuildContext context) {
@@ -81,15 +87,44 @@ class _StorefrontScreenHeader extends StatelessWidget {
               ),
             ),
           ),
-          child: Center(
-            child: Text(
-              'Votre vitrine',
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: StorefrontColors.textPrimary,
+          child: Row(
+            children: [
+              const SizedBox(width: 44),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'Votre vitrine',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: StorefrontColors.textPrimary,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              GestureDetector(
+                onTap: onSwitchRole,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: StorefrontColors.navyDark.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.switch_account,
+                      color: StorefrontColors.navyDark,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -151,7 +186,7 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
         // iOS: light status area → dark clock/battery (statusBarIconBrightness is Android).
         statusBarBrightness: Brightness.light,
         statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: MerchantColors.bgHeader,
+        systemNavigationBarColor: StorefrontColors.navyDark,
         systemNavigationBarIconBrightness: Brightness.light,
         systemNavigationBarContrastEnforced: false,
       ),
@@ -203,7 +238,10 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
             // Merchant profile exists - show storefront
             return Column(
               children: [
-                const _StorefrontScreenHeader(),
+                _StorefrontScreenHeader(
+                  isDualProfile: widget.isDualProfile,
+                  onSwitchRole: () => widget.onNavigate?.call('switch-to-client'),
+                ),
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
@@ -266,6 +304,9 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                           weeklyViews: storefront.weeklyViews,
                           weeklyViewsChange: storefront.weeklyViewsChange,
                         ),
+                        const SizedBox(height: 24),
+                        // Quick-action row (notifications hub, clients, store preview)
+                        _buildQuickActions(context),
                         const SizedBox(height: 24),
                         // Navigation tabs
                         NavigationTabs(
@@ -369,13 +410,14 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                         if (activeTab == 'horaires')
                           HoursSection(merchantId: storefront.id)
                         else if (activeTab == 'accueil')
-                          StorefrontQrSection(merchantId: storefront.id)
+                          const SizedBox.shrink()
                         else if (activeTab == 'actualite')
                           NewsSection(
                             content: storefront.newsContent,
                             imageUrls: storefront.newsImageUrls,
                             isUploading: _isUploadingNewsImage,
                             showMedia: true,
+                            showDescription: false,
                             showUploadButton: true,
                             onUploadImage: () => _uploadNewsImage(storefront),
                             onSettings: null,
@@ -402,10 +444,43 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
             ],
           ),
           error: (error, stack) => const _StorefrontStateMessage(
-            icon: Icons.error_outline,
+          icon: Icons.error_outline_rounded,
             title: 'Impossible de charger la boutique.',
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          _QuickActionButton(
+            icon: Icons.notifications_none_rounded,
+            label: 'Notifications',
+            onTap: () => widget.onNavigate?.call('notifications-hub'),
+          ),
+          const SizedBox(width: 10),
+          _QuickActionButton(
+            icon: Icons.people_outline_rounded,
+            label: 'Clients',
+            onTap: () => widget.onNavigate?.call('clients'),
+          ),
+          const SizedBox(width: 10),
+          _QuickActionButton(
+            icon: Icons.visibility_outlined,
+            label: 'Aperçu',
+            onTap: () => widget.onNavigate?.call('store-preview'),
+          ),
+          const SizedBox(width: 10),
+          _QuickActionButton(
+            icon: Icons.local_offer_outlined,
+            label: 'Promos',
+            onTap: () => widget.onNavigate?.call('promotions'),
+          ),
+        ],
       ),
     );
   }
@@ -482,3 +557,53 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
   }
 }
 
+class _QuickActionButton extends StatelessWidget {
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22, color: StorefrontColors.navyDark),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: StorefrontColors.navyDark,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -16,7 +16,7 @@ class UploadClientAvatar {
     if (uid.isEmpty) {
       return const Left(
         StorageUnexpectedFailure(
-          message: 'User ID is required',
+          message: 'L\'identifiant utilisateur est requis',
         ),
       );
     }

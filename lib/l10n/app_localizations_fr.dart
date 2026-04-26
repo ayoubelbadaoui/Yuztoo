@@ -18,13 +18,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get forThemForYou => 'POUR EUX, POUR VOUS';
 
   @override
-  String get allTheShops => 'All the shops';
+  String get allTheShops => 'Tous les commerces';
 
   @override
-  String get youreUsedTo => '\"You\'re used\" to';
+  String get youreUsedTo => 'Ceux que vous avez l\'habitude de fréquenter';
 
   @override
-  String get welcomeQuestion => 'Bienvenue, Vous êtes ?';
+  String get welcomeQuestion => 'Bienvenue : qui êtes-vous ?';
 
   @override
   String get client => 'Client';
@@ -51,13 +51,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get dontHaveAccount => 'Vous n\'avez pas de compte ?';
 
   @override
-  String get haveAccount => 'Vous avez un compte ?';
+  String get haveAccount => 'Vous avez déjà un compte ?';
 
   @override
   String get connect => 'Connectez-vous';
 
   @override
-  String get email => 'Email';
+  String get email => 'E-mail';
 
   @override
   String get password => 'Mot de passe';
@@ -81,16 +81,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get selectCity => 'Sélectionnez votre ville';
 
   @override
-  String get searchCity => 'Rechercher une ville...';
+  String get searchCity => 'Rechercher une ville…';
 
   @override
   String get verification => 'Vérification';
 
   @override
-  String get enterCode => 'Entrez le code envoyé au';
+  String get enterCode => 'Saisissez le code envoyé au';
 
   @override
-  String get incorrectNumber => 'Numéro incorrect ?';
+  String get incorrectNumber => 'Mauvais numéro ?';
 
   @override
   String get resendCode => 'Renvoyer le code';
@@ -132,6 +132,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get qrCode => 'Code QR';
 
   @override
+  String get navAlerts => 'Alertes';
+
+  @override
+  String get navStorefront => 'Vitrine';
+
+  @override
+  String get navYourClients => 'Vos clients';
+
+  @override
+  String get navNotifications => 'Notifications';
+
+  @override
   String get settings => 'Paramètres';
 
   @override
@@ -154,21 +166,21 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get termsAcceptance =>
-      'En continuant, vous acceptez nos conditions d\'utilisation';
+      'En poursuivant, vous acceptez nos conditions d\'utilisation';
 
   @override
   String get invalidCredentials =>
-      'Identifiants invalides. Vérifiez votre email et mot de passe.';
+      'Identifiants incorrects. Vérifiez votre adresse e-mail et votre mot de passe.';
 
   @override
   String get accountDisabled => 'Compte désactivé.';
 
   @override
   String get networkError =>
-      'Erreur de connexion réseau. Vérifiez votre connexion internet.';
+      'Erreur réseau. Vérifiez votre connexion à Internet.';
 
   @override
-  String get operationCancelled => 'Opération annulée par l\'utilisateur.';
+  String get operationCancelled => 'Opération annulée.';
 
   @override
   String get incompleteProfile => 'Profil incomplet';
@@ -186,7 +198,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get connection => 'Connexion';
 
   @override
-  String get chooseRole => 'Choisissez votre rôle';
+  String get chooseRole => 'Choisissez votre profil';
 
   @override
   String get category => 'Catégorie';
@@ -207,10 +219,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get retail => 'Commerce de détail';
 
   @override
-  String get beauty => 'Beauté & Bien-être';
+  String get beauty => 'Beauté et bien-être';
 
   @override
-  String get fitness => 'Sport & Fitness';
+  String get fitness => 'Sport et forme';
 
   @override
   String get services => 'Services';
@@ -264,49 +276,49 @@ class AppLocalizationsFr extends AppLocalizations {
   String get freeCoffee => 'Café offert';
 
   @override
-  String get discount => 'de réduction';
+  String get discount => 'Réduction';
 
   @override
   String get freePastry => 'Pâtisserie offerte';
 
   @override
-  String get scanQRCode => 'Scanne le';
+  String get scanQRCode => 'Scannez le code';
 
   @override
   String get addToYuztoo =>
-      'Ajoute-le à ton carnet Yuztoo\net reçois ses infos utiles';
+      'Ajoutez-le à votre carnet Yuztoo\net recevez ses informations utiles';
 
   @override
-  String get scanning => 'Scan en cours...';
+  String get scanning => 'Scan en cours…';
 
   @override
   String get startScan => 'Lancer le scan';
 
   @override
-  String get emailRequired => 'L\'adresse e-mail est requise.';
+  String get emailRequired => 'L\'adresse e-mail est obligatoire.';
 
   @override
-  String get invalidEmail => 'Adresse e-mail invalide.';
+  String get invalidEmail => 'Adresse e-mail non valide.';
 
   @override
-  String get emailAddress => 'Adresse email';
+  String get emailAddress => 'Adresse e-mail';
 
   @override
   String get forgotPasswordQuestion => 'Mot de passe oublié ?';
 
   @override
-  String get connectToShops => 'Connectez-vous à vos commerces';
+  String get connectToShops => 'Restez proche de vos commerces';
 
   @override
   String get yuztooForYou => 'Yuztoo, concrètement pour vous';
 
   @override
   String get passwordHint =>
-      '8+ caractères, majuscules, minuscules et chiffres';
+      '8 caractères ou plus, majuscules, minuscules et chiffres';
 
   @override
   String socialLoginSoon(String provider) {
-    return 'Connexion $provider bientôt disponible';
+    return 'Connexion avec $provider bientôt disponible';
   }
 
   @override
@@ -314,11 +326,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String categorySelected(String category) {
-    return 'Catégorie sélectionnée: $category';
+    return 'Catégorie sélectionnée : $category';
   }
 
   @override
-  String get foodBusiness => 'Métiers de bouche mais encore...';
+  String get foodBusiness => 'Alimentation et bien plus encore';
 
   @override
   String get activeClients => 'Clients actifs';
@@ -336,7 +348,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get thisWeek => 'Cette semaine';
 
   @override
-  String get thisMonth => 'Ce mois';
+  String get thisMonth => 'Ce mois-ci';
 
   @override
   String get today => 'Aujourd\'hui';
@@ -354,52 +366,53 @@ class AppLocalizationsFr extends AppLocalizations {
   String get year => 'Année';
 
   @override
-  String get dontHaveAccountText => 'Vous n\'avez pas de compte ? ';
+  String get dontHaveAccountText => 'Pas encore de compte ? ';
 
   @override
   String get createAccountText => 'Créer un compte';
 
   @override
-  String get emailPlaceholder => 'votre@email.com';
+  String get emailPlaceholder => 'vous@exemple.com';
 
   @override
   String get passwordPlaceholder => '••••••••';
 
   @override
-  String get phoneRequired => 'Le numéro de téléphone est requis.';
+  String get phoneRequired => 'Le numéro de téléphone est obligatoire.';
 
   @override
   String get invalidPhoneFormat =>
-      'Numéro de téléphone invalide. Vérifiez le format.';
+      'Numéro de téléphone non valide. Vérifiez le format.';
 
   @override
-  String get cityRequired => 'La ville est requise.';
+  String get cityRequired => 'La ville est obligatoire.';
 
   @override
-  String get verificationCodeSent => 'Code de vérification envoyé!';
+  String get verificationCodeSent => 'Code de vérification envoyé !';
 
   @override
   String get smsUnavailable =>
-      'SMS indisponible pour le moment. Veuillez contacter le support.';
+      'Les SMS sont momentanément indisponibles. Veuillez contacter le support.';
 
   @override
-  String get verificationIdMissing => 'Erreur: ID de vérification manquant';
+  String get verificationIdMissing =>
+      'Erreur : identifiant de vérification manquant';
 
   @override
-  String get signupSuccess => 'Inscription réussie!';
+  String get signupSuccess => 'Inscription réussie !';
 
   @override
-  String get verificationCodeResent => 'Code de vérification renvoyé!';
+  String get verificationCodeResent => 'Code de vérification renvoyé !';
 
   @override
-  String get enterCodeSentTo => 'Entrez le code envoyé au\n';
+  String get enterCodeSentTo => 'Saisissez le code envoyé au\n';
 
   @override
   String get wrongNumber => 'Numéro incorrect ?';
 
   @override
   String resendCodeWithTimer(int seconds) {
-    return 'Renvoyer le code (${seconds}s)';
+    return 'Renvoyer le code ($seconds s)';
   }
 
   @override
@@ -409,7 +422,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hello => 'Bonjour,';
 
   @override
-  String get searchStore => 'Rechercher un commerce...';
+  String get searchStore => 'Rechercher un commerce…';
 
   @override
   String get scan => 'Scanner';
@@ -421,10 +434,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get offers => 'Offres';
 
   @override
-  String get activePromotions => 'Promotions actives';
+  String get activePromotions => 'Promotions en cours';
 
   @override
-  String get seeAll => 'Tout voir';
+  String get seeAll => 'Tout afficher';
 
   @override
   String get myBusiness => 'Mon commerce';
@@ -436,7 +449,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get quickActions => 'Actions rapides';
 
   @override
-  String get myQRCode => 'Mon QR Code';
+  String get myQRCode => 'Mon code QR';
 
   @override
   String get showCode => 'Afficher le code';
@@ -459,16 +472,16 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get visitsThisMonth => 'Visites ce mois';
+  String get visitsThisMonth => 'Visites ce mois-ci';
 
   @override
-  String get pointsDistributed => 'Points distribués';
+  String get pointsDistributed => 'Points attribués';
 
   @override
   String get myLoyaltyCards => 'Mes cartes de fidélité';
 
   @override
-  String get totalPoints => 'Points totaux';
+  String get totalPoints => 'Total des points';
 
   @override
   String get stores => 'Commerces';
@@ -495,7 +508,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pushNotifications => 'Notifications push';
 
   @override
-  String get emailNotifications => 'Notifications email';
+  String get emailNotifications => 'Notifications par e-mail';
 
   @override
   String get support => 'SUPPORT';
@@ -509,7 +522,7 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get searchConversation => 'Rechercher une conversation...';
+  String get searchConversation => 'Rechercher une conversation…';
 
   @override
   String get newPromotion => 'Nouvelle promotion !';
@@ -535,15 +548,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String reservationForTomorrow(String time) {
-    return 'Votre réservation pour demain à $time';
+    return 'Votre réservation de demain à $time';
   }
 
   @override
-  String get markAllRead => 'Tout marquer lu';
+  String get markAllRead => 'Tout marquer comme lu';
 
   @override
   String hoursAgo(int hours) {
-    return 'Il y a ${hours}h';
+    return 'Il y a $hours h';
   }
 
   @override
@@ -565,7 +578,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get browseWithoutAccount => 'Parcourir les commerces sans compte →';
 
   @override
-  String get createProAccount => 'Créer un compte pro';
+  String get createProAccount => 'Créer un compte professionnel';
 
   @override
   String get newClientsTitle => 'Nouveaux clients';

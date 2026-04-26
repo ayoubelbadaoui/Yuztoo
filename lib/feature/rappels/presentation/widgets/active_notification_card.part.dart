@@ -21,7 +21,6 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            height: 100,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
               child: Row(
@@ -102,6 +101,16 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
                             ),
                           ],
                         ),
+                        if (notification.targetSegments.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: notification.targetSegments
+                                .map((s) => _segmentTag(s, isOn))
+                                .toList(),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -109,36 +118,92 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
-              border: Border(
-                top: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  width: 1,
-                ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withValues(alpha: 0.06),
+                width: 1,
               ),
             ),
-            child: Row(
-              children: [
-                _actionButton(
-                  icon: Icons.edit_outlined,
-                  label: 'Modifier',
-                  color: MerchantColors.gold,
-                  onTap: onEdit,
+          ),
+          child: Row(
+            children: [
+              _actionButton(
+                icon: Icons.edit_outlined,
+                label: 'Modifier',
+                color: MerchantColors.gold,
+                onTap: onEdit,
+              ),
+              const SizedBox(width: 4),
+              _actionButton(
+                icon: Icons.science_outlined,
+                label: 'Tester',
+                color: const Color(0xFF64B5F6),
+                onTap: onTest ?? () {},
+              ),
+              const Spacer(),
+              // Delivery stats — show when sent at least once.
+              if (notification.sentCount > 0) ...[
+                const Icon(
+                  Icons.send_rounded,
+                  size: 11,
+                  color: MerchantColors.textGrey,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _deliveryLabel(),
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    color: MerchantColors.textGrey,
+                  ),
                 ),
                 const Spacer(),
-                _actionButton(
-                  icon: Icons.delete_outline_rounded,
-                  label: 'Supprimer',
-                  color: const Color(0xFFE57373),
-                  onTap: onDelete,
-                ),
               ],
-            ),
+              _actionButton(
+                icon: Icons.delete_outline_rounded,
+                label: 'Supprimer',
+                color: const Color(0xFFE57373),
+                onTap: onDelete,
+              ),
+            ],
           ),
+        ),
         ],
+      ),
+    );
+  }
+
+  Widget _segmentTag(String key, bool isOn) {
+    const labels = {
+      'vip': 'VIP',
+      'habitue': 'Habitué',
+      'nouveau': 'Nouveau',
+      'abonne': 'Abonné',
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isOn
+            ? MerchantColors.gold.withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isOn
+              ? MerchantColors.gold.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        labels[key] ?? key,
+        style: GoogleFonts.outfit(
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          color: isOn ? MerchantColors.gold : MerchantColors.textLightGrey,
+        ),
       ),
     );
   }
@@ -177,6 +242,23 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
         ],
       ),
     );
+  }
+
+  String _deliveryLabel() {
+    final count = notification.sentCount;
+    final lastSent = notification.lastSentAt;
+    final countStr = '$count envoi${count > 1 ? 's' : ''}';
+    if (lastSent == null) return countStr;
+    final diff = DateTime.now().difference(lastSent);
+    final String timeStr;
+    if (diff.inMinutes < 60) {
+      timeStr = 'il y a ${diff.inMinutes} min';
+    } else if (diff.inHours < 24) {
+      timeStr = 'il y a ${diff.inHours} h';
+    } else {
+      timeStr = 'il y a ${diff.inDays} j';
+    }
+    return '$countStr · $timeStr';
   }
 
   Widget _actionButton({

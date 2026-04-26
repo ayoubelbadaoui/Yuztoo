@@ -30,7 +30,7 @@ class CreateMerchantUseCase {
     if (ownerUid.isEmpty) {
       return Future<Result<Merchant>>.value(
         const Left<MerchantFailure, Merchant>(
-          MerchantUnexpectedFailure(message: 'Owner UID is required.'),
+          MerchantUnexpectedFailure(message: 'L\'identifiant du propriétaire est requis.'),
         ),
       );
     }
@@ -38,7 +38,7 @@ class CreateMerchantUseCase {
     if (name.isEmpty) {
       return Future<Result<Merchant>>.value(
         const Left<MerchantFailure, Merchant>(
-          MerchantUnexpectedFailure(message: 'Merchant name is required.'),
+          MerchantUnexpectedFailure(message: 'Le nom du commerce est requis.'),
         ),
       );
     }
@@ -46,7 +46,7 @@ class CreateMerchantUseCase {
     if (email.isEmpty) {
       return Future<Result<Merchant>>.value(
         const Left<MerchantFailure, Merchant>(
-          MerchantUnexpectedFailure(message: 'Email is required.'),
+          MerchantUnexpectedFailure(message: 'L\'adresse e-mail est requise.'),
         ),
       );
     }
@@ -54,7 +54,7 @@ class CreateMerchantUseCase {
     if (phone.isEmpty) {
       return Future<Result<Merchant>>.value(
         const Left<MerchantFailure, Merchant>(
-          MerchantUnexpectedFailure(message: 'Phone number is required.'),
+          MerchantUnexpectedFailure(message: 'Le numéro de téléphone est requis.'),
         ),
       );
     }
@@ -62,7 +62,7 @@ class CreateMerchantUseCase {
     if (city.isEmpty) {
       return Future<Result<Merchant>>.value(
         const Left<MerchantFailure, Merchant>(
-          MerchantUnexpectedFailure(message: 'City is required.'),
+          MerchantUnexpectedFailure(message: 'La ville est requise.'),
         ),
       );
     }

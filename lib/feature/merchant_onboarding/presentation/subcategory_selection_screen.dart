@@ -70,10 +70,21 @@ class _SubcategorySelectionScreenState
               child: GestureDetector(
                 onTap: widget.onBack,
                 behavior: HitTestBehavior.opaque,
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: SubcategoryColors.primaryGold,
-                  size: 20,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: SubcategoryColors.primaryGold, width: 2),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: SubcategoryColors.primaryGold,
+                      size: 16,
+                    ),
+                  ),
                 ),
               ),
             ),

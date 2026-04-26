@@ -318,7 +318,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         );
         return const Left<AuthFailure, Unit>(
           AuthUnexpectedFailure(
-            message: 'Permission refusée / Permission denied',
+            message: 'Permission refusée',
           ),
         );
       }

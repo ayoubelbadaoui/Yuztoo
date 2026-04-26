@@ -1,4 +1,4 @@
-/// Client type for a promotion.
+/// Client type / offer tier for a promotion.
 enum ClientType { gratuit, premium, payant }
 
 extension ClientTypeX on ClientType {
@@ -19,6 +19,42 @@ extension ClientTypeX on ClientType {
   }
 }
 
+/// Geographic broadcast zone for payant promotions.
+enum PromotionZone { ville, quartier, proche }
+
+extension PromotionZoneX on PromotionZone {
+  String get value => switch (this) {
+        PromotionZone.ville => 'ville',
+        PromotionZone.quartier => 'quartier',
+        PromotionZone.proche => 'proche',
+      };
+
+  String get label => switch (this) {
+        PromotionZone.ville => 'Villes',
+        PromotionZone.quartier => 'Quartier',
+        PromotionZone.proche => 'Proche de vous',
+      };
+
+  int get estimatedReach => switch (this) {
+        PromotionZone.ville => 500,
+        PromotionZone.quartier => 200,
+        PromotionZone.proche => 100,
+      };
+
+  static PromotionZone? fromString(String? v) {
+    switch (v) {
+      case 'ville':
+        return PromotionZone.ville;
+      case 'quartier':
+        return PromotionZone.quartier;
+      case 'proche':
+        return PromotionZone.proche;
+      default:
+        return null;
+    }
+  }
+}
+
 /// Promotion entity.
 class Promotion {
   const Promotion({
@@ -33,6 +69,11 @@ class Promotion {
     this.imagePath,
     this.imageUrl,
     this.viewCount = 0,
+    this.targetSegments = const [],
+    this.diffusionZone,
+    this.targetScope,
+    this.targetZoneLabel,
+    this.estimatedReach = 0,
   });
 
   final String id;
@@ -49,6 +90,16 @@ class Promotion {
   final String? imageUrl;
   /// Number of times clients have viewed this promotion.
   final int viewCount;
+  /// Targeted CRM segments for premium promos (values: 'vip', 'soutien', 'habitue').
+  final List<String> targetSegments;
+  /// Geographic broadcast zone for payant promos.
+  final PromotionZone? diffusionZone;
+  /// Distribution scope: 'mes_clients' | 'yuztoo' | 'ville' | 'quartier' | 'proche'.
+  final String? targetScope;
+  /// Human-readable zone label (e.g. "Paris 11e").
+  final String? targetZoneLabel;
+  /// Estimated number of clients reached (0 = unknown / not computed yet).
+  final int estimatedReach;
 
   Promotion copyWith({
     String? id,
@@ -62,6 +113,11 @@ class Promotion {
     String? imagePath,
     String? imageUrl,
     int? viewCount,
+    List<String>? targetSegments,
+    PromotionZone? diffusionZone,
+    String? targetScope,
+    String? targetZoneLabel,
+    int? estimatedReach,
   }) =>
       Promotion(
         id: id ?? this.id,
@@ -75,6 +131,11 @@ class Promotion {
         imagePath: imagePath ?? this.imagePath,
         imageUrl: imageUrl ?? this.imageUrl,
         viewCount: viewCount ?? this.viewCount,
+        targetSegments: targetSegments ?? this.targetSegments,
+        diffusionZone: diffusionZone ?? this.diffusionZone,
+        targetScope: targetScope ?? this.targetScope,
+        targetZoneLabel: targetZoneLabel ?? this.targetZoneLabel,
+        estimatedReach: estimatedReach ?? this.estimatedReach,
       );
 }
 

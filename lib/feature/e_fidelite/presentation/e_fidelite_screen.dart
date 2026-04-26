@@ -63,7 +63,7 @@ class _EFideliteScreenState extends ConsumerState<EFideliteScreen> {
         ref.invalidate(currentMerchantForOwnerProvider);
         ref.invalidate(storefront_providers.storefrontProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Programme fidélité enregistré.')),
+          const SnackBar(content: Text('Programme de fidélité enregistré.')),
         );
       },
     );

@@ -14,7 +14,7 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
       final user = credential.user;
       if (user == null) {
         return const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(message: 'User not found after sign-in.'),
+          AuthUnexpectedFailure(message: 'Utilisateur introuvable après la connexion.'),
         );
       }
 
@@ -64,7 +64,7 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
       final user = credential.user;
       if (user == null) {
         return const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(message: 'User not found after signup.'),
+          AuthUnexpectedFailure(message: 'Utilisateur introuvable après l\'inscription.'),
         );
       }
 
@@ -102,6 +102,16 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
                 const AuthUnexpectedFailure(
                   message:
                       'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+                ),
+              ));
+            } else if (e.code == 'app-not-authorized' ||
+                errorMessage.contains('INVALID_CERT_HASH') ||
+                errorMessage.contains('missing client identifier') ||
+                errorMessage.contains('package certificate hash')) {
+              completer.complete(const Left<AuthFailure, String>(
+                AuthUnexpectedFailure(
+                  message:
+                      'L\'application n\'est pas autorisée (certificat SHA-1 manquant dans la console Firebase). Contactez le support.',
                 ),
               ));
             } else {
@@ -180,6 +190,137 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
       return Left<AuthFailure, Unit>(_mapAuthException(e, st));
     } catch (e, st) {
       return Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(cause: e, stackTrace: st));
+    }
+  }
+
+  Future<Result<AuthUser>> signInWithGoogle() async {
+    try {
+      final googleSignIn = GoogleSignIn.instance;
+      final googleUser = await googleSignIn.authenticate();
+      final idToken = googleUser.authentication.idToken;
+      if (idToken == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message:
+                'Erreur de configuration Google Sign-In. Veuillez réessayer.',
+          ),
+        );
+      }
+      final credential = firebase.GoogleAuthProvider.credential(
+        idToken: idToken,
+      );
+      final userCred = await _auth.signInWithCredential(credential);
+      final user = userCred.user;
+      if (user == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+              message: 'Utilisateur introuvable après connexion Google.'),
+        );
+      }
+      DocumentSnapshot<Map<String, dynamic>>? profileDoc;
+      try {
+        profileDoc = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .get()
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        profileDoc = null;
+      }
+      final mapped = await _profileToAuthResult(user, profileDoc);
+      if (mapped.isLeft) {
+        return const Left<AuthFailure, AuthUser>(AccountDisabledFailure());
+      }
+      final authUser = mapped.rightOrNull;
+      if (authUser == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Profil introuvable.'),
+        );
+      }
+      return Right<AuthFailure, AuthUser>(authUser);
+    } on firebase.FirebaseAuthException catch (e, st) {
+      return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
+    } on PlatformException catch (e) {
+      // Error code 10 = DEVELOPER_ERROR (SHA-1 / OAuth client misconfiguration)
+      // Error code 12501 / "sign_in_canceled" = user cancelled
+      if (e.code == '12501' ||
+          e.message?.toLowerCase().contains('cancel') == true) {
+        return const Left<AuthFailure, AuthUser>(
+          UserCancelledFailure(),
+        );
+      }
+      return Left<AuthFailure, AuthUser>(
+        AuthUnexpectedFailure(
+          message: e.message ?? 'Erreur Google Sign-In (${e.code}).',
+          cause: e,
+        ),
+      );
+    } catch (e, st) {
+      return Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(cause: e, stackTrace: st));
+    }
+  }
+
+  Future<Result<AuthUser>> signInWithApple() async {
+    try {
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      final oauthCredential = firebase.OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+      final userCred = await _auth.signInWithCredential(oauthCredential);
+      final user = userCred.user;
+      if (user == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Utilisateur introuvable après connexion Apple.'),
+        );
+      }
+      // Update display name from Apple credential if not set
+      final firstName = appleCredential.givenName;
+      final lastName = appleCredential.familyName;
+      if (firstName != null && user.displayName == null) {
+        await user.updateDisplayName('$firstName ${lastName ?? ''}'.trim());
+      }
+      DocumentSnapshot<Map<String, dynamic>>? profileDoc;
+      try {
+        profileDoc = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .get()
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        profileDoc = null;
+      }
+      final mapped = await _profileToAuthResult(user, profileDoc);
+      if (mapped.isLeft) {
+        return const Left<AuthFailure, AuthUser>(AccountDisabledFailure());
+      }
+      final authUser = mapped.rightOrNull;
+      if (authUser == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Profil introuvable.'),
+        );
+      }
+      return Right<AuthFailure, AuthUser>(authUser);
+    } on firebase.FirebaseAuthException catch (e, st) {
+      return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Connexion Apple annulée.'),
+        );
+      }
+      return Left<AuthFailure, AuthUser>(
+        AuthUnexpectedFailure(message: e.message),
+      );
+    } catch (e, st) {
+      return Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));
     }
   }

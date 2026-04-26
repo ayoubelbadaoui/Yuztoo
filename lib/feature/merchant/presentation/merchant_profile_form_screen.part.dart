@@ -167,7 +167,7 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Profil commerçant créé avec succès!'),
+          content: Text('Profil commerçant créé avec succès.'),
           backgroundColor: MerchantOnboardingColors.primaryGold,
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),

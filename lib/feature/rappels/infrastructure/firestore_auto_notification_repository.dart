@@ -27,7 +27,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
   }) async {
     if (merchantId.isEmpty) {
       return const Left(
-        RappelsUnexpectedFailure(message: 'Merchant ID is required'),
+        RappelsUnexpectedFailure(message: 'L\'identifiant du commerce est requis'),
       );
     }
     try {
@@ -41,6 +41,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
         text: notification.text,
         trigger: notification.trigger,
         audience: notification.audience,
+        targetSegments: notification.targetSegments,
         isEnabled: notification.isEnabled,
         createdAt: DateTime.now(),
       );
@@ -122,7 +123,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
     if (notification.merchantId.isEmpty || notification.id.isEmpty) {
       return const Left(
         RappelsUnexpectedFailure(
-          message: 'Merchant ID and Notification ID required',
+          message: 'Identifiant du commerce et identifiant de la notification requis',
         ),
       );
     }
@@ -134,6 +135,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
         text: notification.text,
         trigger: notification.trigger,
         audience: notification.audience,
+        targetSegments: notification.targetSegments,
         isEnabled: notification.isEnabled,
         createdAt: notification.createdAt,
       );
@@ -172,7 +174,7 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
     if (merchantId.isEmpty || notificationId.isEmpty) {
       return const Left(
         RappelsUnexpectedFailure(
-          message: 'Merchant ID and Notification ID required',
+          message: 'Identifiant du commerce et identifiant de la notification requis',
         ),
       );
     }

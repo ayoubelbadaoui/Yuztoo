@@ -147,6 +147,10 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           'spendDelta': cumulativeSpendEurosDelta,
         },
       );
+      // Increment the monthly validated-passages counter when needed.
+      if (validatedPassagesDelta > 0) {
+        _incrementMonthlyValidatedPassages(merchantId);
+      }
       return Right<AppFailure, ClientMerchantLoyaltyProgress>(progress);
     } on FirebaseException catch (e, st) {
       LoggerService.logError(
@@ -181,5 +185,35 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         ),
       );
     }
+  }
+
+  /// Best-effort: increments `rappels_monthly_validated_passages` on the
+  /// merchant doc, resetting the counter when the calendar month changes.
+  void _incrementMonthlyValidatedPassages(String merchantId) {
+    final now = DateTime.now();
+    final currentYm =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final merchantRef =
+        _firestore.collection('merchants').doc(merchantId);
+    _firestore.runTransaction((tx) async {
+      final snap = await tx.get(merchantRef);
+      final storedYm =
+          snap.data()?['rappels_monthly_validated_ym'] as String?;
+      final newCount =
+          storedYm == currentYm ? FieldValue.increment(1) : 1;
+      tx.set(
+        merchantRef,
+        {
+          'rappels_monthly_validated_passages': newCount,
+          'rappels_monthly_validated_ym': currentYm,
+        },
+        SetOptions(merge: true),
+      );
+    }).catchError((Object e) {
+      LoggerService.logError(
+        'incrementMonthlyValidatedPassages',
+        error: e,
+      );
+    });
   }
 }

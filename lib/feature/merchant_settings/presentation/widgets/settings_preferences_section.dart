@@ -29,24 +29,31 @@ class SettingsPreferencesSection extends StatelessWidget {
             'PRÉFÉRENCES DU COMPTE PRO',
             style: GoogleFonts.outfit(
               fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: MerchantColors.textGrey,
-              letterSpacing: 0.5,
+              letterSpacing: 0.8,
             ),
           ),
           const SizedBox(height: 16),
           _settingsItem(
-            icon: Icons.person_outline,
+            icon: Icons.person_outline_rounded,
             label: 'Préférences du compte pro',
             onTap: () => onNavigate?.call('account-preferences'),
           ),
           _settingsItem(
-            icon: Icons.lock_outline,
-            label: 'Identification et sécurité',
+            icon: Icons.badge_rounded,
+            label: 'Mon profil pro',
+            onTap: () => onNavigate?.call('pro-profile'),
           ),
           _settingsItem(
-            icon: Icons.shield_outlined,
+            icon: Icons.lock_outline_rounded,
+            label: 'Identification et sécurité',
+            onTap: () => onNavigate?.call('security'),
+          ),
+          _settingsItem(
+            icon: Icons.shield_rounded,
             label: 'Confidentialité des données',
+            onTap: () => onNavigate?.call('data-privacy'),
             isLast: true,
           ),
         ],
@@ -88,7 +95,7 @@ class SettingsPreferencesSection extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right,
+            const Icon(Icons.chevron_right_rounded,
                 color: MerchantColors.textGrey, size: 20),
           ],
         ),
@@ -96,4 +103,3 @@ class SettingsPreferencesSection extends StatelessWidget {
     );
   }
 }
-

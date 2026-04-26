@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +18,9 @@ class FcmTokenService {
       : _firestore = firestore;
 
   final FirebaseFirestore _firestore;
+
+  /// Stopped in [clearToken] so token rotation cannot write after sign-out.
+  StreamSubscription<String>? _tokenRefreshSubscription;
 
   static const _batteryChannel =
       MethodChannel('com.yuztoo.app/battery');
@@ -34,9 +39,10 @@ class FcmTokenService {
         sound: true,
       );
 
-      // iOS: show banner + play sound + update badge when app is in foreground.
+      // iOS: play sound + update badge in foreground, but suppress the system
+      // banner — the Flutter overlay in main_shell_state handles the visual.
       await messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
+        alert: false,
         badge: true,
         sound: true,
       );
@@ -51,7 +57,8 @@ class FcmTokenService {
       await _persistToken(userId, token);
 
       // Keep token fresh when it rotates (e.g. app reinstall, token expiry).
-      messaging.onTokenRefresh.listen(
+      await _tokenRefreshSubscription?.cancel();
+      _tokenRefreshSubscription = messaging.onTokenRefresh.listen(
         (newToken) => _persistToken(userId, newToken),
       );
     } catch (e, st) {
@@ -84,6 +91,13 @@ class FcmTokenService {
   }
 
   Future<void> _persistToken(String userId, String token) async {
+    // After sign-out, [FirebaseAuth] has no user — Firestore rules deny writes to
+    // `users/{userId}/push_tokens/*`. Token refresh can still fire asynchronously.
+    final authUid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    if (authUid == null || authUid != userId) {
+      return;
+    }
+
     // Store in a subcollection so we don't trigger the strict shape-validation
     // rules on the root /users/{uid} document.
     // Path: users/{uid}/push_tokens/device
@@ -108,6 +122,8 @@ class FcmTokenService {
   /// Remove the FCM token on sign-out so push notifications stop.
   Future<void> clearToken(String userId) async {
     if (userId.isEmpty) return;
+    await _tokenRefreshSubscription?.cancel();
+    _tokenRefreshSubscription = null;
     try {
       await _firestore
           .collection('users')

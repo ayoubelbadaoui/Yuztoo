@@ -4,7 +4,9 @@ export '../../auth/core/application/providers.dart'
     show
         authControllerProvider,
         authStateProvider,
-        userProfileBasicsProvider;
+        userProfileBasicsProvider,
+        connectedCitiesProvider,
+        setConnectedCitiesProvider;
 
 export '../../auth/core/application/state/auth_state.dart'
     show

@@ -11,7 +11,10 @@ class AutoNotificationDto {
     required this.trigger,
     required this.audience,
     required this.isEnabled,
+    this.targetSegments = const [],
     this.createdAt,
+    this.sentCount = 0,
+    this.lastSentAt,
   });
 
   final String id;
@@ -19,8 +22,11 @@ class AutoNotificationDto {
   final String text;
   final String trigger;
   final String audience;
+  final List<String> targetSegments;
   final bool isEnabled;
   final DateTime? createdAt;
+  final int sentCount;
+  final DateTime? lastSentAt;
 
   static AutoNotificationDto fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -42,8 +48,13 @@ class AutoNotificationDto {
       text: data['text'] as String? ?? '',
       trigger: data['trigger'] as String? ?? 'Date anniversaire client',
       audience: data['audience'] as String? ?? 'Tous mes clients',
+      targetSegments: data['target_segments'] != null
+          ? List<String>.from(data['target_segments'] as List)
+          : const [],
       isEnabled: data['is_enabled'] as bool? ?? true,
       createdAt: parseTimestamp(data['created_at']),
+      sentCount: data['sent_count'] as int? ?? 0,
+      lastSentAt: parseTimestamp(data['last_sent_at']),
     );
   }
 
@@ -53,14 +64,18 @@ class AutoNotificationDto {
         text: text,
         trigger: trigger,
         audience: audience,
+        targetSegments: targetSegments,
         isEnabled: isEnabled,
         createdAt: createdAt,
+        sentCount: sentCount,
+        lastSentAt: lastSentAt,
       );
 
   Map<String, dynamic> toFirestore() => <String, dynamic>{
         'text': text,
         'trigger': trigger,
         'audience': audience,
+        'target_segments': targetSegments,
         'is_enabled': isEnabled,
         'created_at': createdAt != null
             ? Timestamp.fromDate(createdAt!)

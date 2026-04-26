@@ -53,7 +53,7 @@ class EmailField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('ADRESSE EMAIL', style: _labelStyle()),
+        Text('ADRESSE E-MAIL', style: _labelStyle()),
         const SizedBox(height: 8),
         TextFormField(
           key: fieldKey,
@@ -630,7 +630,7 @@ class CityDropdown extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Icon(
+                    const Icon(
                       Icons.expand_more_rounded,
                       color: SignupConstants.textGrey,
                       size: 18,

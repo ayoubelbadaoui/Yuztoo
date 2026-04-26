@@ -25,7 +25,7 @@ class UploadBanner {
     if (merchantId.isEmpty) {
       return const Left(
         StorageUnexpectedFailure(
-          message: 'Merchant ID is required',
+          message: 'L\'identifiant du commerce est requis',
         ),
       );
     }

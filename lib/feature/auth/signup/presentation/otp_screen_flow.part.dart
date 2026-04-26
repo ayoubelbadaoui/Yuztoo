@@ -42,7 +42,7 @@ extension _OTPScreenFlow on _OTPScreenState {
           showErrorSnackbar(
             context,
             (emailError == null || emailError.isEmpty)
-                ? 'Impossible de vérifier l\'adresse email.'
+                ? 'Impossible de vérifier l\'adresse e-mail.'
                 : emailError,
           );
           for (final controller in _controllers) {

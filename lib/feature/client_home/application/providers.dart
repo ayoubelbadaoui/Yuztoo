@@ -51,38 +51,69 @@ final followersCountByMerchantIdsProvider =
 
 /// Single load for Accueil: **followed merchants only** (carnet) + their promotions.
 /// City-based discovery belongs on Découvrir, not Accueil.
-/// Avoids duplicate [getFollowedIds] calls and sequential provider chains.
+///
+/// IMPORTANT: all async dependencies use [ref.read] (not [ref.watch]) after the
+/// first `await` to avoid an infinite-rebuild loop: if we watched the inner
+/// provider AND awaited its future, the outer provider would restart every time
+/// the inner one settled — causing perpetual loading.
 typedef ClientHomeFeed = ({
   List<Merchant> merchants,
+  /// IDs of merchants the user is actively following (excludes own merchant).
+  List<String> followedIds,
   List<Promotion> promotions,
+  /// Merchant ID owned by the current user (shown as "Mon commerce"), or null.
+  String? ownMerchantId,
 });
 
 final clientHomeFeedProvider = FutureProvider<ClientHomeFeed>((ref) async {
+  // Reactive dependency: rebuilds when auth state changes.
   final userId = ref.watch(auth_providers.currentUserIdProvider);
-  final merchantRepo = ref.watch(merchantRepositoryProvider);
-  final promoRepo = ref.watch(promotionRepositoryProvider);
+  final merchantRepo = ref.read(merchantRepositoryProvider);
+  final followedRepo = ref.read(followedMerchantsRepositoryProvider);
+  final promoRepo = ref.read(promotionRepositoryProvider);
 
-  // Only followed merchants after sign-in — no guest preview list (real carnet data only).
+  // Only followed merchants after sign-in — no guest preview list.
   if (userId == null) {
-    return (merchants: <Merchant>[], promotions: <Promotion>[]);
+    return (merchants: <Merchant>[], followedIds: <String>[], promotions: <Promotion>[], ownMerchantId: null);
   }
 
-  final ids = await ref.watch(followedMerchantIdsForCurrentUserProvider.future);
-  if (ids.isEmpty) {
-    return (merchants: <Merchant>[], promotions: <Promotion>[]);
+  // Kick off all three reads in parallel — no ref.watch after await.
+  final ownFuture = merchantRepo.getMerchantById(userId);
+  final idsFuture = followedRepo.getFollowedIds(userId);
+  final heartLevelsFuture = followedRepo.getFollowedHeartLevels(userId);
+
+  final ownResult = await ownFuture;
+  final idsResult = await idsFuture;
+  final heartLevelsResult = await heartLevelsFuture;
+
+  final Merchant? ownMerchant = ownResult.fold((_) => null, (m) => m);
+  // followedIds are IDs the user actively follows (never includes own merchant).
+  final followedIds = idsResult
+      .fold((_) => <String>[], (v) => v)
+      .where((id) => id != userId)
+      .toList();
+  final heartLevels = heartLevelsResult.fold((_) => <String, int>{}, (v) => v);
+
+  if (followedIds.isEmpty && ownMerchant == null) {
+    return (merchants: <Merchant>[], followedIds: <String>[], promotions: <Promotion>[], ownMerchantId: null);
   }
 
-  final merchantsResult = await merchantRepo.getMerchantsByIds(ids);
+  final merchantsResult = await merchantRepo.getMerchantsByIds(followedIds);
   final merchants = merchantsResult.fold((_) => <Merchant>[], (list) => list);
-  final heartLevels = await ref.watch(followedMerchantHeartLevelsForCurrentUserProvider.future);
+  // Sort followed merchants by heart level descending.
   merchants.sort((a, b) {
     final ah = heartLevels[a.id] ?? 1;
     final bh = heartLevels[b.id] ?? 1;
     return bh.compareTo(ah);
   });
 
+  // Prepend own merchant at the top.
+  if (ownMerchant != null) {
+    merchants.insert(0, ownMerchant);
+  }
+
   if (merchants.isEmpty) {
-    return (merchants: <Merchant>[], promotions: <Promotion>[]);
+    return (merchants: <Merchant>[], followedIds: followedIds, promotions: <Promotion>[], ownMerchantId: null);
   }
 
   final merchantIds = merchants.map((m) => m.id).toList();
@@ -93,8 +124,18 @@ final clientHomeFeedProvider = FutureProvider<ClientHomeFeed>((ref) async {
   for (final result in promoResults) {
     result.fold((_) => null, (list) => allPromos.addAll(list));
   }
-  allPromos.sort((a, b) => b.dateTo.compareTo(a.dateTo));
-  return (merchants: merchants, promotions: allPromos);
+  // Only show promos that are live and not expired.
+  final now = DateTime.now();
+  final filteredPromos = allPromos
+      .where((p) => p.isOnline && p.dateTo.isAfter(now))
+      .toList();
+  filteredPromos.sort((a, b) => b.dateTo.compareTo(a.dateTo));
+  return (
+    merchants: merchants,
+    followedIds: followedIds,
+    promotions: filteredPromos,
+    ownMerchantId: ownMerchant?.id,
+  );
 });
 
 /// Derived — resolves from [clientHomeFeedProvider] (same underlying future).

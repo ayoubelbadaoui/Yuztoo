@@ -52,7 +52,7 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
       if (e.code == 'permission-denied') {
         return const Left<MerchantFailure, List<Merchant>>(
           MerchantUnexpectedFailure(
-            message: 'Permission denied reading merchants / Permission refusée.',
+            message: 'Permission refusée lors de la lecture des commerces.',
           ),
         );
       }
@@ -67,7 +67,7 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
       );
       return Left<MerchantFailure, List<Merchant>>(
         MerchantUnexpectedFailure(
-          message: 'Unable to load merchants / Impossible de charger les commerces',
+          message: 'Impossible de charger les commerces',
           cause: e,
           stackTrace: st,
         ),
