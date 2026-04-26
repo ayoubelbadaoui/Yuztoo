@@ -91,7 +91,7 @@ void main() {
 
   setUp(() => repo = _FakePromotionRepository());
 
-  final _newPromo = Promotion(
+  final newPromo = Promotion(
     id: '',
     merchantId: 'm1',
     title: 'Promo printemps',
@@ -105,26 +105,26 @@ void main() {
   group('CreatePromotion', () {
     test('success — returns Right with created promotion', () async {
       final uc = CreatePromotion(repo);
-      final result = await uc.call(merchantId: 'm1', promotion: _newPromo);
+      final result = await uc.call(merchantId: 'm1', promotion: newPromo);
       expect(result.isRight, isTrue);
       expect(repo.lastCreateMerchantId, 'm1');
-      expect(repo.lastCreatedPromotion, _newPromo);
+      expect(repo.lastCreatedPromotion, newPromo);
     });
 
     test('success — with imageFilePath passes it to repo', () async {
       final uc = CreatePromotion(repo);
       await uc.call(
         merchantId: 'm1',
-        promotion: _newPromo,
+        promotion: newPromo,
         imageFilePath: '/tmp/promo.jpg',
       );
-      expect(repo.lastCreatedPromotion, _newPromo);
+      expect(repo.lastCreatedPromotion, newPromo);
     });
 
     test('failure — network error returns Left', () async {
       repo.shouldFailCreate = true;
       final uc = CreatePromotion(repo);
-      final result = await uc.call(merchantId: 'm1', promotion: _newPromo);
+      final result = await uc.call(merchantId: 'm1', promotion: newPromo);
       expect(result.isLeft, isTrue);
       expect(result.fold((f) => f, (_) => null), isA<PromotionNetworkFailure>());
     });

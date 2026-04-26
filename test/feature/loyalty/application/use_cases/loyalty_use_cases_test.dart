@@ -57,7 +57,7 @@ class _FakeClientLoyaltyRepository implements ClientLoyaltyRepository {
     lastPendingDelta = pendingPassagesDelta;
     lastSpendDelta = cumulativeSpendEurosDelta;
     if (shouldFail) {
-      return Left(UnexpectedFailure(message: 'Firestore error'));
+      return const Left(UnexpectedFailure(message: 'Firestore error'));
     }
     return const Right(
       ClientMerchantLoyaltyProgress(
@@ -364,7 +364,7 @@ void main() {
       final result = await uc.call(
         actingOwnerUid: 'owner1',
         merchant: _merchant(
-          program: LoyaltyProgramConfig(
+          program: const LoyaltyProgramConfig(
             programEnabled: true,
             triggerType: LoyaltyTriggerType.purchaseTotal,
             passageValidation: LoyaltyPassageValidation.manual,
@@ -382,7 +382,7 @@ void main() {
       final result = await uc.call(
         actingOwnerUid: 'owner1',
         merchant: _merchant(
-          program: LoyaltyProgramConfig(
+          program: const LoyaltyProgramConfig(
             programEnabled: true,
             triggerType: LoyaltyTriggerType.purchaseTotal,
             passageValidation: LoyaltyPassageValidation.manual,
@@ -403,7 +403,7 @@ void main() {
       final result = await uc.call(
         actingOwnerUid: 'owner1',
         merchant: _merchant(
-          program: LoyaltyProgramConfig(
+          program: const LoyaltyProgramConfig(
             programEnabled: true,
             triggerType: LoyaltyTriggerType.purchaseTotal,
             passageValidation: LoyaltyPassageValidation.manual,

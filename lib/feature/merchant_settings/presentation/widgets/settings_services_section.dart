@@ -88,11 +88,6 @@ class SettingsServicesSection extends StatelessWidget {
                 ),
               ),
             ),
-            if (service.onTap != null) ...[
-              const Icon(Icons.chevron_right_rounded,
-                  color: MerchantColors.textGrey, size: 20),
-              const SizedBox(width: 8),
-            ],
             GestureDetector(
               onTap: () => service.onChanged(!service.value),
               child: AnimatedContainer(

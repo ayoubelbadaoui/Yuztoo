@@ -630,7 +630,7 @@ class CityDropdown extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Icon(
+                    const Icon(
                       Icons.expand_more_rounded,
                       color: SignupConstants.textGrey,
                       size: 18,

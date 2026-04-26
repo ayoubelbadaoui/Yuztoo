@@ -417,6 +417,7 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                             imageUrls: storefront.newsImageUrls,
                             isUploading: _isUploadingNewsImage,
                             showMedia: true,
+                            showDescription: false,
                             showUploadButton: true,
                             onUploadImage: () => _uploadNewsImage(storefront),
                             onSettings: null,

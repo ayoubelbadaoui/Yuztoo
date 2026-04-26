@@ -26,7 +26,7 @@ class _FakeFollowedRepo implements FollowedMerchantsRepository {
 
   @override
   Future<Result<List<String>>> getFollowerIds(String merchantId) async {
-    if (shouldFail) return Left(UnexpectedFailure(message: 'Firestore error'));
+    if (shouldFail) return const Left(UnexpectedFailure(message: 'Firestore error'));
     return Right(followerIds);
   }
 
@@ -68,7 +68,7 @@ class _FakeClientNotifRepo implements ClientNotificationRepository {
       ClientNotification notification) async {
     createCallCount++;
     if (shouldFail) {
-      return Left(UnexpectedFailure(message: 'Firestore error'));
+      return const Left(UnexpectedFailure(message: 'Firestore error'));
     }
     return Right(notification.copyWith(id: 'notif_$createCallCount'));
   }
@@ -97,7 +97,7 @@ class _FakeSentNotifRepo implements ISentNotificationRepository {
       SentNotification notification) async {
     lastCreated = notification;
     if (shouldFail) {
-      return Left(UnexpectedFailure(message: 'Firestore error'));
+      return const Left(UnexpectedFailure(message: 'Firestore error'));
     }
     return Right(notification.copyWith(id: 'record_1'));
   }
@@ -106,6 +106,9 @@ class _FakeSentNotifRepo implements ISentNotificationRepository {
   Future<Result<List<SentNotification>>> list(String merchantId,
           {int limit = 20}) async =>
       const Right([]);
+
+  @override
+  Future<void> incrementWeeklyNotifCount(String merchantId) async {}
 }
 
 // ── Fake: IRappelsPendingClientRepository ────────────────────────────────────
@@ -126,7 +129,7 @@ class _FakePendingClientRepo implements IRappelsPendingClientRepository {
     lastAcknowledgedMerchantId = merchantId;
     lastAcknowledgedClientUid = clientUid;
     if (shouldFail) {
-      return Left(UnexpectedFailure(message: 'Firestore error'));
+      return const Left(UnexpectedFailure(message: 'Firestore error'));
     }
     return const Right(unit);
   }
@@ -145,7 +148,7 @@ class _FakeAutoNotifRepo implements AutoNotificationRepository {
     required ActiveNotification notification,
   }) async {
     if (shouldFail) {
-      return Left(UnexpectedFailure(message: 'Firestore error'));
+      return const Left(UnexpectedFailure(message: 'Firestore error'));
     }
     final stored = notification.copyWith(id: 'auto_1', merchantId: merchantId);
     notifications.add(stored);
@@ -163,7 +166,7 @@ class _FakeAutoNotifRepo implements AutoNotificationRepository {
   Future<Result<ActiveNotification>> update(
       ActiveNotification notification) async {
     if (shouldFail) {
-      return Left(UnexpectedFailure(message: 'Firestore error'));
+      return const Left(UnexpectedFailure(message: 'Firestore error'));
     }
     notifications = notifications
         .map((n) => n.id == notification.id ? notification : n)
@@ -177,7 +180,7 @@ class _FakeAutoNotifRepo implements AutoNotificationRepository {
     required String notificationId,
   }) async {
     if (shouldFail) {
-      return Left(UnexpectedFailure(message: 'Firestore error'));
+      return const Left(UnexpectedFailure(message: 'Firestore error'));
     }
     notifications.removeWhere((n) => n.id == notificationId);
     return const Right(unit);
@@ -550,7 +553,7 @@ void main() {
         merchantId: 'merchant_123',
         text: 'Bonjour',
         audience: 'Tous mes clients',
-        segments: ['vip'],
+        segments: const ['vip'],
         sentCount: 10,
         sentAt: now,
       );

@@ -1,3 +1,4 @@
+// ignore_for_file: unused_element_parameter
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -226,6 +227,14 @@ class _FakeUserRepository implements UserRepository {
   @override
   Future<Result<bool>> checkUserProfileComplete(String uid) =>
       throw UnimplementedError();
+
+  @override
+  Future<Result<Unit>> addSecondaryClientRole(String uid) async =>
+      const Right(unit);
+
+  @override
+  Future<Result<Unit>> addSecondaryMerchantRole(String uid) async =>
+      const Right(unit);
 }
 
 /// Firestore `/users/{uid}` exists (OAuth user already registered in app).
@@ -530,7 +539,7 @@ void main() {
     'Signup: Google tap with existing Firestore profile clears OAuth gate',
     (tester) async {
       final oauthAuth = _FakeAuthRepository(
-        googleSignInResult: Right<AuthFailure, AuthUser>(
+        googleSignInResult: const Right<AuthFailure, AuthUser>(
           AuthUser(id: 'oauth-uid', email: 'google@example.com'),
         ),
       );

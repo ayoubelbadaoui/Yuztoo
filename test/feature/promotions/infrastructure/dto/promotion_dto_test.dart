@@ -5,6 +5,7 @@ import 'package:flutter_yuztoo/feature/promotions/infrastructure/dto/promotion_d
 
 // ── Minimal fake DocumentSnapshot ──────────────────────────────────────────
 
+// ignore: subtype_of_sealed_class
 class _FakeDocSnap implements DocumentSnapshot<Map<String, dynamic>> {
   _FakeDocSnap(this._id, this._data);
 

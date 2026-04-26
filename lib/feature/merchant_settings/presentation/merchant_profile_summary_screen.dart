@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../auth/core/application/state/auth_state.dart';
 import '../../client_list/application/providers.dart' as crm_providers;
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
@@ -74,12 +76,21 @@ class _MerchantProfileSummaryScreenState
                 .valueOrNull ??
             const []);
 
+    final authState = ref.watch(auth_providers.authStateProvider);
+    final uid = authState is Authenticated ? authState.user.id : '';
+    final cities = uid.isEmpty
+        ? const <String>[]
+        : (ref.watch(auth_providers.connectedCitiesProvider(uid)).valueOrNull ??
+            const []);
+
     return _buildScaffold(
       context,
       merchant: merchant,
       storefront: storefront,
       clientCount: clients.length,
       partnerCount: partners.length,
+      cityCount: cities.length,
+      weeklyViews: storefront?.weeklyViews ?? 0,
       completionPct: storefront?.profileCompletionPercentage ?? 0,
     );
   }

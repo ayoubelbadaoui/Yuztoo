@@ -354,7 +354,7 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
                       ),
                     ),
                   ),
-                  Icon(
+                  const Icon(
                     Icons.keyboard_arrow_down_rounded,
                     color: MerchantOnboardingColors.textGrey,
                     size: 20,

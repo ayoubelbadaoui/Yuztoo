@@ -7,6 +7,8 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
     required Storefront? storefront,
     required int clientCount,
     required int partnerCount,
+    required int cityCount,
+    required int weeklyViews,
     required int completionPct,
   }) {
     final merchantName = merchant?.name ?? 'Mon commerce';
@@ -51,8 +53,8 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
                       _buildKpiRow(
                         clients: clientCount,
                         partners: partnerCount,
-                        cities: 0,
-                        recommendations: 0,
+                        cities: cityCount,
+                        weeklyViews: weeklyViews,
                       ),
                       const SizedBox(height: 20),
                       _buildCompletionBar(completionPct),
@@ -191,7 +193,7 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
     required int clients,
     required int partners,
     required int cities,
-    required int recommendations,
+    required int weeklyViews,
   }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 48, 20, 0),
@@ -200,7 +202,7 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
           _kpi('$clients', 'Clients'),
           _kpi('$partners', 'Partenaires'),
           _kpi('$cities', 'Villes'),
-          _kpi('$recommendations', 'Recos'),
+          _kpi('$weeklyViews', 'Vues/sem'),
         ],
       ),
     );

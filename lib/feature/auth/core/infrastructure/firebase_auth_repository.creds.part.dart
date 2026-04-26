@@ -189,11 +189,16 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
       final googleSignIn = GoogleSignIn.instance;
       final googleUser = await googleSignIn.authenticate();
       final idToken = googleUser.authentication.idToken;
-      // Note: accessToken requires explicit scope authorization in v7.
-      // For Firebase auth, idToken alone is sufficient with null accessToken.
+      if (idToken == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message:
+                'Erreur de configuration Google Sign-In. Veuillez réessayer.',
+          ),
+        );
+      }
       final credential = firebase.GoogleAuthProvider.credential(
         idToken: idToken,
-        // TODO: request oauth scopes via googleSignIn.authorizationClient if accessToken needed
       );
       final userCred = await _auth.signInWithCredential(credential);
       final user = userCred.user;
@@ -226,6 +231,21 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
       return Right<AuthFailure, AuthUser>(authUser);
     } on firebase.FirebaseAuthException catch (e, st) {
       return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
+    } on PlatformException catch (e) {
+      // Error code 10 = DEVELOPER_ERROR (SHA-1 / OAuth client misconfiguration)
+      // Error code 12501 / "sign_in_canceled" = user cancelled
+      if (e.code == '12501' ||
+          e.message?.toLowerCase().contains('cancel') == true) {
+        return const Left<AuthFailure, AuthUser>(
+          UserCancelledFailure(),
+        );
+      }
+      return Left<AuthFailure, AuthUser>(
+        AuthUnexpectedFailure(
+          message: e.message ?? 'Erreur Google Sign-In (${e.code}).',
+          cause: e,
+        ),
+      );
     } catch (e, st) {
       return Left<AuthFailure, AuthUser>(
           AuthUnexpectedFailure(cause: e, stackTrace: st));

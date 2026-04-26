@@ -286,7 +286,7 @@ class _StepCityState extends State<_StepCity> {
                       ),
                     ),
                   ),
-                  Icon(
+                  const Icon(
                     Icons.keyboard_arrow_down_rounded,
                     color: MerchantOnboardingColors.textGrey,
                     size: 20,
