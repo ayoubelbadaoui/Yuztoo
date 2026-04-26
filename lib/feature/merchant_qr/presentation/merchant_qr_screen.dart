@@ -13,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/config/vitrine_qr_config.dart';
+import '../../../core/infrastructure/nfc_service.dart';
 import '../../merchant/application/providers.dart';
 
 /// Merchant QR Code screen — real QR backed by the merchant's Firestore ID.
@@ -31,6 +32,7 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
   final GlobalKey _qrKey = GlobalKey();
   bool _isSaving = false;
   bool _isSharing = false;
+  bool _isWritingNfc = false;
 
   /// Captures the QR widget as PNG bytes.
   Future<Uint8List?> _captureQr() async {
@@ -90,8 +92,28 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
     }
   }
 
-  void _showSnack(String msg, {bool isSuccess = false}) {
+  Future<void> _writeNfc(String merchantId) async {
+    final available = await NfcService.isAvailable();
     if (!mounted) return;
+    if (!available) {
+      _showSnack('NFC non disponible sur cet appareil');
+      return;
+    }
+    setState(() => _isWritingNfc = true);
+    final result = await NfcService.writeVitrineUrl(merchantId);
+    if (!mounted) return;
+    setState(() => _isWritingNfc = false);
+    switch (result) {
+      case NfcSuccess():
+        _showSnack('Badge NFC programmé avec succès !', isSuccess: true);
+      case NfcUnavailable():
+        _showSnack('NFC non disponible sur cet appareil');
+      case NfcError(:final message):
+        _showSnack(message);
+    }
+  }
+
+  void _showSnack(String msg, {bool isSuccess = false}) {    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: GoogleFonts.outfit(color: Colors.white)),
@@ -330,6 +352,49 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
           ),
           const SizedBox(height: 28),
 
+          // ── NFC write button ────────────────────────────────────────
+          GestureDetector(
+            onTap: _isWritingNfc ? null : () => _writeNfc(merchantId),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: MerchantColors.navyCard,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: MerchantColors.gold
+                      .withValues(alpha: MerchantColors.goldBorderAlpha),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _isWritingNfc
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: MerchantColors.gold),
+                        )
+                      : const Icon(Icons.nfc_rounded,
+                          color: MerchantColors.gold, size: 22),
+                  const SizedBox(width: 10),
+                  Text(
+                    _isWritingNfc
+                        ? 'Approchez le badge NFC...'
+                        : 'Programmer un badge NFC',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+
           // ── tips card ───────────────────────────────────────────────
           Container(
             width: double.infinity,
@@ -363,6 +428,7 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
                 _tip('Imprimez et affichez-le à la caisse'),
                 _tip('Partagez-le sur vos réseaux sociaux'),
                 _tip('Ajoutez-le à vos cartes de visite'),
+                _tip('Programmez un badge NFC pour un accès sans scan'),
               ],
             ),
           ),

@@ -9,8 +9,6 @@ import '../../auth/core/application/providers.dart' show authStateProvider;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/signup/application/providers.dart'
     show deleteCurrentUserProvider;
-import '../../merchant/application/providers.dart'
-    show currentMerchantForOwnerProvider;
 
 /// "Confidentialité des données" screen.
 class DataPrivacyScreen extends ConsumerStatefulWidget {
@@ -37,16 +35,15 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
   }
 
   Future<void> _loadConsent() async {
-    final merchant =
-        ref.read(currentMerchantForOwnerProvider).valueOrNull;
-    if (merchant == null) {
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) {
       setState(() => _loadingConsent = false);
       return;
     }
     try {
       final doc = await FirebaseFirestore.instance
-          .collection('merchants')
-          .doc(merchant.id)
+          .collection('users')
+          .doc(authState.user.id)
           .get();
       final consent = doc.data()?['analyticsConsent'] as bool? ?? false;
       if (mounted) {
@@ -61,17 +58,17 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
   }
 
   Future<void> _toggleConsent(bool value) async {
-    final merchant = ref.read(currentMerchantForOwnerProvider).valueOrNull;
-    if (merchant == null) return;
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) return;
     setState(() {
       _analyticsConsent = value;
       _savingConsent = true;
     });
     try {
       await FirebaseFirestore.instance
-          .collection('merchants')
-          .doc(merchant.id)
-          .update({'analyticsConsent': value});
+          .collection('users')
+          .doc(authState.user.id)
+          .set({'analyticsConsent': value}, SetOptions(merge: true));
     } catch (_) {
       if (mounted) setState(() => _analyticsConsent = !value);
     } finally {

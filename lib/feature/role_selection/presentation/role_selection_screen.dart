@@ -18,6 +18,7 @@ class RoleSelectionScreen extends StatefulWidget {
     this.onLogin,
     this.onSignup,
     this.onGuestDiscover,
+    this.onScanQr,
   });
 
   final ValueChanged<UserRole> onSelectRole;
@@ -27,6 +28,8 @@ class RoleSelectionScreen extends StatefulWidget {
   final ValueChanged<UserRole>? onSignup;
   /// Navigate to discovery screen without authenticating.
   final VoidCallback? onGuestDiscover;
+  /// Open the QR scanner directly (no account required).
+  final VoidCallback? onScanQr;
 
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
@@ -34,7 +37,8 @@ class RoleSelectionScreen extends StatefulWidget {
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   late UserRole _selectedRole;
-  bool _isScanning = false;
+  // isScanning is always false now — QR scanner opens immediately via onScanQr.
+  final bool _isScanning = false;
 
   @override
   void initState() {
@@ -43,13 +47,13 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   }
 
   void _handleScan() {
-    setState(() => _isScanning = true);
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _isScanning = false);
-        widget.onSelectRole(UserRole.client);
-      }
-    });
+    // If the shell provides a direct QR scanner callback, use it.
+    if (widget.onScanQr != null) {
+      widget.onScanQr!();
+      return;
+    }
+    // Fallback: navigate to client login (original behaviour).
+    widget.onSelectRole(UserRole.client);
   }
 
   void _handleDiscover() {

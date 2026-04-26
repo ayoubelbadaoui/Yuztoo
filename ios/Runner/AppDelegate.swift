@@ -10,8 +10,6 @@ import UserNotifications
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
 
-    // Show notification banners even when the app is in the foreground —
-    // same behaviour as Instagram/WhatsApp on iOS.
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self
     }
@@ -19,8 +17,18 @@ import UserNotifications
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  // Clear the app icon badge as soon as the user opens the app.
+  // This mirrors the behaviour of Instagram, WhatsApp, and Messenger.
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    application.applicationIconBadgeNumber = 0
+    super.applicationDidBecomeActive(application)
+  }
+
   // Called when a notification arrives while the app is in the FOREGROUND.
-  // Passing all options shows the banner + plays the sound + updates the badge.
+  // We suppress the system banner (.banner) because the Flutter overlay
+  // already shows an in-app banner via FirebaseMessaging.onMessage.
+  // We still play the sound and update the badge so the UX matches
+  // background behaviour (sound + badge, just no duplicate system popup).
   @available(iOS 10.0, *)
   override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
@@ -29,9 +37,9 @@ import UserNotifications
       @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     if #available(iOS 14.0, *) {
-      completionHandler([.banner, .sound, .badge])
+      completionHandler([.sound, .badge])   // no .banner — Flutter overlay handles it
     } else {
-      completionHandler([.alert, .sound, .badge])
+      completionHandler([.sound, .badge])   // no .alert
     }
   }
 }

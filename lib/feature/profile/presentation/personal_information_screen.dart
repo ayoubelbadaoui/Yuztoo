@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/utils/cities.dart';
 import '../../auth/core/application/user_display_helpers.dart';
 import '../application/providers.dart';
 
@@ -35,12 +36,23 @@ class PersonalInformationScreen extends ConsumerWidget {
           );
     final city = cityRaw.isNotEmpty ? cityRaw : '—';
 
+    // Profile completion: 20% each for name, email, phone, city, photo.
+    int completionPercent = 0;
+    if (fullName != 'Utilisateur' && fullName.isNotEmpty) completionPercent += 20;
+    if (email != '—') completionPercent += 20;
+    if (phone != '—') completionPercent += 20;
+    if (city != '—') completionPercent += 20;
+    final hasPhoto = user?.photoUrl != null && user!.photoUrl!.isNotEmpty;
+    if (hasPhoto) completionPercent += 20;
+
     return _buildPersonalInformationScaffold(
       context,
       fullName: fullName,
       email: email,
       phone: phone,
       city: city,
+      completionPercent: completionPercent,
+      hasPhoto: hasPhoto,
     );
   }
 }

@@ -48,6 +48,7 @@ import 'feature/merchant_notifications/presentation/merchant_notifications_hub_s
 import 'feature/merchant_partners/presentation/merchant_partners_screen.dart';
 import 'feature/e_fidelite/application/screens.dart';
 import 'feature/account_preferences/application/screens.dart';
+import 'feature/guest/presentation/guest_shell.dart';
 import 'feature/merchant/application/providers.dart' as merchant_providers;
 import 'feature/client_notification/application/providers.dart'
     as client_notification_providers;

@@ -5,7 +5,10 @@ import '../../../../core/shared/constants/merchant_colors.dart';
 
 /// Product / feature section of the Rappels screen.
 class RappelsProductSection extends StatelessWidget {
-  const RappelsProductSection({super.key});
+  const RappelsProductSection({super.key, this.onProgramNfc});
+
+  /// Called when the merchant taps "Programmer NFC" — navigate to QR/NFC screen.
+  final VoidCallback? onProgramNfc;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +34,43 @@ class RappelsProductSection extends StatelessWidget {
           const SizedBox(height: 12),
           _featurePoint(
             'Un geste naturel pour vous, une expérience fluide pour vos clients',
+          ),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: onProgramNfc,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [MerchantColors.gold, Color(0xFFD4AF37)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: MerchantColors.gold.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.nfc_rounded,
+                      color: MerchantColors.bgMain, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Programmer mon badge NFC',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: MerchantColors.bgMain,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -105,11 +145,19 @@ class RappelsProductSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Disponible prochainement',
+            'Badge NFC Yuztoo',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Approchez — connecté en un instant',
             style: GoogleFonts.outfit(
               fontSize: 12,
               color: MerchantColors.textGrey,
-              fontStyle: FontStyle.italic,
             ),
           ),
         ],

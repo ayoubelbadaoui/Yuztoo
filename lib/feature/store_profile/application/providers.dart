@@ -16,7 +16,11 @@ export '../../client_home/application/providers.dart'
         viewedMerchantsLocalServiceProvider,
         clientHomeFeedProvider;
 export '../../followed_merchants/application/providers.dart'
-    show toggleMerchantFollowProvider, ensureFollowedAndSetHeartLevelProvider;
+    show
+        toggleMerchantFollowProvider,
+        ensureFollowedAndSetHeartLevelProvider,
+        merchantMuteStateProvider,
+        setMuteStateProvider;
 export '../../loyalty/application/client_loyalty_providers.dart'
     show
         clientLoyaltyProgressForMerchantProvider,

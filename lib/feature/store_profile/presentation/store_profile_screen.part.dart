@@ -553,6 +553,12 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                       const SizedBox(height: 16),
 
                       // Action buttons
+                      if (merchant.welcomeGiftDescription != null &&
+                          merchant.welcomeGiftDescription!.trim().isNotEmpty &&
+                          !isFollowing)
+                        _buildWelcomeGiftCard(
+                            merchant.welcomeGiftDescription!.trim()),
+                      const SizedBox(height: 12),
                       _buildActionRow(context, merchant.id),
                     ],
                   ),
@@ -643,6 +649,54 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     );
   }
 
+  // ── Welcome gift card (shown only to non-followers) ──────────────────────
+
+  Widget _buildWelcomeGiftCard(String description) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: StorefrontColors.primaryGold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: StorefrontColors.primaryGold.withValues(alpha: 0.55),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('🎁', style: TextStyle(fontSize: 22)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cadeau de bienvenue',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: StorefrontColors.primaryGold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: StorefrontColors.textPrimary,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Follow / Unfollow button ───────────────────────────────────────────────
 
   Widget _buildActionRow(BuildContext context, String merchantId) {
@@ -699,74 +753,84 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 
     return SizedBox(
       width: double.infinity,
-      child: InkWell(
-        onTap: _isFollowToggling
-            ? null
-            : () async {
-                if (userId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text('Connectez-vous pour suivre des commerces'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                  return;
-                }
-                _setFollowToggling(true);
-                final toggleFollow = ref.read(toggleMerchantFollowProvider);
-                final result = await toggleFollow.call(
-                  userId: userId,
-                  merchantId: merchantId,
-                  currentlyFollowing: isFollowing,
-                );
-                if (!context.mounted) return;
-                _setFollowToggling(false);
-                if (result.isLeft) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Échec de la sauvegarde'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                  return;
-                }
-                ref.invalidate(followedMerchantIdsForCurrentUserProvider);
-                ref.invalidate(
-                    followedMerchantHeartLevelsForCurrentUserProvider);
-                ref.invalidate(clientHomeFeedProvider);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isFollowing
-                            ? 'Commerce retiré de votre carnet'
-                            : 'Commerce ajouté à votre carnet ✓',
-                      ),
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: StorefrontColors.primaryGold,
-                    ),
-                  );
-                }
-              },
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: isFollowing
-                ? Colors.transparent
-                : StorefrontColors.primaryGold,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: StorefrontColors.primaryGold,
-              width: isFollowing ? 1.5 : 0,
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: _isFollowToggling
+                  ? null
+                  : () async {
+                      if (userId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content:
+                                Text('Connectez-vous pour suivre des commerces'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+                      _setFollowToggling(true);
+                      final toggleFollow = ref.read(toggleMerchantFollowProvider);
+                      final result = await toggleFollow.call(
+                        userId: userId,
+                        merchantId: merchantId,
+                        currentlyFollowing: isFollowing,
+                      );
+                      if (!context.mounted) return;
+                      _setFollowToggling(false);
+                      if (result.isLeft) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Échec de la sauvegarde'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+                      ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+                      ref.invalidate(
+                          followedMerchantHeartLevelsForCurrentUserProvider);
+                      ref.invalidate(clientHomeFeedProvider);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              isFollowing
+                                  ? 'Commerce retiré de votre carnet'
+                                  : 'Commerce ajouté à votre carnet ✓',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: StorefrontColors.primaryGold,
+                          ),
+                        );
+                      }
+                    },
+              borderRadius: BorderRadius.circular(14),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: isFollowing
+                      ? Colors.transparent
+                      : StorefrontColors.primaryGold,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: StorefrontColors.primaryGold,
+                    width: isFollowing ? 1.5 : 0,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: buttonChild,
+              ),
             ),
           ),
-          alignment: Alignment.center,
-          child: buttonChild,
-        ),
+          if (isFollowing && userId != null) ...[
+            const SizedBox(width: 10),
+            _MuteBellButton(userId: userId, merchantId: merchantId),
+          ],
+        ],
       ),
     );
   }
@@ -863,6 +927,35 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
             ),
           if (canRecordPassage) ...[
             const SizedBox(height: 12),
+            // Tier status badge
+            progressAsync.maybeWhen(
+              data: (p) {
+                final tier = ClientLoyaltyTier.fromPassages(p.validatedPassages);
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _tierColorStorefront(tier).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: _tierColorStorefront(tier).withValues(alpha: 0.5)),
+                    ),
+                    child: Text(
+                      'Votre statut : ${tier.label}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _tierColorStorefront(tier),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              orElse: () => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -1205,6 +1298,121 @@ class _BackButton extends StatelessWidget {
 // Tab content widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+
+// ─── Mute bell button ─────────────────────────────────────────────────────
+
+class _MuteBellButton extends ConsumerWidget {
+  const _MuteBellButton({required this.userId, required this.merchantId});
+
+  final String userId;
+  final String merchantId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final muteAsync = ref.watch(
+        merchantMuteStateProvider((userId: userId, merchantId: merchantId)));
+    final isMuted = muteAsync.valueOrNull ?? false;
+
+    return InkWell(
+      onTap: () async {
+        final setMute = ref.read(setMuteStateProvider);
+        await setMute(userId, merchantId, muted: !isMuted);
+        ref.invalidate(
+            merchantMuteStateProvider((userId: userId, merchantId: merchantId)));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(isMuted
+                  ? 'Notifications réactivées'
+                  : 'Notifications désactivées pour ce commerce'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: isMuted
+                  ? StorefrontColors.primaryGold
+                  : StorefrontColors.navyDark,
+            ),
+          );
+        }
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: StorefrontColors.primaryGold, width: 1.5),
+          color: isMuted
+              ? StorefrontColors.primaryGold.withValues(alpha: 0.12)
+              : Colors.transparent,
+        ),
+        child: Icon(
+          isMuted
+              ? Icons.notifications_off_outlined
+              : Icons.notifications_outlined,
+          color: StorefrontColors.primaryGold,
+          size: 20,
+        ),
+      ),
+    );
+  }
+}
+
+Color _tierColorStorefront(ClientLoyaltyTier tier) {
+  switch (tier) {
+    case ClientLoyaltyTier.nouveau:
+      return StorefrontColors.textSecondary;
+    case ClientLoyaltyTier.soutien:
+      return const Color(0xFF4FC3F7);
+    case ClientLoyaltyTier.habitue:
+      return StorefrontColors.primaryGold;
+    case ClientLoyaltyTier.vip:
+      return const Color(0xFFE040FB);
+  }
+}
+
+// ─── URL launch helpers ────────────────────────────────────────────────────
+
+Future<void> _launchPhone(BuildContext context, String phone) async {
+  final uri = Uri(scheme: 'tel', path: phone.replaceAll(' ', ''));
+  if (!await launchUrl(uri)) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d\'ouvrir le téléphone')),
+      );
+    }
+  }
+}
+
+Future<void> _launchMaps(BuildContext context, String address) async {
+  final encoded = Uri.encodeComponent(address);
+  // Try Google Maps first; fallback to Apple Maps on iOS.
+  final geoUri = Uri.parse('geo:0,0?q=$encoded');
+  final mapsUri =
+      Uri.parse('https://maps.apple.com/?q=$encoded');
+  if (!await launchUrl(geoUri, mode: LaunchMode.externalApplication)) {
+    if (!await launchUrl(mapsUri, mode: LaunchMode.externalApplication)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible d\'ouvrir Maps')),
+        );
+      }
+    }
+  }
+}
+
+Future<void> _launchWebsite(BuildContext context, String url) async {
+  final uri = Uri.tryParse(
+      url.startsWith('http') ? url : 'https://$url');
+  if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d\'ouvrir le site')),
+      );
+    }
+  }
+}
+
 /// Accueil tab — contact info + description + promotions + partner recommendations.
 class _AccueilTab extends ConsumerWidget {
   const _AccueilTab({
@@ -1283,6 +1491,7 @@ class _AccueilTab extends ConsumerWidget {
                   label: 'Téléphone',
                   value: merchant.phone,
                   isFirst: true,
+                  onTap: () => _launchPhone(context, merchant.phone),
                 ),
                 const Divider(
                     height: 1, thickness: 1, color: Color(0xFFEEE8DE)),
@@ -1291,7 +1500,22 @@ class _AccueilTab extends ConsumerWidget {
                   label: 'Adresse',
                   value: merchant.address ?? merchant.city,
                   isFirst: false,
+                  onTap: () => _launchMaps(
+                      context, merchant.address ?? merchant.city),
                 ),
+                if (merchant.websiteUrl != null &&
+                    merchant.websiteUrl!.isNotEmpty) ...[
+                  const Divider(
+                      height: 1, thickness: 1, color: Color(0xFFEEE8DE)),
+                  _InfoTile(
+                    icon: Icons.language_outlined,
+                    label: 'Site web',
+                    value: merchant.websiteUrl!,
+                    isFirst: false,
+                    onTap: () =>
+                        _launchWebsite(context, merchant.websiteUrl!),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1394,56 +1618,70 @@ class _InfoTile extends StatelessWidget {
     required this.label,
     required this.value,
     required this.isFirst,
+    this.onTap,
   });
   final IconData icon;
   final String label;
   final String value;
   final bool isFirst;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, isFirst ? 14 : 12, 16, 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: StorefrontColors.primaryGold.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(10),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(onTap != null ? 12 : 0),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, isFirst ? 14 : 12, 16, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: StorefrontColors.primaryGold.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon,
+                  color: StorefrontColors.primaryGold, size: 18),
             ),
-            child: Icon(icon,
-                color: StorefrontColors.primaryGold, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: StorefrontColors.textSecondary,
-                    letterSpacing: 0.4,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: StorefrontColors.textSecondary,
+                      letterSpacing: 0.4,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: StorefrontColors.textPrimary,
-                    height: 1.4,
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: onTap != null
+                          ? StorefrontColors.primaryGold
+                          : StorefrontColors.textPrimary,
+                      height: 1.4,
+                      decoration:
+                          onTap != null ? TextDecoration.underline : null,
+                      decorationColor: StorefrontColors.primaryGold,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+            if (onTap != null)
+              const Icon(Icons.chevron_right_rounded,
+                  color: StorefrontColors.primaryGold, size: 18),
+          ],
+        ),
       ),
     );
   }

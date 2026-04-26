@@ -38,12 +38,19 @@ class _Header extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: onNotifications,
-                icon: const Icon(
-                  Icons.notifications_outlined,
-                  color: MerchantColors.gold,
-                  size: 24,
+              GestureDetector(
+                onTap: onNotifications,
+                behavior: HitTestBehavior.opaque,
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(
+                    child: Icon(
+                      Icons.notifications_outlined,
+                      color: MerchantColors.gold,
+                      size: 24,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -54,28 +61,57 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ─── Contact lines ─────────────────────────────────────────────────────────────
+// ─── Greeting block ─────────────────────────────────────────────────────────
 
-class _ContactLines extends StatelessWidget {
-  const _ContactLines({required this.email, required this.phone});
+class _GreetingBlock extends StatelessWidget {
+  const _GreetingBlock({
+    required this.firstName,
+    required this.feedAsync,
+  });
 
-  final String email;
-  final String phone;
+  final String firstName;
+  final AsyncValue<List<ClientLoyaltyEntry>> feedAsync;
 
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.outfit(
-      fontSize: 13,
-      height: 1.45,
-      color: MerchantColors.textGrey,
-    );
+    final entries = feedAsync.valueOrNull ?? [];
+    final merchantCount = entries.length;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(email, textAlign: TextAlign.center, style: style),
-        if (phone != '—') ...[
-          const SizedBox(height: 6),
-          Text(phone, textAlign: TextAlign.center, style: style),
-        ],
+        ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [Color(0xFFF5F5F5), Color(0xFFD4A017)],
+            stops: [0.5, 1.0],
+          ).createShader(bounds),
+          child: Text(
+            'Bonjour $firstName 👋',
+            style: GoogleFonts.outfit(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (merchantCount > 0)
+          Text(
+            '$merchantCount commerce${merchantCount > 1 ? 's' : ''} suivi${merchantCount > 1 ? 's' : ''}',
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: MerchantColors.textGrey,
+            ),
+          )
+        else
+          Text(
+            'Scannez votre premier commerce pour commencer',
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: MerchantColors.textGrey,
+            ),
+          ),
       ],
     );
   }
@@ -84,9 +120,10 @@ class _ContactLines extends StatelessWidget {
 // ─── Feed (loading / empty / list) ────────────────────────────────────────────
 
 class _LoyaltyFeed extends StatelessWidget {
-  const _LoyaltyFeed({required this.feedAsync});
+  const _LoyaltyFeed({required this.feedAsync, this.onStoreTap});
 
   final AsyncValue<List<ClientLoyaltyEntry>> feedAsync;
+  final ValueChanged<String>? onStoreTap;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +138,7 @@ class _LoyaltyFeed extends StatelessWidget {
         return Column(
           children: [
             for (final entry in entries) ...[
-              _MerchantLoyaltyCard(entry: entry),
+              _MerchantLoyaltyCard(entry: entry, onStoreTap: onStoreTap),
               const SizedBox(height: 16),
             ],
           ],
@@ -113,25 +150,104 @@ class _LoyaltyFeed extends StatelessWidget {
 
 // ─── Loading shimmer cards ──────────────────────────────────────────────────
 
-class _LoadingCards extends StatelessWidget {
+class _LoadingCards extends StatefulWidget {
   const _LoadingCards();
 
   @override
+  State<_LoadingCards> createState() => _LoadingCardsState();
+}
+
+class _LoadingCardsState extends State<_LoadingCards>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(
-        2,
-        (_) => Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Container(
-            height: 140,
-            decoration: BoxDecoration(
-              color: MerchantColors.navyCard,
-              borderRadius: BorderRadius.circular(16),
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) {
+        final shimmerOpacity = 0.35 + _anim.value * 0.25;
+        return Column(
+          children: List.generate(
+            2,
+            (i) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Opacity(
+                opacity: 1.0 - i * 0.25,
+                child: Container(
+                  height: 140,
+                  decoration: BoxDecoration(
+                    color: MerchantColors.navyCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: MerchantColors.gold
+                          .withValues(alpha: shimmerOpacity * 0.4),
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: MerchantColors.gold
+                              .withValues(alpha: shimmerOpacity * 0.2),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              height: 12,
+                              width: 120,
+                              decoration: BoxDecoration(
+                                color: MerchantColors.gold
+                                    .withValues(alpha: shimmerOpacity * 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: MerchantColors.gold
+                                    .withValues(alpha: shimmerOpacity * 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -255,34 +371,44 @@ class _EmptyState extends StatelessWidget {
 // ─── Per-merchant loyalty card ────────────────────────────────────────────────
 
 class _MerchantLoyaltyCard extends ConsumerWidget {
-  const _MerchantLoyaltyCard({required this.entry});
+  const _MerchantLoyaltyCard({required this.entry, this.onStoreTap});
 
   final ClientLoyaltyEntry entry;
+  final ValueChanged<String>? onStoreTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progressAsync =
         ref.watch(clientLoyaltyProgressForMerchantProvider(entry.merchantId));
 
-    return progressAsync.when(
+    final card = progressAsync.when(
       loading: () => _buildCard(
         context,
         fraction: 0.0,
         label: '— passages',
         rewardAvailable: false,
+        tier: null,
       ),
       error: (_, __) => _buildCard(
         context,
         fraction: 0.0,
         label: 'Erreur',
         rewardAvailable: false,
+        tier: null,
       ),
       data: (progress) => _buildCard(
         context,
         fraction: entry.progressFraction(progress),
         label: entry.progressLabel(progress),
         rewardAvailable: entry.isRewardAvailable(progress),
+        tier: ClientLoyaltyTier.fromPassages(progress.validatedPassages),
       ),
+    );
+
+    if (onStoreTap == null) return card;
+    return GestureDetector(
+      onTap: () => onStoreTap!(entry.merchantId),
+      child: card,
     );
   }
 
@@ -291,6 +417,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
     required double fraction,
     required String label,
     required bool rewardAvailable,
+    required ClientLoyaltyTier? tier,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -377,6 +504,25 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
                     ),
                   ),
                 ),
+              if (!rewardAvailable && tier != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _tierColor(tier).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: _tierColor(tier).withValues(alpha: 0.5)),
+                  ),
+                  child: Text(
+                    tier.label,
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: _tierColor(tier),
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -419,5 +565,18 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+Color _tierColor(ClientLoyaltyTier tier) {
+  switch (tier) {
+    case ClientLoyaltyTier.nouveau:
+      return MerchantColors.textGrey;
+    case ClientLoyaltyTier.soutien:
+      return const Color(0xFF4FC3F7);
+    case ClientLoyaltyTier.habitue:
+      return MerchantColors.gold;
+    case ClientLoyaltyTier.vip:
+      return const Color(0xFFE040FB);
   }
 }

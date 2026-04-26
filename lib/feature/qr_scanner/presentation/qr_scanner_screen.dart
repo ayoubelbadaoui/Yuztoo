@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/config/vitrine_qr_config.dart';
+import '../../../core/infrastructure/nfc_service.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 
 part 'qr_scanner_screen.part.dart';
@@ -36,6 +37,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   DateTime? _lastScanTime;
   static const _scanCooldown = Duration(seconds: 2);
+
+  bool _nfcMode = false;
+  bool _nfcScanning = false;
 
   @override
   void dispose() {
@@ -73,6 +77,71 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
     HapticFeedback.mediumImpact();
     widget.onVitrineMerchantFound(merchantId);
+  }
+
+  Future<void> _startNfcScan() async {
+    if (_nfcScanning) return;
+    final available = await NfcService.isAvailable();
+    if (!mounted) return;
+    if (!available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('NFC non disponible sur cet appareil.',
+              style: GoogleFonts.outfit()),
+          backgroundColor: MerchantColors.navyCard,
+        ),
+      );
+      return;
+    }
+    setState(() => _nfcScanning = true);
+    final result = await NfcService.readVitrineMerchantId(
+      alertMessage: 'Approchez votre téléphone du badge NFC du commerce',
+    );
+    if (!mounted) return;
+    setState(() => _nfcScanning = false);
+    switch (result) {
+      case NfcSuccess(:final merchantId):
+        if (merchantId != null && merchantId.isNotEmpty) {
+          HapticFeedback.mediumImpact();
+          widget.onVitrineMerchantFound(merchantId);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ce badge NFC ne contient pas de vitrine Yuztoo.',
+                  style: GoogleFonts.outfit()),
+              backgroundColor: MerchantColors.navyCard,
+            ),
+          );
+        }
+      case NfcUnavailable():
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('NFC non disponible.', style: GoogleFonts.outfit()),
+            backgroundColor: MerchantColors.navyCard,
+          ),
+        );
+      case NfcError(:final message):
+        if (message != 'Lecture annulée.') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message, style: GoogleFonts.outfit()),
+              backgroundColor: MerchantColors.navyCard,
+            ),
+          );
+        }
+    }
+  }
+
+  void _toggleMode() {
+    setState(() {
+      _nfcMode = !_nfcMode;
+      if (_nfcMode) {
+        _controller.stop();
+      } else {
+        _controller.start();
+      }
+    });
+    if (_nfcMode) _startNfcScan();
   }
 
   @override

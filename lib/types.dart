@@ -35,4 +35,5 @@ enum ScreenId {
   merchantSecurity,
   merchantDataPrivacy,
   merchantProfileSummary,
+  guestShell,
 }

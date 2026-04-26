@@ -209,6 +209,24 @@ export const onNotificationCreated = functions
     const promotionId: string | undefined = data.promotion_id;
     const merchantId: string | undefined = data.merchant_id;
 
+    // Count unread notifications for this user to use as the iOS badge count.
+    // The new notification doc is already created (is_read: false by default),
+    // so this returns the true unread count including the new one.
+    let badgeCount = 1;
+    try {
+      const unreadSnap = await db
+        .collection("users")
+        .doc(userId)
+        .collection("notifications")
+        .where("is_read", "==", false)
+        .count()
+        .get();
+      badgeCount = unreadSnap.data().count;
+    } catch (_) {
+      // count() requires Firestore Blaze plan — fall back to 1 if unavailable.
+      badgeCount = 1;
+    }
+
     const message: admin.messaging.Message = {
       token: fcmToken,
       notification: { title, body },
@@ -227,7 +245,7 @@ export const onNotificationCreated = functions
         },
       },
       apns: {
-        payload: { aps: { sound: "default", badge: 1 } },
+        payload: { aps: { sound: "default", badge: badgeCount } },
       },
     };
 

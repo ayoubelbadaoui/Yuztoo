@@ -112,7 +112,11 @@ extension _RappelsScreenUi on _RappelsScreenState {
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
-                    const RappelsProductSection(),
+                    RappelsProductSection(
+                      onProgramNfc: widget.onNavigate != null
+                          ? () => widget.onNavigate!('qr-code')
+                          : null,
+                    ),
                     storefrontAsync.when(
                       data: (storefront) {
                         final autoClient =

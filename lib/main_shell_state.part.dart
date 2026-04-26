@@ -21,10 +21,13 @@ class _RootShellState extends ConsumerState<_RootShell>
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _appLinkSubscription;
   StreamSubscription<RemoteMessage>? _fcmForegroundSub;
-  StreamSubscription<String?>? _notifTapSub;
+  StreamSubscription<Map<String, dynamic>?>? _notifTapSub;
 
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
   String? _pendingVitrineMerchantId;
+
+  /// FCM message received via getInitialMessage() before the auth state resolved.
+  RemoteMessage? _pendingInitialFcmMessage;
 
   @override
   void initState() {
@@ -51,19 +54,19 @@ class _RootShellState extends ConsumerState<_RootShell>
       unawaited(NotificationService.instance.showFromRemoteMessage(message));
     });
 
-    // Open notifications screen when user taps a banner while app is open.
-    _notifTapSub = NotificationService.instance.onNotificationTap.listen((_) {
-      if (mounted) _openNotificationsScreen();
+    // Open correct screen when user taps the in-app overlay banner.
+    _notifTapSub = NotificationService.instance.onNotificationTap.listen((data) {
+      if (mounted) _handleFcmTap(data);
     });
 
-    // Open notifications screen when user taps a push while app was in background.
+    // Open correct screen when user taps a system push while app was in background.
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      if (mounted) _openNotificationsScreen();
+      if (mounted) _handleFcmTap(message.data);
     });
 
-    // Handle notification tap from a terminated (killed) app.
+    // Store initial message from killed state — process once shell is mounted + auth resolved.
     FirebaseMessaging.instance.getInitialMessage().then((message) {
-      if (message != null && mounted) _openNotificationsScreen();
+      if (message != null) _pendingInitialFcmMessage = message;
     });
 
     // Initialize to splash screen immediately
@@ -105,9 +108,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         badge: true,
         sound: true,
       );
-      // iOS: show banner + play sound + update badge when app is in foreground.
+      // iOS: play sound + update badge in foreground; suppress system banner
+      // since the Flutter overlay (NotificationService) handles the visual.
       await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-        alert: true,
+        alert: false,
         badge: true,
         sound: true,
       );
@@ -211,6 +215,51 @@ class _RootShellState extends ConsumerState<_RootShell>
     } else {
       unawaited(WakelockPlus.disable());
     }
+  }
+
+  /// Routes a notification tap to the relevant screen based on FCM data payload.
+  ///
+  /// Priority:
+  ///  1. `type == promotion_created` + `merchant_id` → store profile
+  ///  2. `type` starts with `loyalty` → loyalty tab
+  ///  3. Anything else → notifications tab
+  void _handleFcmTap(Map<String, dynamic>? data) {
+    if (!mounted) return;
+    if (data == null) {
+      _openNotificationsScreen();
+      return;
+    }
+
+    final type = (data['type'] as String? ?? '').toLowerCase();
+    final merchantId = data['merchant_id'] as String? ?? '';
+
+    if (type == 'promotion_created' && merchantId.isNotEmpty) {
+      _openVitrineForMerchant(merchantId);
+      return;
+    }
+
+    if (type.contains('loyalty')) {
+      if (_role == UserRole.client) {
+        setState(() {
+          _activeTab = 'loyalty';
+          _authScreen = ScreenId.loyalty;
+          _nestedScreen = null;
+        });
+        return;
+      }
+    }
+
+    _openNotificationsScreen();
+  }
+
+  /// Consumes any pending initial FCM message after the shell is ready.
+  void _tryConsumePendingFcmMessage() {
+    final msg = _pendingInitialFcmMessage;
+    if (msg == null) return;
+    _pendingInitialFcmMessage = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _handleFcmTap(msg.data);
+    });
   }
 
   bool _hasReceivedFirstAuthState = false;
@@ -506,6 +555,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _tryConsumePendingVitrineLink();
+          _tryConsumePendingFcmMessage();
         });
         // UI updates handled by setState above
       }
@@ -1094,7 +1144,8 @@ class _RootShellState extends ConsumerState<_RootShell>
                       currentScreen == ScreenId.qrScanner ||
                       currentScreen == ScreenId.storeProfile ||
                       currentScreen == ScreenId.notifications ||
-                      currentScreen == ScreenId.loyalty;
+                      currentScreen == ScreenId.loyalty ||
+                      currentScreen == ScreenId.guestShell;
 
               // No bottom padding here – same as profile. Each screen adds its own scroll padding
               // so content stays above the nav. Avoids the visible square/band at the bottom.
@@ -1190,7 +1241,14 @@ class _RootShellState extends ConsumerState<_RootShell>
           },
           onGuestDiscover: () {
             setState(() {
-              _authScreen = ScreenId.discovery;
+              _authScreen = ScreenId.guestShell;
+              _nestedScreen = null;
+            });
+          },
+          onScanQr: () {
+            // Open QR scanner even without an account; back returns to role selection.
+            setState(() {
+              _authScreen = ScreenId.qrScanner;
               _nestedScreen = null;
             });
           },
@@ -1281,10 +1339,33 @@ class _RootShellState extends ConsumerState<_RootShell>
             });
           },
         );
+      case ScreenId.guestShell:
+        return GuestShellScreen(
+          onBack: () => setState(() {
+            _authScreen = ScreenId.roleSelection;
+            _nestedScreen = null;
+          }),
+          onStoreSelect: (merchantId) {
+            ref
+                .read(store_profile_providers
+                    .selectedStoreMerchantIdProvider.notifier)
+                .state = merchantId;
+            setState(() => _nestedScreen = ScreenId.storeProfile);
+          },
+          onSignUp: () => setState(() {
+            _authScreen = ScreenId.signup;
+            _nestedScreen = null;
+          }),
+          onSignIn: () => setState(() {
+            _authScreen = ScreenId.login;
+            _nestedScreen = null;
+          }),
+        );
       case ScreenId.discovery:
         return DiscoveryScreen(
           onBack: _handleBackFromDiscovery,
           onNotifications: _openNotificationsScreen,
+          isDualProfile: _isDualProfile,
           onStoreSelect: (merchantId) {
             ref
                 .read(store_profile_providers
@@ -1298,7 +1379,18 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.qrScanner:
         return QRScannerScreen(
-          onBack: _handleBackToBase,
+          onBack: () {
+            final authState = ref.read(authControllerProvider);
+            if (authState is Authenticated) {
+              _handleBackToBase();
+            } else {
+              setState(() {
+                _authScreen = ScreenId.roleSelection;
+                _nestedScreen = null;
+                _role = null;
+              });
+            }
+          },
           onVitrineMerchantFound: (merchantId) {
             ref
                 .read(store_profile_providers
@@ -1314,6 +1406,13 @@ class _RootShellState extends ConsumerState<_RootShell>
         return LoyaltyCardsScreen(
           onBack: _handleBackToBase,
           onNotifications: _openNotificationsScreen,
+          onStoreTap: (merchantId) {
+            ref
+                .read(store_profile_providers
+                    .selectedStoreMerchantIdProvider.notifier)
+                .state = merchantId;
+            setState(() => _nestedScreen = ScreenId.storeProfile);
+          },
         );
       case ScreenId.storeProfile:
         return StoreProfileScreen(
@@ -1388,7 +1487,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.merchantAccountPreferences:
         return AccountPreferencesScreen(
           onBack: _handleBackFromNested,
-          onEditProfile: () => setState(() => _nestedScreen = ScreenId.merchantSecurity),
+          onEditProfile: () => _handleNavigate('pro-profile'),
           onCreateProAccount: () => unawaited(_switchToMerchant()),
         );
       case ScreenId.merchantSecurity:

@@ -66,6 +66,8 @@ class AuthErrorMapper {
            message.contains('configuration') ||
            message.contains('support') ||
            message.contains('Profil utilisateur') ||
+           message.contains('certificat') ||
+           message.contains('autorisée') ||
            message.contains('Google') ||
            message.contains('Apple') ||
            message.contains('session'))) {

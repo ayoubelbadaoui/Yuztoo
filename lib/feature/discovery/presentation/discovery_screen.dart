@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../client_home/application/providers.dart' as client_home_providers;
 import '../../../core/shared/constants/merchant_colors.dart';
@@ -19,6 +20,7 @@ class DiscoveryScreen extends ConsumerStatefulWidget {
     required this.onBack,
     required this.onNotifications,
     required this.onStoreSelect,
+    this.isDualProfile = false,
   });
 
   static String get path => '/discovery';
@@ -27,6 +29,8 @@ class DiscoveryScreen extends ConsumerStatefulWidget {
   final VoidCallback onNotifications;
   /// Called with merchant id when user taps a business (featured or grid).
   final ValueChanged<String> onStoreSelect;
+  /// True when the user also has a merchant account.
+  final bool isDualProfile;
 
   @override
   ConsumerState<DiscoveryScreen> createState() => _DiscoveryScreenState();

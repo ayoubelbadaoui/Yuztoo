@@ -104,6 +104,16 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
                       'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
                 ),
               ));
+            } else if (e.code == 'app-not-authorized' ||
+                errorMessage.contains('INVALID_CERT_HASH') ||
+                errorMessage.contains('missing client identifier') ||
+                errorMessage.contains('package certificate hash')) {
+              completer.complete(const Left<AuthFailure, String>(
+                AuthUnexpectedFailure(
+                  message:
+                      'L\'application n\'est pas autorisée (certificat SHA-1 manquant dans la console Firebase). Contactez le support.',
+                ),
+              ));
             } else {
               completer.complete(Left<AuthFailure, String>(
                 _mapAuthException(e, StackTrace.current),

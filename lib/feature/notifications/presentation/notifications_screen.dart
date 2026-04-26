@@ -10,6 +10,8 @@ import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../../client_home/application/providers.dart';
 import '../../client_notification/application/providers.dart';
+import '../../followed_merchants/application/providers.dart'
+    show setMuteStateProvider;
 import '../../promotions/application/providers.dart' show recordPromoViewsProvider;
 import '../../promotions/domain/entities/promotion.dart';
 

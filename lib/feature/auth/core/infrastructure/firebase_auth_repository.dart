@@ -91,6 +91,11 @@ abstract class _FirebaseAuthRepositoryBase {
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
       case 'user-cancelled':
         return const UserCancelledFailure();
+      case 'app-not-authorized':
+        return const AuthUnexpectedFailure(
+          message:
+              'L\'application n\'est pas autorisée à utiliser Firebase Auth. Ajoutez l\'empreinte SHA-1 dans la console Firebase.',
+        );
       case 'internal-error':
         // Check if it's a billing error
         if (error.message?.contains('BILLING_NOT_ENABLED') == true ||

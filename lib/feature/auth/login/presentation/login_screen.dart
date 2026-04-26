@@ -15,6 +15,10 @@ import '../application/state/login_flow_state.dart';
 import 'widgets/input_field.dart';
 import 'widgets/forgot_password_dialog.dart';
 import '../../../../../core/shared/constants/merchant_colors.dart';
+import '../../signup/application/providers.dart' as signup_providers;
+import '../../signup/domain/signup_roles_map.dart';
+import '../../signup/presentation/constants/signup_constants.dart';
+import '../../signup/presentation/utils/phone_formatter.dart';
 
 part 'login_screen.part.dart';
 
@@ -223,7 +227,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         AuthErrorMapper.getFrenchMessage(failure) ??
             'Une erreur s\'est produite. Veuillez réessayer.',
       ),
-      (_) {/* auth-state listener handles navigation */},
+      (authUser) => _handleOAuthSuccess(authUser),
     );
   }
 
@@ -238,7 +242,203 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         AuthErrorMapper.getFrenchMessage(failure) ??
             'Une erreur s\'est produite. Veuillez réessayer.',
       ),
-      (_) {/* auth-state listener handles navigation */},
+      (authUser) => _handleOAuthSuccess(authUser),
     );
+  }
+
+  /// Called after a successful Google or Apple sign-in.
+  /// - Existing user (has Firestore doc) → auth stream handles routing normally.
+  /// - New user (no Firestore doc) → collect phone → create doc → route to onboarding.
+  Future<void> _handleOAuthSuccess(dynamic authUser) async {
+    if (authUser == null) return;
+
+    // Check whether this is an existing or brand-new user.
+    final basicsResult = await ref
+        .read(auth_providers.getUserProfileBasicsProvider)
+        .call(authUser.id);
+    if (!mounted) return;
+
+    final hasProfile = basicsResult.fold((_) => false, (b) => b != null);
+    if (hasProfile) {
+      // Existing user — auth state listener takes care of navigation.
+      return;
+    }
+
+    // ── New user ── collect phone → create Firestore doc → onboard ─────────
+    final email = (authUser.email as String?)?.trim();
+    if (email == null || email.isEmpty) {
+      showErrorSnackbar(
+        context,
+        'Aucune adresse e-mail n\'est associée à ce compte. Utilisez l\'inscription par e-mail.',
+      );
+      await ref.read(auth_providers.authControllerProvider.notifier).signOut();
+      return;
+    }
+
+    // Verify email is not taken by another account.
+    final emailCheck = await ref
+        .read(signup_providers.verifyEmailAvailableForSignupProvider)
+        .call(email: email);
+    if (!mounted) return;
+    if (emailCheck.isLeft) {
+      final f = emailCheck.leftOrNull;
+      showErrorSnackbar(
+        context,
+        f != null
+            ? (AuthErrorMapper.getFrenchMessage(f) ??
+                'Cette adresse e-mail est déjà utilisée.')
+            : 'Cette adresse e-mail est déjà utilisée.',
+      );
+      await ref.read(auth_providers.authControllerProvider.notifier).signOut();
+      return;
+    }
+
+    // Collect phone (no OTP needed — OAuth account is already trusted).
+    final phoneE164 = await _promptPhoneForOAuthCompletion();
+    if (!mounted) return;
+    if (phoneE164 == null || phoneE164.isEmpty) {
+      await ref.read(auth_providers.authControllerProvider.notifier).signOut();
+      return;
+    }
+
+    // Create Firestore user document with the role from this screen.
+    setState(() => _isSocialLoading = true);
+    final createResult =
+        await ref.read(signup_providers.createUserDocumentProvider).call(
+              uid: authUser.id,
+              email: email,
+              phone: phoneE164,
+              roles: signupRolesMap(widget.role),
+            );
+    if (!mounted) return;
+    setState(() => _isSocialLoading = false);
+
+    if (createResult.isLeft) {
+      final f = createResult.leftOrNull;
+      showErrorSnackbar(
+        context,
+        f != null
+            ? (AuthErrorMapper.getFrenchMessage(f) ??
+                'Impossible de finaliser l\'inscription.')
+            : 'Impossible de finaliser l\'inscription.',
+      );
+      return;
+    }
+
+    // Refresh auth state so the shell picks up the new Firestore role and
+    // routes the user to the correct onboarding (client or merchant).
+    await ref
+        .read(auth_providers.authControllerProvider.notifier)
+        .refreshAuthState();
+  }
+
+  /// Shows a modal dialog asking the user to enter their phone number.
+  /// Returns the E.164 formatted number, or null if cancelled.
+  Future<String?> _promptPhoneForOAuthCompletion() async {
+    final controller = TextEditingController();
+    final submitted = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        String? fieldError;
+        return StatefulBuilder(
+          builder: (ctx, setModal) => AlertDialog(
+            backgroundColor: SignupConstants.bgDark2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: SignupConstants.borderColor),
+            ),
+            title: Text(
+              'Finaliser votre inscription',
+              style: GoogleFonts.outfit(
+                color: SignupConstants.textLight,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ajoutez votre numéro de mobile pour sécuriser votre compte.',
+                    style: GoogleFonts.outfit(
+                      color: SignupConstants.textGrey,
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.phone,
+                    autofocus: true,
+                    style: GoogleFonts.outfit(
+                        color: SignupConstants.textLight, fontSize: 15),
+                    decoration: InputDecoration(
+                      hintText: '+33 6 12 34 56 78',
+                      hintStyle: GoogleFonts.outfit(
+                          color: SignupConstants.textGrey, fontSize: 14),
+                      errorText: fieldError,
+                      filled: true,
+                      fillColor: SignupConstants.bgDark1,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                            color: SignupConstants.borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                            color: SignupConstants.borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                            color: SignupConstants.primaryGold, width: 1.5),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(
+                  'Annuler',
+                  style: GoogleFonts.outfit(color: SignupConstants.textGrey),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  final raw = controller.text.trim();
+                  final formatted = raw.startsWith('+')
+                      ? raw.replaceAll(RegExp(r'\s'), '')
+                      : PhoneFormatter.formatPhoneNumber('+33', raw);
+                  if (!PhoneFormatter.isValidE164(formatted)) {
+                    setModal(() {
+                      fieldError = 'Numéro invalide (ex. +33 6 12 34 56 78).';
+                    });
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(formatted);
+                },
+                child: Text(
+                  'Continuer',
+                  style: GoogleFonts.outfit(
+                    color: SignupConstants.primaryGold,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    return submitted;
   }
 }

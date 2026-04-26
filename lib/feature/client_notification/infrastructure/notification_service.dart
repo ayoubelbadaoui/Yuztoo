@@ -20,8 +20,10 @@ class NotificationService {
   OverlayEntry? _currentEntry;
   Timer? _dismissTimer;
 
-  final _tapController = StreamController<String?>.broadcast();
-  Stream<String?> get onNotificationTap => _tapController.stream;
+  final _tapController = StreamController<Map<String, dynamic>?>.broadcast();
+
+  /// Emits the full FCM `data` payload when the user taps the in-app banner.
+  Stream<Map<String, dynamic>?> get onNotificationTap => _tapController.stream;
 
   /// Call once — pass the root [OverlayState] from the app's [Navigator].
   void init([OverlayState? overlayState]) {
@@ -40,7 +42,7 @@ class NotificationService {
 
     final title = notification.title ?? 'Yuztoo';
     final body = notification.body ?? '';
-    final payload = message.data['notification_id'] as String?;
+    final data = Map<String, dynamic>.from(message.data);
 
     _dismiss();
 
@@ -50,7 +52,7 @@ class NotificationService {
         body: body,
         onTap: () {
           _dismiss();
-          _tapController.add(payload);
+          _tapController.add(data);
         },
         onDismiss: _dismiss,
       ),

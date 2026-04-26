@@ -38,14 +38,30 @@ final markAllNotificationsReadProvider =
 
 // ─── Real-time stream for the authenticated client ────────────────────────────
 
+/// Muted merchant IDs for the current client — used to filter notifications.
+final mutedMerchantIdsProvider = FutureProvider<Set<String>>((ref) async {
+  final authState = ref.watch(authStateProvider);
+  if (authState is! Authenticated) return const <String>{};
+  final repo = ref.watch(followedMerchantsRepositoryProvider);
+  final result = await repo.getMutedMerchantIds(authState.user.id);
+  return result.fold((_) => const <String>{}, (v) => v);
+});
+
 /// Live stream of the current client's notifications, newest first.
+/// Filters out notifications from merchants the user has muted.
 /// Returns empty when unauthenticated.
 final clientNotificationsStreamProvider =
     StreamProvider<List<ClientNotification>>((ref) {
   final authState = ref.watch(authStateProvider);
   if (authState is! Authenticated) return const Stream.empty();
+  final mutedIds =
+      ref.watch(mutedMerchantIdsProvider).valueOrNull ?? const <String>{};
   final useCase = ref.watch(watchClientNotificationsProvider);
-  return useCase(authState.user.id);
+  return useCase(authState.user.id).map(
+    (notifications) => notifications
+        .where((n) => n.merchantId.isEmpty || !mutedIds.contains(n.merchantId))
+        .toList(),
+  );
 });
 
 /// Unread notification count — drives the badge dot on the bottom nav.

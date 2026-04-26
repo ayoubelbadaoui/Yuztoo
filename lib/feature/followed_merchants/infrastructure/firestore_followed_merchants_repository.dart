@@ -210,6 +210,66 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
   }
 
   @override
+  Future<Result<bool>> getMuteState(String userId, String merchantId) async {
+    if (userId.isEmpty || merchantId.isEmpty) {
+      return const Right<AppFailure, bool>(false);
+    }
+    try {
+      final doc = await _followedRef(userId).doc(merchantId).get();
+      final muted = doc.data()?['is_muted'] as bool? ?? false;
+      return Right<AppFailure, bool>(muted);
+    } catch (_) {
+      return const Right<AppFailure, bool>(false);
+    }
+  }
+
+  @override
+  Future<Result<Unit>> setMuteState(
+      String userId, String merchantId, {required bool muted}) async {
+    if (userId.isEmpty || merchantId.isEmpty) {
+      return const Left<AppFailure, Unit>(
+        UnexpectedFailure(message: 'Identifiants requis'),
+      );
+    }
+    try {
+      await _followedRef(userId).doc(merchantId).set(
+        {'is_muted': muted, 'merchant_id': merchantId},
+        SetOptions(merge: true),
+      );
+      return const Right<AppFailure, Unit>(unit);
+    } on FirebaseException catch (e, st) {
+      return Left<AppFailure, Unit>(
+        UnexpectedFailure(
+            message: 'Impossible de modifier les notifications', cause: e, stackTrace: st),
+      );
+    } catch (e, st) {
+      return Left<AppFailure, Unit>(
+        UnexpectedFailure(message: 'Erreur', cause: e, stackTrace: st),
+      );
+    }
+  }
+
+  @override
+  Future<Result<Set<String>>> getMutedMerchantIds(String userId) async {
+    if (userId.isEmpty) {
+      return const Right<AppFailure, Set<String>>(<String>{});
+    }
+    try {
+      final snapshot = await _followedRef(userId)
+          .where('is_muted', isEqualTo: true)
+          .get();
+      final ids = snapshot.docs.map((d) => d.id).toSet();
+      return Right<AppFailure, Set<String>>(ids);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError('Firebase error loading muted merchants', error: e, stackTrace: st);
+      return const Right<AppFailure, Set<String>>(<String>{});
+    } catch (e, st) {
+      LoggerService.logError('Error loading muted merchants', error: e, stackTrace: st);
+      return const Right<AppFailure, Set<String>>(<String>{});
+    }
+  }
+
+  @override
   Future<Result<Map<String, int>>> getFollowersCounts(List<String> merchantIds) async {
     if (merchantIds.isEmpty) {
       return const Right<AppFailure, Map<String, int>>(<String, int>{});

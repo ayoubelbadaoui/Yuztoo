@@ -4,27 +4,44 @@ import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 
+/// B2C/B2B filter toggle for discovery screen.
+/// 'b2c' = consumer merchants (default), 'b2b' = service providers.
+final discoveryMerchantTypeFilterProvider = StateProvider<String>((ref) => 'b2c');
+
 /// Merchants list for Découvrir (Recommandations). Loads real data from Firestore.
 final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
   final userId = ref.watch(auth_providers.currentUserIdProvider);
   final repo = ref.watch(merchantRepositoryProvider);
+  final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
+
+  List<Merchant> merchants;
+
   if (userId == null) {
     final result = await repo.listMerchants(limit: 50);
-    return result.fold((failure) => <Merchant>[], (list) => list);
+    merchants = result.fold((failure) => <Merchant>[], (list) => list);
+  } else {
+    final cityResult = await ref.read(auth_providers.getUserCityProvider).call(userId);
+    final userCity = cityResult.fold((_) => null, (c) => c?.trim());
+
+    if (userCity == null || userCity.isEmpty) {
+      final result = await repo.listMerchants(limit: 50);
+      merchants = result.fold((failure) => <Merchant>[], (list) => list);
+    } else {
+      final result = await repo.listMerchants(
+        limit: 50,
+        cityFilter: userCity,
+        cityFetchCap: 600,
+      );
+      merchants = result.fold((failure) => <Merchant>[], (list) => list);
+    }
   }
 
-  final cityResult = await ref.read(auth_providers.getUserCityProvider).call(userId);
-  final userCity = cityResult.fold((_) => null, (c) => c?.trim());
-
-  if (userCity == null || userCity.isEmpty) {
-    final result = await repo.listMerchants(limit: 50);
-    return result.fold((failure) => <Merchant>[], (list) => list);
+  // Filter by merchant type (only when filter is not 'all').
+  if (typeFilter != 'all') {
+    merchants = merchants
+        .where((m) => m.merchantType == typeFilter)
+        .toList();
   }
 
-  final result = await repo.listMerchants(
-    limit: 50,
-    cityFilter: userCity,
-    cityFetchCap: 600,
-  );
-  return result.fold((failure) => <Merchant>[], (list) => list);
+  return merchants;
 });

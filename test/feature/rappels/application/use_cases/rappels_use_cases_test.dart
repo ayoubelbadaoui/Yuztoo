@@ -54,6 +54,18 @@ class _FakeFollowedRepo implements FollowedMerchantsRepository {
   Future<Result<Map<String, int>>> getFollowersCounts(
           List<String> merchantIds) async =>
       const Right({});
+  @override
+  Future<Result<bool>> getMuteState(
+          String userId, String merchantId) async =>
+      const Right(false);
+  @override
+  Future<Result<Unit>> setMuteState(
+          String userId, String merchantId,
+          {required bool muted}) async =>
+      const Right(unit);
+  @override
+  Future<Result<Set<String>>> getMutedMerchantIds(String userId) async =>
+      const Right(<String>{});
 }
 
 // ── Fake: ClientNotificationRepository ───────────────────────────────────────

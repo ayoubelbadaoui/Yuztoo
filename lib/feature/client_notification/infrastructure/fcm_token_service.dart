@@ -39,9 +39,10 @@ class FcmTokenService {
         sound: true,
       );
 
-      // iOS: show banner + play sound + update badge when app is in foreground.
+      // iOS: play sound + update badge in foreground, but suppress the system
+      // banner — the Flutter overlay in main_shell_state handles the visual.
       await messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
+        alert: false,
         badge: true,
         sound: true,
       );

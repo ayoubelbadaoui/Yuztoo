@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../types.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../feature/storefront/application/widgets.dart';
+import '../../../l10n/app_localizations.dart';
 
 class YBottomNav extends StatelessWidget {
   const YBottomNav({
@@ -25,30 +26,31 @@ class YBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final tabs = role == UserRole.client
         ? [
-            const _TabItem(id: 'home', label: 'Accueil', icon: Icons.home_outlined),
-            const _TabItem(id: 'discovery', label: 'Découvrir', icon: Icons.search),
+            _TabItem(id: 'home', label: l10n.home, icon: Icons.home_outlined),
+            _TabItem(id: 'discovery', label: l10n.discovery, icon: Icons.search),
             _TabItem(
               id: 'notifications',
-              label: 'Alertes',
+              label: l10n.navAlerts,
               icon: Icons.notifications_none_rounded,
               badgeCount: notificationBadgeCount,
             ),
-            const _TabItem(id: 'loyalty', label: 'Fidélité', icon: Icons.star_border),
-            const _TabItem(id: 'profile', label: 'Profil', icon: Icons.person_outline),
+            _TabItem(id: 'loyalty', label: l10n.loyalty, icon: Icons.star_border),
+            _TabItem(id: 'profile', label: l10n.profile, icon: Icons.person_outline),
           ]
         : [
             _TabItem(
               id: 'communaute',
-              label: 'Vos clients',
+              label: l10n.navYourClients,
               icon: Icons.people_outline,
               badgeCount: merchantClientCount,
             ),
-            const _TabItem(id: 'rappels', label: 'Notifications', icon: Icons.notifications_outlined),
-            const _TabItem(id: 'storefront', label: 'Vitrine', icon: Icons.storefront),
-            const _TabItem(id: 'promotions', label: 'Promotions', icon: Icons.local_offer_outlined),
-            const _TabItem(id: 'profile', label: 'Profil', icon: Icons.person_outline),
+            _TabItem(id: 'rappels', label: l10n.navNotifications, icon: Icons.notifications_outlined),
+            _TabItem(id: 'storefront', label: l10n.navStorefront, icon: Icons.storefront),
+            _TabItem(id: 'promotions', label: l10n.promotions, icon: Icons.local_offer_outlined),
+            _TabItem(id: 'profile', label: l10n.profile, icon: Icons.person_outline),
           ];
 
     return Container(

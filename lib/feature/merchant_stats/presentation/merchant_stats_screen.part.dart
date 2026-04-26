@@ -340,14 +340,16 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
       ClientSegment.habitue,
       ClientSegment.vip,
       ClientSegment.abonne,
+      ClientSegment.inactif,
     ];
     final colors = [
       const Color(0xFF64B5F6),
       const Color(0xFF4CAF50),
       const Color(0xFFFFD700),
       MerchantColors.gold,
+      const Color(0xFFEF5350),
     ];
-    final labels = ['Nouveau', 'Habitué', 'VIP', 'Abonné'];
+    final labels = ['Nouveau', 'Habitué', 'VIP', 'Abonné', 'Inactif'];
 
     final maxVal = segments
         .map((s) => (counts[s] ?? 0).toDouble())

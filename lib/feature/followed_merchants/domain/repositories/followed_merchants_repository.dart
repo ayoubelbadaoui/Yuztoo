@@ -21,6 +21,15 @@ abstract class FollowedMerchantsRepository {
   /// Save heart level for a followed merchant.
   Future<Result<Unit>> setHeartLevel(String userId, String merchantId, int heartLevel);
 
+  /// Get mute state for a followed merchant.
+  Future<Result<bool>> getMuteState(String userId, String merchantId);
+
+  /// Set mute state for a followed merchant (true = muted, notifications silenced).
+  Future<Result<Unit>> setMuteState(String userId, String merchantId, {required bool muted});
+
+  /// Get all merchant IDs that the user has muted.
+  Future<Result<Set<String>>> getMutedMerchantIds(String userId);
+
   /// Count how many users follow each merchant id.
   Future<Result<Map<String, int>>> getFollowersCounts(List<String> merchantIds);
 

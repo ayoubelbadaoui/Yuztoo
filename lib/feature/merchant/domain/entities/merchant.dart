@@ -38,6 +38,8 @@ class Merchant extends Equatable {
     this.rappelsMonthlyValidatedPassages = 0,
     this.weeklyNotifSentCount = 0,
     this.weeklyNotifResetAt,
+    this.merchantType = 'b2c',
+    this.welcomeGiftDescription,
   });
 
   /// Unique identifier for the merchant document
@@ -118,6 +120,12 @@ class Merchant extends Equatable {
   /// When the weekly counter was last reset. Null = never sent.
   final DateTime? weeklyNotifResetAt;
 
+  /// Merchant type: 'b2c' (default, sells to consumers) or 'b2b' (service providers).
+  final String merchantType;
+
+  /// Optional description of a welcome gift for new followers.
+  final String? welcomeGiftDescription;
+
   /// Free-tier allows 5 manual notifications per rolling 7-day window.
   bool get canSendNotification {
     if (weeklyNotifResetAt == null) return true;
@@ -183,6 +191,8 @@ class Merchant extends Equatable {
         rappelsMonthlyValidatedPassages,
         weeklyNotifSentCount,
         weeklyNotifResetAt,
+        merchantType,
+        welcomeGiftDescription,
       ];
 
   /// Creates a copy of the merchant with updated fields
@@ -216,6 +226,8 @@ class Merchant extends Equatable {
     int? rappelsMonthlyValidatedPassages,
     int? weeklyNotifSentCount,
     DateTime? weeklyNotifResetAt,
+    String? merchantType,
+    String? welcomeGiftDescription,
   }) {
     return Merchant(
       id: id ?? this.id,
@@ -252,6 +264,8 @@ class Merchant extends Equatable {
           rappelsMonthlyValidatedPassages ?? this.rappelsMonthlyValidatedPassages,
       weeklyNotifSentCount: weeklyNotifSentCount ?? this.weeklyNotifSentCount,
       weeklyNotifResetAt: weeklyNotifResetAt ?? this.weeklyNotifResetAt,
+      merchantType: merchantType ?? this.merchantType,
+      welcomeGiftDescription: welcomeGiftDescription ?? this.welcomeGiftDescription,
     );
   }
 

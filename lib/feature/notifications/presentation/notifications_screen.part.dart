@@ -502,34 +502,38 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
               SizedBox(
                 width: 44,
                 height: 44,
-                child: (unreadCount > 0 && _activeTab == 'alertes')
-                    ? Center(
-                        child: TextButton(
-                          onPressed: _markAllRead,
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(
-                                color: MerchantColors.gold.withValues(
-                                    alpha: MerchantColors.goldBorderStronger),
+                child                    : (unreadCount > 0 && _activeTab == 'alertes')
+                        ? GestureDetector(
+                            onTap: _markAllRead,
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              alignment: Alignment.center,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 4),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: MerchantColors.gold.withValues(
+                                        alpha:
+                                            MerchantColors.goldBorderStronger),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Tout\nlire',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    color: MerchantColors.gold,
+                                    height: 1.2,
+                                  ),
+                                ),
                               ),
                             ),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text(
-                            'Tout\nlire',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.outfit(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: MerchantColors.gold,
-                              height: 1.2,
-                            ),
-                          ),
-                        ),
-                      )
+                          )
                     : const SizedBox.shrink(),
               ),
             ],
@@ -556,9 +560,12 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
         final n = entry as ClientNotification;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: _NotificationCard(
-            notification: n,
-            onTap: () => _handleTap(n),
+          child: GestureDetector(
+            onLongPress: () => _showMuteDialog(context, n.merchantId),
+            child: _NotificationCard(
+              notification: n,
+              onTap: () => _handleTap(n),
+            ),
           ),
         );
       },
@@ -577,6 +584,61 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
           letterSpacing: 0.8,
         ),
       ),
+    );
+  }
+
+  Future<void> _showMuteDialog(BuildContext context, String merchantId) async {
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) return;
+    final userId = authState.user.id;
+    final setMute = ref.read(setMuteStateProvider);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: MerchantColors.navyCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: MerchantColors.textGrey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                )),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.notifications_off_outlined,
+                    color: Colors.redAccent),
+                title: Text(
+                  'Mettre en sourdine ce commerce',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  await setMute(userId, merchantId, muted: true);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Notifications désactivées'),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: MerchantColors.bgHeader,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 
