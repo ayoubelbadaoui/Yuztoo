@@ -2,7 +2,7 @@ part of 'news_section.dart';
 
 extension _NewsSectionUi on _NewsSectionState {
   Widget _portraitImageTile(String imageUrl) {
-    return ClipRRect(
+    final image = ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: Image.network(
         imageUrl,
@@ -39,6 +39,64 @@ extension _NewsSectionUi on _NewsSectionState {
         ),
       ),
     );
+
+    if (widget.onDeleteImage == null) return image;
+
+    return Stack(
+      children: [
+        image,
+        Positioned(
+          top: 8,
+          right: 8,
+          child: GestureDetector(
+            onTap: () => _confirmDelete(imageUrl),
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Colors.red.shade600,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.close_rounded,
+                  color: Colors.white, size: 16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _confirmDelete(String imageUrl) {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: StorefrontColors.creamLight,
+        title: const Text('Supprimer cette photo ?'),
+        content: const Text(
+            'Cette action est irréversible. La photo sera définitivement supprimée.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Supprimer',
+              style: TextStyle(color: Colors.red.shade600),
+            ),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true) widget.onDeleteImage?.call(imageUrl);
+    });
   }
 
   Widget _buildPairedPortraitGallery(double maxWidth) {

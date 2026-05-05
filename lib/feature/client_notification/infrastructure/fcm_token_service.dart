@@ -39,13 +39,10 @@ class FcmTokenService {
         sound: true,
       );
 
-      // iOS: play sound + update badge in foreground, but suppress the system
-      // banner — the Flutter overlay in main_shell_state handles the visual.
-      await messaging.setForegroundNotificationPresentationOptions(
-        alert: false,
-        badge: true,
-        sound: true,
-      );
+      // NOTE: setForegroundNotificationPresentationOptions is intentionally
+      // NOT called here — main_shell_state._requestRuntimePermissions() already
+      // sets alert:false (suppress system banner, use Flutter overlay instead).
+      // Calling it here a second time causes a harmless race but is unnecessary.
 
       // Ask Android to exempt this app from battery optimisation.
       // Without this Samsung/Xiaomi/etc. kill FCM delivery after ~20 min idle.

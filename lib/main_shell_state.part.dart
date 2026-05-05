@@ -21,6 +21,7 @@ class _RootShellState extends ConsumerState<_RootShell>
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _appLinkSubscription;
   StreamSubscription<RemoteMessage>? _fcmForegroundSub;
+  StreamSubscription<RemoteMessage>? _fcmOpenedAppSub;
   StreamSubscription<Map<String, dynamic>?>? _notifTapSub;
 
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
@@ -60,7 +61,8 @@ class _RootShellState extends ConsumerState<_RootShell>
     });
 
     // Open correct screen when user taps a system push while app was in background.
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    // Stored so it can be cancelled on dispose (previously leaked).
+    _fcmOpenedAppSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
       if (mounted) _handleFcmTap(message.data);
     });
 
@@ -137,6 +139,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     WidgetsBinding.instance.removeObserver(this);
     unawaited(WakelockPlus.disable());
     _fcmForegroundSub?.cancel();
+    _fcmOpenedAppSub?.cancel();
     _notifTapSub?.cancel();
     NotificationService.instance.dispose();
     _appLinkSubscription?.cancel();
@@ -220,8 +223,8 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// Routes a notification tap to the relevant screen based on FCM data payload.
   ///
   /// Priority:
-  ///  1. `type == promotion_created` + `merchant_id` → store profile
-  ///  2. `type` starts with `loyalty` → loyalty tab
+  ///  1. `type == promotion` + `merchant_id` → store vitrine
+  ///  2. `type` contains `loyalty` → loyalty tab
   ///  3. Anything else → notifications tab
   void _handleFcmTap(Map<String, dynamic>? data) {
     if (!mounted) return;
@@ -233,7 +236,9 @@ class _RootShellState extends ConsumerState<_RootShell>
     final type = (data['type'] as String? ?? '').toLowerCase();
     final merchantId = data['merchant_id'] as String? ?? '';
 
-    if (type == 'promotion_created' && merchantId.isNotEmpty) {
+    // 'promotion' is the type written by ClientNotificationDto.typeToString.
+    // Previously stored as 'promotion_created' which never matched.
+    if (type == 'promotion' && merchantId.isNotEmpty) {
       _openVitrineForMerchant(merchantId);
       return;
     }
@@ -748,6 +753,13 @@ class _RootShellState extends ConsumerState<_RootShell>
           _nestedScreen = target;
         }
       });
+    } else if (screen == 'storefront') {
+      setState(() {
+        _activeTab = 'storefront';
+        _authScreen = ScreenId.merchantStorefront;
+        _nestedScreen = null;
+      });
+      ref.invalidate(storefront_providers.storefrontProvider);
     } else if (screen == 'switch-to-client') {
       unawaited(_switchToClient());
     } else if (screen == 'switch-to-merchant') {
@@ -1425,6 +1437,11 @@ class _RootShellState extends ConsumerState<_RootShell>
           onNotifications: _openNotificationsScreen,
           onMessage: () => setState(() => _nestedScreen = ScreenId.messages),
           onReserve: _handleBackToBase,
+          onRequestLogin: () => setState(() {
+            _nestedScreen = null;
+            _role = null;
+            _authScreen = ScreenId.login;
+          }),
         );
       case ScreenId.notifications:
         return NotificationsScreen(
@@ -1459,7 +1476,9 @@ class _RootShellState extends ConsumerState<_RootShell>
           onConversationSelect: () {},
         );
       case ScreenId.clientProfile:
-        return const ClientProfileScreen();
+        return ClientProfileScreen(
+          onCreateProAccount: () => unawaited(_switchToMerchant()),
+        );
       case ScreenId.merchantClients:
         return ClientListScreen(
           onBack: _handleBackToBase,

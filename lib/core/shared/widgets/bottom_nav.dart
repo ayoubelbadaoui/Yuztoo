@@ -31,13 +31,13 @@ class YBottomNav extends StatelessWidget {
         ? [
             _TabItem(id: 'home', label: l10n.home, icon: Icons.home_outlined),
             _TabItem(id: 'discovery', label: l10n.discovery, icon: Icons.search),
+            _TabItem(id: 'loyalty', label: l10n.loyalty, icon: Icons.star_border),
             _TabItem(
               id: 'notifications',
               label: l10n.navAlerts,
               icon: Icons.notifications_none_rounded,
               badgeCount: notificationBadgeCount,
             ),
-            _TabItem(id: 'loyalty', label: l10n.loyalty, icon: Icons.star_border),
             _TabItem(id: 'profile', label: l10n.profile, icon: Icons.person_outline),
           ]
         : [

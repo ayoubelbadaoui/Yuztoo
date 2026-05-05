@@ -5,6 +5,7 @@ import '../../../core/application/precache_network_images.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/utils/image_crop_utils.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
 import 'widgets/banner_section.dart';
@@ -52,13 +53,15 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
       imageQuality: 86,
     );
     if (picked == null || !mounted) return;
+    final cropped = await cropImage(picked.path);
+    if (!mounted) return;
 
     setState(() => _isUploadingNewsImage = true);
     final merchantId = _merchantIdForStorefront(storefront);
 
     final uploadResult =
         await ref.read(storage_providers.uploadNewsImageProvider).call(
-              filePath: picked.path,
+              filePath: cropped ?? picked.path,
               merchantId: merchantId,
             );
 
@@ -94,6 +97,27 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     if (mounted) {
       setState(() => _isUploadingNewsImage = false);
     }
+  }
+
+  Future<void> _deleteNewsImage(
+      Storefront storefront, String imageUrl) async {
+    final merchantId = _merchantIdForStorefront(storefront);
+    final updatedUrls =
+        storefront.newsImageUrls.where((u) => u != imageUrl).toList();
+    final result =
+        await ref.read(merchant_providers.updateStorefrontProvider).call(
+              merchantId: merchantId,
+              newsImageUrls: updatedUrls,
+            );
+    result.fold(
+      (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Échec de la suppression')),
+        );
+      },
+      (_) => ref.invalidate(storefrontProvider),
+    );
   }
 
   String _merchantIdForStorefront(Storefront storefront) => storefront.id;
@@ -137,15 +161,22 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
       imageQuality: 85,
     );
     if (picked == null || !mounted) return;
+    final cropped = await cropImage(
+      picked.path,
+      ratioX: isBanner ? 16 : 1,
+      ratioY: isBanner ? 9 : 1,
+    );
+    if (!mounted) return;
 
     setState(() => _isUploadingBannerProfile = true);
     final merchantId = _merchantIdForStorefront(storefront);
+    final imagePath = cropped ?? picked.path;
     try {
       final result =
           await ref.read(merchant_providers.updateStorefrontProvider).call(
                 merchantId: merchantId,
-                bannerFilePath: isBanner ? picked.path : null,
-                logoFilePath: isBanner ? null : picked.path,
+                bannerFilePath: isBanner ? imagePath : null,
+                logoFilePath: isBanner ? null : imagePath,
               );
 
       if (!mounted) return;

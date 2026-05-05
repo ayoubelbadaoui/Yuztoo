@@ -11,9 +11,11 @@ class StorefrontProfileEditNotifier
             category: '',
             description: '',
             phoneNumber: '',
+            email: '',
             websiteUrl: '',
             address: '',
             city: '',
+            welcomeGiftDescription: '',
           ),
         );
 
@@ -81,6 +83,7 @@ class StorefrontProfileEditNotifier
     }
     
     // Fallback: use storefront data (from Firestore) with defaults
+    final merchant = ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
     state = state.copyWith(
       bannerImageUrl: storefront.bannerImageUrl,
       profileImageUrl: storefront.profileImageUrl,
@@ -90,9 +93,11 @@ class StorefrontProfileEditNotifier
           ? 'Décrivez votre activité en quelques lignes.'
           : state.description,
       phoneNumber: (storefront.phone ?? state.phoneNumber).trim().isEmpty ? '+33 6 12 34 56 78' : (storefront.phone ?? state.phoneNumber),
+      email: merchant?.email.isNotEmpty == true ? merchant!.email : '',
       websiteUrl: (storefront.websiteUrl ?? state.websiteUrl).trim().isEmpty ? 'www.votresite.com' : (storefront.websiteUrl ?? state.websiteUrl),
       address: (storefront.address ?? state.address).trim().isEmpty ? 'Votre adresse' : (storefront.address ?? state.address),
       city: CityInput.forEditField(storefront.city),
+      welcomeGiftDescription: merchant?.welcomeGiftDescription ?? '',
     );
   }
 
@@ -100,9 +105,12 @@ class StorefrontProfileEditNotifier
   void setCategory(String v) => state = state.copyWith(category: v);
   void setDescription(String v) => state = state.copyWith(description: v);
   void setPhoneNumber(String v) => state = state.copyWith(phoneNumber: v);
+  void setEmail(String v) => state = state.copyWith(email: v);
   void setWebsiteUrl(String v) => state = state.copyWith(websiteUrl: v);
   void setAddress(String v) => state = state.copyWith(address: v);
   void setCity(String v) => state = state.copyWith(city: v);
+  void setWelcomeGiftDescription(String v) =>
+      state = state.copyWith(welcomeGiftDescription: v);
 
   void setBannerImageUrl(String v) => state = state.copyWith(bannerImageUrl: v);
   void setProfileImageUrl(String v) => state = state.copyWith(profileImageUrl: v);
@@ -172,6 +180,12 @@ class StorefrontProfileEditNotifier
           ? state.websiteUrl.trim()
           : null;
 
+      final email = state.email.trim().isNotEmpty ? state.email.trim() : null;
+      final welcomeGiftDescription =
+          state.welcomeGiftDescription.trim().isNotEmpty
+              ? state.welcomeGiftDescription.trim()
+              : '';
+
       // Use UpdateStorefront use case to upload images and update Firestore
       final updateStorefront = ref.read(merchant_providers.updateStorefrontProvider);
       final result = await updateStorefront.call(
@@ -182,9 +196,11 @@ class StorefrontProfileEditNotifier
         logoFilePath: logoFilePath,
         bannerFilePath: bannerFilePath,
         phone: phone,
+        email: email,
         address: address,
         city: city,
         websiteUrl: websiteUrl,
+        welcomeGiftDescription: welcomeGiftDescription,
         clearMerchantCityField: city == null,
       );
 

@@ -15,7 +15,9 @@ part 'client_profile_screen.part.dart';
 
 /// Client profile / settings – same colors and minimalist layout as merchant settings.
 class ClientProfileScreen extends ConsumerStatefulWidget {
-  const ClientProfileScreen({super.key});
+  const ClientProfileScreen({super.key, this.onCreateProAccount});
+
+  final VoidCallback? onCreateProAccount;
 
   static String get path => '/client-profile';
 

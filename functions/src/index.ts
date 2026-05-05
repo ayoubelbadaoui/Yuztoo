@@ -115,8 +115,11 @@ async function fireAutoNotification(
       client_id: clientId,
       merchant_id: merchantId,
       merchant_name: merchantName,
+      // 'auto' type — tap routes to notifications tab (no promotion_id for deep-link).
+      // merchant_id IS included so onNotificationCreated forwards it in FCM data,
+      // allowing future routing enhancements without schema changes.
       type: "auto",
-      title: merchantName,
+      title: data.title ?? merchantName,
       body: data.text ?? "",
       is_read: false,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -245,7 +248,22 @@ export const onNotificationCreated = functions
         },
       },
       apns: {
-        payload: { aps: { sound: "default", badge: badgeCount } },
+        // apns-priority 10 = immediate delivery (default for alert messages but
+        // must be explicit when using HTTP/2 headers directly).
+        // apns-push-type 'alert' required by Apple for visible notifications.
+        headers: {
+          "apns-priority": "10",
+          "apns-push-type": "alert",
+        },
+        payload: {
+          aps: {
+            sound: "default",
+            badge: badgeCount,
+            // content-available 1 wakes the app in background for data processing.
+            // Harmless when notification block is also present (alert still shown).
+            "content-available": 1,
+          },
+        },
       },
     };
 

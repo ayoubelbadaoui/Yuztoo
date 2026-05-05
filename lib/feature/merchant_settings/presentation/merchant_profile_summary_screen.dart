@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/domain/core/result.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../auth/core/domain/entities/auth_user.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../../client_list/application/providers.dart' as crm_providers;
 import '../../merchant/application/providers.dart' as merchant_providers;
@@ -33,22 +35,37 @@ class MerchantProfileSummaryScreen extends ConsumerStatefulWidget {
 
 class _MerchantProfileSummaryScreenState
     extends ConsumerState<MerchantProfileSummaryScreen> {
-  bool _googleSyncEnabled = false;
+  bool _linkingGoogle = false;
 
-  void _onGoogleSyncToggle(bool value) {
-    if (!value) {
-      setState(() => _googleSyncEnabled = false);
-      return;
-    }
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ComingSoonSheet(
-        onClose: () {
-          Navigator.pop(context);
-          setState(() => _googleSyncEnabled = false);
-        },
-      ),
+  Future<void> _linkGoogle() async {
+    if (_linkingGoogle) return;
+    setState(() => _linkingGoogle = true);
+    final link = ref.read(auth_providers.linkWithGoogleProvider);
+    final Result<AuthUser> result = await link();
+    if (!mounted) return;
+    setState(() => _linkingGoogle = false);
+    result.fold(
+      (failure) {
+        // UserCancelledFailure: silently ignore
+        if (failure.runtimeType.toString().contains('UserCancelled')) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+      (_) {
+        // Refresh the provider to reflect new linked providers.
+        ref.invalidate(auth_providers.linkedProvidersProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Compte Google associé ✓'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: MerchantColors.gold,
+          ),
+        );
+      },
     );
   }
 
@@ -83,6 +100,8 @@ class _MerchantProfileSummaryScreenState
         : (ref.watch(auth_providers.connectedCitiesProvider(uid)).valueOrNull ??
             const []);
 
+    final linkedProviders = ref.watch(auth_providers.linkedProvidersProvider);
+
     return _buildScaffold(
       context,
       merchant: merchant,
@@ -92,6 +111,7 @@ class _MerchantProfileSummaryScreenState
       cityCount: cities.length,
       weeklyViews: storefront?.weeklyViews ?? 0,
       completionPct: storefront?.profileCompletionPercentage ?? 0,
+      linkedProviders: linkedProviders,
     );
   }
 }

@@ -7,7 +7,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/time_slot_picker.dart';
 import '../../../../core/utils/cities.dart';
+import '../../../../core/utils/image_crop_utils.dart';
 import '../application/providers.dart';
 import '../domain/entities/merchant_category.dart';
 import '../application/onboarding_flow_provider.dart';
@@ -18,8 +20,8 @@ import '../../auth/signup/presentation/widgets/city_selection_modal.dart';
 
 part 'onboarding_flow_screen.part.dart';
 
-/// Total steps: Welcome(0), Name(1), City(2), Image(3), Address(4), Description(5), Hours(6), Ready(7)
-const _totalSteps = 8;
+/// Steps: Welcome(0), OwnerInfo(1), Name(2), City(3), Image(4), Address(5), Description(6), Hours(7), Ready(8)
+const _totalSteps = 9;
 
 /// Uber Eats / Glovo-style multi-step merchant onboarding.
 class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
@@ -51,6 +53,8 @@ class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
 class _MerchantOnboardingFlowScreenState
     extends ConsumerState<MerchantOnboardingFlowScreen> {
   final _pageController = PageController();
+  final _ownerFirstNameController = TextEditingController();
+  final _ownerLastNameController = TextEditingController();
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -63,6 +67,8 @@ class _MerchantOnboardingFlowScreenState
   @override
   void dispose() {
     _pageController.dispose();
+    _ownerFirstNameController.dispose();
+    _ownerLastNameController.dispose();
     _nameController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
@@ -107,9 +113,9 @@ class _MerchantOnboardingFlowScreenState
   }
 
   bool _isOptionalStep() {
-    return _currentStep == 3 || // Image
-        _currentStep == 5 || // Description
-        _currentStep == 6; // Hours
+    return _currentStep == 4 || // Image
+        _currentStep == 6 || // Description
+        _currentStep == 7; // Hours
   }
 
   Future<void> _persistMerchantOnboardingCompleted() async {
@@ -147,6 +153,23 @@ class _MerchantOnboardingFlowScreenState
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
                     _StepWelcome(onNext: _goNext),
+                    _StepOwnerInfo(
+                      firstNameController: _ownerFirstNameController,
+                      lastNameController: _ownerLastNameController,
+                      initialFirstName: data.ownerFirstName,
+                      initialLastName: data.ownerLastName,
+                      initialDob: data.ownerDateOfBirth,
+                      onFirstNameChanged: (v) => ref
+                          .read(onboardingFlowProvider.notifier)
+                          .setOwnerFirstName(v),
+                      onLastNameChanged: (v) => ref
+                          .read(onboardingFlowProvider.notifier)
+                          .setOwnerLastName(v),
+                      onDobChanged: (d) => ref
+                          .read(onboardingFlowProvider.notifier)
+                          .setOwnerDateOfBirth(d),
+                      onNext: _goNext,
+                    ),
                     _StepName(
                       controller: _nameController,
                       initialValue: data.fullName,

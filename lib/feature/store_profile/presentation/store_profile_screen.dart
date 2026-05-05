@@ -174,6 +174,7 @@ class StoreProfileScreen extends ConsumerStatefulWidget {
     this.onNotifications,
     this.onMessage,
     this.onReserve,
+    this.onRequestLogin,
   });
 
   static String get path => '/store-profile';
@@ -182,6 +183,8 @@ class StoreProfileScreen extends ConsumerStatefulWidget {
   final VoidCallback? onNotifications;
   final VoidCallback? onMessage;
   final VoidCallback? onReserve;
+  /// Called when a guest tries a loyalty or follow action that requires sign-in.
+  final VoidCallback? onRequestLogin;
 
   @override
   ConsumerState<StoreProfileScreen> createState() => _StoreProfileScreenState();

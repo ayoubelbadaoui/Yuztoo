@@ -536,6 +536,7 @@ class _Field extends StatelessWidget {
     this.helpText,
     this.isIncomplete = false,
     this.onShowHelp,
+    this.maxLines = 1,
   });
 
   final String label;
@@ -547,6 +548,7 @@ class _Field extends StatelessWidget {
   final String? helpText;
   final bool isIncomplete;
   final void Function(String, String)? onShowHelp;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -600,6 +602,8 @@ class _Field extends StatelessWidget {
                   controller: controller,
                   keyboardType: keyboardType,
                   onChanged: onChanged,
+                  maxLines: maxLines,
+                  minLines: 1,
                   cursorColor: StorefrontColors.primaryGold,
                   style: const TextStyle(
                     fontSize: 14,
@@ -1090,6 +1094,18 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
               ),
               const SizedBox(height: 14),
               _Field(
+                label: 'Email professionnel',
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                prefixIcon: Icons.email_outlined,
+                onChanged: notifier.setEmail,
+                isRequired: false,
+                isIncomplete: false,
+                helpText: 'Adresse email professionnelle de contact. Yuztoo peut l\'utiliser pour des communications importantes.',
+                onShowHelp: _showHelpDialog,
+              ),
+              const SizedBox(height: 14),
+              _Field(
                 label: 'Ville',
                 controller: _cityCtrl,
                 keyboardType: TextInputType.text,
@@ -1125,6 +1141,19 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                 isIncomplete: _isFieldIncomplete(state.address),
                 helpText: 'Ajoutez l\'adresse physique de votre commerce. Les clients pourront vous localiser facilement.',
                 onShowHelp: _showHelpDialog,
+              ),
+              const SizedBox(height: 14),
+              _Field(
+                label: 'Bon de bienvenue (1re connexion)',
+                controller: _giftCtrl,
+                keyboardType: TextInputType.text,
+                prefixIcon: Icons.card_giftcard_rounded,
+                onChanged: notifier.setWelcomeGiftDescription,
+                isRequired: false,
+                isIncomplete: false,
+                helpText: 'Description du bon offert au nouveau client lors de sa première connexion à votre vitrine (ex. : "10 % de remise sur votre 1er achat"). Laisser vide pour désactiver.',
+                onShowHelp: _showHelpDialog,
+                maxLines: 2,
               ),
               const SizedBox(height: 28),
               const _SectionTitle('Galerie / Actualités'),
@@ -1335,8 +1364,14 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
         imageQuality: 85,
       );
 
-      if (pickedFile != null && context.mounted) {
-        _applyPickedImage(File(pickedFile.path), isBanner);
+      if (pickedFile == null || !context.mounted) return;
+      final cropped = await cropImage(
+        pickedFile.path,
+        ratioX: isBanner ? 16 : 1,
+        ratioY: isBanner ? 9 : 1,
+      );
+      if (context.mounted) {
+        _applyPickedImage(File(cropped ?? pickedFile.path), isBanner);
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -1372,11 +1407,13 @@ class _GalleryEditorSectionState extends ConsumerState<_GalleryEditorSection> {
       imageQuality: 86,
     );
     if (picked == null || !mounted) return;
+    final cropped = await cropImage(picked.path);
+    if (!mounted) return;
     setState(() => _isUploading = true);
     try {
       final result = await ref
           .read(storage_providers.uploadNewsImageProvider)
-          .call(filePath: picked.path, merchantId: merchantId);
+          .call(filePath: cropped ?? picked.path, merchantId: merchantId);
 
       final url = result.fold((_) => null, (u) => u);
       if (!mounted) return;

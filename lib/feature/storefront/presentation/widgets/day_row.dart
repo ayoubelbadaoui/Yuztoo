@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/shared/widgets/time_slot_picker.dart';
 import '../../domain/entities/business_hours.dart';
 import 'gold_switch.dart';
 import 'storefront_colors.dart';
@@ -12,7 +13,7 @@ part 'day_row.part.dart';
 ///  • Gold toggle to open/close the day
 ///  • Status dot (green = open, grey = closed)
 ///  • "Voir (N créneaux)" expand pill
-///  • Inline time-slot editor with save confirmation
+///  • Inline time-slot editor using predefined time pickers (no free text)
 class DayRow extends StatefulWidget {
   const DayRow({
     super.key,
@@ -34,8 +35,8 @@ class DayRow extends StatefulWidget {
 class _DayRowState extends State<DayRow> {
   bool _expanded = false;
 
-  final List<TextEditingController> _startCtrls = [];
-  final List<TextEditingController> _endCtrls = [];
+  // Local editable slots (copied from widget when expanding).
+  late List<TimeSlot> _editableSlots;
 
   bool get _isOpen =>
       widget.dayHours.isEnabled &&
@@ -45,42 +46,15 @@ class _DayRowState extends State<DayRow> {
   bool get _hasSlots => widget.dayHours.timeSlots.isNotEmpty && _isOpen;
   int get _slotCount => widget.dayHours.timeSlots.length;
 
-  @override
-  void didUpdateWidget(covariant DayRow old) {
-    super.didUpdateWidget(old);
-    if (!_expanded) _syncControllers();
-  }
-
-  void _syncControllers() {
-    _disposeControllers();
-    for (final slot in widget.dayHours.timeSlots) {
-      _startCtrls.add(TextEditingController(text: slot.start));
-      _endCtrls.add(TextEditingController(text: slot.end));
-    }
-  }
-
-  void _disposeControllers() {
-    for (final c in _startCtrls) {
-      c.dispose();
-    }
-    for (final c in _endCtrls) {
-      c.dispose();
-    }
-    _startCtrls.clear();
-    _endCtrls.clear();
-  }
-
-  @override
-  void dispose() {
-    _disposeControllers();
-    super.dispose();
+  void _syncSlots() {
+    _editableSlots = List<TimeSlot>.from(widget.dayHours.timeSlots);
   }
 
   void _toggleExpand() {
     if (!_hasSlots) return;
     setState(() {
       if (!_expanded) {
-        _syncControllers();
+        _syncSlots();
         _expanded = true;
       } else {
         _expanded = false;
@@ -89,32 +63,35 @@ class _DayRowState extends State<DayRow> {
   }
 
   void _saveChanges() {
-    final slots = <TimeSlot>[];
-    for (int i = 0; i < _startCtrls.length; i++) {
-      final s = _startCtrls[i].text.trim();
-      final e = _endCtrls[i].text.trim();
-      if (s.isNotEmpty && e.isNotEmpty) {
-        slots.add(TimeSlot(start: s, end: e));
-      }
-    }
+    final slots = _editableSlots
+        .where((s) => s.start.isNotEmpty && s.end.isNotEmpty)
+        .toList();
     if (slots.isNotEmpty) widget.onSave(slots);
     setState(() => _expanded = false);
   }
 
   void _addSlot() {
     setState(() {
-      _startCtrls.add(TextEditingController(text: '8h'));
-      _endCtrls.add(TextEditingController(text: '12h'));
+      _editableSlots.add(const TimeSlot(start: '8h', end: '12h'));
     });
   }
 
   void _removeSlot(int index) {
-    if (_startCtrls.length <= 1) return;
+    if (_editableSlots.length <= 1) return;
+    setState(() => _editableSlots.removeAt(index));
+  }
+
+  void _updateStart(int index, String value) {
     setState(() {
-      _startCtrls[index].dispose();
-      _endCtrls[index].dispose();
-      _startCtrls.removeAt(index);
-      _endCtrls.removeAt(index);
+      _editableSlots[index] =
+          TimeSlot(start: value, end: _editableSlots[index].end);
+    });
+  }
+
+  void _updateEnd(int index, String value) {
+    setState(() {
+      _editableSlots[index] =
+          TimeSlot(start: _editableSlots[index].start, end: value);
     });
   }
 

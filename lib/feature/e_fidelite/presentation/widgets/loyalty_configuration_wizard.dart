@@ -63,13 +63,6 @@ class _LoyaltyConfigurationWizardState
     );
   }
 
-  /// Auto-advance after a brief delay so the user sees their selection.
-  void _autoAdvanceTo(int index) {
-    Future.delayed(const Duration(milliseconds: 220), () {
-      if (mounted) _goTo(index);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(loyaltyProgramEditingProvider);
@@ -102,10 +95,7 @@ class _LoyaltyConfigurationWizardState
                 child: _ActivationStep(
                   enabled: config.programEnabled,
                   onChanged: (v) {
-                    final changed = v != config.programEnabled;
                     notifier.setProgramEnabled(v);
-                    // "Non" → skip to Options (last step); "Oui" → go to Déclencheur
-                    if (changed) _autoAdvanceTo(v ? 1 : 6);
                   },
                 ),
               ),
@@ -121,9 +111,7 @@ class _LoyaltyConfigurationWizardState
                 child: _TriggerStep(
                   value: config.triggerType,
                   onChanged: (v) {
-                    final changed = v != config.triggerType;
                     notifier.setTriggerType(v);
-                    if (changed) _autoAdvanceTo(2);
                   },
                 ),
               ),
@@ -172,9 +160,7 @@ class _LoyaltyConfigurationWizardState
                 child: _ValidationStep(
                   value: config.passageValidation,
                   onChanged: (v) {
-                    final changed = v != config.passageValidation;
                     notifier.setPassageValidation(v);
-                    if (changed) _autoAdvanceTo(6);
                   },
                 ),
               ),

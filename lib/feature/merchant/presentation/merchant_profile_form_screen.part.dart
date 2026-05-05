@@ -120,6 +120,23 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
       );
     } catch (_) {}
 
+    // Persist owner identity (firstName/lastName/DOB) to users/{uid}.
+    final ownerFirst = data.ownerFirstName?.trim();
+    final ownerLast = data.ownerLastName?.trim();
+    final ownerDob = data.ownerDateOfBirth;
+    if ((ownerFirst?.isNotEmpty == true) ||
+        (ownerLast?.isNotEmpty == true) ||
+        ownerDob != null) {
+      try {
+        await ref.read(auth_providers.updateClientBasicInfoProvider).call(
+              uid: userId,
+              firstName: ownerFirst,
+              lastName: ownerLast,
+              dateOfBirth: ownerDob,
+            );
+      } catch (_) {}
+    }
+
     bool firestoreSuccess = false;
     try {
       final completeOnboarding = ref.read(completeMerchantOnboardingProvider);

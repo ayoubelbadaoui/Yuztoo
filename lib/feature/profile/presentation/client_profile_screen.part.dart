@@ -31,7 +31,9 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) => const PersonalInformationScreen(),
+                                builder: (_) => PersonalInformationScreen(
+                                  onCreateProAccount: widget.onCreateProAccount,
+                                ),
                               ),
                             );
                           },

@@ -255,11 +255,15 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
     required this.merchant,
     required this.clientUid,
     required this.needsPurchaseAmount,
+    required this.parentContext,
   });
 
   final Merchant merchant;
   final String clientUid;
   final bool needsPurchaseAmount;
+  /// Context of the parent screen — used to show the welcome-gift modal after
+  /// this sheet is dismissed (its own context becomes invalid after pop).
+  final BuildContext parentContext;
 
   @override
   ConsumerState<_RecordLoyaltyPassageSheet> createState() =>
@@ -312,15 +316,37 @@ class _RecordLoyaltyPassageSheetState
           behavior: SnackBarBehavior.floating,
         ),
       ),
-      (_) {
+      (progress) {
+        // Capture what we need BEFORE popping (context becomes invalid after pop).
+        final parentCtx = widget.parentContext;
+        final welcomeGift = widget.merchant.welcomeGiftDescription?.trim() ?? '';
+        final merchantName = widget.merchant.displayName?.isNotEmpty == true
+            ? widget.merchant.displayName!
+            : widget.merchant.name;
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Passage enregistré ✓'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: StorefrontColors.primaryGold,
-          ),
-        );
+        if (progress.isFirstVisit && welcomeGift.isNotEmpty) {
+          // Use the parent screen's context — sheet context is invalid after pop.
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (!parentCtx.mounted) return;
+            showModalBottomSheet<void>(
+              context: parentCtx,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => _WelcomeGiftSheet(
+                merchantName: merchantName,
+                welcomeGift: welcomeGift,
+              ),
+            );
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Passage enregistré ✓'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: StorefrontColors.primaryGold,
+            ),
+          );
+        }
       },
     );
   }
@@ -421,6 +447,127 @@ class _RecordLoyaltyPassageSheetState
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Welcome-gift celebration sheet (first visit only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WelcomeGiftSheet extends StatelessWidget {
+  const _WelcomeGiftSheet({
+    required this.merchantName,
+    required this.welcomeGift,
+  });
+
+  final String merchantName;
+  final String welcomeGift;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: StorefrontColors.textSecondary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              '🎉',
+              style: TextStyle(fontSize: 48),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Bienvenue chez $merchantName !',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: StorefrontColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'C\'est votre première visite. Le commerçant vous offre :',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: StorefrontColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF9A825), Color(0xFFE65100)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                welcomeGift,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Montrez cette page au commerçant pour en bénéficier.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: StorefrontColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: StorefrontColors.primaryGold,
+                  foregroundColor: StorefrontColors.navyDark,
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'Merci !',
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -896,8 +1043,63 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           if (canRecordPassage)
             progressAsync.when(
               data: (p) {
-                final line =
-                    _loyaltyProgressSubtitle(merchant, program, p);
+                final entry = ClientLoyaltyEntry(
+                    merchant: merchant, config: program);
+                final rewardAvailable = entry.isRewardAvailable(p);
+                if (rewardAvailable) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            StorefrontColors.primaryGold.withValues(alpha: 0.18),
+                            StorefrontColors.primaryGold.withValues(alpha: 0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: StorefrontColors.primaryGold,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.card_giftcard_rounded,
+                              color: StorefrontColors.primaryGold, size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '🎁 Bon disponible !',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: StorefrontColors.primaryGold,
+                                  ),
+                                ),
+                                Text(
+                                  entry.rewardLabel(),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    color: StorefrontColors.textPrimary,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                final line = _loyaltyProgressSubtitle(merchant, program, p);
                 if (line == null) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -1026,18 +1228,141 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   String _fmtEuro(double n) =>
       n == n.roundToDouble() ? n.toInt().toString() : n.toStringAsFixed(2);
 
+  void _showAuthGateSheet(BuildContext context, Merchant merchant) {
+    final name = merchant.displayName ?? merchant.name;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: StorefrontColors.backgroundLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: StorefrontColors.primaryGold.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      StorefrontColors.primaryGold.withValues(alpha: 0.15),
+                      StorefrontColors.primaryGold.withValues(alpha: 0.25),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: StorefrontColors.primaryGold.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.loyalty_rounded,
+                  color: StorefrontColors.primaryGold,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Connexion requise',
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: StorefrontColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Pour enregistrer votre passage chez $name et accumuler des points fidélité, veuillez vous connecter.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: StorefrontColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    widget.onRequestLogin?.call();
+                  },
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          StorefrontColors.primaryGold,
+                          Color(0xFFB8860B),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: StorefrontColors.primaryGold
+                              .withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Se connecter / Créer un compte',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => Navigator.of(ctx).pop(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Continuer sans se connecter',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: StorefrontColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _openRecordPassageSheet(
     BuildContext context,
     Merchant merchant,
     String? userId,
   ) {
     if (userId == null || userId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Connectez-vous pour enregistrer un passage'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showAuthGateSheet(context, merchant);
       return;
     }
     final program = merchant.loyaltyProgram ??
@@ -1057,6 +1382,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           merchant: merchant,
           clientUid: userId,
           needsPurchaseAmount: program.effectiveAskClientPurchaseAmount,
+          parentContext: context,
         ),
       ),
     );

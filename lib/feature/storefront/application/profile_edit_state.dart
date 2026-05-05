@@ -19,9 +19,11 @@ class StorefrontProfileEditState {
     required this.category,
     required this.description,
     required this.phoneNumber,
+    required this.email,
     required this.websiteUrl,
     required this.address,
     required this.city,
+    required this.welcomeGiftDescription,
     this.isSaving = false,
     this.errorMessage,
   });
@@ -32,9 +34,11 @@ class StorefrontProfileEditState {
   final String category;
   final String description;
   final String phoneNumber;
+  final String email;
   final String websiteUrl;
   final String address;
   final String city;
+  final String welcomeGiftDescription;
   final bool isSaving;
   final String? errorMessage;
 
@@ -45,9 +49,11 @@ class StorefrontProfileEditState {
     String? category,
     String? description,
     String? phoneNumber,
+    String? email,
     String? websiteUrl,
     String? address,
     String? city,
+    String? welcomeGiftDescription,
     bool? isSaving,
     String? errorMessage,
   }) {
@@ -58,9 +64,12 @@ class StorefrontProfileEditState {
       category: category ?? this.category,
       description: description ?? this.description,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      email: email ?? this.email,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       address: address ?? this.address,
       city: city ?? this.city,
+      welcomeGiftDescription:
+          welcomeGiftDescription ?? this.welcomeGiftDescription,
       isSaving: isSaving ?? this.isSaving,
       errorMessage: errorMessage,
     );

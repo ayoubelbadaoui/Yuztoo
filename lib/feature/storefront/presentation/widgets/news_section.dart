@@ -13,6 +13,7 @@ class NewsSection extends StatefulWidget {
     this.imageUrls = const [],
     this.isUploading = false,
     this.onUploadImage,
+    this.onDeleteImage,
     this.showMedia = true,
     this.showDescription = true,
     this.showUploadButton = true,
@@ -26,6 +27,8 @@ class NewsSection extends StatefulWidget {
   final String? contentPlaceholder;
   final bool isUploading;
   final VoidCallback? onUploadImage;
+  /// Called with the image URL when the merchant taps the delete overlay on a tile.
+  final ValueChanged<String>? onDeleteImage;
   final bool showMedia;
 
   /// Whether to show the description text card below the gallery.

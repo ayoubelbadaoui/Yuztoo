@@ -146,32 +146,52 @@ class ClientLoyaltyEntry {
 
 /// Followed merchants that have an active loyalty program.
 /// Used by the client Fidélité tab.
+/// When the authenticated user also owns a merchant profile (dual-role),
+/// that merchant is prepended so they can view/test their own carnet.
 final clientLoyaltyFeedProvider =
     FutureProvider.autoDispose<List<ClientLoyaltyEntry>>((ref) async {
   final auth = ref.watch(auth_providers.authStateProvider);
   if (auth is! Authenticated) return <ClientLoyaltyEntry>[];
 
-  final ids = await ref.watch(
-    followedMerchantIdsForCurrentUserProvider.future,
-  );
-  if (ids.isEmpty) return <ClientLoyaltyEntry>[];
-
+  final userId = auth.user.id;
   final repo = ref.watch(merchantRepositoryProvider);
-  final result = await repo.getMerchantsByIds(ids);
-  final merchants = result.fold((_) => <Merchant>[], (list) => list);
 
-  return merchants
-      .where((m) {
-        final cfg = m.loyaltyProgram ??
-            LoyaltyProgramConfig.fallbackFromFlags(
-                loyaltyEnabled: m.loyaltyEnabled);
-        return m.loyaltyEnabled && cfg.programEnabled;
-      })
-      .map((m) {
-        final cfg = m.loyaltyProgram ??
-            LoyaltyProgramConfig.fallbackFromFlags(
-                loyaltyEnabled: m.loyaltyEnabled);
-        return ClientLoyaltyEntry(merchant: m, config: cfg);
-      })
-      .toList();
+  // Run own-merchant lookup and followed-ids lookup in parallel.
+  final ownMerchantFuture = repo.getMerchantById(userId);
+  final idsFuture = ref.watch(followedMerchantIdsForCurrentUserProvider.future);
+
+  final ownMerchantResult = await ownMerchantFuture;
+  final ids = await idsFuture;
+
+  final Merchant? ownMerchant = ownMerchantResult.fold((_) => null, (m) => m);
+
+  // Followed merchants (exclude own store to avoid duplicate).
+  final filteredIds = ids.where((id) => id != userId).toList();
+  final followedMerchants = filteredIds.isEmpty
+      ? <Merchant>[]
+      : (await repo.getMerchantsByIds(filteredIds))
+          .fold((_) => <Merchant>[], (list) => list);
+
+  ClientLoyaltyEntry? toEntry(Merchant m) {
+    final cfg = m.loyaltyProgram ??
+        LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: m.loyaltyEnabled);
+    if (!m.loyaltyEnabled || !cfg.programEnabled) return null;
+    return ClientLoyaltyEntry(merchant: m, config: cfg);
+  }
+
+  final entries = <ClientLoyaltyEntry>[];
+
+  // Prepend own merchant (if they have loyalty enabled) so a merchant-as-client
+  // can always see their own carnet — even without following themselves.
+  if (ownMerchant != null) {
+    final e = toEntry(ownMerchant);
+    if (e != null) entries.add(e);
+  }
+
+  for (final m in followedMerchants) {
+    final e = toEntry(m);
+    if (e != null) entries.add(e);
+  }
+
+  return entries;
 });

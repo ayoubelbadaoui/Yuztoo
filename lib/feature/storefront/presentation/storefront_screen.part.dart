@@ -201,13 +201,6 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
               );
             }
 
-            if (!storefront.isPublished) {
-              return const _StorefrontStateMessage(
-                icon: Icons.visibility_off_outlined,
-                title: 'Commerce indisponible.',
-              );
-            }
-
             // Hydrate business hours from Firestore once when storefront has saved hours
             if (storefront.hours != null && !_hoursHydratedFromStorefront) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -250,6 +243,65 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                     ),
                     child: Column(
                       children: [
+                        // Offline warning banner — merchant can still edit when hors ligne
+                        if (!storefront.isPublished)
+                          GestureDetector(
+                            onTap: () => _setMerchantPublished(storefront, true),
+                            child: Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF3CD),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFFFC107).withValues(alpha: 0.6),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.visibility_off_outlined,
+                                    color: Color(0xFF856404),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Votre commerce est hors ligne — invisible des clients.',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 13,
+                                        color: const Color(0xFF856404),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF856404),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'Mettre en ligne',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 11,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         // Banner with profile picture
                         BannerSection(
                           bannerImageUrl: storefront.bannerImageUrl,
@@ -420,6 +472,8 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                             showDescription: false,
                             showUploadButton: true,
                             onUploadImage: () => _uploadNewsImage(storefront),
+                            onDeleteImage: (url) =>
+                                _deleteNewsImage(storefront, url),
                             onSettings: null,
                           ),
                         const SizedBox(

@@ -4,6 +4,7 @@ import '../../client_notification/infrastructure/client_notification_repository_
 import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
 import '../../loyalty/application/client_loyalty_providers.dart'
     as loyalty_providers;
+import '../../loyalty/infrastructure/client_loyalty_repository_provider.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../promotions/application/providers.dart' as promo_providers;
@@ -29,6 +30,7 @@ final sendMerchantNotificationProvider = Provider<SendMerchantNotification>((ref
     followedRepo: ref.watch(followedMerchantsRepositoryProvider),
     notificationRepo: ref.watch(clientNotificationRepositoryProvider),
     sentNotifRepo: ref.watch(sentNotificationRepositoryProvider),
+    loyaltyRepo: ref.watch(clientLoyaltyRepositoryProvider),
   );
 });
 

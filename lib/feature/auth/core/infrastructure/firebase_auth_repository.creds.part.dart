@@ -325,6 +325,77 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
     }
   }
 
+  Future<Result<AuthUser>> linkWithGoogle() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Aucun utilisateur connecté'),
+        );
+      }
+      // If already linked, return the current user as-is.
+      final alreadyLinked = user.providerData
+          .any((p) => p.providerId == 'google.com');
+      if (alreadyLinked) {
+        final dto = AuthUserDto.fromFirebase(user);
+        return Right<AuthFailure, AuthUser>(dto.toDomain());
+      }
+
+      final googleSignIn = GoogleSignIn.instance;
+      final googleUser = await googleSignIn.authenticate();
+      final idToken = googleUser.authentication.idToken;
+      if (idToken == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message: 'Impossible d\'obtenir le token Google. Réessayez.',
+          ),
+        );
+      }
+      final credential = firebase.GoogleAuthProvider.credential(idToken: idToken);
+      await user.linkWithCredential(credential);
+      // Refresh to get updated providerData.
+      await user.reload();
+      final refreshed = _auth.currentUser;
+      if (refreshed == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Utilisateur introuvable après liaison.'),
+        );
+      }
+      final dto = AuthUserDto.fromFirebase(refreshed);
+      return Right<AuthFailure, AuthUser>(dto.toDomain());
+    } on firebase.FirebaseAuthException catch (e, st) {
+      if (e.code == 'provider-already-linked' ||
+          e.code == 'credential-already-in-use') {
+        final user = _auth.currentUser;
+        if (user != null) {
+          final dto = AuthUserDto.fromFirebase(user);
+          return Right<AuthFailure, AuthUser>(dto.toDomain());
+        }
+      }
+      return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
+    } on PlatformException catch (e) {
+      if (e.code == '12501' ||
+          e.message?.toLowerCase().contains('cancel') == true) {
+        return const Left<AuthFailure, AuthUser>(UserCancelledFailure());
+      }
+      return Left<AuthFailure, AuthUser>(
+        AuthUnexpectedFailure(
+          message: e.message ?? 'Erreur Google Sign-In (${e.code}).',
+          cause: e,
+        ),
+      );
+    } catch (e, st) {
+      return Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(cause: e, stackTrace: st));
+    }
+  }
+
+  List<String> getLinkedProviders() {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+    return user.providerData.map((p) => p.providerId).toList();
+  }
+
   Future<Result<Unit>> updateUserProfile({
     String? displayName,
     String? photoUrl,

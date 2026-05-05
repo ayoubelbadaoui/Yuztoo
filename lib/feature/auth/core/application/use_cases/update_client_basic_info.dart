@@ -1,25 +1,21 @@
-import '../../domain/repositories/user_repository.dart';
 import '../../../../../core/domain/core/result.dart';
+import '../../domain/repositories/user_repository.dart';
 
-class CompleteClientProfile {
-  const CompleteClientProfile(this._repository);
+/// Updates a client's editable profile fields (name, DOB) without touching
+/// onboarding status, roles, or auth identity fields (email / phone).
+class UpdateClientBasicInfo {
+  const UpdateClientBasicInfo(this._repository);
 
   final UserRepository _repository;
 
   Future<Result<Unit>> call({
     required String uid,
-    required String displayName,
-    String? city,
-    String? photoUrl,
     String? firstName,
     String? lastName,
     DateTime? dateOfBirth,
   }) =>
-      _repository.completeClientProfile(
+      _repository.updateClientBasicInfo(
         uid: uid,
-        displayName: displayName,
-        city: city,
-        photoUrl: photoUrl,
         firstName: firstName,
         lastName: lastName,
         dateOfBirth: dateOfBirth,
