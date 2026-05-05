@@ -48,12 +48,14 @@ class UpdateStorefront {
     String? logoFilePath,
     String? bannerFilePath,
     String? phone,
+    String? email,
     String? address,
     String? city,
     String? websiteUrl,
     List<String>? newsImageUrls,
     String? status,
     Map<String, dynamic>? hours,
+    String? welcomeGiftDescription,
     bool clearMerchantCityField = false,
   }) async {
     if (merchantId.isEmpty) {
@@ -135,6 +137,7 @@ class UpdateStorefront {
       categories: categories,
       logoUrl: logoUrl,
       phone: phone,
+      email: email,
       address: address,
       city: city,
       websiteUrl: websiteUrl,
@@ -142,6 +145,7 @@ class UpdateStorefront {
       newsImageUrls: newsImageUrls,
       status: status,
       hours: hours,
+      welcomeGiftDescription: welcomeGiftDescription,
       clearCityField: clearMerchantCityField,
     );
 

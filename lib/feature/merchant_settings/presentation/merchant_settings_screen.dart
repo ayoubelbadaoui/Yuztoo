@@ -28,7 +28,6 @@ class MerchantSettingsScreen extends ConsumerStatefulWidget {
 
 class _MerchantSettingsScreenState
     extends ConsumerState<MerchantSettingsScreen> {
-  bool? _messageConciergerie;
   bool? _fidelite;
   bool? _notificationsAuto;
   bool? _galerie;
@@ -37,14 +36,12 @@ class _MerchantSettingsScreenState
   bool _initialised = false;
 
   void _seed(
-    bool messaging,
     bool loyalty,
     bool notifications,
     bool galerie,
   ) {
     if (_initialised) return;
     _initialised = true;
-    _messageConciergerie = messaging;
     _fidelite = loyalty;
     _notificationsAuto = notifications;
     _galerie = galerie;
@@ -90,11 +87,6 @@ class _MerchantSettingsScreenState
         );
       },
     );
-  }
-
-  void _setMessageConciergerie(bool v) {
-    setState(() => _messageConciergerie = v);
-    _toggle(messagingEnabled: v);
   }
 
   void _setFidelite(bool v) {

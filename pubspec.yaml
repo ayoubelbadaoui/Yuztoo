@@ -46,6 +46,7 @@ dependencies:
   flutter_nfc_kit: ^3.6.2
   ndef: ^0.4.0
   universal_platform: ^1.1.0
+  image_cropper: ^12.2.1
 
 dev_dependencies:
   flutter_test:

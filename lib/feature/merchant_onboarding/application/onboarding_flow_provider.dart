@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Used to prefill merchant profile form after signup.
 class MerchantOnboardingData {
   const MerchantOnboardingData({
+    this.ownerFirstName,
+    this.ownerLastName,
+    this.ownerDateOfBirth,
     this.fullName,
     this.city,
     this.imagePath,
@@ -16,6 +19,11 @@ class MerchantOnboardingData {
     this.description,
     this.hoursJson,
   });
+
+  /// Owner's personal identity — stored in users/{uid}.
+  final String? ownerFirstName;
+  final String? ownerLastName;
+  final DateTime? ownerDateOfBirth;
 
   final String? fullName;
   final String? city;
@@ -30,6 +38,9 @@ class MerchantOnboardingData {
   final Map<String, dynamic>? hoursJson;
 
   MerchantOnboardingData copyWith({
+    String? ownerFirstName,
+    String? ownerLastName,
+    DateTime? ownerDateOfBirth,
     String? fullName,
     String? city,
     String? imagePath,
@@ -43,6 +54,9 @@ class MerchantOnboardingData {
     Map<String, dynamic>? hoursJson,
   }) {
     return MerchantOnboardingData(
+      ownerFirstName: ownerFirstName ?? this.ownerFirstName,
+      ownerLastName: ownerLastName ?? this.ownerLastName,
+      ownerDateOfBirth: ownerDateOfBirth ?? this.ownerDateOfBirth,
       fullName: fullName ?? this.fullName,
       city: city ?? this.city,
       imagePath: imagePath ?? this.imagePath,
@@ -60,6 +74,15 @@ class MerchantOnboardingData {
 
 class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
   OnboardingFlowNotifier() : super(const MerchantOnboardingData());
+
+  void setOwnerFirstName(String value) => state =
+      state.copyWith(ownerFirstName: value.trim().isEmpty ? null : value.trim());
+
+  void setOwnerLastName(String value) => state =
+      state.copyWith(ownerLastName: value.trim().isEmpty ? null : value.trim());
+
+  void setOwnerDateOfBirth(DateTime? date) =>
+      state = state.copyWith(ownerDateOfBirth: date);
 
   void setFullName(String value) =>
       state = state.copyWith(fullName: value.trim().isEmpty ? null : value.trim());

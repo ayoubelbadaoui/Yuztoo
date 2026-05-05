@@ -48,5 +48,14 @@ abstract class AuthRepository {
 
   Future<Result<AuthUser>> signInWithApple();
 
+  /// Link the currently signed-in account with a Google credential.
+  /// Returns the updated [AuthUser] on success.
+  /// If Google is already linked, returns the existing user without error.
+  Future<Result<AuthUser>> linkWithGoogle();
+
+  /// Returns the list of provider IDs linked to the current Firebase user.
+  /// Example values: 'google.com', 'apple.com', 'password', 'phone'.
+  List<String> getLinkedProviders();
+
   Stream<Result<AuthUser?>> watchAuthState();
 }

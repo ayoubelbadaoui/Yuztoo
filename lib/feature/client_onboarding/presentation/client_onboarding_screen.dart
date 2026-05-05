@@ -11,6 +11,7 @@ import '../../../core/presentation/responsive_scroll_body.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/utils/cities.dart';
+import '../../../core/utils/image_crop_utils.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/core/infrastructure/user_repository_provider.dart';
@@ -21,7 +22,7 @@ import '../../auth/signup/presentation/widgets/city_selection_modal.dart';
 
 part 'client_onboarding_screen.part.dart';
 
-/// Two-step client onboarding after signup: full name, then profile photo (optional).
+/// Client onboarding: first name, last name, date of birth, city, then profile photo.
 class ClientOnboardingScreen extends ConsumerStatefulWidget {
   const ClientOnboardingScreen({
     super.key,
@@ -36,14 +37,17 @@ class ClientOnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen> {
-  static const _totalSteps = 4;
+  // Welcome + name + dob + city + photo = 5 steps
+  static const _totalSteps = 5;
 
   final _pageController = PageController();
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _picker = ImagePicker();
 
   int _currentStep = 0;
   bool _canProceedName = false;
+  DateTime? _selectedDob;
   String? _selectedCity;
   String? _localImagePath;
   bool _isSaving = false;
@@ -51,31 +55,25 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
   @override
   void initState() {
     super.initState();
-    _nameController.addListener(_onNameChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _prefillName());
-  }
-
-  void _prefillName() {
-    if (!mounted) return;
-    final auth = ref.read(authStateProvider);
-    if (auth is! Authenticated) return;
-    final existing = auth.user.displayName?.trim();
-    if (existing != null && existing.isNotEmpty) {
-      _nameController.text = existing;
-      _onNameChanged();
-    }
+    _firstNameController.addListener(_onNameChanged);
+    _lastNameController.addListener(_onNameChanged);
   }
 
   void _onNameChanged() {
-    final ok = _nameController.text.trim().isNotEmpty;
+    final ok = _firstNameController.text.trim().isNotEmpty &&
+        _lastNameController.text.trim().isNotEmpty;
     if (ok != _canProceedName) setState(() => _canProceedName = ok);
   }
 
+  bool get _canProceedDob => _selectedDob != null;
+
   @override
   void dispose() {
-    _nameController.removeListener(_onNameChanged);
+    _firstNameController.removeListener(_onNameChanged);
+    _lastNameController.removeListener(_onNameChanged);
     _pageController.dispose();
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     super.dispose();
   }
 
@@ -101,15 +99,43 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
     }
   }
 
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDob ?? DateTime(now.year - 25),
+      firstDate: DateTime(1920),
+      lastDate: DateTime(now.year - 13, now.month, now.day),
+      locale: const Locale('fr'),
+        builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFFD4AF37),
+            onPrimary: Color(0xFF0E2A44),
+            surface: Color(0xFF0E2A44),
+            onSurface: Colors.white,
+          ),
+          dialogTheme: const DialogThemeData(
+            backgroundColor: Color(0xFF0B1F33),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedDob = picked);
+    }
+  }
+
   Future<void> _pickPhoto() async {
     final picked = await _picker.pickImage(
       source: ImageSource.gallery,
       maxWidth: 800,
       imageQuality: 85,
     );
-    if (picked != null && mounted) {
-      setState(() => _localImagePath = picked.path);
-    }
+    if (picked == null || !mounted) return;
+    final cropped = await cropImage(picked.path, ratioX: 1, ratioY: 1);
+    if (mounted) setState(() => _localImagePath = cropped ?? picked.path);
   }
 
   Future<void> _finish({required bool skipPhoto}) async {
@@ -118,8 +144,10 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
     if (authState is! Authenticated) return;
 
     final uid = authState.user.id;
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    if (firstName.isEmpty || lastName.isEmpty) return;
+    final displayName = '$firstName $lastName';
 
     setState(() => _isSaving = true);
 
@@ -144,9 +172,12 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
     final repo = ref.read(userRepositoryProvider);
     final result = await repo.completeClientProfile(
       uid: uid,
-      displayName: name,
+      displayName: displayName,
       city: _selectedCity?.trim().isEmpty == true ? null : _selectedCity,
       photoUrl: photoUrl,
+      firstName: firstName,
+      lastName: lastName,
+      dateOfBirth: _selectedDob,
     );
 
     if (!mounted) return;
@@ -160,7 +191,7 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
       (_) async {
         try {
           final u = firebase_auth.FirebaseAuth.instance.currentUser;
-          await u?.updateDisplayName(name);
+          await u?.updateDisplayName(displayName);
           if (photoUrl != null && photoUrl.isNotEmpty) {
             await u?.updatePhotoURL(photoUrl);
           }
@@ -211,6 +242,7 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
                         children: [
                           _buildWelcomeStep(),
                           _buildNameStep(),
+                          _buildDobStep(),
                           _buildCityStep(),
                           _buildPhotoStep(),
                         ],

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/utils/city_input.dart';
+import '../../../core/utils/image_crop_utils.dart';
 import '../application/profile_edit_state.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
@@ -30,9 +31,11 @@ class _StorefrontEditProfileScreenState
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _webCtrl = TextEditingController();
   final _addrCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
+  final _giftCtrl = TextEditingController();
   final _picker = ImagePicker();
 
   bool _controllersInitialized = false;
@@ -44,9 +47,11 @@ class _StorefrontEditProfileScreenState
     _nameCtrl.dispose();
     _descCtrl.dispose();
     _phoneCtrl.dispose();
+    _emailCtrl.dispose();
     _webCtrl.dispose();
     _addrCtrl.dispose();
     _cityCtrl.dispose();
+    _giftCtrl.dispose();
     super.dispose();
   }
 
@@ -56,9 +61,11 @@ class _StorefrontEditProfileScreenState
       if (_nameCtrl.text != s.businessName) _nameCtrl.text = s.businessName;
       if (_descCtrl.text != s.description) _descCtrl.text = s.description;
       if (_phoneCtrl.text != s.phoneNumber) _phoneCtrl.text = s.phoneNumber;
+      if (_emailCtrl.text != s.email) _emailCtrl.text = s.email;
       if (_webCtrl.text != s.websiteUrl) _webCtrl.text = s.websiteUrl;
       if (_addrCtrl.text != s.address) _addrCtrl.text = s.address;
       if (_cityCtrl.text != s.city) _cityCtrl.text = s.city;
+      if (_giftCtrl.text != s.welcomeGiftDescription) _giftCtrl.text = s.welcomeGiftDescription;
       _controllersInitialized = true;
     } catch (e) {
       // If setting text fails, use safe fallbacks
@@ -67,18 +74,22 @@ class _StorefrontEditProfileScreenState
           _nameCtrl.text = s.businessName.isNotEmpty ? s.businessName : '';
           _descCtrl.text = s.description.isNotEmpty ? s.description : '';
           _phoneCtrl.text = s.phoneNumber.isNotEmpty ? s.phoneNumber : '';
+          _emailCtrl.text = s.email.isNotEmpty ? s.email : '';
           _webCtrl.text = s.websiteUrl.isNotEmpty ? s.websiteUrl : '';
           _addrCtrl.text = s.address.isNotEmpty ? s.address : '';
           _cityCtrl.text = s.city.isNotEmpty ? s.city : '';
+          _giftCtrl.text = s.welcomeGiftDescription.isNotEmpty ? s.welcomeGiftDescription : '';
           _controllersInitialized = true;
         } catch (_) {
           // Final fallback - set empty strings
           _nameCtrl.text = '';
           _descCtrl.text = '';
           _phoneCtrl.text = '';
+          _emailCtrl.text = '';
           _webCtrl.text = '';
           _addrCtrl.text = '';
           _cityCtrl.text = '';
+          _giftCtrl.text = '';
           _controllersInitialized = true;
         }
       }

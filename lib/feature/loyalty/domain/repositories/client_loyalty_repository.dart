@@ -21,4 +21,8 @@ abstract class ClientLoyaltyRepository {
     int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
   });
+
+  /// Returns a map of `{clientUid: segment}` for all loyalty clients of a merchant.
+  /// Segment values: `'vip'`, `'habitue'`, `'nouveau'`, `'abonne'`, `'inactif'`.
+  Future<Map<String, String>> getClientSegments(String merchantId);
 }

@@ -47,7 +47,7 @@ extension _DayRowStateUi on _DayRowState {
         ),
         child: Column(
           children: [
-            for (int i = 0; i < _startCtrls.length; i++) ...[
+            for (int i = 0; i < _editableSlots.length; i++) ...[
               if (i > 0) const SizedBox(height: 10),
               _buildSlotRow(i),
             ],
@@ -113,6 +113,7 @@ extension _DayRowStateUi on _DayRowState {
   }
 
   Widget _buildSlotRow(int index) {
+    final slot = _editableSlots[index];
     return Row(
       children: [
         Container(
@@ -134,14 +135,15 @@ extension _DayRowStateUi on _DayRowState {
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(child: _buildTimeField(_startCtrls[index])),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Icon(Icons.arrow_forward_rounded,
-              size: 14, color: Colors.grey[400]),
+        Expanded(
+          child: TimeSlotPicker(
+            startTime: slot.start,
+            endTime: slot.end,
+            onStartChanged: (v) => _updateStart(index, v),
+            onEndChanged: (v) => _updateEnd(index, v),
+          ),
         ),
-        Expanded(child: _buildTimeField(_endCtrls[index])),
-        if (_startCtrls.length > 1) ...[
+        if (_editableSlots.length > 1) ...[
           const SizedBox(width: 6),
           GestureDetector(
             onTap: () => _removeSlot(index),
@@ -158,38 +160,6 @@ extension _DayRowStateUi on _DayRowState {
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildTimeField(TextEditingController ctrl) {
-    return TextField(
-      controller: ctrl,
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: StorefrontColors.textPrimary,
-      ),
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(
-              color: StorefrontColors.primaryGold, width: 2),
-        ),
-      ),
     );
   }
 }

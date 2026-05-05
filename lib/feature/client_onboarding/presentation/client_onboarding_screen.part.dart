@@ -134,27 +134,10 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 36),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _goNext,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: MerchantOnboardingColors.primaryGold,
-                foregroundColor: MerchantOnboardingColors.bgDark1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 4,
-              ),
-              child: Text(
-                'Commencer',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+          _buildGoldButton(
+            label: 'Commencer',
+            enabled: !_isSaving,
+            onTap: _goNext,
           ),
         ],
       ),
@@ -196,62 +179,220 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          TextField(
-            controller: _nameController,
-            textCapitalization: TextCapitalization.words,
+          _buildNameField(
+            controller: _firstNameController,
+            hintText: 'Prénom',
+            icon: Icons.badge_outlined,
+          ),
+          const SizedBox(height: 12),
+          _buildNameField(
+            controller: _lastNameController,
+            hintText: 'Nom de famille',
+            icon: Icons.person_outline_rounded,
+          ),
+          const SizedBox(height: 32),
+          _buildGoldButton(
+            label: 'Suivant',
+            enabled: _canProceedName && !_isSaving,
+            onTap: _goNext,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNameField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+  }) {
+    return TextField(
+      controller: controller,
+      textCapitalization: TextCapitalization.words,
+      style: GoogleFonts.outfit(
+        fontSize: 16,
+        color: MerchantOnboardingColors.textLight,
+      ),
+      cursorColor: MerchantOnboardingColors.primaryGold,
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon,
+            color: MerchantOnboardingColors.textGrey, size: 20),
+        hintText: hintText,
+        hintStyle: GoogleFonts.outfit(
+          color: MerchantOnboardingColors.textGrey,
+        ),
+        filled: true,
+        fillColor: MerchantOnboardingColors.bgDark2,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: MerchantOnboardingColors.primaryGold,
+            width: 2,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoldButton({
+    required String label,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: double.infinity,
+        height: 52,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: enabled
+                ? const [Color(0xFFD4AF37), Color(0xFFD4A017)]
+                : [
+                    const Color(0xFFD4AF37).withValues(alpha: 0.3),
+                    const Color(0xFFD4A017).withValues(alpha: 0.3),
+                  ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFD4AF37).withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [],
+        ),
+        child: Center(
+          child: Text(
+            label,
             style: GoogleFonts.outfit(
               fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: enabled
+                  ? const Color(0xFF0E2A44)
+                  : const Color(0xFF0E2A44).withValues(alpha: 0.5),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDobStep() {
+    final hasDob = _selectedDob != null;
+    final dobText = hasDob
+        ? '${_selectedDob!.day.toString().padLeft(2, '0')}/'
+            '${_selectedDob!.month.toString().padLeft(2, '0')}/'
+            '${_selectedDob!.year}'
+        : 'Sélectionner ma date de naissance';
+
+    return ResponsiveScrollBody(
+      horizontalPadding: 24,
+      verticalPadding: 0,
+      child: Column(
+        children: [
+          const SizedBox(height: 40),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: MerchantOnboardingColors.bgDark2,
+              border: Border.all(
+                color: MerchantOnboardingColors.primaryGold,
+                width: 2,
+              ),
+            ),
+            child: const Icon(
+              Icons.cake_outlined,
+              size: 40,
+              color: MerchantOnboardingColors.primaryGold,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'Votre date de naissance',
+            style: GoogleFonts.outfit(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
               color: MerchantOnboardingColors.textLight,
             ),
-            cursorColor: MerchantOnboardingColors.primaryGold,
-            decoration: InputDecoration(
-              hintText: 'Ex: Marie Dupont',
-              hintStyle: GoogleFonts.outfit(
-                color: MerchantOnboardingColors.textGrey,
-              ),
-              filled: true,
-              fillColor: MerchantOnboardingColors.bgDark2,
-              border: OutlineInputBorder(
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Pour recevoir vos avantages anniversaire.',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: MerchantOnboardingColors.textGrey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
+          GestureDetector(
+            onTap: _isSaving ? null : _pickDob,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              decoration: BoxDecoration(
+                color: MerchantOnboardingColors.bgDark2,
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: MerchantOnboardingColors.primaryGold,
-                  width: 2,
+                border: Border.all(
+                  color: hasDob
+                      ? MerchantOnboardingColors.primaryGold
+                      : MerchantOnboardingColors.borderColor,
+                  width: hasDob ? 1.5 : 1,
                 ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    color: hasDob
+                        ? MerchantOnboardingColors.primaryGold
+                        : MerchantOnboardingColors.textGrey,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      dobText,
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        color: hasDob
+                            ? MerchantOnboardingColors.textLight
+                            : MerchantOnboardingColors.textGrey,
+                        fontWeight: hasDob ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: MerchantOnboardingColors.textGrey,
+                    size: 20,
+                  ),
+                ],
               ),
             ),
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: (_canProceedName && !_isSaving) ? _goNext : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: MerchantOnboardingColors.primaryGold,
-                disabledBackgroundColor:
-                    MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
-                foregroundColor: MerchantOnboardingColors.bgDark1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: _canProceedName ? 4 : 0,
-              ),
-              child: Text(
-                'Suivant',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+          _buildGoldButton(
+            label: 'Suivant',
+            enabled: _canProceedDob && !_isSaving,
+            onTap: _goNext,
           ),
         ],
       ),
@@ -364,29 +505,10 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             ),
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: (hasCity && !_isSaving) ? _goNext : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: MerchantOnboardingColors.primaryGold,
-                disabledBackgroundColor:
-                    MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
-                foregroundColor: MerchantOnboardingColors.bgDark1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: hasCity ? 4 : 0,
-              ),
-              child: Text(
-                'Suivant',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+          _buildGoldButton(
+            label: 'Suivant',
+            enabled: hasCity && !_isSaving,
+            onTap: _goNext,
           ),
         ],
       ),
@@ -446,61 +568,50 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: _isSaving ? null : _pickPhoto,
-              icon: const Icon(Icons.photo_library_outlined, size: 22),
-              label: Text(
-                'Choisir une photo',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: MerchantOnboardingColors.primaryGold,
-                side: const BorderSide(
+          GestureDetector(
+            onTap: _isSaving ? null : _pickPhoto,
+            child: Container(
+              width: double.infinity,
+              height: 50,
+              decoration: BoxDecoration(
+                border: Border.all(
                   color: MerchantOnboardingColors.primaryGold,
                   width: 1.5,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.photo_library_outlined,
+                    color: MerchantOnboardingColors.primaryGold,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Choisir une photo',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: MerchantOnboardingColors.primaryGold,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isSaving
-                  ? null
-                  : () => _finish(skipPhoto: _localImagePath == null),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: MerchantOnboardingColors.primaryGold,
-                foregroundColor: MerchantOnboardingColors.bgDark1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 4,
-              ),
-              child: Text(
-                'Terminer',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+          _buildGoldButton(
+            label: 'Terminer',
+            enabled: !_isSaving,
+            onTap: () => _finish(skipPhoto: _localImagePath == null),
           ),
           const SizedBox(height: 12),
-          TextButton(
-            onPressed: _isSaving ? null : () => _finish(skipPhoto: true),
+          GestureDetector(
+            onTap: _isSaving ? null : () => _finish(skipPhoto: true),
             child: Text(
-              'Passer',
+              'Passer cette étape',
               style: GoogleFonts.outfit(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,

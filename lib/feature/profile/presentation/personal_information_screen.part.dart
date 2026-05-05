@@ -1,14 +1,16 @@
 part of 'personal_information_screen.dart';
 
-extension _PersonalInformationScreenUi on PersonalInformationScreen {
-  Widget _buildPersonalInformationScaffold(
+extension _PersonalInformationUi on _PersonalInformationScreenState {
+  Widget _buildScaffold(
     BuildContext context, {
+    required String? uid,
     required String fullName,
     required String email,
     required String phone,
     required String city,
     required int completionPercent,
     bool hasPhoto = false,
+    VoidCallback? onCreateProAccount,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -22,61 +24,7 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
         backgroundColor: MerchantColors.bgMain,
         body: Column(
           children: [
-            Container(
-              color: MerchantColors.bgHeader,
-              child: SafeArea(
-                bottom: false,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: MerchantColors.bgHeader,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: MerchantColors.gold.withValues(
-                            alpha: MerchantColors.goldBorderStronger),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => Navigator.of(context).pop(),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: MerchantColors.gold, width: 1.5),
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: MerchantColors.gold,
-                              size: 15,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Informations personnelles',
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: MerchantColors.textWhite,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            _buildHeader(context, uid: uid),
             Expanded(
               child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(
@@ -88,7 +36,10 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildIdentityCard(fullName, email, phone),
+                    if (_editing)
+                      _buildEditForm(context, uid: uid)
+                    else
+                      _buildIdentityCard(fullName, email, phone),
                     const SizedBox(height: 24),
                     Text(
                       'Villes connectées',
@@ -102,173 +53,12 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
                     const SizedBox(height: 12),
                     const _CitiesWidget(),
                     const SizedBox(height: 24),
-                    // Yuztoo card visual
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF0B2540), Color(0xFF0E2A44)],
-                        ),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: MerchantColors.gold.withValues(alpha: 0.35),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              ShaderMask(
-                                shaderCallback: (bounds) => const LinearGradient(
-                                  colors: [
-                                    Color(0xFFF5F5F5),
-                                    Color(0xFFD4A017),
-                                  ],
-                                ).createShader(bounds),
-                                child: Text(
-                                  'yuztoo',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: MerchantColors.gold.withValues(alpha: 0.15),
-                                  border: Border.all(
-                                    color: MerchantColors.gold.withValues(alpha: 0.5),
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    avatarInitial(fullName.isNotEmpty ? fullName : 'U'),
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: MerchantColors.gold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            fullName.isNotEmpty ? fullName : 'Client Yuztoo',
-                            style: GoogleFonts.outfit(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                              color: MerchantColors.textWhite,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Carte Fidélité · Membre',
-                            style: GoogleFonts.outfit(
-                              fontSize: 12,
-                              color: MerchantColors.textGrey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _buildYuztooCard(fullName),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Text(
-                          'Profil complété à',
-                          style: GoogleFonts.outfit(
-                            color: MerchantColors.textWhite,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: completionPercent == 100
-                                ? MerchantColors.gold
-                                : MerchantColors.bgHeader,
-                            borderRadius: BorderRadius.circular(14),
-                            border: completionPercent < 100
-                                ? Border.all(
-                                    color: MerchantColors.gold
-                                        .withValues(alpha: 0.5))
-                                : null,
-                          ),
-                          child: Text(
-                            '$completionPercent%',
-                            style: GoogleFonts.outfit(
-                              color: completionPercent == 100
-                                  ? MerchantColors.bgHeader
-                                  : MerchantColors.gold,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: completionPercent / 100.0,
-                        minHeight: 6,
-                        backgroundColor:
-                            MerchantColors.gold.withValues(alpha: 0.15),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          completionPercent == 100
-                              ? MerchantColors.gold
-                              : MerchantColors.gold.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ),
-                    if (!hasPhoto) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 13,
-                            color: MerchantColors.gold.withValues(alpha: 0.6),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Ajoute une photo de profil pour compléter à 100\u202f%',
-                            style: GoogleFonts.outfit(
-                              fontSize: 12,
-                              color: MerchantColors.textGrey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    _buildCompletionBar(completionPercent, hasPhoto),
                     const SizedBox(height: 20),
                     GestureDetector(
-                      onTap: () {},
+                      onTap: onCreateProAccount,
                       child: Container(
                         width: double.infinity,
                         height: 54,
@@ -310,6 +100,222 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
       ),
     );
   }
+
+  Widget _buildHeader(BuildContext context, {required String? uid}) {
+    return Container(
+      color: MerchantColors.bgHeader,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: MerchantColors.bgHeader,
+            border: Border(
+              bottom: BorderSide(
+                color: MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderStronger),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _editing
+                    ? _cancelEdit
+                    : () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: MerchantColors.gold, width: 1.5),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      _editing
+                          ? Icons.close_rounded
+                          : Icons.arrow_back_ios_new_rounded,
+                      color: MerchantColors.gold,
+                      size: 15,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Informations personnelles',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantColors.textWhite,
+                  ),
+                ),
+              ),
+              if (!_editing)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _startEdit,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border:
+                          Border.all(color: MerchantColors.gold, width: 1.5),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.edit_outlined,
+                        color: MerchantColors.gold,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                )
+              else if (uid != null)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _saving ? null : () => _save(uid),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFD4AF37), Color(0xFFD4A017)],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: MerchantColors.bgHeader,
+                            ),
+                          )
+                        : Text(
+                            'Enregistrer',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: MerchantColors.bgHeader,
+                            ),
+                          ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditForm(BuildContext context, {required String? uid}) {
+    const inputDeco = InputDecorationTheme(
+      filled: true,
+      fillColor: Color(0xFF0B2540),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: Color(0x33D4A017)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: Color(0x33D4A017)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderSide: BorderSide(color: MerchantColors.gold, width: 1.5),
+      ),
+      labelStyle: TextStyle(color: MerchantColors.textGrey),
+      hintStyle: TextStyle(color: MerchantColors.textGrey),
+    );
+
+    final dobLabel = _selectedDob != null
+        ? '${_selectedDob!.day.toString().padLeft(2, '0')}/'
+            '${_selectedDob!.month.toString().padLeft(2, '0')}/'
+            '${_selectedDob!.year}'
+        : 'Sélectionner';
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        inputDecorationTheme: inputDeco,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionLabel('Prénom'),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _firstNameCtrl,
+            style: GoogleFonts.outfit(
+                color: MerchantColors.textWhite, fontSize: 15),
+            decoration: const InputDecoration(hintText: 'Votre prénom'),
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 16),
+          _sectionLabel('Nom'),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _lastNameCtrl,
+            style: GoogleFonts.outfit(
+                color: MerchantColors.textWhite, fontSize: 15),
+            decoration: const InputDecoration(hintText: 'Votre nom'),
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 16),
+          _sectionLabel('Date de naissance'),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: _pickDob,
+            child: Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0B2540),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      dobLabel,
+                      style: GoogleFonts.outfit(
+                        color: _selectedDob != null
+                            ? MerchantColors.textWhite
+                            : MerchantColors.textGrey,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.calendar_today_outlined,
+                      color: MerchantColors.gold, size: 18),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text) => Text(
+        text,
+        style: GoogleFonts.outfit(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: MerchantColors.textGrey,
+          letterSpacing: 0.2,
+        ),
+      );
 
   Widget _buildIdentityCard(String name, String email, String phone) {
     return Container(
@@ -381,6 +387,174 @@ extension _PersonalInformationScreenUi on PersonalInformationScreen {
       ),
     );
   }
+
+  Widget _buildYuztooCard(String fullName) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0B2540), Color(0xFF0E2A44)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: MerchantColors.gold.withValues(alpha: 0.35),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFFF5F5F5), Color(0xFFD4A017)],
+                ).createShader(bounds),
+                child: Text(
+                  'yuztoo',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MerchantColors.gold.withValues(alpha: 0.15),
+                  border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    avatarInitial(fullName.isNotEmpty ? fullName : 'U'),
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: MerchantColors.gold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            fullName.isNotEmpty ? fullName : 'Client Yuztoo',
+            style: GoogleFonts.outfit(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: MerchantColors.textWhite,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Carte Fidélité · Membre',
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              color: MerchantColors.textGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletionBar(int completionPercent, bool hasPhoto) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Profil complété à',
+              style: GoogleFonts.outfit(
+                color: MerchantColors.textWhite,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: completionPercent == 100
+                    ? MerchantColors.gold
+                    : MerchantColors.bgHeader,
+                borderRadius: BorderRadius.circular(14),
+                border: completionPercent < 100
+                    ? Border.all(
+                        color: MerchantColors.gold.withValues(alpha: 0.5))
+                    : null,
+              ),
+              child: Text(
+                '$completionPercent%',
+                style: GoogleFonts.outfit(
+                  color: completionPercent == 100
+                      ? MerchantColors.bgHeader
+                      : MerchantColors.gold,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: completionPercent / 100.0,
+            minHeight: 6,
+            backgroundColor: MerchantColors.gold.withValues(alpha: 0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              completionPercent == 100
+                  ? MerchantColors.gold
+                  : MerchantColors.gold.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+        if (!hasPhoto) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 13,
+                color: MerchantColors.gold.withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Ajoute une photo de profil pour compléter à 100\u202f%',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  color: MerchantColors.textGrey,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class _CitiesWidget extends ConsumerStatefulWidget {
@@ -391,7 +565,8 @@ class _CitiesWidget extends ConsumerStatefulWidget {
 }
 
 class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
-  void _openAddCityPicker(BuildContext context, String uid, List<String> current) {
+  void _openAddCityPicker(
+      BuildContext context, String uid, List<String> current) {
     final available = frenchCities
         .where((c) => !current.any((x) => x.toLowerCase() == c.toLowerCase()))
         .toList();
@@ -413,7 +588,6 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Drag handle
                 Center(
                   child: Container(
                     margin: const EdgeInsets.only(top: 12, bottom: 4),
@@ -467,7 +641,8 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
                             (f) => ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text(f.message)),
                             ),
-                            (_) => ref.invalidate(connectedCitiesProvider(uid)),
+                            (_) =>
+                                ref.invalidate(connectedCitiesProvider(uid)),
                           );
                         },
                         child: Padding(
@@ -478,7 +653,8 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
                               Icon(
                                 Icons.location_on_outlined,
                                 size: 18,
-                                color: MerchantColors.gold.withValues(alpha: 0.7),
+                                color: MerchantColors.gold
+                                    .withValues(alpha: 0.7),
                               ),
                               const SizedBox(width: 12),
                               Text(
@@ -493,7 +669,8 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
                               Icon(
                                 Icons.add_circle_outline_rounded,
                                 size: 18,
-                                color: MerchantColors.gold.withValues(alpha: 0.5),
+                                color: MerchantColors.gold
+                                    .withValues(alpha: 0.5),
                               ),
                             ],
                           ),
@@ -510,10 +687,12 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
     );
   }
 
-  Future<void> _removeCity(String uid, String cityName, List<String> current) async {
+  Future<void> _removeCity(
+      String uid, String cityName, List<String> current) async {
     if (current.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vous devez avoir au moins une ville.')),
+        const SnackBar(
+            content: Text('Vous devez avoir au moins une ville.')),
       );
       return;
     }
@@ -543,9 +722,7 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        ...cities.map(
-          (name) => _buildPill(name, uid, cities),
-        ),
+        ...cities.map((name) => _buildPill(name, uid, cities)),
         GestureDetector(
           onTap: () => _openAddCityPicker(context, uid, cities),
           child: Container(
@@ -555,7 +732,8 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
               shape: BoxShape.circle,
               border: Border.all(color: MerchantColors.gold, width: 2),
             ),
-            child: const Icon(Icons.add_rounded, color: MerchantColors.gold, size: 18),
+            child: const Icon(Icons.add_rounded,
+                color: MerchantColors.gold, size: 18),
           ),
         ),
       ],

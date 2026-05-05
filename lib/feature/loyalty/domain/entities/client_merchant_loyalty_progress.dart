@@ -41,18 +41,24 @@ class ClientMerchantLoyaltyProgress extends Equatable {
     required this.validatedPassages,
     required this.pendingPassages,
     required this.cumulativeSpendEuros,
+    this.isFirstVisit = false,
   });
 
   const ClientMerchantLoyaltyProgress.empty()
       : validatedPassages = 0,
         pendingPassages = 0,
-        cumulativeSpendEuros = 0;
+        cumulativeSpendEuros = 0,
+        isFirstVisit = false;
 
   final int validatedPassages;
   final int pendingPassages;
   final double cumulativeSpendEuros;
 
+  /// True only on the very first passage ever recorded at this merchant.
+  /// Used to surface the welcome-gift description to the client.
+  final bool isFirstVisit;
+
   @override
   List<Object?> get props =>
-      <Object?>[validatedPassages, pendingPassages, cumulativeSpendEuros];
+      <Object?>[validatedPassages, pendingPassages, cumulativeSpendEuros, isFirstVisit];
 }

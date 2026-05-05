@@ -7,7 +7,6 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
     merchantAsync.whenData((merchant) {
       if (merchant != null) {
         _seed(
-          merchant.messagingEnabled,
           merchant.loyaltyEnabled,
           merchant.notificationsAutoEnabled,
           merchant.galerieEnabled,
@@ -42,7 +41,6 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
   }
 
   Widget _buildContent(BuildContext context) {
-    final messaging = _messageConciergerie ?? true;
     final fidelite = _fidelite ?? true;
     final notifications = _notificationsAuto ?? true;
     final galerie = _galerie ?? true;
@@ -63,11 +61,6 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
           ),
           SettingsServicesSection(
             services: [
-              ServiceToggle(
-                label: 'Message conciergerie',
-                value: messaging,
-                onChanged: _setMessageConciergerie,
-              ),
               ServiceToggle(
                 label: 'Fidélité',
                 value: fidelite,

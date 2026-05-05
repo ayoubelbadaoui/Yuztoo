@@ -22,6 +22,7 @@ import 'use_cases/consume_force_merchant_next_login.dart';
 import 'use_cases/mark_merchant_onboarding_completed.dart';
 import 'use_cases/update_auth_user_profile.dart';
 import 'use_cases/complete_client_profile.dart';
+import 'use_cases/update_client_basic_info.dart';
 import '../infrastructure/auth_repository_provider.dart';
 import '../infrastructure/user_repository_provider.dart';
 import '../infrastructure/role_cache_service.dart';
@@ -193,4 +194,24 @@ final consumeForceMerchantNextLoginProvider =
 final checkUserProfileCompleteProvider = Provider<CheckUserProfileComplete>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return CheckUserProfileComplete(repository);
+});
+
+/// Use case provider for editing client profile basics (firstName, lastName, DOB).
+final updateClientBasicInfoProvider = Provider<UpdateClientBasicInfo>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return UpdateClientBasicInfo(repository);
+});
+
+/// Calls [AuthRepository.linkWithGoogle] to link the currently signed-in
+/// account with a Google credential (account association, not sign-in).
+final linkWithGoogleProvider = Provider<Future<Result<AuthUser>> Function()>((ref) {
+  final repo = ref.watch(authRepositoryProvider);
+  return repo.linkWithGoogle;
+});
+
+/// Synchronously returns the list of provider IDs currently linked to the
+/// signed-in Firebase user (e.g. 'google.com', 'apple.com', 'password').
+final linkedProvidersProvider = Provider<List<String>>((ref) {
+  final repo = ref.watch(authRepositoryProvider);
+  return repo.getLinkedProviders();
 });

@@ -138,13 +138,26 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       final email = (data['email'] as String?)?.trim() ?? '';
       final phone = (data['phone'] as String?)?.trim() ?? '';
       final rawCity = (data['city'] as String?)?.trim() ?? '';
-      final city =
-          CityInput.isPlaceholder(rawCity) ? '' : rawCity;
+      final city = CityInput.isPlaceholder(rawCity) ? '' : rawCity;
+      final firstName = (data['first_name'] as String?)?.trim();
+      final lastName = (data['last_name'] as String?)?.trim();
+      final dobRaw = data['date_of_birth'] as String?;
+      DateTime? dateOfBirth;
+      if (dobRaw != null && dobRaw.isNotEmpty) {
+        dateOfBirth = DateTime.tryParse(dobRaw);
+      }
 
-      // Always return basics when the document exists so UI (préférences compte,
-      // onboarding) can show city even if one field is temporarily empty.
+      // Always return basics when the document exists so UI can show fields
+      // even if some are temporarily empty.
       return Right<AuthFailure, UserProfileBasics?>(
-        UserProfileBasics(email: email, phone: phone, city: city),
+        UserProfileBasics(
+          email: email,
+          phone: phone,
+          city: city,
+          firstName: firstName?.isNotEmpty == true ? firstName : null,
+          lastName: lastName?.isNotEmpty == true ? lastName : null,
+          dateOfBirth: dateOfBirth,
+        ),
       );
     } catch (e, st) {
       if (e is FirebaseException && e.code == 'permission-denied') {
@@ -522,6 +535,9 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
     required String displayName,
     String? city,
     String? photoUrl,
+    String? firstName,
+    String? lastName,
+    DateTime? dateOfBirth,
   }) async {
     final trimmed = displayName.trim();
     if (trimmed.isEmpty) {
@@ -579,6 +595,18 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       if (trimmedCity != null) {
         update['city'] = trimmedCity;
       }
+      if (firstName != null && firstName.trim().isNotEmpty) {
+        update['first_name'] = firstName.trim();
+      }
+      if (lastName != null && lastName.trim().isNotEmpty) {
+        update['last_name'] = lastName.trim();
+      }
+      if (dateOfBirth != null) {
+        update['date_of_birth'] =
+            '${dateOfBirth.year.toString().padLeft(4, '0')}-'
+            '${dateOfBirth.month.toString().padLeft(2, '0')}-'
+            '${dateOfBirth.day.toString().padLeft(2, '0')}';
+      }
 
       await userRef.update(update);
       LoggerService.logInfo(
@@ -603,6 +631,61 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       return Left<AuthFailure, Unit>(
         AuthUnexpectedFailure(
           message: message,
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  Future<Result<Unit>> updateClientBasicInfo({
+    required String uid,
+    String? firstName,
+    String? lastName,
+    DateTime? dateOfBirth,
+  }) async {
+    try {
+      final update = <String, dynamic>{
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+      if (firstName != null && firstName.trim().isNotEmpty) {
+        final fn = firstName.trim();
+        update['first_name'] = fn;
+        // Keep displayName in sync: prefer "First Last" when both are present.
+        if (lastName != null && lastName.trim().isNotEmpty) {
+          update['displayName'] = '$fn ${lastName.trim()}';
+        } else {
+          update['displayName'] = fn;
+        }
+      }
+      if (lastName != null && lastName.trim().isNotEmpty) {
+        update['last_name'] = lastName.trim();
+      }
+      if (dateOfBirth != null) {
+        update['date_of_birth'] =
+            '${dateOfBirth.year.toString().padLeft(4, '0')}-'
+            '${dateOfBirth.month.toString().padLeft(2, '0')}-'
+            '${dateOfBirth.day.toString().padLeft(2, '0')}';
+      }
+
+      await _firestore.collection('users').doc(uid).update(update);
+      LoggerService.logInfo('Client basic info updated', context: {'uid': uid});
+      return const Right<AuthFailure, Unit>(unit);
+    } catch (e, st) {
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        return const Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(message: 'Permission refusée'),
+        );
+      }
+      LoggerService.logError(
+        'Error updating client basic info',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
+      return Left<AuthFailure, Unit>(
+        AuthUnexpectedFailure(
+          message: 'Erreur lors de la mise à jour du profil',
           cause: e,
           stackTrace: st,
         ),

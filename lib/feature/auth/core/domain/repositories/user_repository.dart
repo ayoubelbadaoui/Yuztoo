@@ -84,12 +84,15 @@ abstract class UserRepository {
   /// `onboarding.client`, returns `true` so existing users are not gated.
   Future<Result<bool?>> isClientOnboardingCompleted(String uid);
 
-  /// Saves display name, optional photo URL, and marks `onboarding.client` completed.
+  /// Saves display name, split name, DOB, optional photo URL, and marks `onboarding.client` completed.
   Future<Result<Unit>> completeClientProfile({
     required String uid,
     required String displayName,
     String? city,
     String? photoUrl,
+    String? firstName,
+    String? lastName,
+    DateTime? dateOfBirth,
   });
 
   /// Marks merchant acquisition onboarding complete (`onboarding.merchant` = completed).
@@ -173,4 +176,13 @@ abstract class UserRepository {
   /// Sets `roles.merchant = true`, `roles.provider = true`, and initialises
   /// `onboarding.merchant = 'not_started'` when not already set. Idempotent.
   Future<Result<Unit>> addSecondaryMerchantRole(String uid);
+
+  /// Update editable profile fields (firstName, lastName, dateOfBirth) without
+  /// touching onboarding status, roles, or any auth identity (email/phone).
+  Future<Result<Unit>> updateClientBasicInfo({
+    required String uid,
+    String? firstName,
+    String? lastName,
+    DateTime? dateOfBirth,
+  });
 }

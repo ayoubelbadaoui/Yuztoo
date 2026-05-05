@@ -24,7 +24,8 @@ export '../../followed_merchants/application/providers.dart'
 export '../../loyalty/application/client_loyalty_providers.dart'
     show
         clientLoyaltyProgressForMerchantProvider,
-        recordLoyaltyPassageProvider;
+        recordLoyaltyPassageProvider,
+        ClientLoyaltyEntry;
 
 /// When the user taps a business (Accueil or Découvrir), set this to the merchant id
 /// before navigating to store profile.

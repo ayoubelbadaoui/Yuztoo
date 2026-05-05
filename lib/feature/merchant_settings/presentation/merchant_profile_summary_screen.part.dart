@@ -10,6 +10,7 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
     required int cityCount,
     required int weeklyViews,
     required int completionPct,
+    required List<String> linkedProviders,
   }) {
     final merchantName = merchant?.name ?? 'Mon commerce';
     final city = storefront?.city ?? merchant?.city ?? '';
@@ -59,7 +60,7 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
                       const SizedBox(height: 20),
                       _buildCompletionBar(completionPct),
                       const SizedBox(height: 20),
-                      _buildGoogleSyncRow(),
+                      _buildLinkedAccountsRow(linkedProviders),
                       const SizedBox(height: 20),
                       _buildEditCta(),
                     ],
@@ -306,66 +307,136 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
     );
   }
 
-  Widget _buildGoogleSyncRow() {
+  Widget _buildLinkedAccountsRow(List<String> linkedProviders) {
+    final googleLinked = linkedProviders.contains('google.com');
+    final appleLinked = linkedProviders.contains('apple.com');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: MerchantColors.navyCard,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: MerchantColors.gold.withValues(alpha: 0.2)),
+          border: Border.all(color: MerchantColors.gold.withValues(alpha: 0.2)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: MerchantColors.gold.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.sync_rounded,
-                  color: MerchantColors.gold, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Synchroniser avec Google Business',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Bientôt disponible',
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      color: MerchantColors.textGrey,
-                    ),
-                  ),
-                ],
+            Text(
+              'Comptes liés',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
             ),
-            Switch(
-              value: _googleSyncEnabled,
-              onChanged: _onGoogleSyncToggle,
-              activeThumbColor: MerchantColors.gold,
-              trackColor: WidgetStateProperty.resolveWith(
-                (states) => states.contains(WidgetState.selected)
-                    ? MerchantColors.gold.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.1),
-              ),
+            const SizedBox(height: 14),
+            // Google row
+            _buildProviderRow(
+              icon: Icons.g_mobiledata_rounded,
+              label: 'Google',
+              isLinked: googleLinked,
+              isLoading: _linkingGoogle,
+              onLink: googleLinked ? null : _linkGoogle,
             ),
+            if (appleLinked) ...[
+              const SizedBox(height: 10),
+              _buildProviderRow(
+                icon: Icons.apple_rounded,
+                label: 'Apple',
+                isLinked: true,
+                isLoading: false,
+                onLink: null,
+              ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProviderRow({
+    required IconData icon,
+    required String label,
+    required bool isLinked,
+    required bool isLoading,
+    VoidCallback? onLink,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isLinked
+                ? const Color(0xFF1A6B3C).withValues(alpha: 0.3)
+                : MerchantColors.gold.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: isLinked ? const Color(0xFF4CAF50) : MerchantColors.textGrey,
+            size: 22,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                isLinked ? 'Connecté ✓' : 'Non associé',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  color: isLinked
+                      ? const Color(0xFF4CAF50)
+                      : MerchantColors.textGrey,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (!isLinked)
+          isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: MerchantColors.gold,
+                  ),
+                )
+              : GestureDetector(
+                  onTap: onLink,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [MerchantColors.gold, MerchantColors.goldLight],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Connecter',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: MerchantColors.bgHeader,
+                      ),
+                    ),
+                  ),
+                ),
+      ],
     );
   }
 
@@ -406,81 +477,3 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
   }
 }
 
-// ── Coming-soon sheet ─────────────────────────────────────────────────────────
-class _ComingSoonSheet extends StatelessWidget {
-  const _ComingSoonSheet({required this.onClose});
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: MerchantColors.navyCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-          24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              color: MerchantColors.textGrey.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const Icon(Icons.sync_rounded, color: MerchantColors.gold, size: 42),
-          const SizedBox(height: 14),
-          Text(
-            'En cours de déploiement',
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Cette fonctionnalité est en cours de déploiement. Nous vous notifierons dès qu\'elle est disponible.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              color: MerchantColors.textGrey,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: GestureDetector(
-              onTap: onClose,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [MerchantColors.gold, MerchantColors.goldLight],
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Center(
-                  child: Text(
-                    'Compris',
-                    style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: MerchantColors.bgHeader,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

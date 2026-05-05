@@ -321,6 +321,207 @@ class _SuivantButton extends StatelessWidget {
   }
 }
 
+// ─── Step: Owner identity (firstName, lastName, DOB) ────────────────────────
+
+class _StepOwnerInfo extends StatefulWidget {
+  const _StepOwnerInfo({
+    required this.firstNameController,
+    required this.lastNameController,
+    required this.initialFirstName,
+    required this.initialLastName,
+    required this.initialDob,
+    required this.onFirstNameChanged,
+    required this.onLastNameChanged,
+    required this.onDobChanged,
+    required this.onNext,
+  });
+
+  final TextEditingController firstNameController;
+  final TextEditingController lastNameController;
+  final String? initialFirstName;
+  final String? initialLastName;
+  final DateTime? initialDob;
+  final ValueChanged<String> onFirstNameChanged;
+  final ValueChanged<String> onLastNameChanged;
+  final ValueChanged<DateTime?> onDobChanged;
+  final VoidCallback onNext;
+
+  @override
+  State<_StepOwnerInfo> createState() => _StepOwnerInfoState();
+}
+
+class _StepOwnerInfoState extends State<_StepOwnerInfo> {
+  DateTime? _dob;
+  bool _canProceed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialFirstName != null) {
+      widget.firstNameController.text = widget.initialFirstName!;
+    }
+    if (widget.initialLastName != null) {
+      widget.lastNameController.text = widget.initialLastName!;
+    }
+    _dob = widget.initialDob;
+    _updateCanProceed();
+    widget.firstNameController.addListener(_updateCanProceed);
+    widget.lastNameController.addListener(_updateCanProceed);
+  }
+
+  @override
+  void dispose() {
+    widget.firstNameController.removeListener(_updateCanProceed);
+    widget.lastNameController.removeListener(_updateCanProceed);
+    super.dispose();
+  }
+
+  void _updateCanProceed() {
+    final can = widget.firstNameController.text.trim().isNotEmpty &&
+        widget.lastNameController.text.trim().isNotEmpty &&
+        _dob != null;
+    if (can != _canProceed) setState(() => _canProceed = can);
+  }
+
+  Future<void> _pickDob() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dob ?? DateTime(1990),
+      firstDate: DateTime(1920),
+      lastDate: DateTime.now().subtract(const Duration(days: 365 * 13)),
+      helpText: 'Date de naissance',
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: MerchantOnboardingColors.primaryGold,
+            onPrimary: Colors.black,
+            surface: MerchantOnboardingColors.bgDark2,
+            onSurface: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _dob = picked);
+      widget.onDobChanged(picked);
+      _updateCanProceed();
+    }
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      child: Column(
+        children: [
+          const SizedBox(height: 32),
+          const _StepEntrance(
+            child: _StepAvatar(icon: Icons.person_outline_rounded, size: 80),
+          ),
+          const SizedBox(height: 28),
+          const _StepEntrance(
+            delayMs: 50,
+            child: _GradientTitle('Vos informations\npersonnelles'),
+          ),
+          const SizedBox(height: 8),
+          _StepEntrance(
+            delayMs: 80,
+            child: Text(
+              'Ces informations restent confidentielles et ne sont pas visibles des clients.',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: MerchantOnboardingColors.textGrey,
+                height: 1.5,
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 28),
+          _StepEntrance(
+            delayMs: 100,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _TextField(
+                    controller: widget.firstNameController,
+                    hint: 'Prénom',
+                    onChanged: widget.onFirstNameChanged,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TextField(
+                    controller: widget.lastNameController,
+                    hint: 'Nom',
+                    onChanged: widget.onLastNameChanged,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _StepEntrance(
+            delayMs: 130,
+            child: GestureDetector(
+              onTap: _pickDob,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                decoration: BoxDecoration(
+                  color: MerchantOnboardingColors.bgDark2,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _dob != null
+                        ? MerchantOnboardingColors.primaryGold.withValues(alpha: 0.6)
+                        : MerchantOnboardingColors.primaryGold.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.cake_outlined,
+                      color: _dob != null
+                          ? MerchantOnboardingColors.primaryGold
+                          : MerchantOnboardingColors.textGrey,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _dob != null ? _formatDate(_dob!) : 'Date de naissance',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        color: _dob != null
+                            ? Colors.white
+                            : MerchantOnboardingColors.textGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          _StepEntrance(
+            delayMs: 160,
+            child: _SuivantButton(
+              onPressed: _canProceed ? widget.onNext : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _StepName extends StatefulWidget {
   const _StepName({
     required this.controller,
@@ -584,9 +785,9 @@ class _StepImage extends StatelessWidget {
       maxWidth: 800,
       imageQuality: 85,
     );
-    if (picked != null && context.mounted) {
-      onPickedLogo(picked.path);
-    }
+    if (picked == null || !context.mounted) return;
+    final cropped = await cropImage(picked.path, ratioX: 1, ratioY: 1);
+    if (context.mounted) onPickedLogo(cropped ?? picked.path);
   }
 
   Future<void> _pickBannerFromGallery(BuildContext context) async {
@@ -595,9 +796,9 @@ class _StepImage extends StatelessWidget {
       maxWidth: 1400,
       imageQuality: 85,
     );
-    if (picked != null && context.mounted) {
-      onPickedBanner(picked.path);
-    }
+    if (picked == null || !context.mounted) return;
+    final cropped = await cropImage(picked.path, ratioX: 16, ratioY: 9);
+    if (context.mounted) onPickedBanner(cropped ?? picked.path);
   }
 
   @override
@@ -1386,8 +1587,7 @@ class _OnboardingDayRow extends StatefulWidget {
 
 class _OnboardingDayRowState extends State<_OnboardingDayRow> {
   bool _expanded = false;
-  final List<TextEditingController> _startCtrls = [];
-  final List<TextEditingController> _endCtrls = [];
+  late List<TimeSlot> _editableSlots;
 
   bool get _hasSlots =>
       widget.dayHours.isEnabled && widget.dayHours.timeSlots.isNotEmpty;
@@ -1395,45 +1595,24 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
   @override
   void initState() {
     super.initState();
-    _syncControllers();
+    _syncSlots();
   }
 
   @override
   void didUpdateWidget(covariant _OnboardingDayRow old) {
     super.didUpdateWidget(old);
-    if (!_expanded) _syncControllers();
+    if (!_expanded) _syncSlots();
   }
 
-  void _syncControllers() {
-    _disposeControllers();
-    for (final slot in widget.dayHours.timeSlots) {
-      _startCtrls.add(TextEditingController(text: slot.start));
-      _endCtrls.add(TextEditingController(text: slot.end));
-    }
-  }
-
-  void _disposeControllers() {
-    for (final c in _startCtrls) {
-      c.dispose();
-    }
-    for (final c in _endCtrls) {
-      c.dispose();
-    }
-    _startCtrls.clear();
-    _endCtrls.clear();
-  }
-
-  @override
-  void dispose() {
-    _disposeControllers();
-    super.dispose();
+  void _syncSlots() {
+    _editableSlots = List<TimeSlot>.from(widget.dayHours.timeSlots);
   }
 
   void _toggleExpand() {
     if (!_hasSlots) return;
     setState(() {
       if (!_expanded) {
-        _syncControllers();
+        _syncSlots();
         _expanded = true;
       } else {
         _expanded = false;
@@ -1443,30 +1622,33 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
 
   void _addSlot() {
     setState(() {
-      _startCtrls.add(TextEditingController(text: '8h'));
-      _endCtrls.add(TextEditingController(text: '12h'));
+      _editableSlots.add(const TimeSlot(start: '8h', end: '12h'));
     });
   }
 
   void _removeSlot(int index) {
-    if (_startCtrls.length <= 1) return;
+    if (_editableSlots.length <= 1) return;
+    setState(() => _editableSlots.removeAt(index));
+  }
+
+  void _updateStart(int index, String value) {
     setState(() {
-      _startCtrls[index].dispose();
-      _endCtrls[index].dispose();
-      _startCtrls.removeAt(index);
-      _endCtrls.removeAt(index);
+      _editableSlots[index] =
+          TimeSlot(start: value, end: _editableSlots[index].end);
+    });
+  }
+
+  void _updateEnd(int index, String value) {
+    setState(() {
+      _editableSlots[index] =
+          TimeSlot(start: _editableSlots[index].start, end: value);
     });
   }
 
   void _saveChanges() {
-    final slots = <TimeSlot>[];
-    for (int i = 0; i < _startCtrls.length; i++) {
-      final s = _startCtrls[i].text.trim();
-      final e = _endCtrls[i].text.trim();
-      if (s.isNotEmpty && e.isNotEmpty) {
-        slots.add(TimeSlot(start: s, end: e));
-      }
-    }
+    final slots = _editableSlots
+        .where((s) => s.start.isNotEmpty && s.end.isNotEmpty)
+        .toList();
     if (slots.isNotEmpty) widget.onSave(slots);
     setState(() => _expanded = false);
   }
@@ -1591,64 +1773,19 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
         ),
         child: Column(
           children: [
-            for (int i = 0; i < _startCtrls.length; i++) ...[
+            for (int i = 0; i < _editableSlots.length; i++) ...[
               if (i > 0) const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: _startCtrls[i],
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        color: MerchantOnboardingColors.textLight,
-                      ),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 10),
-                        filled: true,
-                        fillColor: MerchantOnboardingColors.bgDark2,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                        hintText: '8h',
-                        hintStyle: GoogleFonts.outfit(
-                            color: MerchantOnboardingColors.textGrey),
-                      ),
+                    child: TimeSlotPicker(
+                      startTime: _editableSlots[i].start,
+                      endTime: _editableSlots[i].end,
+                      onStartChanged: (v) => _updateStart(i, v),
+                      onEndChanged: (v) => _updateEnd(i, v),
                     ),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.arrow_forward_rounded,
-                        size: 14, color: MerchantOnboardingColors.textGrey),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _endCtrls[i],
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        color: MerchantOnboardingColors.textLight,
-                      ),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 10),
-                        filled: true,
-                        fillColor: MerchantOnboardingColors.bgDark2,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                        hintText: '18h',
-                        hintStyle: GoogleFonts.outfit(
-                            color: MerchantOnboardingColors.textGrey),
-                      ),
-                    ),
-                  ),
-                  if (_startCtrls.length > 1) ...[
+                  if (_editableSlots.length > 1) ...[
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => _removeSlot(i),

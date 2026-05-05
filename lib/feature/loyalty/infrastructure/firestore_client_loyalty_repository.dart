@@ -108,6 +108,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         (Transaction tx) async {
           final ref = _docRef(merchantId, clientUid);
           final snap = await tx.get(ref);
+          final isFirstVisit = !snap.exists;
           final cur = _fromMap(snap.data());
           if (pendingPassagesDelta < 0 &&
               cur.pendingPassages < -pendingPassagesDelta) {
@@ -118,6 +119,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
             pendingPassages: cur.pendingPassages + pendingPassagesDelta,
             cumulativeSpendEuros:
                 cur.cumulativeSpendEuros + cumulativeSpendEurosDelta,
+            isFirstVisit: isFirstVisit,
           );
           if (next.validatedPassages < 0 ||
               next.pendingPassages < 0 ||
@@ -131,6 +133,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
               'pending_passages': next.pendingPassages,
               'cumulative_spend_euros': next.cumulativeSpendEuros,
               'updated_at': FieldValue.serverTimestamp(),
+              if (isFirstVisit) 'first_visit_at': FieldValue.serverTimestamp(),
             },
             SetOptions(merge: true),
           );
@@ -185,6 +188,48 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         ),
       );
     }
+  }
+
+  @override
+  Future<Map<String, String>> getClientSegments(String merchantId) async {
+    if (merchantId.isEmpty) return {};
+    try {
+      final snap = await _firestore
+          .collection('merchants')
+          .doc(merchantId)
+          .collection('loyalty_clients')
+          .get();
+      final result = <String, String>{};
+      final now = DateTime.now();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final validated = (data['validated_passages'] as num?)?.toInt() ?? 0;
+        final updatedAt = data['updated_at'];
+        DateTime? lastVisit;
+        if (updatedAt is Timestamp) lastVisit = updatedAt.toDate();
+        final daysSince = lastVisit != null
+            ? now.difference(lastVisit).inDays
+            : 999;
+        final segment = _computeSegment(
+          validatedPassages: validated,
+          daysSinceLastVisit: daysSince,
+        );
+        result[doc.id] = segment;
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static String _computeSegment({
+    required int validatedPassages,
+    required int daysSinceLastVisit,
+  }) {
+    if (daysSinceLastVisit > 60) return 'inactif';
+    if (validatedPassages >= 10) return 'vip';
+    if (validatedPassages >= 3) return 'habitue';
+    return 'nouveau';
   }
 
   /// Best-effort: increments `rappels_monthly_validated_passages` on the

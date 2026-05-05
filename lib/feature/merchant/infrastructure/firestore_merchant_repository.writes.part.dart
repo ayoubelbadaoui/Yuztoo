@@ -128,6 +128,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     List<String>? categories,
     String? logoUrl,
     String? phone,
+    String? email,
     String? address,
     String? city,
     String? websiteUrl,
@@ -135,6 +136,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     List<String>? newsImageUrls,
     String? status,
     Map<String, dynamic>? hours,
+    String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     LoyaltyProgramConfig? loyaltyProgram,
@@ -183,6 +185,17 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       }
       if (phone != null) {
         updateData['phone'] = phone;
+      }
+      if (email != null) {
+        updateData['email'] = email.trim();
+      }
+      if (welcomeGiftDescription != null) {
+        final trimmed = welcomeGiftDescription.trim();
+        if (trimmed.isEmpty) {
+          updateData['welcome_gift_description'] = FieldValue.delete();
+        } else {
+          updateData['welcome_gift_description'] = trimmed;
+        }
       }
       if (address != null) {
         updateData['address'] = address;
