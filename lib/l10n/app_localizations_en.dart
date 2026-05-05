@@ -132,18 +132,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get qrCode => 'QR Code';
 
   @override
-  String get navAlerts => 'Alerts';
-
-  @override
-  String get navStorefront => 'Storefront';
-
-  @override
-  String get navYourClients => 'Your clients';
-
-  @override
-  String get navNotifications => 'Notifications';
-
-  @override
   String get settings => 'Settings';
 
   @override
@@ -592,4 +580,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String pendingClientsCount(int count) {
     return '$count pending';
   }
+
+  @override
+  String get navAlerts => 'Alerts';
+
+  @override
+  String get navStorefront => 'Storefront';
+
+  @override
+  String get navYourClients => 'Your clients';
+
+  @override
+  String get navNotifications => 'Notifications';
 }

@@ -11,8 +11,11 @@
 	<!-- Sign In with Apple capability -->
 	<key>com.apple.developer.applesignin</key>
 	<array><string>Default</string></array>
-	<!-- NFC Tag Reading capability (iOS 13+) -->
+	<!-- NFC Tag Reading capability.
+	     SDK 26+ (Xcode 26) only allows TAG; NDEF is disallowed with min OS 15.5+. -->
 	<key>com.apple.developer.nfc.readersession.formats</key>
-	<array><string>NDEF</string></array>
+	<array>
+		<string>TAG</string>
+	</array>
 </dict>
 </plist>

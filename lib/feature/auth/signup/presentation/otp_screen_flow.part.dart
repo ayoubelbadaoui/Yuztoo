@@ -78,6 +78,12 @@ extension _OTPScreenFlow on _OTPScreenState {
         return;
       }
 
+      // Set flag BEFORE signing in so the shell auth-state listener
+      // does not interrupt us while Firestore doc creation is in flight.
+      ref
+          .read(auth_core.oauthFirestoreProfilePendingProvider.notifier)
+          .state = true;
+
       final verifyResult = await verifyPhoneAndCreateUserUseCase.call(
         verificationId: widget.verificationId!,
         smsCode: smsCode,
@@ -111,6 +117,12 @@ extension _OTPScreenFlow on _OTPScreenState {
         },
       );
     } finally {
+      // Always clear the signup-in-progress guard so the shell is not stuck.
+      try {
+        ref
+            .read(auth_core.oauthFirestoreProfilePendingProvider.notifier)
+            .state = false;
+      } catch (_) {}
       if (mounted) {
         _setVerifying(false);
       }
@@ -171,6 +183,14 @@ extension _OTPScreenFlow on _OTPScreenState {
         if (mounted) {
           showSuccessSnackbar(context, 'Inscription réussie!');
         }
+
+        // Clear the guard BEFORE refreshAuthState so the shell can now
+        // handle the auth-state change and route to onboarding.
+        try {
+          ref
+              .read(auth_core.oauthFirestoreProfilePendingProvider.notifier)
+              .state = false;
+        } catch (_) {}
 
         // Auth often emits before Firestore `createUserDocument` finishes; refresh so
         // [main] re-runs routing and shows client onboarding (same idea as merchant gate).
