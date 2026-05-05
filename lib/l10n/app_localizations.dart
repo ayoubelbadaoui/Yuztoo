@@ -344,30 +344,6 @@ abstract class AppLocalizations {
   /// **'QR Code'**
   String get qrCode;
 
-  /// Bottom nav: Alerts tab label
-  ///
-  /// In en, this message translates to:
-  /// **'Alerts'**
-  String get navAlerts;
-
-  /// Bottom nav: Storefront tab label
-  ///
-  /// In en, this message translates to:
-  /// **'Storefront'**
-  String get navStorefront;
-
-  /// Bottom nav: Your clients tab label
-  ///
-  /// In en, this message translates to:
-  /// **'Your clients'**
-  String get navYourClients;
-
-  /// Bottom nav: Merchant notifications tab label
-  ///
-  /// In en, this message translates to:
-  /// **'Notifications'**
-  String get navNotifications;
-
   /// No description provided for @settings.
   ///
   /// In en, this message translates to:
@@ -1219,6 +1195,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} pending'**
   String pendingClientsCount(int count);
+
+  /// No description provided for @navAlerts.
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts'**
+  String get navAlerts;
+
+  /// No description provided for @navStorefront.
+  ///
+  /// In en, this message translates to:
+  /// **'Storefront'**
+  String get navStorefront;
+
+  /// No description provided for @navYourClients.
+  ///
+  /// In en, this message translates to:
+  /// **'Your clients'**
+  String get navYourClients;
+
+  /// No description provided for @navNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get navNotifications;
 }
 
 class _AppLocalizationsDelegate

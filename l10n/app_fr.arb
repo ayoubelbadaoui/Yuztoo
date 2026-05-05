@@ -258,5 +258,13 @@
         "type": "int"
       }
     }
-  }
+  },
+  "navAlerts": "Alertes",
+  "@navAlerts": {},
+  "navStorefront": "Vitrine",
+  "@navStorefront": {},
+  "navYourClients": "Vos clients",
+  "@navYourClients": {},
+  "navNotifications": "Notifications",
+  "@navNotifications": {}
 }

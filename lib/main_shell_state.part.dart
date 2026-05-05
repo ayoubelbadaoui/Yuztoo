@@ -355,6 +355,11 @@ class _RootShellState extends ConsumerState<_RootShell>
         // If we already have a state, don't navigate away (prevents flicker)
         // The error might be temporary and will resolve on next auth state change
       } else if (authState is Authenticated) {
+        // While email OTP signup (or OAuth phone collection) is in progress the
+        // Firestore document hasn't been written yet. Skip automatic navigation
+        // so we don't sign the user back out before `createUserDocument` finishes.
+        if (ref.read(oauthFirestoreProfilePendingProvider)) return;
+
         // For authenticated users, compute navigation based on role
         // Keep splash screen until navigation is ready
         // Set flag and ensure splash BEFORE async operation to prevent any flicker

@@ -233,14 +233,35 @@ class _MerchantOnboardingFlowScreenState
     if (_currentStep == 0) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
-          IconButton(
-            onPressed: _goBack,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
-            color: MerchantOnboardingColors.primaryGold,
-            iconSize: 20,
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: _goBack,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: MerchantOnboardingColors.primaryGold, width: 2),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: MerchantOnboardingColors.primaryGold,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
           Expanded(
             child: ClipRRect(
@@ -251,7 +272,7 @@ class _MerchantOnboardingFlowScreenState
                 valueColor: const AlwaysStoppedAnimation<Color>(
                   MerchantOnboardingColors.primaryGold,
                 ),
-                minHeight: 6,
+                minHeight: 5,
               ),
             ),
           ),

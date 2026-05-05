@@ -261,6 +261,14 @@
         "type": "int"
       }
     }
-  }
+  },
+  "navAlerts": "Alerts",
+  "@navAlerts": {},
+  "navStorefront": "Storefront",
+  "@navStorefront": {},
+  "navYourClients": "Your clients",
+  "@navYourClients": {},
+  "navNotifications": "Notifications",
+  "@navNotifications": {}
 }
 

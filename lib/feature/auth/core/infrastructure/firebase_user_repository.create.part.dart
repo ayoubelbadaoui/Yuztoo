@@ -57,31 +57,37 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
         final emailIndexRef =
             _firestore.collection('email_index').doc(normalizedEmail);
 
+        // All reads must come before any writes in a Firestore transaction.
         final userSnap = await transaction.get(userRef);
+        final phoneSnap = await transaction.get(phoneIndexRef);
+        final emailSnap = await transaction.get(emailIndexRef);
+
+        // --- Checks ---
         if (userSnap.exists) {
           throw const DuplicatePhoneIndexException();
         }
 
-        final phoneSnap = await transaction.get(phoneIndexRef);
         if (phoneSnap.exists) {
           final existingUid = phoneSnap.data()?['uid'] as String?;
           if (existingUid != null && existingUid != uid) {
             throw const DuplicatePhoneIndexException();
           }
-        } else {
-          transaction.set(phoneIndexRef, {'uid': uid});
         }
 
-        final emailSnap = await transaction.get(emailIndexRef);
         if (emailSnap.exists) {
           final existingUid = emailSnap.data()?['uid'] as String?;
           if (existingUid != null && existingUid != uid) {
             throw const DuplicateEmailIndexException();
           }
-        } else {
-          transaction.set(emailIndexRef, {'uid': uid});
         }
 
+        // --- Writes (only after all reads) ---
+        if (!phoneSnap.exists) {
+          transaction.set(phoneIndexRef, {'uid': uid});
+        }
+        if (!emailSnap.exists) {
+          transaction.set(emailIndexRef, {'uid': uid});
+        }
         transaction.set(userRef, userPayload(), SetOptions(merge: false));
       });
 
