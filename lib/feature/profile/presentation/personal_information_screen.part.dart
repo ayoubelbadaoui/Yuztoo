@@ -10,6 +10,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     required String city,
     required int completionPercent,
     bool hasPhoto = false,
+    bool hasDob = false,
     VoidCallback? onCreateProAccount,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -55,7 +56,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                     const SizedBox(height: 24),
                     _buildYuztooCard(fullName),
                     const SizedBox(height: 16),
-                    _buildCompletionBar(completionPercent, hasPhoto),
+                    _buildCompletionBar(completionPercent, hasPhoto, hasDob),
                     const SizedBox(height: 20),
                     GestureDetector(
                       onTap: onCreateProAccount,
@@ -477,7 +478,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     );
   }
 
-  Widget _buildCompletionBar(int completionPercent, bool hasPhoto) {
+  Widget _buildCompletionBar(int completionPercent, bool hasPhoto, bool hasDob) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -532,6 +533,37 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
             ),
           ),
         ),
+        if (!hasDob) ...[
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _startEdit,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.cake_outlined,
+                  size: 13,
+                  color: MerchantColors.gold.withValues(alpha: 0.8),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Ajoute ta date de naissance pour recevoir des surprises le jour J 🎂',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: MerchantColors.textGrey,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 14,
+                  color: MerchantColors.gold.withValues(alpha: 0.5),
+                ),
+              ],
+            ),
+          ),
+        ],
         if (!hasPhoto) ...[
           const SizedBox(height: 8),
           Row(
@@ -579,107 +611,173 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
+        // `filtered` lives in the outer closure so that StatefulBuilder
+        // reads the updated reference on each setState call.
+        var filtered = available;
         return DraggableScrollableSheet(
           initialChildSize: 0.6,
           minChildSize: 0.3,
           maxChildSize: 0.9,
           expand: false,
           builder: (_, scrollController) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 4),
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: MerchantColors.gold.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(2),
+            return StatefulBuilder(
+              builder: (ctx, setSheetState) {
+                return Column(
+                  children: [
+                    // ── Drag handle ─────────────────────────────────────────
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 12, bottom: 4),
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: MerchantColors.gold.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  child: Text(
-                    'Ajouter une ville connectée',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: Text(
+                        'Ajouter une ville connectée',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: MerchantColors.gold.withValues(alpha: 0.15),
-                ),
-                Flexible(
-                  child: ListView.separated(
-                    controller: scrollController,
-                    itemCount: available.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      thickness: 1,
-                      indent: 20,
-                      endIndent: 20,
-                      color: MerchantColors.gold.withValues(alpha: 0.08),
-                    ),
-                    itemBuilder: (_, i) {
-                      final city = available[i];
-                      return GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () async {
-                          Navigator.of(ctx).pop();
-                          final newList = [...current, city];
-                          final result = await ref
-                              .read(setConnectedCitiesProvider)
-                              .call(uid: uid, cities: newList);
-                          if (!context.mounted) return;
-                          result.fold(
-                            (f) => ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(f.message)),
-                            ),
-                            (_) =>
-                                ref.invalidate(connectedCitiesProvider(uid)),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 14),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.location_on_outlined,
-                                size: 18,
-                                color: MerchantColors.gold
-                                    .withValues(alpha: 0.7),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                city,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: MerchantColors.textWhite,
-                                ),
-                              ),
-                              const Spacer(),
-                              Icon(
-                                Icons.add_circle_outline_rounded,
-                                size: 18,
-                                color: MerchantColors.gold
-                                    .withValues(alpha: 0.5),
-                              ),
-                            ],
+                    // ── Search field ─────────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: TextField(
+                        autofocus: true,
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher une ville...',
+                          hintStyle: GoogleFonts.outfit(
+                            color: MerchantColors.textGrey,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: MerchantColors.textGrey,
+                            size: 20,
+                          ),
+                          filled: true,
+                          fillColor: MerchantColors.bgHeader,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                        onChanged: (query) {
+                          setSheetState(() {
+                            filtered = query.trim().isEmpty
+                                ? available
+                                : available
+                                    .where((c) => c
+                                        .toLowerCase()
+                                        .contains(query.toLowerCase().trim()))
+                                    .toList();
+                          });
+                        },
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: MerchantColors.gold.withValues(alpha: 0.15),
+                    ),
+                    // ── City list ─────────────────────────────────────────────
+                    if (filtered.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Text(
+                          'Aucune ville trouvée',
+                          style: GoogleFonts.outfit(
+                            color: MerchantColors.textGrey,
+                            fontSize: 14,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.separated(
+                          controller: scrollController,
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => Divider(
+                            height: 1,
+                            thickness: 1,
+                            indent: 20,
+                            endIndent: 20,
+                            color:
+                                MerchantColors.gold.withValues(alpha: 0.08),
+                          ),
+                          itemBuilder: (_, i) {
+                            final city = filtered[i];
+                            return GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () async {
+                                Navigator.of(ctx).pop();
+                                final newList = [...current, city];
+                                final result = await ref
+                                    .read(setConnectedCitiesProvider)
+                                    .call(uid: uid, cities: newList);
+                                if (!context.mounted) return;
+                                result.fold(
+                                  (f) => ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    SnackBar(content: Text(f.message)),
+                                  ),
+                                  (_) => ref
+                                      .invalidate(connectedCitiesProvider(uid)),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 14),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 18,
+                                      color: MerchantColors.gold
+                                          .withValues(alpha: 0.7),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      city,
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: MerchantColors.textWhite,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      size: 18,
+                                      color: MerchantColors.gold
+                                          .withValues(alpha: 0.5),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
             );
           },
         );

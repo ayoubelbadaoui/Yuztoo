@@ -131,4 +131,55 @@ class FirestoreClientNotificationRepository
           ClientNotificationUnexpectedFailure(cause: e, stackTrace: st));
     }
   }
+
+  @override
+  Future<Result<Unit>> deleteNotification(
+      String clientId, String notificationId) async {
+    if (clientId.isEmpty || notificationId.isEmpty) return const Right(unit);
+    try {
+      await _notificationsRef(clientId).doc(notificationId).delete();
+      LoggerService.logInfo(
+        'Notification deleted',
+        context: {'clientId': clientId, 'notificationId': notificationId},
+      );
+      return const Right(unit);
+    } on FirebaseException catch (e, st) {
+      return Left(ClientNotificationNetworkFailure(cause: e, stackTrace: st));
+    } catch (e, st) {
+      return Left(
+          ClientNotificationUnexpectedFailure(cause: e, stackTrace: st));
+    }
+  }
+
+  @override
+  Future<Result<Unit>> deleteAllNotifications(String clientId) async {
+    if (clientId.isEmpty) return const Right(unit);
+    try {
+      // Match the watch limit so we operate on exactly what the user sees.
+      final snap = await _notificationsRef(clientId)
+          .orderBy('created_at', descending: true)
+          .limit(50)
+          .get();
+
+      if (snap.docs.isEmpty) return const Right(unit);
+
+      // Firestore batch allows 500 ops; our limit(50) is well under that.
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      LoggerService.logInfo(
+        'All notifications deleted',
+        context: {'clientId': clientId, 'count': snap.docs.length},
+      );
+      return const Right(unit);
+    } on FirebaseException catch (e, st) {
+      return Left(ClientNotificationNetworkFailure(cause: e, stackTrace: st));
+    } catch (e, st) {
+      return Left(
+          ClientNotificationUnexpectedFailure(cause: e, stackTrace: st));
+    }
+  }
 }

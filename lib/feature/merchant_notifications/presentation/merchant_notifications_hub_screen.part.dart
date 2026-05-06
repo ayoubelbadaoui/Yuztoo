@@ -91,7 +91,7 @@ extension _HubUi on _MerchantNotificationsHubScreenState {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => widget.onNavigate?.call('switch-to-client'),
+                onTap: widget.onBack,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   width: 44,
@@ -106,7 +106,7 @@ extension _HubUi on _MerchantNotificationsHubScreenState {
                   ),
                   child: const Center(
                     child: Icon(
-                      Icons.switch_account,
+                      Icons.arrow_back_ios_new_rounded,
                       color: MerchantColors.gold,
                       size: 20,
                     ),

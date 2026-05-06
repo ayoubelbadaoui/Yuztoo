@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "merchants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updated_at", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "followed_merchants",
       "queryScope": "COLLECTION_GROUP",
       "fields": [

@@ -3,9 +3,13 @@ part of 'loyalty_cards_screen.dart';
 // ─── Header ────────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onNotifications});
+  const _Header({
+    required this.onNotifications,
+    this.onSwitchToMerchant,
+  });
 
   final VoidCallback onNotifications;
+  final VoidCallback? onSwitchToMerchant;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +42,32 @@ class _Header extends StatelessWidget {
                   ),
                 ),
               ),
+              // Dual-profile: quick switch back to merchant shell
+              if (onSwitchToMerchant != null)
+                GestureDetector(
+                  onTap: onSwitchToMerchant,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: MerchantColors.gold
+                            .withValues(alpha: MerchantColors.goldBorderAlpha),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.switch_account,
+                        color: MerchantColors.gold,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              if (onSwitchToMerchant != null) const SizedBox(width: 8),
               GestureDetector(
                 onTap: onNotifications,
                 behavior: HitTestBehavior.opaque,
@@ -75,7 +105,22 @@ class _GreetingBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = feedAsync.valueOrNull ?? [];
-    final merchantCount = entries.length;
+    // Own merchant (isOwnMerchant=true) is not a "followed" merchant.
+    final followedCount = entries.where((e) => !e.isOwnMerchant).length;
+    final hasOwnMerchant = entries.any((e) => e.isOwnMerchant);
+    final totalCount = entries.length;
+
+    String subtitle;
+    if (totalCount == 0) {
+      subtitle = 'Scannez votre premier commerce pour commencer';
+    } else if (followedCount == 0 && hasOwnMerchant) {
+      subtitle = 'Votre commerce est actif — suivez d\'autres commerces pour cumuler des avantages';
+    } else if (followedCount > 0) {
+      subtitle =
+          '$followedCount commerce${followedCount > 1 ? 's' : ''} suivi${followedCount > 1 ? 's' : ''}';
+    } else {
+      subtitle = 'Scannez votre premier commerce pour commencer';
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,22 +141,13 @@ class _GreetingBlock extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        if (merchantCount > 0)
-          Text(
-            '$merchantCount commerce${merchantCount > 1 ? 's' : ''} suivi${merchantCount > 1 ? 's' : ''}',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              color: MerchantColors.textGrey,
-            ),
-          )
-        else
-          Text(
-            'Scannez votre premier commerce pour commencer',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              color: MerchantColors.textGrey,
-            ),
+        Text(
+          subtitle,
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            color: MerchantColors.textGrey,
           ),
+        ),
       ],
     );
   }
@@ -381,6 +417,8 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
     final progressAsync =
         ref.watch(clientLoyaltyProgressForMerchantProvider(entry.merchantId));
 
+    bool rewardAvailable = false;
+
     final card = progressAsync.when(
       loading: () => _buildCard(
         context,
@@ -388,6 +426,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
         label: '— passages',
         rewardAvailable: false,
         tier: null,
+        showWelcomeBadge: false,
       ),
       error: (_, __) => _buildCard(
         context,
@@ -395,20 +434,151 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
         label: 'Erreur',
         rewardAvailable: false,
         tier: null,
+        showWelcomeBadge: false,
       ),
-      data: (progress) => _buildCard(
-        context,
-        fraction: entry.progressFraction(progress),
-        label: entry.progressLabel(progress),
-        rewardAvailable: entry.isRewardAvailable(progress),
-        tier: ClientLoyaltyTier.fromPassages(progress.validatedPassages),
-      ),
+      data: (progress) {
+        rewardAvailable = entry.isRewardAvailable(progress);
+        final welcomeGift =
+            entry.merchant.welcomeGiftDescription?.trim() ?? '';
+        return _buildCard(
+          context,
+          fraction: entry.progressFraction(progress),
+          label: entry.progressLabel(progress),
+          rewardAvailable: rewardAvailable,
+          tier: ClientLoyaltyTier.fromPassages(progress.validatedPassages),
+          showWelcomeBadge:
+              progress.hasFirstVisit && welcomeGift.isNotEmpty,
+        );
+      },
     );
 
-    if (onStoreTap == null) return card;
     return GestureDetector(
-      onTap: () => onStoreTap!(entry.merchantId),
+      onTap: () {
+        if (rewardAvailable) {
+          _showRewardBottomSheet(context);
+        } else {
+          onStoreTap?.call(entry.merchantId);
+        }
+      },
       child: card,
+    );
+  }
+
+  void _showRewardBottomSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: MerchantColors.navyCard,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: MerchantColors.gold.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: MerchantColors.gold.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.card_giftcard_rounded,
+                color: MerchantColors.gold,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Votre bon est disponible !',
+              style: GoogleFonts.outfit(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              entry.merchantName,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: MerchantColors.gold,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: MerchantColors.bgHeader,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    entry.rewardLabel(),
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: MerchantColors.gold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Présentez ce bon à ${entry.merchantName} lors de votre prochaine visite. Le commerçant validera l\'utilisation de votre récompense.',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                height: 1.55,
+                color: MerchantColors.textLightGrey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: MerchantColors.gold,
+                  foregroundColor: MerchantColors.darkOverlay,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(
+                  'Fermer',
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -418,6 +588,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
     required String label,
     required bool rewardAvailable,
     required ClientLoyaltyTier? tier,
+    required bool showWelcomeBadge,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -442,7 +613,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Merchant name + reward badge
+          // Merchant name + reward / tier badge
           Row(
             children: [
               Container(
@@ -525,6 +696,44 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
                 ),
             ],
           ),
+
+          // First-visit welcome bonus badge — shown when first_visit_at exists
+          // in Firestore AND the merchant has a welcome gift description.
+          if (showWelcomeBadge) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFF9A825).withValues(alpha: 0.18),
+                    const Color(0xFFE65100).withValues(alpha: 0.18),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.45),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🎁', style: TextStyle(fontSize: 11)),
+                  const SizedBox(width: 5),
+                  Text(
+                    '1re connexion débloquée',
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: MerchantColors.gold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 16),
 
           // Progress bar

@@ -19,7 +19,9 @@ import '../../merchant/application/providers.dart' as merchant_providers;
 part 'storefront_edit_profile_screen.part.dart';
 
 class StorefrontEditProfileScreen extends ConsumerStatefulWidget {
-  const StorefrontEditProfileScreen({super.key});
+  const StorefrontEditProfileScreen({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<StorefrontEditProfileScreen> createState() =>

@@ -36,6 +36,10 @@ final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
     }
   }
 
+  // Final guard: never show inactive merchants in discovery regardless of
+  // what the repository returned (e.g. during Firestore index build lag).
+  merchants = merchants.where((m) => m.status == 'active').toList();
+
   // Filter by merchant type (only when filter is not 'all').
   if (typeFilter != 'all') {
     merchants = merchants

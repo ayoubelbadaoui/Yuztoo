@@ -9,6 +9,8 @@ class _RootShellState extends ConsumerState<_RootShell>
   ScreenId? _nestedScreen; // null = use _authScreen
   UserRole? _role; // For bottom nav and role-based navigation
   bool _isDualProfile = false; // true when user has both client + merchant roles
+  // Guard: prevents double-tap from launching two concurrent merchant switches.
+  bool _isSwitchingToMerchant = false;
   String _activeTab = 'home';
   // Signup/OTP flow data
   String? _signupUserId;
@@ -208,6 +210,7 @@ class _RootShellState extends ConsumerState<_RootShell>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(WakelockPlus.enable());
+
       // Refetch vitrine when returning to the app on the merchant storefront;
       // cached Riverpod/Firestore snapshots can otherwise show an outdated page.
       final currentScreen = _nestedScreen ?? _authScreen;
@@ -215,9 +218,28 @@ class _RootShellState extends ConsumerState<_RootShell>
           currentScreen == ScreenId.merchantStorefront) {
         ref.invalidate(storefront_providers.storefrontProvider);
       }
+
+      // Re-register FCM token on every resume. Covers three failure modes:
+      //   1. Token was rotated while the app was killed (getToken() returns new token).
+      //   2. Cloud Function deleted push_tokens/device (invalid-token error).
+      //   3. User granted notification permission in device Settings after denying in-app.
+      _reRegisterFcmToken();
     } else {
       unawaited(WakelockPlus.disable());
     }
+  }
+
+  void _reRegisterFcmToken() {
+    final authState = ref.read(authControllerProvider);
+    if (authState is! Authenticated) return;
+    unawaited(
+      (() async {
+        try {
+          final fcmService = ref.read(fcmTokenServiceProvider);
+          await fcmService.registerToken(authState.user.id);
+        } catch (_) {}
+      })(),
+    );
   }
 
   /// Routes a notification tap to the relevant screen based on FCM data payload.
@@ -245,7 +267,20 @@ class _RootShellState extends ConsumerState<_RootShell>
 
     if (type.contains('loyalty')) {
       if (_role == UserRole.client) {
+        // Already in client shell — open loyalty tab directly.
         setState(() {
+          _activeTab = 'loyalty';
+          _authScreen = ScreenId.loyalty;
+          _nestedScreen = null;
+        });
+        return;
+      }
+      if (_isDualProfile) {
+        // Dual-profile user currently in merchant shell: switch to client shell
+        // and open the loyalty tab so the push lands on the right screen.
+        ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.client);
+        setState(() {
+          _role = UserRole.client;
           _activeTab = 'loyalty';
           _authScreen = ScreenId.loyalty;
           _nestedScreen = null;
@@ -632,9 +667,17 @@ class _RootShellState extends ConsumerState<_RootShell>
 
   // ── Dual-profile role switching ────────────────────────────────────────────
 
-  /// Merchant taps "switch to client". If this is the first time (no client
-  /// profile yet), adds the client role in Firestore and routes to client
-  /// onboarding. Otherwise goes straight to clientHome.
+  /// Merchant taps "switch to client".
+  ///
+  /// Three possible states from [isClientOnboardingCompleted]:
+  ///   - `true`  → already has a complete client profile → go to clientHome.
+  ///   - `false` → role flag exists but onboarding not finished → onboard.
+  ///   - `null`  → role flag MISSING from Firestore (pure merchant who has
+  ///               never been a client) → add role THEN onboard.
+  ///
+  /// Bug-fix: previously `null` fell into `else` (already-client path) without
+  /// calling [addSecondaryClientRole], so `roles.client` was never written to
+  /// Firestore. On every app restart the user was stuck in merchant mode.
   Future<void> _switchToClient() async {
     final authState = ref.read(authStateProvider);
     if (authState is! Authenticated) return;
@@ -644,8 +687,21 @@ class _RootShellState extends ConsumerState<_RootShell>
     final completedResult = await repo.isClientOnboardingCompleted(uid);
     final completed = completedResult.fold((_) => null, (v) => v);
 
-    if (completed == false) {
-      // First time — register the client role in Firestore, then onboard.
+    if (completed == true) {
+      // Already has a completed client profile — switch immediately.
+      ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.client);
+      if (!mounted) return;
+      setState(() {
+        _role = UserRole.client;
+        _isDualProfile = true;
+        _authScreen = ScreenId.clientHome;
+        _activeTab = 'home';
+        _nestedScreen = null;
+      });
+    } else {
+      // completed == false: role exists but onboarding not done.
+      // completed == null: role flag missing entirely (pure merchant, first switch).
+      // In both cases: persist roles.client=true to Firestore before routing.
       await repo.addSecondaryClientRole(uid);
       if (!mounted) return;
       ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.client);
@@ -656,54 +712,67 @@ class _RootShellState extends ConsumerState<_RootShell>
         _activeTab = 'home';
         _nestedScreen = null;
       });
-    } else {
-      // Already has a client profile — switch immediately.
-      ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.client);
-      setState(() {
-        _role = UserRole.client;
-        _isDualProfile = true;
-        _authScreen = ScreenId.clientHome;
-        _activeTab = 'home';
-        _nestedScreen = null;
-      });
     }
   }
 
-  /// Client taps "switch to merchant". If this is the first time (no merchant
-  /// profile yet), adds the merchant role in Firestore and routes to merchant
-  /// onboarding. Otherwise goes straight to the storefront.
+  /// Client taps "switch to merchant" / "Créer un compte pro". If this is the
+  /// first time (no merchant profile yet), adds the merchant role in Firestore
+  /// and routes to merchant onboarding. Otherwise goes straight to the storefront.
   Future<void> _switchToMerchant() async {
-    final authState = ref.read(authStateProvider);
-    if (authState is! Authenticated) return;
-    final uid = authState.user.id;
-    final repo = ref.read(userRepositoryProvider);
+    // Prevent concurrent calls from double-taps.
+    if (_isSwitchingToMerchant) return;
+    _isSwitchingToMerchant = true;
+    try {
+      final authState = ref.read(authStateProvider);
+      if (authState is! Authenticated) return;
+      final uid = authState.user.id;
+      final repo = ref.read(userRepositoryProvider);
 
-    final completedResult = await repo.isMerchantOnboardingCompleted(uid);
-    final completed = completedResult.fold((_) => null, (v) => v);
+      final completedResult = await repo.isMerchantOnboardingCompleted(uid);
+      final completed = completedResult.fold((_) => null, (v) => v);
 
-    if (completed == true) {
-      // Already has a merchant profile — switch immediately.
-      ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.merchant);
-      if (!mounted) return;
-      setState(() {
-        _role = UserRole.merchant;
-        _isDualProfile = true;
-        _authScreen = ScreenId.merchantStorefront;
-        _activeTab = 'storefront';
-        _nestedScreen = null;
-      });
-    } else {
-      // First time — register the merchant role in Firestore, then onboard.
-      await repo.addSecondaryMerchantRole(uid);
-      if (!mounted) return;
-      ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.merchant);
-      setState(() {
-        _role = UserRole.merchant;
-        _isDualProfile = true;
-        _authScreen = ScreenId.merchantOnboarding;
-        _activeTab = 'storefront';
-        _nestedScreen = null;
-      });
+      if (completed == true) {
+        // Already has a merchant profile — switch immediately.
+        ref
+            .read(roleCacheServiceProvider)
+            .saveLastSelectedRole(UserRole.merchant);
+        if (!mounted) return;
+        setState(() {
+          _role = UserRole.merchant;
+          _isDualProfile = true;
+          _authScreen = ScreenId.merchantStorefront;
+          _activeTab = 'storefront';
+          _nestedScreen = null;
+        });
+      } else {
+        // First time — register the merchant role in Firestore, then onboard.
+        final roleResult = await repo.addSecondaryMerchantRole(uid);
+        if (!mounted) return;
+        final roleFailed = roleResult.fold((_) => true, (_) => false);
+        if (roleFailed) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Impossible de créer le profil pro. Réessayez.'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+        ref
+            .read(roleCacheServiceProvider)
+            .saveLastSelectedRole(UserRole.merchant);
+        setState(() {
+          _role = UserRole.merchant;
+          _isDualProfile = true;
+          _authScreen = ScreenId.merchantOnboarding;
+          _activeTab = 'storefront';
+          _nestedScreen = null;
+        });
+      }
+    } finally {
+      _isSwitchingToMerchant = false;
     }
   }
 
@@ -733,6 +802,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       'security': ScreenId.merchantSecurity,
       'data-privacy': ScreenId.merchantDataPrivacy,
       'pro-profile': ScreenId.merchantProfileSummary,
+      'merchant-identity-edit': ScreenId.merchantIdentityEdit,
       'partners': ScreenId.merchantPartners,
       'notifications-hub': ScreenId.merchantNotificationsHub,
     };
@@ -743,11 +813,6 @@ class _RootShellState extends ConsumerState<_RootShell>
         if (_role == UserRole.client && target == ScreenId.notifications) {
           _activeTab = 'notifications';
           _authScreen = ScreenId.notifications;
-          _nestedScreen = null;
-        } else if (target == ScreenId.merchantNotificationsHub) {
-          // Switch to the notifications tab (not a nested screen)
-          _activeTab = 'rappels';
-          _authScreen = ScreenId.merchantNotificationsHub;
           _nestedScreen = null;
         } else {
           _nestedScreen = target;
@@ -764,6 +829,17 @@ class _RootShellState extends ConsumerState<_RootShell>
       unawaited(_switchToClient());
     } else if (screen == 'switch-to-merchant') {
       unawaited(_switchToMerchant());
+    } else if (screen == 'storefront-edit-profile') {
+      final storefront =
+          ref.read(storefront_providers.storefrontProvider).valueOrNull;
+      if (storefront != null) {
+        unawaited(
+          ref
+              .read(storefrontProfileEditProvider.notifier)
+              .initializeFrom(storefront),
+        );
+      }
+      setState(() => _nestedScreen = ScreenId.merchantStorefrontEditProfile);
     } else if (screen == 'store-preview') {
       // Preview merchant's own storefront as a client would see it
       final merchantId = ref
@@ -813,7 +889,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       } else {
         final map = <String, ScreenId>{
           'communaute': ScreenId.merchantClients,
-          'rappels': ScreenId.merchantNotificationsHub,
+          'rappels': ScreenId.merchantRappels,
           'storefront': ScreenId.merchantStorefront,
           'promotions': ScreenId.merchantPromotions,
           'profile': ScreenId.merchantProfile,
@@ -970,7 +1046,6 @@ class _RootShellState extends ConsumerState<_RootShell>
       ScreenId.merchantClients,
       ScreenId.merchantStorefront,
       ScreenId.merchantRappels,
-      ScreenId.merchantNotificationsHub,
       ScreenId.merchantPromotions,
       ScreenId.merchantMessages,
       ScreenId.merchantProfile,
@@ -1153,6 +1228,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                       currentScreen == ScreenId.merchantSecurity ||
                       currentScreen == ScreenId.merchantDataPrivacy ||
                       currentScreen == ScreenId.merchantProfileSummary ||
+                      currentScreen == ScreenId.merchantStorefrontEditProfile ||
                       currentScreen == ScreenId.merchantPartners ||
                       currentScreen == ScreenId.merchantClients ||
                       currentScreen == ScreenId.clientProfile ||
@@ -1272,7 +1348,20 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantOnboarding:
         return MerchantOnboardingScreen(
-          onBack: () => setState(() => _authScreen = ScreenId.roleSelection),
+          onBack: () {
+            if (_isDualProfile) {
+              // Dual-profile user is cancelling merchant creation → return to
+              // client shell cleanly rather than dropping them into role selection.
+              setState(() {
+                _role = UserRole.client;
+                _authScreen = ScreenId.clientHome;
+                _activeTab = 'home';
+                _nestedScreen = null;
+              });
+            } else {
+              setState(() => _authScreen = ScreenId.roleSelection);
+            }
+          },
           onNext: () =>
               setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
         );
@@ -1288,13 +1377,23 @@ class _RootShellState extends ConsumerState<_RootShell>
           onBack: () =>
               setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
           onNext: () {
-            setState(() {
-              _role = UserRole.merchant;
-              _authScreen = ScreenId.signup;
-            });
-            ref
-                .read(roleCacheServiceProvider)
-                .saveLastSelectedRole(UserRole.merchant);
+            final isAuthenticated =
+                ref.read(authStateProvider) is Authenticated;
+            if (isAuthenticated) {
+              // User is already signed in (adding a merchant profile to an
+              // existing client account). Skip signup and go straight to the
+              // merchant profile form which creates the merchant doc.
+              setState(() => _authScreen = ScreenId.merchantProfileForm);
+            } else {
+              // New user arriving from the unauthenticated onboarding funnel.
+              setState(() {
+                _role = UserRole.merchant;
+                _authScreen = ScreenId.signup;
+              });
+              ref
+                  .read(roleCacheServiceProvider)
+                  .saveLastSelectedRole(UserRole.merchant);
+            }
           },
         );
       case ScreenId.login:
@@ -1423,6 +1522,8 @@ class _RootShellState extends ConsumerState<_RootShell>
         return LoyaltyCardsScreen(
           onBack: _handleBackToBase,
           onNotifications: _openNotificationsScreen,
+          onSwitchToMerchant:
+              _isDualProfile ? () => unawaited(_switchToMerchant()) : null,
           onStoreTap: (merchantId) {
             ref
                 .read(store_profile_providers
@@ -1477,7 +1578,14 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.clientProfile:
         return ClientProfileScreen(
-          onCreateProAccount: () => unawaited(_switchToMerchant()),
+          onCreateProAccount: () {
+            // PersonalInformationScreen is pushed on the root navigator on top
+            // of the shell. If we just switch state below, that pushed screen
+            // stays on top and hides the new merchant onboarding screens.
+            // Pop everything down to the shell's root route first.
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            unawaited(_switchToMerchant());
+          },
         );
       case ScreenId.merchantClients:
         return ClientListScreen(
@@ -1539,6 +1647,10 @@ class _RootShellState extends ConsumerState<_RootShell>
           onBack: _handleBackFromNested,
           onNavigate: _handleNavigate,
         );
+      case ScreenId.merchantIdentityEdit:
+        return MerchantIdentityEditScreen(onBack: _handleBackFromNested);
+      case ScreenId.merchantStorefrontEditProfile:
+        return StorefrontEditProfileScreen(onBack: _handleBackFromNested);
       case ScreenId.merchantStats:
         return MerchantStatsScreen(onBack: _handleBackToBase);
       case ScreenId.merchantStorefront:
@@ -1548,7 +1660,21 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantProfileForm:
         return MerchantProfileFormScreen(
-          onBack: () {},
+          onBack: () {
+            if (_isDualProfile) {
+              // Dual-profile user is abandoning merchant creation →
+              // return to the client shell gracefully.
+              setState(() {
+                _role = UserRole.client;
+                _authScreen = ScreenId.clientHome;
+                _activeTab = 'home';
+                _nestedScreen = null;
+              });
+            } else {
+              // New-user path: back → benefits screen.
+              setState(() => _authScreen = ScreenId.merchantBenefits);
+            }
+          },
           onComplete: () {
             setState(() {
               _authScreen = ScreenId.merchantStorefront;
@@ -1562,6 +1688,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantNotificationsHub:
         return MerchantNotificationsHubScreen(
+          onBack: _handleBackFromNested,
           onNavigate: _handleNavigate,
           isDualProfile: _isDualProfile,
         );

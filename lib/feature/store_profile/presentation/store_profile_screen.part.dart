@@ -45,6 +45,130 @@ class _StoreProfileErrorBack extends StatelessWidget {
   }
 }
 
+/// Shown when a merchant's status is not 'active' (offline / draft).
+/// Clients who reach the page via QR code or deep link see this instead of
+/// the full storefront so they are never misled by stale content.
+class _StoreProfileOffline extends StatelessWidget {
+  const _StoreProfileOffline({
+    required this.merchantName,
+    required this.onBack,
+  });
+
+  final String merchantName;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        children: [
+          // Minimal back header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: onBack,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: StorefrontColors.creamLight,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 16,
+                    color: StorefrontColors.navyDark,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: StorefrontColors.primaryGold.withValues(alpha: 0.1),
+                      ),
+                      child: const Icon(
+                        Icons.storefront_outlined,
+                        size: 36,
+                        color: StorefrontColors.primaryGold,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      merchantName,
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: StorefrontColors.navyDark,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Ce commerce est actuellement hors ligne.',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        color: StorefrontColors.textSecondary,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Revenez plus tard ou contactez-le directement.',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: StorefrontColors.textSecondary,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 28),
+                    TextButton.icon(
+                      onPressed: onBack,
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: StorefrontColors.primaryGold,
+                        size: 16,
+                      ),
+                      label: Text(
+                        'Retour',
+                        style: GoogleFonts.outfit(
+                          color: StorefrontColors.primaryGold,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Section header label (e.g. "Téléphone", "Adresse")
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);

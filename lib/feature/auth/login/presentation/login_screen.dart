@@ -217,40 +217,72 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
+    // Block the shell from auto-routing (and auto-signing-out) while we handle
+    // the OAuth flow. A brand-new Google user has no Firestore doc yet, so
+    // without this guard the shell races to sign them out before _handleOAuthSuccess
+    // can collect their phone number and create the document.
+    ref.read(auth_providers.oauthFirestoreProfilePendingProvider.notifier).state =
+        true;
     setState(() => _isSocialLoading = true);
     final result = await ref.read(signInWithGoogleProvider).call();
     if (!mounted) return;
     setState(() => _isSocialLoading = false);
     result.fold(
-      (failure) => showErrorSnackbar(
-        context,
-        AuthErrorMapper.getFrenchMessage(failure) ??
-            'Une erreur s\'est produite. Veuillez réessayer.',
-      ),
+      (failure) {
+        // Auth failed or user cancelled — unblock the shell immediately.
+        ref
+            .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+            .state = false;
+        showErrorSnackbar(
+          context,
+          AuthErrorMapper.getFrenchMessage(failure) ??
+              'Une erreur s\'est produite. Veuillez réessayer.',
+        );
+      },
       (authUser) => _handleOAuthSuccess(authUser),
     );
   }
 
   Future<void> _signInWithApple() async {
+    // Same shell-guard pattern as _signInWithGoogle.
+    ref.read(auth_providers.oauthFirestoreProfilePendingProvider.notifier).state =
+        true;
     setState(() => _isSocialLoading = true);
     final result = await ref.read(signInWithAppleProvider).call();
     if (!mounted) return;
     setState(() => _isSocialLoading = false);
     result.fold(
-      (failure) => showErrorSnackbar(
-        context,
-        AuthErrorMapper.getFrenchMessage(failure) ??
-            'Une erreur s\'est produite. Veuillez réessayer.',
-      ),
+      (failure) {
+        ref
+            .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+            .state = false;
+        showErrorSnackbar(
+          context,
+          AuthErrorMapper.getFrenchMessage(failure) ??
+              'Une erreur s\'est produite. Veuillez réessayer.',
+        );
+      },
       (authUser) => _handleOAuthSuccess(authUser),
     );
   }
 
   /// Called after a successful Google or Apple sign-in.
-  /// - Existing user (has Firestore doc) → auth stream handles routing normally.
-  /// - New user (no Firestore doc) → collect phone → create doc → route to onboarding.
+  ///
+  /// Two scenarios:
+  ///   • Existing user (Firestore doc exists) → clear the pending flag so the
+  ///     shell unblocks, then refresh auth state to trigger normal routing.
+  ///   • New user (no Firestore doc) → collect phone → create doc → clear flag
+  ///     → refresh auth state to trigger onboarding routing.
+  ///
+  /// Every early-return path MUST clear [oauthFirestoreProfilePendingProvider]
+  /// so the shell never stays stuck in a "blocked" state.
   Future<void> _handleOAuthSuccess(dynamic authUser) async {
-    if (authUser == null) return;
+    if (authUser == null) {
+      ref
+          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+          .state = false;
+      return;
+    }
 
     // Check whether this is an existing or brand-new user.
     final basicsResult = await ref
@@ -260,13 +292,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final hasProfile = basicsResult.fold((_) => false, (b) => b != null);
     if (hasProfile) {
-      // Existing user — auth state listener takes care of navigation.
+      // Existing user — unblock the shell and let it drive routing via the
+      // auth stream (it was held back by the pending flag set in _signInWithGoogle).
+      ref
+          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+          .state = false;
+      await ref
+          .read(auth_providers.authControllerProvider.notifier)
+          .refreshAuthState();
       return;
     }
 
     // ── New user ── collect phone → create Firestore doc → onboard ─────────
     final email = (authUser.email as String?)?.trim();
     if (email == null || email.isEmpty) {
+      ref
+          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+          .state = false;
       showErrorSnackbar(
         context,
         'Aucune adresse e-mail n\'est associée à ce compte. Utilisez l\'inscription par e-mail.',
@@ -281,6 +323,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .call(email: email);
     if (!mounted) return;
     if (emailCheck.isLeft) {
+      ref
+          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+          .state = false;
       final f = emailCheck.leftOrNull;
       showErrorSnackbar(
         context,
@@ -297,6 +342,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final phoneE164 = await _promptPhoneForOAuthCompletion();
     if (!mounted) return;
     if (phoneE164 == null || phoneE164.isEmpty) {
+      ref
+          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+          .state = false;
       await ref.read(auth_providers.authControllerProvider.notifier).signOut();
       return;
     }
@@ -314,6 +362,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isSocialLoading = false);
 
     if (createResult.isLeft) {
+      ref
+          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+          .state = false;
       final f = createResult.leftOrNull;
       showErrorSnackbar(
         context,
@@ -325,8 +376,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
-    // Refresh auth state so the shell picks up the new Firestore role and
-    // routes the user to the correct onboarding (client or merchant).
+    // Unblock the shell and trigger routing to the correct onboarding screen.
+    ref
+        .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+        .state = false;
     await ref
         .read(auth_providers.authControllerProvider.notifier)
         .refreshAuthState();

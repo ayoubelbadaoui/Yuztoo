@@ -7,7 +7,7 @@
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <application
         android:label="flutter_yuztoo"
-        android:name="${applicationName}"
+        android:name=".App"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

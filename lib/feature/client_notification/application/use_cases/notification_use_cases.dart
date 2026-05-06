@@ -31,3 +31,23 @@ class MarkAllNotificationsRead {
   Future<Result<Unit>> call(String clientId) =>
       _repository.markAllAsRead(clientId);
 }
+
+/// Deletes a single notification for a client.
+class DeleteNotification {
+  const DeleteNotification(this._repository);
+
+  final ClientNotificationRepository _repository;
+
+  Future<Result<Unit>> call(String clientId, String notificationId) =>
+      _repository.deleteNotification(clientId, notificationId);
+}
+
+/// Deletes all notifications for a client (batch, matches watch limit of 50).
+class DeleteAllNotifications {
+  const DeleteAllNotifications(this._repository);
+
+  final ClientNotificationRepository _repository;
+
+  Future<Result<Unit>> call(String clientId) =>
+      _repository.deleteAllNotifications(clientId);
+}

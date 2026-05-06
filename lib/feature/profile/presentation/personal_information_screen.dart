@@ -48,7 +48,14 @@ class _PersonalInformationScreenState
 
   void _startEdit() => setState(() => _editing = true);
 
-  void _cancelEdit() => setState(() => _editing = false);
+  void _cancelEdit() {
+    setState(() {
+      _editing = false;
+      // Reset seeded flag so controllers re-populate from Firestore on the
+      // next edit open (prevents stale cancelled changes appearing again).
+      _seeded = false;
+    });
+  }
 
   Future<void> _save(String uid) async {
     final fn = _firstNameCtrl.text.trim();
@@ -136,11 +143,13 @@ class _PersonalInformationScreenState
           );
     final city = cityRaw.isNotEmpty ? cityRaw : '—';
 
+    final hasDob = basics?.dateOfBirth != null;
     int completionPercent = 0;
     if (fullName != 'Utilisateur' && fullName.isNotEmpty) completionPercent += 20;
-    if (email != '—') completionPercent += 20;
-    if (phone != '—') completionPercent += 20;
-    if (city != '—') completionPercent += 20;
+    if (email != '—') completionPercent += 15;
+    if (phone != '—') completionPercent += 15;
+    if (city != '—') completionPercent += 10;
+    if (hasDob) completionPercent += 20;
     final hasPhoto = user?.photoUrl != null && user!.photoUrl!.isNotEmpty;
     if (hasPhoto) completionPercent += 20;
 
@@ -153,6 +162,7 @@ class _PersonalInformationScreenState
       city: city,
       completionPercent: completionPercent,
       hasPhoto: hasPhoto,
+      hasDob: hasDob,
       onCreateProAccount: widget.onCreateProAccount,
     );
   }

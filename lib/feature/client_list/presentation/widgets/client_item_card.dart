@@ -131,9 +131,11 @@ class ClientItemCard extends StatelessWidget {
         return const Color(0xFF64B5F6);
       case ClientSegment.inactif:
         return Colors.grey;
+      // 'abonne' is legacy — no longer produced by MerchantClientRow.segment.
+      // Kept here as a safety fallback so existing cached data doesn't crash.
       case ClientSegment.abonne:
       case null:
-        return MerchantColors.gold;
+        return const Color(0xFF64B5F6); // treat like 'nouveau' visually
     }
   }
 }

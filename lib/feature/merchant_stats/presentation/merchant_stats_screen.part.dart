@@ -23,20 +23,21 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
         storefrontAsync.isLoading ||
         pendingAsync.isLoading;
 
-    // Segment distribution
+    // Segment distribution — 4 canonical passage-based segments.
+    // 'abonne' removed; 'inactif' now pre-seeded so it always appears in chart.
     final segmentCounts = <ClientSegment, int>{
       ClientSegment.nouveau: 0,
-      ClientSegment.vip: 0,
       ClientSegment.habitue: 0,
-      ClientSegment.abonne: 0,
+      ClientSegment.vip: 0,
+      ClientSegment.inactif: 0,
     };
     for (final c in clients) {
       segmentCounts[c.segment] = (segmentCounts[c.segment] ?? 0) + 1;
     }
 
-    // Top 5 clients by heartLevel desc
+    // Top 5 clients sorted by validated passages desc (passage-based model).
     final topClients = [...clients]
-      ..sort((a, b) => b.heartLevel.compareTo(a.heartLevel));
+      ..sort((a, b) => b.validatedPassages.compareTo(a.validatedPassages));
     final top5 = topClients.take(5).toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -335,21 +336,20 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
     Map<ClientSegment, int> counts, {
     bool loading = false,
   }) {
+    // 4 canonical segments — 'abonne' removed from chart.
     final segments = [
       ClientSegment.nouveau,
       ClientSegment.habitue,
       ClientSegment.vip,
-      ClientSegment.abonne,
       ClientSegment.inactif,
     ];
     final colors = [
       const Color(0xFF64B5F6),
       const Color(0xFF4CAF50),
       const Color(0xFFFFD700),
-      MerchantColors.gold,
       const Color(0xFFEF5350),
     ];
-    final labels = ['Nouveau', 'Habitué', 'VIP', 'Abonné', 'Inactif'];
+    final labels = ['Nouveau', 'Habitué', 'VIP', 'Inactif'];
 
     final maxVal = segments
         .map((s) => (counts[s] ?? 0).toDouble())

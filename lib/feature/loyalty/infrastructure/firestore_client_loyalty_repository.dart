@@ -30,10 +30,14 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     final v = (data['validated_passages'] as num?)?.toInt() ?? 0;
     final p = (data['pending_passages'] as num?)?.toInt() ?? 0;
     final c = (data['cumulative_spend_euros'] as num?)?.toDouble() ?? 0.0;
+    // first_visit_at presence is the durable record that a welcome bonus was awarded.
+    final hasFirstVisit =
+        data.containsKey('first_visit_at') && data['first_visit_at'] != null;
     return ClientMerchantLoyaltyProgress(
       validatedPassages: v,
       pendingPassages: p,
       cumulativeSpendEuros: c,
+      hasFirstVisit: hasFirstVisit,
     );
   }
 
@@ -183,6 +187,133 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
       return Left<AppFailure, ClientMerchantLoyaltyProgress>(
         UnexpectedFailure(
           message: 'Erreur lors de l’enregistrement',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Stream<List<LoyaltyPendingClientRow>> watchClientsWithRewardAvailable({
+    required String merchantId,
+    required int visitsRequired,
+    required double spendRequiredEuros,
+    required bool iSpendBased,
+  }) {
+    if (merchantId.isEmpty) {
+      return Stream<List<LoyaltyPendingClientRow>>.value(
+        <LoyaltyPendingClientRow>[],
+      );
+    }
+    return _firestore
+        .collection('merchants')
+        .doc(merchantId)
+        .collection('loyalty_clients')
+        .snapshots()
+        .map((QuerySnapshot<Map<String, dynamic>> snapshot) {
+      return snapshot.docs
+          .map(
+            (QueryDocumentSnapshot<Map<String, dynamic>> d) =>
+                LoyaltyPendingClientRow(
+              clientUid: d.id,
+              progress: _fromMap(d.data()),
+            ),
+          )
+          .where((row) {
+        if (iSpendBased) {
+          return row.progress.cumulativeSpendEuros >= spendRequiredEuros;
+        }
+        return row.progress.validatedPassages >= visitsRequired;
+      }).toList();
+    });
+  }
+
+  @override
+  Future<Result<ClientMerchantLoyaltyProgress>> redeemReward({
+    required String merchantId,
+    required String clientUid,
+    required int visitsRequired,
+    required double spendRequiredEuros,
+    required bool isSpendBased,
+  }) async {
+    if (merchantId.isEmpty || clientUid.isEmpty) {
+      return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
+        UnexpectedFailure(message: 'Commerce ou client invalide'),
+      );
+    }
+    try {
+      final progress = await _firestore.runTransaction(
+        (Transaction tx) async {
+          final ref = _docRef(merchantId, clientUid);
+          final snap = await tx.get(ref);
+          final cur = _fromMap(snap.data());
+
+          // Verify the reward is actually available before deducting.
+          final rewardAvailable = isSpendBased
+              ? cur.cumulativeSpendEuros >= spendRequiredEuros
+              : cur.validatedPassages >= visitsRequired;
+          if (!rewardAvailable) {
+            throw StateError('reward_not_available');
+          }
+
+          // Deduct one reward cycle. Keep any overflow passages for the next cycle.
+          final nextValidated = isSpendBased
+              ? cur.validatedPassages
+              : (cur.validatedPassages - visitsRequired).clamp(0, 9999);
+          final nextSpend = isSpendBased
+              ? (cur.cumulativeSpendEuros - spendRequiredEuros)
+                  .clamp(0.0, 1e9)
+              : cur.cumulativeSpendEuros;
+
+          final next = ClientMerchantLoyaltyProgress(
+            validatedPassages: nextValidated,
+            pendingPassages: cur.pendingPassages,
+            cumulativeSpendEuros: nextSpend,
+          );
+
+          tx.set(
+            ref,
+            <String, dynamic>{
+              'validated_passages': next.validatedPassages,
+              'pending_passages': next.pendingPassages,
+              'cumulative_spend_euros': next.cumulativeSpendEuros,
+              'updated_at': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+          return next;
+        },
+      );
+      LoggerService.logInfo(
+        'Loyalty reward redeemed',
+        context: <String, Object?>{
+          'merchantId': merchantId,
+          'clientUid': clientUid,
+        },
+      );
+      return Right<AppFailure, ClientMerchantLoyaltyProgress>(progress);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError('Reward redemption Firebase', error: e, stackTrace: st);
+      return Left<AppFailure, ClientMerchantLoyaltyProgress>(
+        UnexpectedFailure(
+          message: 'Impossible de valider la récompense',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    } catch (e, st) {
+      if (e.toString().contains('reward_not_available')) {
+        return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
+          UnexpectedFailure(
+            message: 'La récompense n\'est pas encore disponible pour ce client',
+          ),
+        );
+      }
+      LoggerService.logError('Reward redemption', error: e, stackTrace: st);
+      return Left<AppFailure, ClientMerchantLoyaltyProgress>(
+        UnexpectedFailure(
+          message: 'Erreur lors de la validation de la récompense',
           cause: e,
           stackTrace: st,
         ),

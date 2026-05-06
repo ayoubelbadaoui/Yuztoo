@@ -220,6 +220,15 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
             if (merchant == null) {
               return _StoreProfileErrorBack(onBack: widget.onBack);
             }
+            // Guard: inactive merchants must not show a full storefront to
+            // clients who arrive via QR / deep link / saved follows.
+            // Discovery already hides them; this closes the direct-ID path.
+            if (merchant.status != 'active') {
+              return _StoreProfileOffline(
+                merchantName: merchant.name,
+                onBack: widget.onBack,
+              );
+            }
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!context.mounted) return;
               precacheHttpImages(context, [

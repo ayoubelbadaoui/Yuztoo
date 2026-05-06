@@ -8,6 +8,7 @@ import '../../loyalty/application/client_loyalty_providers.dart'
     as client_loyalty_providers;
 import '../../loyalty/application/widgets.dart';
 import '../../loyalty/domain/entities/loyalty_pending_client_row.dart';
+import '../../loyalty/presentation/widgets/reward_redemption_section.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';

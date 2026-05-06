@@ -364,13 +364,25 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
       final dto = AuthUserDto.fromFirebase(refreshed);
       return Right<AuthFailure, AuthUser>(dto.toDomain());
     } on firebase.FirebaseAuthException catch (e, st) {
-      if (e.code == 'provider-already-linked' ||
-          e.code == 'credential-already-in-use') {
+      // provider-already-linked → the current user already has Google linked;
+      // treat as a no-op success (idempotent).
+      if (e.code == 'provider-already-linked') {
         final user = _auth.currentUser;
         if (user != null) {
           final dto = AuthUserDto.fromFirebase(user);
           return Right<AuthFailure, AuthUser>(dto.toDomain());
         }
+      }
+      // credential-already-in-use → the chosen Google account belongs to a
+      // DIFFERENT Firebase user. Surface a clear error instead of silently
+      // returning success (which would show a false "linked" snackbar).
+      if (e.code == 'credential-already-in-use') {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message:
+                'Ce compte Google est déjà associé à un autre compte Yuztoo.',
+          ),
+        );
       }
       return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
     } on PlatformException catch (e) {

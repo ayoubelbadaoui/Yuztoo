@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
+import '../../loyalty/infrastructure/client_loyalty_repository_provider.dart';
 import '../domain/entities/client_notification.dart';
 import '../infrastructure/client_notification_repository_provider.dart';
 import 'use_cases/notification_use_cases.dart';
@@ -18,6 +19,7 @@ final notifyFollowersOfPromotionProvider =
   return NotifyFollowersOfPromotion(
     followedRepo: ref.watch(followedMerchantsRepositoryProvider),
     notificationRepo: ref.watch(clientNotificationRepositoryProvider),
+    loyaltyRepo: ref.watch(clientLoyaltyRepositoryProvider),
   );
 });
 
@@ -33,6 +35,15 @@ final markNotificationReadProvider = Provider<MarkNotificationRead>((ref) {
 final markAllNotificationsReadProvider =
     Provider<MarkAllNotificationsRead>((ref) {
   return MarkAllNotificationsRead(
+      ref.watch(clientNotificationRepositoryProvider));
+});
+
+final deleteNotificationProvider = Provider<DeleteNotification>((ref) {
+  return DeleteNotification(ref.watch(clientNotificationRepositoryProvider));
+});
+
+final deleteAllNotificationsProvider = Provider<DeleteAllNotifications>((ref) {
+  return DeleteAllNotifications(
       ref.watch(clientNotificationRepositoryProvider));
 });
 

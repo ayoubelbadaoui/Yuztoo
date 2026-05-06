@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/merchant_colors.dart';
+import '../../../feature/storefront/domain/entities/business_hours.dart'
+    show normalizeTimeString;
 
 /// Predefined half-hour time slots from 06h00 to 23h30.
 const _kTimeOptions = [
@@ -197,7 +199,9 @@ class _TimePickerSheet extends StatelessWidget {
               itemCount: _kTimeOptions.length,
               itemBuilder: (ctx, i) {
                 final time = _kTimeOptions[i];
-                final isSelected = time == current;
+                // Normalize current before comparison so legacy-format values
+                // (e.g. "08:30", "8H30", "08h00") still highlight correctly.
+                final isSelected = time == normalizeTimeString(current);
                 return GestureDetector(
                   onTap: () => onPicked(time),
                   child: AnimatedContainer(

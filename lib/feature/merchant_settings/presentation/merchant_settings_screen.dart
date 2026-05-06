@@ -48,7 +48,6 @@ class _MerchantSettingsScreenState
   }
 
   Future<void> _toggle({
-    bool? messagingEnabled,
     bool? notificationsAutoEnabled,
     bool? galerieEnabled,
     bool? loyaltyEnabled,
@@ -57,7 +56,6 @@ class _MerchantSettingsScreenState
     if (merchantId == null) return;
     final result = await ref.read(updateServiceSettingsProvider).call(
           merchantId: merchantId,
-          messagingEnabled: messagingEnabled,
           notificationsAutoEnabled: notificationsAutoEnabled,
           galerieEnabled: galerieEnabled,
           loyaltyEnabled: loyaltyEnabled,

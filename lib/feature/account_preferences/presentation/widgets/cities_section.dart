@@ -28,76 +28,155 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
+        // `filtered` lives in the outer closure so that StatefulBuilder reads
+        // the updated reference on each setState call.
+        var filtered = available;
         return DraggableScrollableSheet(
           initialChildSize: 0.6,
           minChildSize: 0.3,
           maxChildSize: 0.9,
           expand: false,
           builder: (_, scrollController) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Ajouter une ville connectée',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+            return StatefulBuilder(
+              builder: (ctx, setSheetState) {
+                return Column(
+                  children: [
+                    // ── Drag handle ──────────────────────────────────────────
+                    Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 4),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: MerchantColors.gold.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                  ),
-                ),
-                Flexible(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    itemCount: available.length,
-                    itemBuilder: (_, i) {
-                      final city = available[i];
-                      return ListTile(
-                        title: Text(
-                          city,
-                          style: GoogleFonts.outfit(
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: Text(
+                        'Ajouter une ville connectée',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    // ── Search field ─────────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: TextField(
+                        autofocus: true,
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher une ville...',
+                          hintStyle: GoogleFonts.outfit(
+                            color: MerchantColors.textGrey,
                             fontSize: 14,
-                            color: Colors.white,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: MerchantColors.textGrey,
+                            size: 20,
+                          ),
+                          filled: true,
+                          fillColor: MerchantColors.bgHeader,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
                           ),
                         ),
-                        onTap: () async {
-                          Navigator.of(ctx).pop();
-                          final newList = [...current, city];
-                          final setCities =
-                              ref.read(setConnectedCitiesProvider);
-                          final result =
-                              await setCities.call(uid: uid, cities: newList);
-                          if (!context.mounted) return;
-                          result.fold(
-                            (failure) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    failure.message,
-                                    style: GoogleFonts.outfit(color: Colors.white),
-                                  ),
-                                  backgroundColor: MerchantColors.navyCard,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              );
-                            },
-                            (_) {
-                              ref.invalidate(
-                                connectedCitiesProvider(uid),
-                              );
-                            },
-                          );
+                        onChanged: (query) {
+                          setSheetState(() {
+                            filtered = query.trim().isEmpty
+                                ? available
+                                : available
+                                    .where((c) => c
+                                        .toLowerCase()
+                                        .contains(query.toLowerCase().trim()))
+                                    .toList();
+                          });
                         },
-                      );
-                    },
-                  ),
-                ),
-              ],
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: MerchantColors.gold.withValues(alpha: 0.12),
+                    ),
+                    // ── List ─────────────────────────────────────────────────
+                    if (filtered.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Text(
+                          'Aucune ville trouvée',
+                          style: GoogleFonts.outfit(
+                            color: MerchantColors.textGrey,
+                            fontSize: 14,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          controller: scrollController,
+                          itemCount: filtered.length,
+                          itemBuilder: (_, i) {
+                            final city = filtered[i];
+                            return ListTile(
+                              title: Text(
+                                city,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              onTap: () async {
+                                Navigator.of(ctx).pop();
+                                final newList = [...current, city];
+                                final setCities =
+                                    ref.read(setConnectedCitiesProvider);
+                                final result = await setCities.call(
+                                    uid: uid, cities: newList);
+                                if (!context.mounted) return;
+                                result.fold(
+                                  (failure) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          failure.message,
+                                          style: GoogleFonts.outfit(
+                                              color: Colors.white),
+                                        ),
+                                        backgroundColor: MerchantColors.navyCard,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  (_) {
+                                    ref.invalidate(
+                                        connectedCitiesProvider(uid));
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
             );
           },
         );

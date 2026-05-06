@@ -177,12 +177,15 @@ abstract class UserRepository {
   /// `onboarding.merchant = 'not_started'` when not already set. Idempotent.
   Future<Result<Unit>> addSecondaryMerchantRole(String uid);
 
-  /// Update editable profile fields (firstName, lastName, dateOfBirth) without
-  /// touching onboarding status, roles, or any auth identity (email/phone).
+  /// Update editable profile fields without touching onboarding status, roles,
+  /// or Firebase Auth identity (email/phone which are auth-layer controlled).
+  /// [ownerEmail] is a separate professional contact email stored on the user
+  /// doc as `owner_email` — distinct from the Firebase Auth email.
   Future<Result<Unit>> updateClientBasicInfo({
     required String uid,
     String? firstName,
     String? lastName,
     DateTime? dateOfBirth,
+    String? ownerEmail,
   });
 }

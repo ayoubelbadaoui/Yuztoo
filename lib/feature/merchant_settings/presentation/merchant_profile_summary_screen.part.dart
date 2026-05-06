@@ -443,35 +443,74 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
   Widget _buildEditCta() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: GestureDetector(
-        onTap: () => widget.onNavigate?.call('storefront'),
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [MerchantColors.gold, MerchantColors.goldLight],
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.storefront_rounded,
-                    color: MerchantColors.bgHeader, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'Modifier ma vitrine',
-                  style: GoogleFonts.outfit(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: MerchantColors.bgHeader,
-                  ),
+      child: Column(
+        children: [
+          // Primary CTA — edit personal + commerce identity fields.
+          GestureDetector(
+            onTap: () => widget.onNavigate?.call('merchant-identity-edit'),
+            child: Container(
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [MerchantColors.gold, MerchantColors.goldLight],
                 ),
-              ],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.person_outline_rounded,
+                        color: MerchantColors.bgHeader, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Mes informations personnelles',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: MerchantColors.bgHeader,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: 10),
+          // Secondary CTA — edit storefront / visual profile.
+          GestureDetector(
+            onTap: () => widget.onNavigate?.call('storefront-edit-profile'),
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: MerchantColors.navyCard,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: MerchantColors.gold
+                      .withValues(alpha: MerchantColors.goldBorderAlpha),
+                ),
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.storefront_outlined,
+                        color: MerchantColors.gold, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Modifier ma vitrine',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: MerchantColors.gold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

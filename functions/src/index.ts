@@ -41,32 +41,34 @@ async function getFollowerIds(merchantId: string): Promise<string[]> {
 // ─── Segment helpers ──────────────────────────────────────────────────────────
 
 /**
- * Compute the CRM segment key for a follower based on their heart_level and
- * the date they started following.
+ * CANONICAL segment model — passage-based, single source of truth.
  *
- * Mirrors the Flutter `ClientSegment` logic in
- * `lib/feature/client_list/domain/entities/merchant_client_row.dart`:
- *   - heartLevel >= 3  → 'vip'
- *   - heartLevel >= 2  → 'habitue'
- *   - followed < 14 days ago → 'nouveau'
- *   - default → 'abonne'
+ * Mirrors Flutter's `FirestoreClientLoyaltyRepository._computeSegment`
+ * (`lib/feature/loyalty/infrastructure/firestore_client_loyalty_repository.dart`):
+ *   - daysSinceLastVisit > 60  → 'inactif'
+ *   - validatedPassages >= 10  → 'vip'
+ *   - validatedPassages >= 3   → 'habitue'
+ *   - otherwise                → 'nouveau'
+ *
+ * A client with NO loyalty_clients doc defaults to 'nouveau' (new follower,
+ * no visits yet). 'abonne' is retired from notification targeting.
  *
  * Exported for unit testing; intentionally pure (no Firebase calls).
  */
-export function computeSegment(heartLevel: number, followedAt: Date | null): string {
-  if (heartLevel >= 3) return "vip";
-  if (heartLevel >= 2) return "habitue";
-  if (followedAt !== null) {
-    const daysSinceFollow =
-      (Date.now() - followedAt.getTime()) / (1000 * 60 * 60 * 24);
-    if (daysSinceFollow < 14) return "nouveau";
-  }
-  return "abonne";
+export function computeSegment(
+  validatedPassages: number,
+  daysSinceLastVisit: number
+): string {
+  if (daysSinceLastVisit > 60) return "inactif";
+  if (validatedPassages >= 10) return "vip";
+  if (validatedPassages >= 3) return "habitue";
+  return "nouveau";
 }
 
 /**
- * Returns the CRM segment key for a follower of a specific merchant.
- * Reads the `users/{clientId}/followed_merchants/{merchantId}` document.
+ * Returns the passage-based segment key for a client at a specific merchant.
+ * Reads `merchants/{merchantId}/loyalty_clients/{clientId}`.
+ * Falls back to 'nouveau' when the document is missing (no visits recorded yet).
  */
 async function getClientSegment(
   clientId: string,
@@ -74,24 +76,63 @@ async function getClientSegment(
 ): Promise<string> {
   try {
     const doc = await db
-      .collection("users")
-      .doc(clientId)
-      .collection("followed_merchants")
+      .collection("merchants")
       .doc(merchantId)
+      .collection("loyalty_clients")
+      .doc(clientId)
       .get();
-    if (!doc.exists) return "abonne";
+    if (!doc.exists) return "nouveau";
     const data = doc.data() ?? {};
-    const heartLevel: number =
-      typeof data.heart_level === "number" ? data.heart_level : 1;
-    const followedAtTs: FirebaseFirestore.Timestamp | undefined =
-      data.followed_at;
-    const followedAt: Date | null = followedAtTs
-      ? followedAtTs.toDate()
-      : null;
-    return computeSegment(heartLevel, followedAt);
-  } catch {
-    return "abonne";
+    const validatedPassages: number =
+      typeof data.validated_passages === "number" ? data.validated_passages : 0;
+    const updatedAt: FirebaseFirestore.Timestamp | undefined = data.updated_at;
+    // No updated_at = client has never visited → treat as very stale (999 days).
+    const daysSinceLastVisit = updatedAt
+      ? (Date.now() - updatedAt.toDate().getTime()) / (1000 * 60 * 60 * 24)
+      : 999;
+    return computeSegment(validatedPassages, daysSinceLastVisit);
+  } catch (e) {
+    functions.logger.warn("getClientSegment error", {
+      clientId,
+      merchantId,
+      error: e,
+    });
+    return "nouveau";
   }
+}
+
+/**
+ * Returns true if the notifDoc's audience/segment config allows sending to
+ * this client. Centralises the segment-filter logic so it can be reused in
+ * both dispatchTrigger and dailyScheduledTriggers.
+ *
+ * Rules:
+ *   - audience == "Tous mes clients" → always true
+ *   - audience == "Certains clients" with empty segments → true (broadcast)
+ *   - audience == "Certains clients" with segments → true iff client's segment
+ *     is in the (normalised) list
+ *
+ * Backward compatibility: stored "abonne" segments are remapped to "nouveau"
+ * so that auto-notifications created before the model change still fire.
+ * The passage-based model never produces "abonne", so "abonne" → "nouveau"
+ * is the closest semantic equivalent (active follower with low engagement).
+ */
+async function shouldSendToClient(
+  notifDoc: admin.firestore.QueryDocumentSnapshot,
+  clientId: string,
+  merchantId: string
+): Promise<boolean> {
+  const data = notifDoc.data();
+  const audience: string = data.audience ?? "Tous mes clients";
+  const rawSegments: string[] = data.target_segments ?? [];
+
+  if (audience !== "Certains clients" || rawSegments.length === 0) return true;
+
+  // Normalise legacy "abonne" → "nouveau" for backward compat.
+  const segments = rawSegments.map((s) => (s === "abonne" ? "nouveau" : s));
+
+  const clientSegment = await getClientSegment(clientId, merchantId);
+  return segments.includes(clientSegment);
 }
 
 /**
@@ -158,20 +199,11 @@ async function dispatchTrigger(
     : await getFollowerIds(merchantId);
 
   for (const notifDoc of notifDocs) {
-    const data = notifDoc.data();
-    const audience: string = data.audience ?? "Tous mes clients";
-    const segments: string[] = data.target_segments ?? [];
-
-    // Skip "Certains clients" notifications that have no segments specified.
-    if (audience !== "Tous mes clients" && segments.length === 0) continue;
-
     for (const clientId of clientIds) {
-      // Segment filtering: when audience is "Certains clients" check the
-      // follower's CRM segment (heartLevel + followedAt) against the list.
-      if (audience === "Certains clients" && segments.length > 0) {
-        const clientSegment = await getClientSegment(clientId, merchantId);
-        if (!segments.includes(clientSegment)) continue;
-      }
+      // Segment check: passage-based via shouldSendToClient.
+      // "Certains clients" with empty segments = broadcast to all (same as Tous).
+      const allowed = await shouldSendToClient(notifDoc, clientId, merchantId);
+      if (!allowed) continue;
 
       await fireAutoNotification(notifDoc, merchantId, clientId).catch((e) =>
         functions.logger.error("fireAutoNotification error", { clientId, error: e })
@@ -269,16 +301,34 @@ export const onNotificationCreated = functions
 
     try {
       await messaging.send(message);
-      functions.logger.info("Push sent", { userId, notificationId });
+      functions.logger.info("Push sent", {
+        userId,
+        notificationId,
+        type: data.type ?? "auto",
+      });
     } catch (error: any) {
-      if (
-        error?.errorInfo?.code ===
-          "messaging/registration-token-not-registered" ||
-        error?.errorInfo?.code === "messaging/invalid-registration-token"
-      ) {
+      const code: string = error?.errorInfo?.code ?? "";
+      // Full set of FCM/APNs codes that signal a permanently dead token.
+      // On any of these we delete the Firestore doc immediately so the
+      // Flutter app's Firestore watch triggers re-registration.
+      // NOTE: rate-limit errors (device-message-rate-exceeded, etc.) are NOT
+      // dead-token errors — we log them but keep the token intact.
+      const isDeadToken =
+        code === "messaging/registration-token-not-registered" ||
+        code === "messaging/invalid-registration-token" ||
+        // Returned by Firebase Admin when the APNs token has no record
+        // (app deleted from device) and Admin can't map it to a valid token.
+        code === "messaging/mismatched-credential";
+      if (isDeadToken) {
+        functions.logger.warn("Dead FCM token — deleting", { userId, code });
         await tokenDoc.ref.delete();
       } else {
-        functions.logger.error("Failed to send push", { userId, error });
+        functions.logger.error("Failed to send push", {
+          userId,
+          notificationId,
+          code,
+          error: String(error),
+        });
       }
     }
     return null;
@@ -433,6 +483,8 @@ export const dailyScheduledTriggers = functions
           const dobMD = dob.length >= 5 ? dob.slice(dob.length - 5) : dob;
           if (dobMD === todayMD) {
             for (const notifDoc of birthdayNotifs) {
+              const allowed = await shouldSendToClient(notifDoc, clientId, merchantId);
+              if (!allowed) continue;
               await fireAutoNotification(notifDoc, merchantId, clientId).catch(
                 (e) => functions.logger.warn("Birthday notif error", { e })
               );
@@ -460,6 +512,8 @@ export const dailyScheduledTriggers = functions
               // Only trigger after the first year.
               if (followMD === todayMD && now.getFullYear() > followDate.getFullYear()) {
                 for (const notifDoc of anniversaryNotifs) {
+                  const allowed = await shouldSendToClient(notifDoc, clientId, merchantId);
+                  if (!allowed) continue;
                   await fireAutoNotification(
                     notifDoc,
                     merchantId,
@@ -473,7 +527,7 @@ export const dailyScheduledTriggers = functions
           }
         }
 
-        // Inactive client (no visit in last 90 days).
+        // Inactive client — no visit in last 60 days (aligned with Flutter threshold).
         if (inactiveNotifs.length > 0) {
           const loyaltySnap = await db
             .collection("merchants")
@@ -488,8 +542,10 @@ export const dailyScheduledTriggers = functions
               const daysSinceVisit =
                 (now.getTime() - updatedAt.toDate().getTime()) /
                 (1000 * 60 * 60 * 24);
-              if (daysSinceVisit >= 90) {
+              if (daysSinceVisit >= 60) {
                 for (const notifDoc of inactiveNotifs) {
+                  const allowed = await shouldSendToClient(notifDoc, clientId, merchantId);
+                  if (!allowed) continue;
                   await fireAutoNotification(
                     notifDoc,
                     merchantId,
