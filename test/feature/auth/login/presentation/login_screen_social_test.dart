@@ -88,6 +88,12 @@ class _CountingSocialAuthRepository implements AuthRepository {
       throw UnimplementedError();
 
   @override
+  Future<Result<AuthUser>> linkWithGoogle() => throw UnimplementedError();
+
+  @override
+  List<String> getLinkedProviders() => [];
+
+  @override
   Future<Result<Unit>> deleteCurrentUser() => throw UnimplementedError();
 }
 

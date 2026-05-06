@@ -117,7 +117,7 @@ class _MerchantIdentityEditScreenState
             dateOfBirth: _selectedDob,
             ownerEmail: oe.isNotEmpty ? oe : null,
           ),
-      if (dn.isNotEmpty || ph.isNotEmpty)
+      if (merchantId.isNotEmpty && (dn.isNotEmpty || ph.isNotEmpty))
         ref.read(merchantRepositoryProvider).updateMerchant(
               merchantId: merchantId,
               displayName: dn.isNotEmpty ? dn : null,

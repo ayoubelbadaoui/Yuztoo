@@ -122,6 +122,12 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<Result<AuthUser>> linkWithGoogle() => throw UnimplementedError();
+
+  @override
+  List<String> getLinkedProviders() => [];
+
+  @override
   Stream<Result<AuthUser?>> watchAuthState() {
     return Stream.value(const Right<AuthFailure, AuthUser?>(null));
   }
@@ -187,6 +193,19 @@ class _FakeUserRepository implements UserRepository {
     required String displayName,
     String? city,
     String? photoUrl,
+    String? firstName,
+    String? lastName,
+    DateTime? dateOfBirth,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<Unit>> updateClientBasicInfo({
+    required String uid,
+    String? firstName,
+    String? lastName,
+    DateTime? dateOfBirth,
+    String? ownerEmail,
   }) =>
       throw UnimplementedError();
 
@@ -529,7 +548,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('Identifiants invalides'),
+        find.textContaining('Identifiants incorrects'),
         findsWidgets,
       );
     },

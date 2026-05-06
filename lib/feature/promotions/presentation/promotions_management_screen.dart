@@ -88,7 +88,7 @@ class _PromotionsManagementScreenState
           ),
         );
       },
-      (savedPromo) async {
+      (savedPromo) {
         ref.invalidate(merchantPromotionsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -96,20 +96,9 @@ class _PromotionsManagementScreenState
             backgroundColor: MerchantColors.gold,
           ),
         );
-
-        // Notify all followers — fire and forget (non-blocking UI).
-        final merchantAsync =
-            await ref.read(currentMerchantForOwnerProvider.future);
-        final merchantName =
-            merchantAsync?.name ?? authState.user.displayName ?? 'Votre commerce';
-
-        final notifyUseCase = ref.read(notifyFollowersOfPromotionProvider);
-        await notifyUseCase.call(
-          merchantId: authState.user.id,
-          merchantName: merchantName,
-          promotion: savedPromo,
-          callerUid: authState.user.id,
-        );
+        // The Cloud Function onPromotionCreated already fans out a notification
+        // to all followers on .onCreate — no Flutter-side call needed here to
+        // avoid sending clients a duplicate notification.
       },
     );
   }

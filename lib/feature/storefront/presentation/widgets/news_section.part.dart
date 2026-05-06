@@ -99,8 +99,9 @@ extension _NewsSectionUi on _NewsSectionState {
     });
   }
 
-  Widget _buildPairedPortraitGallery(double maxWidth) {
-    final hasMultiplePages = _pageCount > 1;
+  Widget _buildPairedPortraitGallery(double maxWidth, List<String> urls) {
+    final pageCount = urls.isEmpty ? 0 : (urls.length + 1) ~/ 2;
+    final hasMultiplePages = pageCount > 1;
     // Single page: two images use full row. Multiple pages: reserve a cream strip
     // after each pair so the next slide starts after visible breathing room.
     final trailing =
@@ -115,13 +116,12 @@ extension _NewsSectionUi on _NewsSectionState {
           height: tileH,
           child: PageView.builder(
             controller: _pageController,
-            itemCount: _pageCount,
+            itemCount: pageCount,
             clipBehavior: Clip.hardEdge,
             onPageChanged: _onGalleryPageChanged,
             itemBuilder: (context, pageIndex) {
               final i0 = pageIndex * 2;
               final i1 = i0 + 1;
-              final urls = widget.imageUrls;
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -154,11 +154,11 @@ extension _NewsSectionUi on _NewsSectionState {
         // Fixed strip so adding a 3rd image (2nd page + dots) does not shift content above.
         SizedBox(
           height: 22,
-          child: _pageCount > 1
+          child: pageCount > 1
               ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
-                    _pageCount,
+                    pageCount,
                     (index) => AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
                       margin: const EdgeInsets.symmetric(horizontal: 3),

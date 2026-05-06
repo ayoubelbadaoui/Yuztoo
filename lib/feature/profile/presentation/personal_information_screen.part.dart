@@ -1,6 +1,164 @@
 part of 'personal_information_screen.dart';
 
 extension _PersonalInformationUi on _PersonalInformationScreenState {
+  // ── Photo picker ──────────────────────────────────────────────────────────
+
+  Future<void> _pickAndUploadPhoto(String uid) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: MerchantColors.bgMain,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _buildPickerSheet(ctx),
+    );
+    if (source == null || !mounted) return;
+
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      if (picked == null || !mounted) return;
+
+      final croppedPath = await cropImage(
+        picked.path,
+        ratioX: 1,
+        ratioY: 1,
+        circleShape: true,
+      );
+      if (croppedPath == null || !mounted) return;
+
+      _setPhotoUploading(true);
+
+      final result = await ref
+          .read(uploadClientAvatarProvider)
+          .call(filePath: croppedPath, uid: uid);
+
+      if (!mounted) return;
+
+      result.fold(
+        (failure) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Erreur lors de l\'envoi de la photo',
+                style: GoogleFonts.outfit(color: Colors.white),
+              ),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+        (downloadUrl) async {
+          await ref
+              .read(updateAuthUserProfileProvider)
+              .call(photoUrl: downloadUrl);
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Une erreur est survenue',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) _setPhotoUploading(false);
+    }
+  }
+
+  Widget _buildPickerSheet(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: MerchantColors.gold.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Text(
+              'Choisir une photo',
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: MerchantColors.textWhite,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildPickerOption(
+              context,
+              icon: Icons.camera_alt_outlined,
+              label: 'Prendre une photo',
+              source: ImageSource.camera,
+            ),
+            Divider(
+              height: 1,
+              indent: 20,
+              endIndent: 20,
+              color: MerchantColors.gold.withValues(alpha: 0.15),
+            ),
+            _buildPickerOption(
+              context,
+              icon: Icons.photo_library_outlined,
+              label: 'Choisir depuis la galerie',
+              source: ImageSource.gallery,
+            ),
+            const SizedBox(height: 8),
+            Divider(
+              height: 1,
+              color: MerchantColors.gold.withValues(alpha: 0.1),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close_rounded, color: Colors.redAccent),
+              title: Text(
+                'Annuler',
+                style: GoogleFonts.outfit(color: Colors.redAccent),
+              ),
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPickerOption(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required ImageSource source,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: MerchantColors.gold),
+      title: Text(
+        label,
+        style: GoogleFonts.outfit(
+          color: MerchantColors.textWhite,
+          fontSize: 14,
+        ),
+      ),
+      onTap: () => Navigator.of(context).pop(source),
+    );
+  }
+
+  // ── Scaffold ──────────────────────────────────────────────────────────────
+
   Widget _buildScaffold(
     BuildContext context, {
     required String? uid,
@@ -11,6 +169,9 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     required int completionPercent,
     bool hasPhoto = false,
     bool hasDob = false,
+    String? photoUrl,
+    bool photoUploading = false,
+    VoidCallback? onPhotoTap,
     VoidCallback? onCreateProAccount,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -40,7 +201,14 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                     if (_editing)
                       _buildEditForm(context, uid: uid)
                     else
-                      _buildIdentityCard(fullName, email, phone),
+                      _buildIdentityCard(
+                        fullName,
+                        email,
+                        phone,
+                        photoUrl: photoUrl,
+                        isUploading: photoUploading,
+                        onPhotoTap: onPhotoTap,
+                      ),
                     const SizedBox(height: 24),
                     Text(
                       'Villes connectées',
@@ -56,7 +224,12 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                     const SizedBox(height: 24),
                     _buildYuztooCard(fullName),
                     const SizedBox(height: 16),
-                    _buildCompletionBar(completionPercent, hasPhoto, hasDob),
+                    _buildCompletionBar(
+                      completionPercent,
+                      hasPhoto,
+                      hasDob,
+                      onPhotoTap: onPhotoTap,
+                    ),
                     const SizedBox(height: 20),
                     GestureDetector(
                       onTap: onCreateProAccount,
@@ -318,7 +491,14 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
         ),
       );
 
-  Widget _buildIdentityCard(String name, String email, String phone) {
+  Widget _buildIdentityCard(
+    String name,
+    String email,
+    String phone, {
+    String? photoUrl,
+    bool isUploading = false,
+    VoidCallback? onPhotoTap,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -333,21 +513,77 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: MerchantColors.gold.withValues(alpha: 0.15),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              avatarInitial(name),
-              style: GoogleFonts.outfit(
-                color: MerchantColors.textWhite,
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-              ),
+          GestureDetector(
+            onTap: isUploading ? null : onPhotoTap,
+            behavior: HitTestBehavior.opaque,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Avatar circle
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: MerchantColors.gold.withValues(alpha: 0.15),
+                    border: onPhotoTap != null
+                        ? Border.all(
+                            color: MerchantColors.gold.withValues(alpha: 0.5),
+                            width: 1.5,
+                          )
+                        : null,
+                    image: photoUrl != null && photoUrl.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(photoUrl),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: isUploading
+                      ? const SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: MerchantColors.gold,
+                          ),
+                        )
+                      : (photoUrl == null || photoUrl.isEmpty)
+                          ? Text(
+                              avatarInitial(name),
+                              style: GoogleFonts.outfit(
+                                color: MerchantColors.textWhite,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                          : null,
+                ),
+                // Camera badge
+                if (onPhotoTap != null && !isUploading)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: MerchantColors.gold,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: MerchantColors.bgHeader,
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt_rounded,
+                        color: MerchantColors.bgHeader,
+                        size: 12,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 14),
@@ -478,7 +714,12 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     );
   }
 
-  Widget _buildCompletionBar(int completionPercent, bool hasPhoto, bool hasDob) {
+  Widget _buildCompletionBar(
+    int completionPercent,
+    bool hasPhoto,
+    bool hasDob, {
+    VoidCallback? onPhotoTap,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -566,22 +807,34 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
         ],
         if (!hasPhoto) ...[
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 13,
-                color: MerchantColors.gold.withValues(alpha: 0.6),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Ajoute une photo de profil pour compléter à 100\u202f%',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  color: MerchantColors.textGrey,
+          GestureDetector(
+            onTap: onPhotoTap,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.add_a_photo_outlined,
+                  size: 13,
+                  color: MerchantColors.gold.withValues(alpha: 0.8),
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Ajoute une photo de profil pour compléter à 100\u202f%',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: MerchantColors.textGrey,
+                    ),
+                  ),
+                ),
+                if (onPhotoTap != null)
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 14,
+                    color: MerchantColors.gold.withValues(alpha: 0.5),
+                  ),
+              ],
+            ),
           ),
         ],
       ],

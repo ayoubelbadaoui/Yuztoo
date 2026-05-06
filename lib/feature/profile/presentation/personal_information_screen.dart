@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/utils/cities.dart';
+import '../../../core/utils/image_crop_utils.dart';
+import '../../auth/core/application/providers.dart'
+    show updateAuthUserProfileProvider;
 import '../../auth/core/application/user_display_helpers.dart';
+import '../../storage/application/providers.dart' show uploadClientAvatarProvider;
 import '../application/providers.dart';
 
 part 'personal_information_screen.part.dart';
@@ -24,9 +29,11 @@ class _PersonalInformationScreenState
     extends ConsumerState<PersonalInformationScreen> {
   bool _editing = false;
   bool _saving = false;
+  bool _photoUploading = false;
 
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
+  final _picker = ImagePicker();
   DateTime? _selectedDob;
   bool _seeded = false;
 
@@ -47,6 +54,8 @@ class _PersonalInformationScreenState
   }
 
   void _startEdit() => setState(() => _editing = true);
+
+  void _setPhotoUploading(bool v) => setState(() => _photoUploading = v);
 
   void _cancelEdit() {
     setState(() {
@@ -153,9 +162,10 @@ class _PersonalInformationScreenState
     final hasPhoto = user?.photoUrl != null && user!.photoUrl!.isNotEmpty;
     if (hasPhoto) completionPercent += 20;
 
+    final uid = user?.id;
     return _buildScaffold(
       context,
-      uid: user?.id,
+      uid: uid,
       fullName: fullName,
       email: email,
       phone: phone,
@@ -163,6 +173,11 @@ class _PersonalInformationScreenState
       completionPercent: completionPercent,
       hasPhoto: hasPhoto,
       hasDob: hasDob,
+      photoUrl: user?.photoUrl,
+      photoUploading: _photoUploading,
+      onPhotoTap: uid != null
+          ? () => _pickAndUploadPhoto(uid)
+          : null,
       onCreateProAccount: widget.onCreateProAccount,
     );
   }

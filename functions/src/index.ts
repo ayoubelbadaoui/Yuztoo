@@ -423,6 +423,56 @@ export const onPromotionCreated = functions
     return null;
   });
 
+// ─── 5b. Weekly quota reset ──────────────────────────────────────────────────
+
+/**
+ * Runs every Monday at 00:00 Europe/Paris.
+ * Resets weekly_notif_sent_count to 0 on every merchant document so the
+ * Rappels quota is refreshed. Without this, merchants are permanently blocked
+ * after reaching the 5-notification limit.
+ *
+ * Uses a batched write (max 500 per batch) to be resilient to large merchant
+ * counts without exceeding Firestore batch limits.
+ */
+export const weeklyQuotaReset = functions
+  .region("europe-west1")
+  .pubsub.schedule("0 0 * * 1") // Every Monday at 00:00
+  .timeZone("Europe/Paris")
+  .onRun(async (_context) => {
+    functions.logger.info("Running weekly quota reset");
+
+    const merchantsSnap = await db.collection("merchants").get();
+    if (merchantsSnap.empty) return null;
+
+    const BATCH_SIZE = 499;
+    let batch = db.batch();
+    let batchCount = 0;
+    let totalReset = 0;
+
+    for (const merchantDoc of merchantsSnap.docs) {
+      const data = merchantDoc.data() ?? {};
+      // Skip merchants that already have a zero count to avoid unnecessary writes.
+      if ((data.weekly_notif_sent_count ?? 0) === 0) continue;
+
+      batch.update(merchantDoc.ref, { weekly_notif_sent_count: 0 });
+      batchCount++;
+      totalReset++;
+
+      if (batchCount >= BATCH_SIZE) {
+        await batch.commit();
+        batch = db.batch();
+        batchCount = 0;
+      }
+    }
+
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    functions.logger.info(`Weekly quota reset complete: ${totalReset} merchants reset`);
+    return null;
+  });
+
 // ─── 5. Daily scheduled triggers (birthday, anniversary, inactive) ───────────
 
 /**

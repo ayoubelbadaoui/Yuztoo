@@ -93,23 +93,13 @@ extension _HubUi on _MerchantNotificationsHubScreenState {
               GestureDetector(
                 onTap: widget.onBack,
                 behavior: HitTestBehavior.opaque,
-                child: Container(
+                child: const SizedBox(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: MerchantColors.gold
-                          .withValues(alpha: MerchantColors.goldBorderAlpha),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold,
-                      size: 20,
-                    ),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: MerchantColors.gold,
+                    size: 20,
                   ),
                 ),
               ),

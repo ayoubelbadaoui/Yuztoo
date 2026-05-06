@@ -262,9 +262,14 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   }) async {
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Connectez-vous pour enregistrer vos favoris'),
+        SnackBar(
+          content: const Text('Connectez-vous pour enregistrer vos favoris'),
           behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Se connecter',
+            textColor: StorefrontColors.primaryGold,
+            onPressed: () => widget.onRequestLogin?.call(),
+          ),
         ),
       );
       return;

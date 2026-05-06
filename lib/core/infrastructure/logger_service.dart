@@ -3,7 +3,7 @@ import 'package:logger/logger.dart';
 /// Centralized logging service for infrastructure layer
 /// Logs failures and errors with proper formatting
 class LoggerService {
-  static final Logger _logger = Logger(
+  static Logger _logger = Logger(
     printer: PrettyPrinter(
       methodCount: 2,
       errorMethodCount: 8,
@@ -13,6 +13,12 @@ class LoggerService {
       dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
     ),
   );
+
+  /// Silence all log output — call once in flutter_test_config.dart so
+  /// expected-failure paths do not pollute test console output.
+  static void muteForTests() {
+    _logger = Logger(level: Level.off);
+  }
 
   /// Log an error with stack trace
   static void logError(

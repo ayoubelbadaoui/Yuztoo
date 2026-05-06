@@ -38,8 +38,12 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
   bool _isUploadingNewsImage = false;
   bool _isUploadingBannerProfile = false;
   bool _isPublishingToggle = false;
+  bool _isClearingAllNews = false;
   String? _precachedImageKey;
   final _imagePicker = ImagePicker();
+  /// URLs whose Firestore removal is in-flight — excluded from the displayed
+  /// list immediately (optimistic UI) and used to avoid concurrent-write races.
+  final Set<String> _pendingDeleteUrls = {};
 
   @override
   void dispose() {
@@ -101,23 +105,114 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
 
   Future<void> _deleteNewsImage(
       Storefront storefront, String imageUrl) async {
+    // Guard against re-entrant delete (e.g. user taps the same × twice).
+    if (_pendingDeleteUrls.contains(imageUrl)) return;
+
+    setState(() => _pendingDeleteUrls.add(imageUrl));
     final merchantId = _merchantIdForStorefront(storefront);
-    final updatedUrls =
-        storefront.newsImageUrls.where((u) => u != imageUrl).toList();
-    final result =
-        await ref.read(merchant_providers.updateStorefrontProvider).call(
-              merchantId: merchantId,
-              newsImageUrls: updatedUrls,
-            );
-    result.fold(
-      (_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Échec de la suppression')),
-        );
-      },
-      (_) => ref.invalidate(storefrontProvider),
+
+    // Exclude EVERY in-flight pending delete from the new list so concurrent
+    // taps on different images don't overwrite each other's removal.
+    final updatedUrls = storefront.newsImageUrls
+        .where((u) => !_pendingDeleteUrls.contains(u))
+        .toList();
+
+    try {
+      final result =
+          await ref.read(merchant_providers.updateStorefrontProvider).call(
+                merchantId: merchantId,
+                newsImageUrls: updatedUrls,
+              );
+      result.fold(
+        (_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Échec de la suppression')),
+          );
+        },
+        (_) {
+          // Best-effort Storage cleanup (same logic as edit-profile _deleteImage).
+          _tryDeleteStorageFile(imageUrl);
+          ref.invalidate(storefrontProvider);
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _pendingDeleteUrls.remove(imageUrl));
+    }
+  }
+
+  Future<void> _clearAllNewsImages(Storefront storefront) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer toutes les photos ?'),
+        content: const Text(
+            'Toutes les photos de votre actualité seront définitivement supprimées. Cette action est irréversible.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Tout supprimer',
+              style: TextStyle(color: Colors.red.shade600),
+            ),
+          ),
+        ],
+      ),
     );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isClearingAllNews = true);
+    final merchantId = _merchantIdForStorefront(storefront);
+    final urlsToDelete = List<String>.from(storefront.newsImageUrls);
+
+    try {
+      final result =
+          await ref.read(merchant_providers.updateStorefrontProvider).call(
+                merchantId: merchantId,
+                newsImageUrls: [],
+              );
+      result.fold(
+        (_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Échec de la suppression')),
+          );
+        },
+        (_) {
+          // Best-effort Storage cleanup for every image.
+          for (final url in urlsToDelete) {
+            _tryDeleteStorageFile(url);
+          }
+          ref.invalidate(storefrontProvider);
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _isClearingAllNews = false);
+    }
+  }
+
+  /// Parses a Firebase Storage download URL and fires a best-effort delete.
+  /// The URL format is: .../o/merchants%2F{id}%2Fnews%2F{file}?...
+  void _tryDeleteStorageFile(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final encoded = uri.pathSegments
+          .skipWhile((s) => s != 'o')
+          .skip(1)
+          .firstOrNull;
+      if (encoded != null && encoded.isNotEmpty) {
+        final storagePath = Uri.decodeComponent(encoded);
+        ref
+            .read(storage_providers.deleteStorageImageProvider)
+            .call(storagePath);
+      }
+    } catch (_) {
+      // Non-fatal: Firestore is already updated.
+    }
   }
 
   String _merchantIdForStorefront(Storefront storefront) => storefront.id;

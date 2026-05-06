@@ -6,6 +6,7 @@ import '../../../followed_merchants/domain/repositories/followed_merchants_repos
 import '../../../loyalty/domain/repositories/client_loyalty_repository.dart';
 import '../../../promotions/domain/entities/promotion.dart';
 import '../../domain/entities/client_notification.dart';
+import '../../domain/promotion_segment_matching.dart';
 import '../../domain/repositories/client_notification_repository.dart';
 
 /// Creates an in-app [ClientNotification] for every eligible follower of
@@ -40,18 +41,6 @@ class NotifyFollowersOfPromotion {
   final ClientLoyaltyRepository _loyaltyRepo;
   /// Verifies that [callerUid] owns the merchant identified by [merchantId].
   final Future<bool> Function(String merchantId, String callerUid) _isOwner;
-
-  /// Returns true if [clientSegment] satisfies any key in [targetSegments].
-  ///
-  /// `'soutien'` is a UI-level alias for active regulars (vip or habitue).
-  static bool _segmentMatches(String clientSegment, List<String> targetSegments) {
-    for (final target in targetSegments) {
-      if (target == clientSegment) return true;
-      if (target == 'soutien' &&
-          (clientSegment == 'vip' || clientSegment == 'habitue')) return true;
-    }
-    return false;
-  }
 
   Future<Result<int>> call({
     required String merchantId,
@@ -106,7 +95,7 @@ class NotifyFollowersOfPromotion {
         targetIds = targetIds.where((id) {
           // Followers with no loyalty doc have never visited → treat as 'nouveau'.
           final seg = clientSegments[id] ?? 'nouveau';
-          return _segmentMatches(seg, promotion.targetSegments);
+          return promotionSegmentMatchesTarget(seg, promotion.targetSegments);
         }).toList();
       }
     }

@@ -1538,11 +1538,21 @@ class _RootShellState extends ConsumerState<_RootShell>
           onNotifications: _openNotificationsScreen,
           onMessage: () => setState(() => _nestedScreen = ScreenId.messages),
           onReserve: _handleBackToBase,
-          onRequestLogin: () => setState(() {
-            _nestedScreen = null;
-            _role = null;
-            _authScreen = ScreenId.login;
-          }),
+          onRequestLogin: () {
+            // Preserve the current merchant so that after the user logs in,
+            // _tryConsumePendingVitrineLink reopens the store profile
+            // automatically — no need to scan again.
+            final mid = ref.read(
+                store_profile_providers.selectedStoreMerchantIdProvider);
+            setState(() {
+              if (mid != null && mid.isNotEmpty) {
+                _pendingVitrineMerchantId = mid;
+              }
+              _nestedScreen = null;
+              _role = null;
+              _authScreen = ScreenId.login;
+            });
+          },
         );
       case ScreenId.notifications:
         return NotificationsScreen(
