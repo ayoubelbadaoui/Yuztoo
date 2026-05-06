@@ -477,7 +477,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                           width: 44,
                           height: 44,
                           alignment: Alignment.center,
-                          child: Icon(
+                          child: const Icon(
                             Icons.delete_outline_rounded,
                             color: MerchantColors.textGrey,
                             size: 20,

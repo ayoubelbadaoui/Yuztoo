@@ -1,5 +1,4 @@
-/// Business hours domain entity
-/// Pure Dart - no Flutter dependencies
+// Business hours domain entity — pure Dart, no Flutter dependencies.
 
 // ---------------------------------------------------------------------------
 // Normalisation utilities (no Flutter dependency)

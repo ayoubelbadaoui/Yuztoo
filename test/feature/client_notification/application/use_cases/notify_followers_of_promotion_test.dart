@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
-import 'package:flutter_yuztoo/core/domain/core/failure.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/client_notification/application/use_cases/notify_followers_of_promotion.dart';
 import 'package:flutter_yuztoo/feature/client_notification/domain/entities/client_notification.dart';
@@ -14,17 +13,12 @@ import 'package:flutter_yuztoo/feature/promotions/domain/entities/promotion.dart
 // ── Fakes (duplicated from rappels tests to keep feature tests self-contained) ─
 
 class _FakeFollowed implements FollowedMerchantsRepository {
-  _FakeFollowed({this.followerIds = const [], this.shouldFail = false});
+  _FakeFollowed({this.followerIds = const []});
   final List<String> followerIds;
-  final bool shouldFail;
 
   @override
-  Future<Result<List<String>>> getFollowerIds(String merchantId) async {
-    if (shouldFail) {
-      return const Left(UnexpectedFailure(message: 'network'));
-    }
-    return Right(followerIds);
-  }
+  Future<Result<List<String>>> getFollowerIds(String merchantId) async =>
+      Right(followerIds);
 
   @override
   Future<Result<Unit>> add(String userId, String merchantId) async =>

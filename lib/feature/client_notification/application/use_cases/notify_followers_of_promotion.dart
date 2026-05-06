@@ -58,7 +58,7 @@ class NotifyFollowersOfPromotion {
         'NotifyFollowersOfPromotion: ownership check failed — aborting',
         error: 'callerUid=$callerUid merchantId=$merchantId',
       );
-      return Left(UnexpectedFailure(
+      return const Left(UnexpectedFailure(
           message: 'Vous n\'êtes pas autorisé à envoyer des notifications pour ce commerce.'));
     }
 

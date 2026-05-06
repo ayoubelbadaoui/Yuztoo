@@ -112,7 +112,7 @@ class _FakeClientNotifRepo implements ClientNotificationRepository {
 // ── Fake: ClientLoyaltyRepository (minimal — only getClientSegments used by send) ─
 
 class _FakeLoyaltyRepoForSend implements ClientLoyaltyRepository {
-  _FakeLoyaltyRepoForSend({this.segmentMap = const {}});
+  _FakeLoyaltyRepoForSend({required this.segmentMap});
 
   /// Simulated `{clientUid: segment}` from loyalty_clients.
   Map<String, String> segmentMap;
@@ -282,7 +282,7 @@ void main() {
       followedRepo = _FakeFollowedRepo();
       clientNotifRepo = _FakeClientNotifRepo();
       sentNotifRepo = _FakeSentNotifRepo();
-      loyaltyRepo = _FakeLoyaltyRepoForSend();
+      loyaltyRepo = _FakeLoyaltyRepoForSend(segmentMap: const {});
       useCase = SendMerchantNotification(
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
@@ -505,12 +505,11 @@ void main() {
 
     test('Certains clients + segments filters by loyalty map', () async {
       followedRepo = _FakeFollowedRepo(followerIds: ['c1', 'c2', 'c3']);
-      loyaltyRepo = _FakeLoyaltyRepoForSend()
-        ..segmentMap = {
-          'c1': 'vip',
-          'c2': 'nouveau',
-          'c3': 'vip',
-        };
+      loyaltyRepo = _FakeLoyaltyRepoForSend(segmentMap: {
+        'c1': 'vip',
+        'c2': 'nouveau',
+        'c3': 'vip',
+      });
       useCase = SendMerchantNotification(
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
