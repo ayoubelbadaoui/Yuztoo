@@ -108,6 +108,7 @@ class _PromotionsManagementScreenState
           merchantId: authState.user.id,
           merchantName: merchantName,
           promotion: savedPromo,
+          callerUid: authState.user.id,
         );
       },
     );
@@ -194,6 +195,7 @@ class _PromotionsManagementScreenState
                     merchantId: authState.user.id,
                     merchantName: merchantName,
                     promotion: updated,
+                    callerUid: authState.user.id,
                   );
             });
           }

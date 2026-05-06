@@ -1,5 +1,7 @@
 import '../../../../core/domain/core/either.dart';
+import '../../../../core/domain/core/failure.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/infrastructure/logger_service.dart';
 import '../../../client_notification/domain/entities/client_notification.dart';
 import '../../../client_notification/domain/repositories/client_notification_repository.dart';
 import '../../../followed_merchants/domain/repositories/followed_merchants_repository.dart';
@@ -20,15 +22,19 @@ class SendMerchantNotification {
     required ClientNotificationRepository notificationRepo,
     required ISentNotificationRepository sentNotifRepo,
     required ClientLoyaltyRepository loyaltyRepo,
+    required Future<bool> Function(String merchantId, String callerUid) isOwner,
   })  : _followedRepo = followedRepo,
         _notificationRepo = notificationRepo,
         _sentNotifRepo = sentNotifRepo,
-        _loyaltyRepo = loyaltyRepo;
+        _loyaltyRepo = loyaltyRepo,
+        _isOwner = isOwner;
 
   final FollowedMerchantsRepository _followedRepo;
   final ClientNotificationRepository _notificationRepo;
   final ISentNotificationRepository _sentNotifRepo;
   final ClientLoyaltyRepository _loyaltyRepo;
+  /// Verifies that [callerUid] owns the merchant identified by [merchantId].
+  final Future<bool> Function(String merchantId, String callerUid) _isOwner;
 
   Future<Result<int>> call({
     required String merchantId,
@@ -36,8 +42,19 @@ class SendMerchantNotification {
     required String text,
     required String audience,
     List<String> segments = const [],
+    required String callerUid,
   }) async {
     if (merchantId.isEmpty || text.trim().isEmpty) return const Right(0);
+
+    // Ownership guard — prevents cross-merchant notification injection.
+    if (callerUid.isEmpty || !(await _isOwner(merchantId, callerUid))) {
+      LoggerService.logError(
+        'SendMerchantNotification: ownership check failed — aborting',
+        error: 'callerUid=$callerUid merchantId=$merchantId',
+      );
+      return Left(UnexpectedFailure(
+          message: 'Vous n\'êtes pas autorisé à envoyer des notifications pour ce commerce.'));
+    }
 
     // 1. Get all follower IDs.
     final followersResult = await _followedRepo.getFollowerIds(merchantId);

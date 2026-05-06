@@ -1,4 +1,5 @@
 import '../../../../core/domain/core/either.dart';
+import '../../../../core/domain/core/failure.dart';
 import '../../../../core/domain/core/result.dart';
 import '../../../../core/infrastructure/logger_service.dart';
 import '../../../followed_merchants/domain/repositories/followed_merchants_repository.dart';
@@ -28,13 +29,17 @@ class NotifyFollowersOfPromotion {
     required FollowedMerchantsRepository followedRepo,
     required ClientNotificationRepository notificationRepo,
     required ClientLoyaltyRepository loyaltyRepo,
+    required Future<bool> Function(String merchantId, String callerUid) isOwner,
   })  : _followedRepo = followedRepo,
         _notificationRepo = notificationRepo,
-        _loyaltyRepo = loyaltyRepo;
+        _loyaltyRepo = loyaltyRepo,
+        _isOwner = isOwner;
 
   final FollowedMerchantsRepository _followedRepo;
   final ClientNotificationRepository _notificationRepo;
   final ClientLoyaltyRepository _loyaltyRepo;
+  /// Verifies that [callerUid] owns the merchant identified by [merchantId].
+  final Future<bool> Function(String merchantId, String callerUid) _isOwner;
 
   /// Returns true if [clientSegment] satisfies any key in [targetSegments].
   ///
@@ -52,8 +57,21 @@ class NotifyFollowersOfPromotion {
     required String merchantId,
     required String merchantName,
     required Promotion promotion,
+    required String callerUid,
   }) async {
     if (merchantId.isEmpty || promotion.id.isEmpty) return const Right(0);
+
+    // Ownership guard — blocks cross-promotion (a merchant targeting another
+    // merchant's followers). An empty callerUid means the caller is not
+    // authenticated; we reject silently rather than crashing.
+    if (callerUid.isEmpty || !(await _isOwner(merchantId, callerUid))) {
+      LoggerService.logError(
+        'NotifyFollowersOfPromotion: ownership check failed — aborting',
+        error: 'callerUid=$callerUid merchantId=$merchantId',
+      );
+      return Left(UnexpectedFailure(
+          message: 'Vous n\'êtes pas autorisé à envoyer des notifications pour ce commerce.'));
+    }
 
     // 1. Resolve all follower IDs.
     final followersResult = await _followedRepo.getFollowerIds(merchantId);

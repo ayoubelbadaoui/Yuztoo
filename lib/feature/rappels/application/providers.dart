@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
@@ -31,8 +32,26 @@ final sendMerchantNotificationProvider = Provider<SendMerchantNotification>((ref
     notificationRepo: ref.watch(clientNotificationRepositoryProvider),
     sentNotifRepo: ref.watch(sentNotificationRepositoryProvider),
     loyaltyRepo: ref.watch(clientLoyaltyRepositoryProvider),
+    isOwner: _verifyMerchantOwnership,
   );
 });
+
+/// Shared ownership verifier — reads the merchant document and checks owner_uid.
+/// Fast path: if merchantId == callerUid (MVP model), skips the Firestore read.
+Future<bool> _verifyMerchantOwnership(
+    String merchantId, String callerUid) async {
+  if (merchantId.isEmpty || callerUid.isEmpty) return false;
+  if (merchantId == callerUid) return true;
+  try {
+    final doc = await FirebaseFirestore.instance
+        .collection('merchants')
+        .doc(merchantId)
+        .get();
+    return (doc.data()?['owner_uid'] as String?) == callerUid;
+  } catch (_) {
+    return false;
+  }
+}
 
 final listSentNotificationsProvider = Provider<ListSentNotifications>((ref) {
   return ListSentNotifications(ref.watch(sentNotificationRepositoryProvider));

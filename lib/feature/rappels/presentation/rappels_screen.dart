@@ -186,6 +186,7 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
       text: text,
       audience: audience,
       segments: segments,
+      callerUid: merchant.ownerUid,
     );
     if (!mounted) return;
     result.fold(

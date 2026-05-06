@@ -124,10 +124,19 @@ service cloud.firestore {
 
     // --- /users/{userId}/notifications/{notificationId} ---
     // Clients read and mark their own notifications.
-    // Any signed-in user (merchant) may create notifications for others.
+    // Merchant-originated creates must claim a merchant_id the caller actually owns.
+    // This prevents any signed-in user from injecting fake notifications that
+    // impersonate another merchant's name/id (cross-promotion / spam attack).
     match /users/{userId}/notifications/{notificationId} {
       allow read, update, delete: if isOwner(userId);
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+        && (
+          // No merchant_id field (or empty string): system/legacy path — permitted.
+          !('merchant_id' in request.resource.data)
+          || request.resource.data.merchant_id == ''
+          // Merchant-originated: the caller must own the referenced merchant.
+          || isMerchantOwner(request.resource.data.merchant_id)
+        );
     }
 
     // --- /users/{userId}/push_tokens/{tokenId} ---
