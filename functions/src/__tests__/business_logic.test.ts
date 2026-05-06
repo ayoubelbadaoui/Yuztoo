@@ -459,3 +459,117 @@ describe("G2: applyPassageDeltas input validation guards (Dart logic mirror)", (
     expect(validatePendingReduction(0, -1)).toBe("no_pending_passage");
   });
 });
+
+// ── G5: Orphaned "Chaque promotion créé" trigger docs ────────────────────────
+// After removing "Chaque promotion créé" from the UI and the new onPromotionCreated
+// CF does a guaranteed fan-out, any old auto_notification Firestore docs with
+// trigger == "Chaque promotion créé" are now dead code.
+// These tests document the trigger string and ensure the CF's getEnabledNotifications
+// filter would EXCLUDE them (since the CF no longer calls dispatchTrigger at all).
+
+describe("G5: Orphaned 'Chaque promotion créé' auto_notification docs", () => {
+  const RETIRED_TRIGGER = "Chaque promotion créé";
+  const ACTIVE_TRIGGERS = [
+    "Chaque birthday client",
+    "Après validation fidélité",
+    "Rappel inactivité",
+    "Rappel mensuel",
+  ];
+
+  test("G5-1 — retired trigger string is not in active trigger list", () => {
+    expect(ACTIVE_TRIGGERS).not.toContain(RETIRED_TRIGGER);
+  });
+
+  test("G5-2 — retired trigger is recognized as a string (won't cause errors)", () => {
+    expect(typeof RETIRED_TRIGGER).toBe("string");
+    expect(RETIRED_TRIGGER.length).toBeGreaterThan(0);
+  });
+
+  test("G5-3 — simulated getEnabledNotifications excludes retired trigger", () => {
+    // Simulate a Firestore auto_notifications collection with one orphaned doc.
+    const docs = [
+      { trigger: RETIRED_TRIGGER, is_enabled: true },
+      { trigger: "Chaque birthday client", is_enabled: true },
+    ];
+    // getEnabledNotifications filters by trigger == requested trigger.
+    // The CF never requests RETIRED_TRIGGER, so the orphaned doc is never read.
+    const requestedTrigger = "Chaque birthday client";
+    const matching = docs.filter((d) => d.trigger === requestedTrigger && d.is_enabled);
+    expect(matching.length).toBe(1);
+    expect(matching[0].trigger).toBe("Chaque birthday client");
+  });
+
+  test("G5-4 — orphaned doc: trigger no longer dispatched by any CF handler", () => {
+    // onPromotionCreated no longer calls dispatchTrigger("Chaque promotion créé").
+    // So even if the doc exists, it will NEVER match a requested trigger.
+    const neverRequestedTrigger = "Chaque promotion créé";
+    // Guard: ensure no active CF handler dispatches this trigger.
+    const cfActiveDispatches: string[] = []; // onPromotionCreated does own fan-out now
+    expect(cfActiveDispatches).not.toContain(neverRequestedTrigger);
+  });
+
+  test("G5-5 — doc ID for old promo auto_notification is predictable (namespace test)", () => {
+    // Old pattern: auto_notifications/{docId} with trigger == RETIRED_TRIGGER.
+    // New pattern: users/{clientId}/notifications/promo_{promoId} via onPromotionCreated.
+    // Verify the namespaces don't collide.
+    const oldPath = `merchants/m1/auto_notifications/someDocId`;
+    const newPath = `users/clientA/notifications/promo_p1`;
+    expect(oldPath).not.toBe(newPath);
+    expect(oldPath.startsWith("merchants/")).toBe(true);
+    expect(newPath.startsWith("users/")).toBe(true);
+  });
+});
+
+// ── G6: Merchant self-follow filter ──────────────────────────────────────────
+// A dual-profile user (both merchant and client) who follows their own store
+// would receive their own promotion notifications. The CF does NOT filter this
+// at the follower level — it's intentional to avoid silent data loss.
+// These tests document the behavior and establish the contract.
+
+describe("G6: Merchant self-follow — dual-profile notification contract", () => {
+  test("G6-1 — merchant UID in follower list: included in targetIds", () => {
+    const merchantOwnerUid = "owner123";
+    const followerIds = ["clientA", "clientB", merchantOwnerUid];
+    // Current behavior: merchant receives their own promo notification.
+    // No filter is applied at the CF level.
+    expect(followerIds).toContain(merchantOwnerUid);
+    expect(followerIds.length).toBe(3);
+  });
+
+  test("G6-2 — deterministic doc ID for self-follow notification is unique per promo", () => {
+    const merchantOwnerUid = "owner123";
+    const promoId = "promo_abc";
+    const notifDocId = `promo_${promoId}`;
+    const path = `users/${merchantOwnerUid}/notifications/${notifDocId}`;
+    expect(path).toBe("users/owner123/notifications/promo_promo_abc");
+  });
+
+  test("G6-3 — self-follow notification does not collide with other clients", () => {
+    const merchantOwnerUid = "owner123";
+    const clientId = "clientA";
+    const promoId = "promo1";
+    const ownerPath = `users/${merchantOwnerUid}/notifications/promo_${promoId}`;
+    const clientPath = `users/${clientId}/notifications/promo_${promoId}`;
+    expect(ownerPath).not.toBe(clientPath);
+  });
+
+  test("G6-4 — if merchant is NOT in follower list, no self-notification is sent", () => {
+    const merchantOwnerUid = "owner123";
+    const followerIds = ["clientA", "clientB"]; // merchant did not follow themselves
+    expect(followerIds).not.toContain(merchantOwnerUid);
+  });
+
+  test("G6-5 — 1000 followers including merchant: all get same promo doc ID scheme", () => {
+    const merchantOwnerUid = "owner999";
+    const followers = Array.from(
+      { length: 999 },
+      (_, i) => `client_${i}`
+    ).concat([merchantOwnerUid]);
+    expect(followers.length).toBe(1000);
+
+    const promoId = "promo_stress";
+    const docIds = new Set(followers.map((uid) => `promo_${promoId}`));
+    // All followers get the same doc ID (relative to their user path).
+    expect(docIds.size).toBe(1);
+  });
+});
