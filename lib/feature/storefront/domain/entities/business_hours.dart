@@ -198,29 +198,25 @@ class BusinessHours {
         hasExceptionalClosure: false,
       );
     }
+    Map<String, dynamic> _safeDay(String key) {
+      final v = map[key];
+      return v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
+    }
+
     return BusinessHours(
       hasExceptionalClosure: map['hasExceptionalClosure'] as bool? ?? false,
-      monday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['monday'] ?? {}) as Map),
-          dayNameFallback: 'Lundi'),
-      tuesday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['tuesday'] ?? {}) as Map),
-          dayNameFallback: 'Mardi'),
-      wednesday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['wednesday'] ?? {}) as Map),
-          dayNameFallback: 'Mercredi'),
-      thursday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['thursday'] ?? {}) as Map),
-          dayNameFallback: 'Jeudi'),
-      friday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['friday'] ?? {}) as Map),
-          dayNameFallback: 'Vendredi'),
-      saturday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['saturday'] ?? {}) as Map),
-          dayNameFallback: 'Samedi'),
-      sunday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['sunday'] ?? {}) as Map),
-          dayNameFallback: 'Dimanche'),
+      monday: DayHours.fromMap(_safeDay('monday'), dayNameFallback: 'Lundi'),
+      tuesday: DayHours.fromMap(_safeDay('tuesday'), dayNameFallback: 'Mardi'),
+      wednesday:
+          DayHours.fromMap(_safeDay('wednesday'), dayNameFallback: 'Mercredi'),
+      thursday:
+          DayHours.fromMap(_safeDay('thursday'), dayNameFallback: 'Jeudi'),
+      friday:
+          DayHours.fromMap(_safeDay('friday'), dayNameFallback: 'Vendredi'),
+      saturday:
+          DayHours.fromMap(_safeDay('saturday'), dayNameFallback: 'Samedi'),
+      sunday:
+          DayHours.fromMap(_safeDay('sunday'), dayNameFallback: 'Dimanche'),
     );
   }
 }

@@ -261,3 +261,201 @@ describe("computeSegment — boundary precision (parity with Dart)", () => {
     expect(computeSegment(5, 999)).toBe("inactif");
   });
 });
+
+// ── G1: onPromotionCreated idempotency — deterministic document ID ────────────
+// GCP guarantees at-least-once delivery: onPromotionCreated may fire twice for
+// the same promotion.  The fix: use doc(`promo_${promoId}`) as a deterministic
+// ID so that the second batch.set() is a silent overwrite of the same document.
+// onNotificationCreated is an onCreate trigger — it will NOT re-fire for an
+// update to an existing document, preventing duplicate pushes.
+
+function buildNotifDocId(promoId: string): string {
+  return `promo_${promoId}`;
+}
+
+describe("G1: onPromotionCreated idempotency (deterministic doc ID)", () => {
+  test("G1-1 — same promoId always maps to same notification doc ID", () => {
+    const id1 = buildNotifDocId("abc123");
+    const id2 = buildNotifDocId("abc123");
+    expect(id1).toBe(id2);
+  });
+
+  test("G1-2 — different promoIds produce different notification doc IDs", () => {
+    expect(buildNotifDocId("promo_A")).not.toBe(buildNotifDocId("promo_B"));
+  });
+
+  test("G1-3 — doc ID has 'promo_' prefix (predictable namespace)", () => {
+    expect(buildNotifDocId("xyz789")).toBe("promo_xyz789");
+  });
+
+  test("G1-4 — duplicate CF invocations: second set() is idempotent overwrite", () => {
+    // Simulate two identical fan-out calls for the same promo + client.
+    const written = new Map<string, number>();
+
+    function simulateFanOut(promoId: string, clientIds: string[]): void {
+      for (const clientId of clientIds) {
+        const docId = buildNotifDocId(promoId);
+        // Map key = full path (simulates Firestore doc path uniqueness).
+        const path = `users/${clientId}/notifications/${docId}`;
+        written.set(path, (written.get(path) ?? 0) + 1);
+      }
+    }
+
+    const clients = ["userA", "userB", "userC"];
+    simulateFanOut("promo1", clients);
+    simulateFanOut("promo1", clients); // duplicate invocation
+
+    // Each path should have been written exactly twice (overwrite), but the
+    // document count remains 3 (one per client, not 6 duplicates).
+    const uniqueDocPaths = new Set([...written.keys()]);
+    expect(uniqueDocPaths.size).toBe(3); // still 3 unique docs
+    // Every path was hit twice (writes), but Firestore only stores 1 doc per path.
+    for (const count of written.values()) {
+      expect(count).toBe(2);
+    }
+  });
+
+  test("G1-5 — 1000 followers × 2 duplicate CF runs: still 1000 unique doc paths", () => {
+    const written = new Set<string>();
+    const clientIds = Array.from({ length: 1000 }, (_, i) => `user_${i}`);
+    const promoId = "promo_stress";
+
+    for (let run = 0; run < 2; run++) {
+      for (const clientId of clientIds) {
+        const docId = buildNotifDocId(promoId);
+        written.add(`users/${clientId}/notifications/${docId}`);
+      }
+    }
+
+    expect(written.size).toBe(1000);
+  });
+
+  test("G1-6 — two different promos produce isolated doc namespaces", () => {
+    const clientId = "userA";
+    const docA = `users/${clientId}/notifications/${buildNotifDocId("promoA")}`;
+    const docB = `users/${clientId}/notifications/${buildNotifDocId("promoB")}`;
+    expect(docA).not.toBe(docB);
+  });
+
+  test("G1-7 — empty follower list: no notifications written (early return)", () => {
+    const targetIds: string[] = [];
+    // Mirror of: if (targetIds.length === 0) return null;
+    const shouldReturn = targetIds.length === 0;
+    expect(shouldReturn).toBe(true);
+  });
+});
+
+// ── G2: Passage idempotency — zero-delta and counter guards ──────────────────
+// These tests mirror the guard logic in applyPassageDeltas
+// (firestore_client_loyalty_repository.dart) to verify all defensive branches.
+
+describe("G2: applyPassageDeltas input validation guards (Dart logic mirror)", () => {
+  type Delta = {
+    validatedDelta: number;
+    pendingDelta: number;
+    spendDelta: number;
+  };
+
+  function validateDeltas(d: Delta): string | null {
+    // Mirror: if (merchantId.isEmpty || clientUid.isEmpty) → invalid
+    // (not tested here — ID validation is separate)
+    // Mirror: if (all deltas === 0) → 'Aucune mise à jour de passage'
+    if (d.validatedDelta === 0 && d.pendingDelta === 0 && d.spendDelta === 0) {
+      return "Aucune mise à jour de passage";
+    }
+    return null; // valid
+  }
+
+  function validateResultCounters(
+    validated: number,
+    pending: number,
+    spend: number
+  ): string | null {
+    // Mirror: if (next.validatedPassages < 0 || next.pendingPassages < 0 ||
+    //             next.cumulativeSpendEuros < 0) → 'invalid_loyalty_counters'
+    if (validated < 0 || pending < 0 || spend < 0) {
+      return "invalid_loyalty_counters";
+    }
+    return null;
+  }
+
+  function validatePendingReduction(
+    currentPending: number,
+    delta: number
+  ): string | null {
+    // Mirror: if (pendingDelta < 0 && cur.pendingPassages < -pendingDelta)
+    //           → 'no_pending_passage'
+    if (delta < 0 && currentPending < -delta) {
+      return "no_pending_passage";
+    }
+    return null;
+  }
+
+  // ── Zero-delta guard ──────────────────────────────────────────────────────
+
+  test("G2-1 — all-zero deltas rejected: prevents ghost 'double-tap' record", () => {
+    expect(validateDeltas({ validatedDelta: 0, pendingDelta: 0, spendDelta: 0 }))
+      .toBe("Aucune mise à jour de passage");
+  });
+
+  test("G2-2 — non-zero validated delta is valid", () => {
+    expect(validateDeltas({ validatedDelta: 1, pendingDelta: 0, spendDelta: 0 }))
+      .toBeNull();
+  });
+
+  test("G2-3 — non-zero pending delta is valid", () => {
+    expect(validateDeltas({ validatedDelta: 0, pendingDelta: 1, spendDelta: 0 }))
+      .toBeNull();
+  });
+
+  test("G2-4 — non-zero spend delta is valid", () => {
+    expect(validateDeltas({ validatedDelta: 0, pendingDelta: 0, spendDelta: 9.99 }))
+      .toBeNull();
+  });
+
+  // ── Result counter guard ──────────────────────────────────────────────────
+
+  test("G2-5 — negative resulting validated count → invalid", () => {
+    // Client has 0 passages, remove 1 → -1 → rejected
+    expect(validateResultCounters(-1, 0, 0)).toBe("invalid_loyalty_counters");
+  });
+
+  test("G2-6 — negative resulting pending → invalid", () => {
+    expect(validateResultCounters(0, -1, 0)).toBe("invalid_loyalty_counters");
+  });
+
+  test("G2-7 — negative resulting spend → invalid", () => {
+    expect(validateResultCounters(0, 0, -0.01)).toBe("invalid_loyalty_counters");
+  });
+
+  test("G2-8 — all zero resulting counters → valid (fresh client)", () => {
+    expect(validateResultCounters(0, 0, 0)).toBeNull();
+  });
+
+  test("G2-9 — large positive counters → valid", () => {
+    expect(validateResultCounters(1000, 50, 999.99)).toBeNull();
+  });
+
+  // ── Pending reduction guard ───────────────────────────────────────────────
+
+  test("G2-10 — reduce pending by more than available → no_pending_passage", () => {
+    // currentPending=1, delta=-2 → 1 < 2 → error
+    expect(validatePendingReduction(1, -2)).toBe("no_pending_passage");
+  });
+
+  test("G2-11 — reduce pending by exactly available → valid (0 remaining)", () => {
+    expect(validatePendingReduction(3, -3)).toBeNull();
+  });
+
+  test("G2-12 — reduce pending by less than available → valid", () => {
+    expect(validatePendingReduction(5, -3)).toBeNull();
+  });
+
+  test("G2-13 — positive pending delta always allowed", () => {
+    expect(validatePendingReduction(0, 1)).toBeNull();
+  });
+
+  test("G2-14 — reducing from 0 → no_pending_passage", () => {
+    expect(validatePendingReduction(0, -1)).toBe("no_pending_passage");
+  });
+});

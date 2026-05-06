@@ -510,11 +510,16 @@ export const onPromotionCreated = functions
     let batchCount = 0;
 
     for (const clientId of targetIds) {
+      // Deterministic doc ID = promo_{promoId} so that if GCP fires this
+      // trigger twice (at-least-once delivery), the second batch.set() is a
+      // no-op overwrite on the same document.  onNotificationCreated is an
+      // onCreate trigger — it only fires on the first creation, so no
+      // duplicate push is sent on a retry invocation.
       const notifRef = db
         .collection("users")
         .doc(clientId)
         .collection("notifications")
-        .doc();
+        .doc(`promo_${promoId}`);
 
       batch.set(notifRef, {
         client_id: clientId,
