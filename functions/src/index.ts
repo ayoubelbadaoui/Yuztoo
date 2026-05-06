@@ -412,14 +412,142 @@ export const onLoyaltyProgressUpdated = functions
 
 /**
  * Fires when a new promotion document is created.
- * Triggers: "Chaque promotion créé"
+ *
+ * Does a GUARANTEED fan-out to all eligible followers — identical logic to the
+ * Flutter-side NotifyFollowersOfPromotion use case (which was removed to avoid
+ * the duplicate that existed when both paths ran simultaneously).
+ *
+ * Segment filtering:
+ *   - client_type == "premium" && target_segments non-empty → only matching followers
+ *   - all other promotions (gratuit, payant, or empty segments) → broadcast to all
+ *   - On any read failure the segment filter is skipped and we broadcast to all
+ *     rather than silently dropping a notification.
+ *
+ * Writes type:"promotion" with promotion_id so clients can deep-link to the promo.
  */
 export const onPromotionCreated = functions
   .region("europe-west1")
   .firestore.document("merchants/{merchantId}/promotions/{promoId}")
-  .onCreate(async (_snap, context) => {
-    const { merchantId } = context.params;
-    await dispatchTrigger(merchantId, "Chaque promotion créé");
+  .onCreate(async (snap, context) => {
+    const { merchantId, promoId } = context.params;
+    const promoData = snap.data() ?? {};
+
+    // Skip offline promotions (is_online: false) — merchant deliberately chose
+    // not to publish yet. They will be handled by onPromotionActivated when
+    // is_online flips to true (Flutter-side toggle still calls notifyFollowers).
+    if (promoData.is_online === false) return null;
+
+    const merchantSnap = await db.collection("merchants").doc(merchantId).get();
+    const merchantName: string = merchantSnap.data()?.name ?? "Votre commerce";
+    const promoTitle: string = promoData.title ?? "Nouvelle promotion";
+    const clientType: string = promoData.client_type ?? "gratuit";
+    const targetSegments: string[] = Array.isArray(promoData.target_segments)
+      ? promoData.target_segments
+      : [];
+
+    // 1. Resolve all follower IDs.
+    const followerIds = await getFollowerIds(merchantId);
+    if (followerIds.length === 0) return null;
+
+    // 2. Apply segment filter for premium promotions with explicit targets.
+    //    gratuit and payant promotions broadcast to all followers.
+    let targetIds = followerIds;
+    const mustFilter = clientType === "premium" && targetSegments.length > 0;
+
+    if (mustFilter) {
+      try {
+        const loyaltySnap = await db
+          .collection("merchants")
+          .doc(merchantId)
+          .collection("loyalty_clients")
+          .get();
+
+        // Build segment map: clientId → segment.
+        const segmentMap: Record<string, string> = {};
+        for (const doc of loyaltySnap.docs) {
+          const d = doc.data() ?? {};
+          const validated: number =
+            typeof d.validated_passages === "number" ? d.validated_passages : 0;
+          const updatedAt: FirebaseFirestore.Timestamp | undefined = d.updated_at;
+          const days = updatedAt
+            ? (Date.now() - updatedAt.toDate().getTime()) / (1000 * 60 * 60 * 24)
+            : 999;
+          segmentMap[doc.id] = computeSegment(validated, days);
+        }
+
+        targetIds = followerIds.filter((clientId) => {
+          const seg = segmentMap[clientId] ?? "nouveau";
+          // Mirror promotionSegmentMatchesTarget from Dart:
+          //   'soutien' target matches 'vip' or 'habitue' clients.
+          for (const target of targetSegments) {
+            if (target === seg) return true;
+            if (
+              target === "soutien" &&
+              (seg === "vip" || seg === "habitue")
+            ) {
+              return true;
+            }
+          }
+          return false;
+        });
+      } catch (e) {
+        // On any read failure fall back to broadcasting to all followers.
+        functions.logger.warn("onPromotionCreated: segment filter failed, broadcasting to all", {
+          merchantId,
+          promoId,
+          error: e,
+        });
+        targetIds = followerIds;
+      }
+    }
+
+    if (targetIds.length === 0) return null;
+
+    // 3. Write one type:"promotion" notification per eligible follower.
+    //    onNotificationCreated will forward the FCM push for each doc.
+    const BATCH_SIZE = 499;
+    let batch = db.batch();
+    let batchCount = 0;
+
+    for (const clientId of targetIds) {
+      const notifRef = db
+        .collection("users")
+        .doc(clientId)
+        .collection("notifications")
+        .doc();
+
+      batch.set(notifRef, {
+        client_id: clientId,
+        merchant_id: merchantId,
+        merchant_name: merchantName,
+        type: "promotion",
+        title: "Nouvelle promotion",
+        body: `${merchantName}\u202f: ${promoTitle}`,
+        promotion_id: promoId,
+        is_read: false,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      batchCount++;
+      if (batchCount >= BATCH_SIZE) {
+        await batch.commit();
+        batch = db.batch();
+        batchCount = 0;
+      }
+    }
+
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    functions.logger.info("onPromotionCreated fan-out complete", {
+      merchantId,
+      promoId,
+      totalFollowers: followerIds.length,
+      notified: targetIds.length,
+      segmentFiltered: mustFilter,
+    });
+
     return null;
   });
 
