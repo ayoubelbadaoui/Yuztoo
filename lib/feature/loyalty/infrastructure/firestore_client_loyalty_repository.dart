@@ -10,10 +10,23 @@ import '../domain/repositories/client_loyalty_repository.dart';
 
 /// Firestore: `merchants/{merchantId}/loyalty_clients/{clientUid}`.
 class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
-  FirestoreClientLoyaltyRepository({required FirebaseFirestore firestore})
-      : _firestore = firestore;
+  FirestoreClientLoyaltyRepository({
+    required FirebaseFirestore firestore,
+    Duration passageCooldown = const Duration(seconds: 60),
+  })  : _firestore = firestore,
+        _passageCooldown = passageCooldown;
 
   final FirebaseFirestore _firestore;
+
+  /// Minimum time between two passage writes for the same (client, merchant).
+  /// Blocks accidental double-tap and the simplest fraud loop (rapid re-scan).
+  /// Server-time-aware via `last_passage_at` written inside the transaction.
+  final Duration _passageCooldown;
+
+  /// Sentinel error string used to bubble cooldown rejection out of the
+  /// Firestore transaction without coupling the error mapping to the
+  /// transaction body.
+  static const String _passageCooldownSentinel = 'passage_cooldown_active';
 
   DocumentReference<Map<String, dynamic>> _docRef(
     String merchantId,
@@ -31,16 +44,19 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     final p = (data['pending_passages'] as num?)?.toInt() ?? 0;
     final c = (data['cumulative_spend_euros'] as num?)?.toDouble() ?? 0.0;
     // first_visit_at: first time we create the loyalty doc for this client at
-    // this merchant. The "bon d'accueil" is **not** a separate reward record:
-    // the app shows [Merchant.welcomeGiftDescription] on the loyalty card when
-    // this flag is set (no extra Firestore write for a coupon code).
+    // this merchant. The "bon d'accueil" is shown on the loyalty card when
+    // this flag is set; once the client claims it, welcome_bon_claimed_at is
+    // written and the bon disappears from "Mes avantages".
     final hasFirstVisit =
         data.containsKey('first_visit_at') && data['first_visit_at'] != null;
+    final welcomeBonClaimed = data.containsKey('welcome_bon_claimed_at') &&
+        data['welcome_bon_claimed_at'] != null;
     return ClientMerchantLoyaltyProgress(
       validatedPassages: v,
       pendingPassages: p,
       cumulativeSpendEuros: c,
       hasFirstVisit: hasFirstVisit,
+      welcomeBonClaimed: welcomeBonClaimed,
     );
   }
 
@@ -110,6 +126,12 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         UnexpectedFailure(message: 'Aucune mise à jour de passage'),
       );
     }
+    // Whether this call is *adding* a passage (positive delta on any counter).
+    // Cooldown only applies to additions; a reverting delta from
+    // validate-pending should always be allowed.
+    final bool isAddingPassage = validatedPassagesDelta > 0 ||
+        pendingPassagesDelta > 0 ||
+        cumulativeSpendEurosDelta > 0;
     try {
       final progress = await _firestore.runTransaction(
         (Transaction tx) async {
@@ -117,6 +139,21 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           final snap = await tx.get(ref);
           final isFirstVisit = !snap.exists;
           final cur = _fromMap(snap.data());
+
+          // Cooldown: block accidental double-tap and rapid re-scan loops.
+          // Server-side timestamp comparison — never trust the device clock.
+          if (isAddingPassage) {
+            final lastPassageAt = snap.data()?['last_passage_at'];
+            if (lastPassageAt is Timestamp) {
+              final since = DateTime.now()
+                  .toUtc()
+                  .difference(lastPassageAt.toDate().toUtc());
+              if (!since.isNegative && since < _passageCooldown) {
+                throw StateError(_passageCooldownSentinel);
+              }
+            }
+          }
+
           if (pendingPassagesDelta < 0 &&
               cur.pendingPassages < -pendingPassagesDelta) {
             throw StateError('no_pending_passage');
@@ -140,6 +177,8 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
               'pending_passages': next.pendingPassages,
               'cumulative_spend_euros': next.cumulativeSpendEuros,
               'updated_at': FieldValue.serverTimestamp(),
+              if (isAddingPassage)
+                'last_passage_at': FieldValue.serverTimestamp(),
               if (isFirstVisit) 'first_visit_at': FieldValue.serverTimestamp(),
             },
             SetOptions(merge: true),
@@ -176,6 +215,17 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         ),
       );
     } catch (e, st) {
+      if (e.toString().contains(_passageCooldownSentinel)) {
+        // Surfaced verbatim to the UI — the parent layer recognises this
+        // string to render the friendly "déjà été enregistré" sheet rather
+        // than a generic error toast.
+        return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
+          UnexpectedFailure(
+            message:
+                'Votre passage vient d’être enregistré. Patientez un instant avant le prochain.',
+          ),
+        );
+      }
       if (e.toString().contains('no_pending_passage')) {
         return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
           UnexpectedFailure(message: 'Aucun passage en attente pour ce client'),
@@ -317,6 +367,89 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
       return Left<AppFailure, ClientMerchantLoyaltyProgress>(
         UnexpectedFailure(
           message: 'Erreur lors de la validation de la récompense',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<ClientMerchantLoyaltyProgress>> claimWelcomeBon({
+    required String merchantId,
+    required String clientUid,
+  }) async {
+    if (merchantId.isEmpty || clientUid.isEmpty) {
+      return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
+        UnexpectedFailure(message: 'Commerce ou utilisateur invalide'),
+      );
+    }
+    try {
+      final progress = await _firestore.runTransaction(
+        (Transaction tx) async {
+          final ref = _docRef(merchantId, clientUid);
+          final snap = await tx.get(ref);
+          if (!snap.exists) {
+            // No loyalty doc yet → no welcome bon to claim. The UI must not
+            // surface the bon in this state, but guard anyway in case a stale
+            // optimistic UI fires the use case.
+            throw StateError('welcome_bon_unavailable');
+          }
+          final data = snap.data() ?? <String, dynamic>{};
+          final hasFirstVisit = data['first_visit_at'] != null;
+          if (!hasFirstVisit) {
+            throw StateError('welcome_bon_unavailable');
+          }
+          // Idempotency: if already claimed, return the current progress
+          // unchanged. Two rapid taps on "Utiliser" must NOT race-claim or
+          // throw — the user just sees a successful confirmation.
+          if (data['welcome_bon_claimed_at'] != null) {
+            return _fromMap(data);
+          }
+          tx.set(
+            ref,
+            <String, dynamic>{
+              'welcome_bon_claimed_at': FieldValue.serverTimestamp(),
+              'updated_at': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+          return _fromMap(<String, dynamic>{
+            ...data,
+            'welcome_bon_claimed_at': Timestamp.now(),
+          });
+        },
+      );
+      LoggerService.logInfo(
+        'Welcome bon claimed',
+        context: <String, Object?>{
+          'merchantId': merchantId,
+          'clientUid': clientUid,
+        },
+      );
+      return Right<AppFailure, ClientMerchantLoyaltyProgress>(progress);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError('Welcome bon Firebase', error: e, stackTrace: st);
+      return Left<AppFailure, ClientMerchantLoyaltyProgress>(
+        UnexpectedFailure(
+          message: 'Impossible de valider votre bon de bienvenue',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    } catch (e, st) {
+      if (e.toString().contains('welcome_bon_unavailable')) {
+        return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
+          UnexpectedFailure(
+            message:
+                'Aucun bon de bienvenue disponible. Effectuez un premier passage pour le débloquer.',
+          ),
+        );
+      }
+      LoggerService.logError('Welcome bon claim', error: e, stackTrace: st);
+      return Left<AppFailure, ClientMerchantLoyaltyProgress>(
+        UnexpectedFailure(
+          message: 'Erreur lors de la validation du bon',
           cause: e,
           stackTrace: st,
         ),

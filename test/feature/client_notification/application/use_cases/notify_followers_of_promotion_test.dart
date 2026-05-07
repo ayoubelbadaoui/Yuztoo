@@ -126,6 +126,13 @@ class _FakeLoyalty implements ClientLoyaltyRepository {
     required bool isSpendBased,
   }) async =>
       throw UnimplementedError();
+
+  @override
+  Future<Result<ClientMerchantLoyaltyProgress>> claimWelcomeBon({
+    required String merchantId,
+    required String clientUid,
+  }) async =>
+      throw UnimplementedError();
 }
 
 Promotion _promo({

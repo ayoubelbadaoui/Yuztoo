@@ -1512,8 +1512,14 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .read(store_profile_providers
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
+            // Signal the storefront to auto-open the loyalty-passage sheet
+            // exactly once. The storefront resets the flag after consuming
+            // it, so re-entering from the carnet stays silent.
+            ref
+                .read(store_profile_providers
+                    .pendingScanAutoPassageProvider.notifier)
+                .state = true;
             setState(() {
-              
               _nestedScreen = ScreenId.storeProfile;
             });
           },

@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
 import '../../auth/core/application/user_display_helpers.dart';
-import '../application/client_loyalty_providers.dart';
 import '../application/providers.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart' show ClientLoyaltyTier;
 
@@ -95,6 +94,7 @@ class LoyaltyCardsScreen extends ConsumerWidget {
                         feedAsync: feedAsync,
                       ),
                       const SizedBox(height: 24),
+                      const _MesAvantagesSection(),
                       _LoyaltyFeed(
                         feedAsync: feedAsync,
                         onStoreTap: onStoreTap,

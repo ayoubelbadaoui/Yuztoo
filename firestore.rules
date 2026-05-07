@@ -188,12 +188,18 @@ service cloud.firestore {
       // first_visit_at is written on the very first passage and must be
       // included in the allowed set so that doc creation (which uses merge)
       // is not rejected.  All other keys remain unchanged after creation.
+      // last_passage_at is the cooldown anchor — server timestamp written by
+      // the client SDK on every additive passage; immutable to monotonic time.
+      // welcome_bon_claimed_at is a one-shot timestamp written by the client
+      // when they redeem the welcome bon. Once set it must never be cleared.
       return request.resource.data.keys().hasOnly([
         'validated_passages',
         'pending_passages',
         'cumulative_spend_euros',
         'updated_at',
-        'first_visit_at'
+        'first_visit_at',
+        'last_passage_at',
+        'welcome_bon_claimed_at'
       ]);
     }
 
@@ -208,7 +214,12 @@ service cloud.firestore {
         && r.pending_passages >= 0 && r.pending_passages <= 1
         && r.cumulative_spend_euros >= 0 && r.cumulative_spend_euros <= 5000
         // first_visit_at is optional on creation but must be a server timestamp when present.
-        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at is timestamp);
+        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at is timestamp)
+        // last_passage_at is optional on creation; when present must be a server timestamp.
+        && (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp)
+        // welcome_bon_claimed_at must not be present on creation — it's only
+        // written via a later update once the bon is actually claimed.
+        && !r.keys().hasAll(['welcome_bon_claimed_at']);
     }
 
     function loyaltyClientSelfUpdateValid() {
@@ -228,7 +239,21 @@ service cloud.firestore {
         // first_visit_at is immutable: clients cannot add or change it after creation.
         // After merge, it will appear in request.resource.data; its value must equal
         // what was stored (i.e., it was not tampered with).
-        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at == o.get('first_visit_at', null));
+        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at == o.get('first_visit_at', null))
+        // last_passage_at must be a server timestamp on writes that touch it.
+        && (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp)
+        // welcome_bon_claimed_at is a one-shot. The client may set it from
+        // null → a server timestamp (claiming the bon), but once set it can
+        // NEVER be cleared or overwritten by the client SDK. Any reset must
+        // go through a privileged Cloud Function with Admin SDK.
+        && (
+          !r.keys().hasAll(['welcome_bon_claimed_at'])
+          || (
+            o.get('welcome_bon_claimed_at', null) == null
+              && r.welcome_bon_claimed_at is timestamp
+          )
+          || r.welcome_bon_claimed_at == o.get('welcome_bon_claimed_at', null)
+        );
     }
 
     match /merchants/{merchantId}/loyalty_clients/{userId} {

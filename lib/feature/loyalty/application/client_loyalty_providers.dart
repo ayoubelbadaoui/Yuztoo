@@ -8,7 +8,9 @@ import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart';
+import '../domain/entities/client_reward_item.dart';
 import '../infrastructure/client_loyalty_repository_provider.dart';
+import 'use_cases/claim_welcome_bon.dart';
 import 'use_cases/record_loyalty_passage.dart';
 import 'use_cases/redeem_loyalty_reward.dart';
 import 'use_cases/validate_pending_loyalty_passage.dart';
@@ -33,6 +35,10 @@ final validatePendingLoyaltyPassageProvider =
 
 final redeemLoyaltyRewardProvider = Provider<RedeemLoyaltyReward>((ref) {
   return RedeemLoyaltyReward(ref.watch(clientLoyaltyRepositoryProvider));
+});
+
+final claimWelcomeBonProvider = Provider<ClaimWelcomeBon>((ref) {
+  return ClaimWelcomeBon(ref.watch(clientLoyaltyRepositoryProvider));
 });
 
 // ─── Per-merchant progress stream ─────────────────────────────────────────────
@@ -235,4 +241,90 @@ final clientLoyaltyFeedProvider =
   }
 
   return entries;
+});
+
+// ─── "Mes avantages" — aggregated rewards across followed merchants ───────────
+
+/// All redeemable bons currently visible to the connected client, ordered by
+/// kind (welcome first, then milestone) and then by merchant name.
+///
+/// Resolution per loyalty entry:
+///   - Welcome bon: loyalty doc has `first_visit_at`, the merchant has a
+///     non-empty welcome gift, AND `welcome_bon_claimed_at` is null.
+///   - Milestone bon: progress meets/exceeds the configured threshold (one
+///     bon shown even if the client is multiple cycles ahead — the merchant's
+///     "Donner le bon" flow decrements per claim, and the next cycle's bon
+///     reappears once the deduction lands).
+///
+/// Implemented as a `FutureProvider` rather than a stream because the loyalty
+/// feed itself is a Future. Per-merchant progress is fetched once via
+/// `repo.watchProgress(...).first` so the aggregate has a single emission;
+/// the underlying card view continues to subscribe to the live stream and
+/// will refresh independently when a passage lands.
+final availableClientRewardsProvider =
+    FutureProvider.autoDispose<List<ClientRewardItem>>((ref) async {
+  final entries = await ref.watch(clientLoyaltyFeedProvider.future);
+  if (entries.isEmpty) return <ClientRewardItem>[];
+
+  final repo = ref.watch(clientLoyaltyRepositoryProvider);
+  final auth = ref.watch(auth_providers.authStateProvider);
+  if (auth is! Authenticated) return <ClientRewardItem>[];
+  final clientUid = auth.user.id;
+
+  // Fetch each merchant's current progress in parallel.
+  final progresses = await Future.wait(
+    entries.map(
+      (e) =>
+          repo.watchProgress(e.merchantId, clientUid).first.catchError(
+                (_) => const ClientMerchantLoyaltyProgress.empty(),
+              ),
+    ),
+  );
+
+  final rewards = <ClientRewardItem>[];
+
+  for (var i = 0; i < entries.length; i++) {
+    final entry = entries[i];
+    final progress = progresses[i];
+    final welcomeGift = entry.merchant.welcomeGiftDescription?.trim() ?? '';
+
+    // Welcome bon: one-shot, claimable.
+    if (progress.hasFirstVisit &&
+        !progress.welcomeBonClaimed &&
+        welcomeGift.isNotEmpty) {
+      rewards.add(ClientRewardItem(
+        merchant: entry.merchant,
+        kind: ClientRewardKind.welcome,
+        title: 'Bon de bienvenue',
+        description: welcomeGift,
+        actionable: true,
+      ));
+    }
+
+    // Milestone bon: shown when threshold reached. NOT actionable from
+    // client side in v1 — the existing merchant flow validates and
+    // decrements.
+    if (entry.isRewardAvailable(progress)) {
+      rewards.add(ClientRewardItem(
+        merchant: entry.merchant,
+        kind: ClientRewardKind.milestone,
+        title: 'Bon fidélité disponible',
+        description: entry.rewardLabel(),
+        actionable: false,
+      ));
+    }
+  }
+
+  // Welcome bons first (the most "delightful" reveal), then milestones.
+  // Stable secondary sort by merchant display name for deterministic UI.
+  rewards.sort((a, b) {
+    if (a.kind != b.kind) {
+      return a.kind == ClientRewardKind.welcome ? -1 : 1;
+    }
+    final an = a.merchant.displayName ?? a.merchant.name;
+    final bn = b.merchant.displayName ?? b.merchant.name;
+    return an.toLowerCase().compareTo(bn.toLowerCase());
+  });
+
+  return rewards;
 });

@@ -43,6 +43,7 @@ class ClientMerchantLoyaltyProgress extends Equatable {
     required this.cumulativeSpendEuros,
     this.isFirstVisit = false,
     this.hasFirstVisit = false,
+    this.welcomeBonClaimed = false,
   });
 
   const ClientMerchantLoyaltyProgress.empty()
@@ -50,7 +51,8 @@ class ClientMerchantLoyaltyProgress extends Equatable {
         pendingPassages = 0,
         cumulativeSpendEuros = 0,
         isFirstVisit = false,
-        hasFirstVisit = false;
+        hasFirstVisit = false,
+        welcomeBonClaimed = false;
 
   final int validatedPassages;
   final int pendingPassages;
@@ -67,6 +69,11 @@ class ClientMerchantLoyaltyProgress extends Equatable {
   /// Fidélité tab.
   final bool hasFirstVisit;
 
+  /// Persistent: true when `welcome_bon_claimed_at` is present, meaning the
+  /// client has already claimed (used) the welcome bon at this merchant.
+  /// Once true, the bon must NOT reappear in "Mes avantages".
+  final bool welcomeBonClaimed;
+
   @override
   List<Object?> get props => <Object?>[
         validatedPassages,
@@ -74,5 +81,6 @@ class ClientMerchantLoyaltyProgress extends Equatable {
         cumulativeSpendEuros,
         isFirstVisit,
         hasFirstVisit,
+        welcomeBonClaimed,
       ];
 }

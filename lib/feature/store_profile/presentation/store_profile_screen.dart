@@ -198,6 +198,11 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   int _heartSaveToken = 0;
   String? _lastViewedKey;
 
+  /// Tracks whether this screen instance has already consumed the
+  /// "auto-open passage sheet on scan" flag. Prevents re-firing on rebuild
+  /// (e.g. when isFollowing flips after the auto-follow side effect).
+  bool _scanAutoPassageHandled = false;
+
   @override
   Widget build(BuildContext context) {
     final pageAsync = ref.watch(storeProfilePageDataProvider);

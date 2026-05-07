@@ -750,6 +750,12 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
         viewedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
 
     _markMerchantAsViewed(userId, merchant.id);
+    _maybeAutoOpenPassageSheetOnScan(
+      context: context,
+      merchant: merchant,
+      userId: userId,
+      isFollowing: isFollowing,
+    );
 
     final baseHeartLevel = isFollowing
         ? (heartLevelsAsync.valueOrNull?[merchant.id] ?? 1)
@@ -1553,6 +1559,59 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           .markViewed(userId, merchantId),
     );
     ref.invalidate(viewedMerchantIdsForCurrentUserProvider);
+  }
+
+  /// Consumes [pendingScanAutoPassageProvider] exactly once per screen
+  /// instance and auto-opens the loyalty-passage sheet for logged-in clients
+  /// at merchants where loyalty is enabled. Other cases (guest, loyalty
+  /// disabled) silently clear the flag — the spec keeps the vitrine front
+  /// and centre and lets the user tap "Suivre ce commerce" themselves.
+  ///
+  /// Idempotency:
+  /// - `_scanAutoPassageHandled` blocks re-firing on rebuild within the same
+  ///   screen instance (e.g. when isFollowing flips after auto-follow).
+  /// - The provider reset to `false` blocks re-firing if the user later
+  ///   navigates away and back to the same storefront from the carnet.
+  /// - The transaction-level cooldown blocks duplicate writes if the user
+  ///   somehow reaches the use case twice (the sheet "Confirmer" button is
+  ///   itself debounced, so this is belt-and-suspenders).
+  void _maybeAutoOpenPassageSheetOnScan({
+    required BuildContext context,
+    required Merchant merchant,
+    required String? userId,
+    required bool isFollowing,
+  }) {
+    if (_scanAutoPassageHandled) return;
+    final pending = ref.read(pendingScanAutoPassageProvider);
+    if (!pending) return;
+
+    _scanAutoPassageHandled = true;
+
+    // Defer the provider reset and any sheet display past the current build
+    // phase — Riverpod state mutations and showModalBottomSheet must not run
+    // synchronously inside a build callback.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(pendingScanAutoPassageProvider.notifier).state = false;
+
+      // Guests stay on the vitrine — the spec ("CTA: Suivre ce commerce")
+      // routes their first conversion through the follow CTA, not through a
+      // surprise auth-gate modal.
+      if (userId == null || userId.isEmpty) return;
+
+      // Merchant disabled loyalty entirely — no sheet to show. Honour the
+      // scan as a plain vitrine open.
+      if (!merchant.loyaltyEnabled) return;
+      final program = merchant.loyaltyProgram;
+      if (program != null && !program.programEnabled) return;
+
+      _openRecordPassageSheet(
+        context,
+        merchant,
+        userId,
+        isFollowing: isFollowing,
+      );
+    });
   }
 
   // ── Promo detail modal ──────────────────────────────────────────────────────
