@@ -17,9 +17,16 @@ enum ClientRewardKind {
 }
 
 /// One redeemable bon belonging to the connected client at a given merchant.
-/// Computed on the fly from the loyalty doc + merchant config — there is no
-/// dedicated "rewards" subcollection in v1. See
-/// [availableClientRewardsProvider] for how these are produced.
+///
+/// Two backing sources, surfaced uniformly here:
+///   1. Persisted `users/{uid}/loyalty_bons` doc issued by the Cloud
+///      Function on first_visit / threshold cross. Carries
+///      [validUntilAt] when the merchant enabled validity, so the UI
+///      can show countdowns and the scheduled CF can warn / expire.
+///   2. On-the-fly fallback for unmigrated merchants (no bon doc yet
+///      because the CF was deployed after the user already crossed
+///      the threshold or claimed first visit). [validUntilAt] is null
+///      in this branch — bon stays evergreen for legacy users.
 class ClientRewardItem extends Equatable {
   const ClientRewardItem({
     required this.merchant,
@@ -27,6 +34,7 @@ class ClientRewardItem extends Equatable {
     required this.title,
     required this.description,
     required this.actionable,
+    this.validUntilAt,
   });
 
   final Merchant merchant;
@@ -52,6 +60,29 @@ class ClientRewardItem extends Equatable {
   ///   l'utiliser" hint instead of a button.
   final bool actionable;
 
+  /// Expiry instant. `null` for evergreen bons (legacy on-the-fly
+  /// fallback OR merchants who haven't enabled validity).
+  final DateTime? validUntilAt;
+
+  /// Days remaining until expiry, floored at 0. `null` when there is
+  /// no expiry (evergreen bon).
+  int? daysLeftAt(DateTime now) {
+    final until = validUntilAt;
+    if (until == null) return null;
+    final diff = until.difference(now).inDays;
+    return diff < 0 ? 0 : diff;
+  }
+
+  /// True when the bon is within 3 days of expiring (matches the
+  /// scheduled CF's "expire bientôt" threshold so client + server
+  /// agree on what counts as "soon").
+  bool isExpiringSoonAt(DateTime now) {
+    final until = validUntilAt;
+    if (until == null) return false;
+    if (!now.isBefore(until)) return false;
+    return until.difference(now).inDays <= 3;
+  }
+
   @override
   List<Object?> get props => <Object?>[
         merchant.id,
@@ -59,5 +90,6 @@ class ClientRewardItem extends Equatable {
         title,
         description,
         actionable,
+        validUntilAt,
       ];
 }

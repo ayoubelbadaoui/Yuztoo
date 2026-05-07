@@ -7,9 +7,22 @@
  * No Firebase emulator required — all Firestore calls are mocked.
  */
 
+// admin.firestore is BOTH a function (admin.firestore() → instance) AND a
+// namespace carrying static helpers (admin.firestore.Timestamp,
+// FieldValue, …). The mock function needs static properties hung on it.
+const firestoreFn: any = jest.fn(() => ({}));
+firestoreFn.Timestamp = {
+  fromMillis: (ms: number) => ({ toMillis: () => ms }),
+  now: () => ({ toMillis: () => Date.now() }),
+};
+firestoreFn.FieldValue = {
+  serverTimestamp: () => "__server_ts__",
+  increment: (n: number) => ({ __increment: n }),
+};
+
 jest.mock("firebase-admin", () => ({
   initializeApp: jest.fn(),
-  firestore: jest.fn(() => ({})),
+  firestore: firestoreFn,
   messaging: jest.fn(() => ({})),
 }));
 
@@ -21,14 +34,22 @@ const pubsubSchedule = {
   onRun: noopFn,
 };
 const pubsubRegion = { schedule: jest.fn().mockReturnValue(pubsubSchedule) };
-const regionMock = { firestore: firestoreRegion, pubsub: pubsubRegion };
+const httpsRegion = { onCall: noopFn };
+// runWith returns the same region-like object so the chain
+// `region().runWith().pubsub.schedule().onRun(...)` resolves.
+const regionMock: any = {
+  firestore: firestoreRegion,
+  pubsub: pubsubRegion,
+  https: httpsRegion,
+};
+regionMock.runWith = jest.fn().mockReturnValue(regionMock);
 
 jest.mock("firebase-functions", () => ({
   region: jest.fn().mockReturnValue(regionMock),
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
-import { computeSegment } from "../index";
+import { computeSegment, computeBonValidUntil } from "../index";
 
 // ── DOB date parsing ──────────────────────────────────────────────────────────
 // Mirror of the logic in dailyScheduledTriggers:
@@ -906,5 +927,86 @@ describe("G4: reward threshold change mid-cycle (known gap)", () => {
     // watches loyalty_program.visits_required changes and notifies affected clients.
     const isImplemented = false; // NOT implemented in MVP
     expect(isImplemented).toBe(false);
+  });
+});
+
+// ── computeBonValidUntil — bon expiration computation ────────────────────────
+//
+// Pure function used by issueWelcomeBonIfEligible / issueMilestoneBonIfEligible
+// to derive valid_until_at from a merchant's loyalty_program config. The CF
+// path itself touches Firestore so we don't unit-test it here, but the
+// (config) → (timestamp | null) decision IS critical for both the issuance
+// AND the scheduled expiration scan downstream — wrong "null" means the
+// scan will never see the bon, wrong "non-null" means the user gets a fake
+// expiry warning.
+
+describe("computeBonValidUntil", () => {
+  test("returns null when validity is not enabled", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: false,
+      reward_validity_days: 30,
+    });
+    expect(r).toBeNull();
+  });
+
+  test("returns null when days is 0 (treated as evergreen)", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: 0,
+    });
+    expect(r).toBeNull();
+  });
+
+  test("returns null when days is negative (defensive)", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: -10,
+    });
+    expect(r).toBeNull();
+  });
+
+  test("returns null when days is missing", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      // no reward_validity_days
+    });
+    expect(r).toBeNull();
+  });
+
+  test("returns null when config is undefined", () => {
+    const r = computeBonValidUntil(undefined);
+    expect(r).toBeNull();
+  });
+
+  test("returns Timestamp ~30 days out for enabled + 30 days", () => {
+    const before = Date.now();
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: 30,
+    });
+    const after = Date.now();
+    expect(r).not.toBeNull();
+    const ms = r!.toMillis();
+    // Allow a 1 second window between before / after sampling.
+    const expectedMin = before + 30 * 24 * 60 * 60 * 1000;
+    const expectedMax = after + 30 * 24 * 60 * 60 * 1000;
+    expect(ms).toBeGreaterThanOrEqual(expectedMin);
+    expect(ms).toBeLessThanOrEqual(expectedMax);
+  });
+
+  test("string-typed days (Firestore round-trip can return strings) is coerced", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: "14",
+    });
+    expect(r).not.toBeNull();
+  });
+
+  test("NaN days returns null (defensive against bad data)", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: "not a number",
+    });
+    expect(r).toBeNull();
   });
 });

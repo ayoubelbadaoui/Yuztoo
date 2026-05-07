@@ -140,6 +140,21 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/merchants/$(resource.data.merchant_id)).data.owner_uid == request.auth.uid));
     }
 
+    // --- /users/{userId}/loyalty_bons/{bonId} ---
+    // Per-client persisted reward bons. Issued by Cloud Functions when a
+    // welcome bon is unlocked (first visit) or a milestone threshold is
+    // crossed; carry an optional `valid_until_at` so the scheduled
+    // expiration CF can warn the client and mark expired ones. Strictly
+    // server-written: clients read but never create/update. The
+    // redemption mark (redeemed_at) is set server-side too — when the
+    // merchant decrements validated_passages or the client claims the
+    // welcome bon, the corresponding loyalty_clients write fires
+    // onLoyaltyProgressUpdated which mirrors the change here.
+    match /users/{userId}/loyalty_bons/{bonId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+    }
+
     // --- /users/{userId}/notifications/{notificationId} ---
     // Clients read and mark their own notifications.
     // Merchant-originated creates must claim a merchant_id the caller actually owns.

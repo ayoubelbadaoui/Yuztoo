@@ -270,6 +270,9 @@ class _RewardCard extends StatelessWidget {
         ? reward.merchant.displayName!
         : reward.merchant.name;
     final isWelcome = reward.kind == ClientRewardKind.welcome;
+    final now = DateTime.now();
+    final daysLeft = reward.daysLeftAt(now);
+    final isExpiringSoon = reward.isExpiringSoonAt(now);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -290,9 +293,15 @@ class _RewardCard extends StatelessWidget {
           color: MerchantColors.navyCard,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: MerchantColors.gold
-                .withValues(alpha: isWelcome ? 0.55 : 0.30),
-            width: isWelcome ? 1.5 : 1,
+            // Expiring-soon outranks welcome highlight: an evergreen
+            // welcome bon is less urgent than a milestone that expires
+            // tomorrow. Amber border telegraphs urgency without leaving
+            // the gold/navy palette.
+            color: isExpiringSoon
+                ? const Color(0xFFE8A93C)
+                : MerchantColors.gold
+                    .withValues(alpha: isWelcome ? 0.55 : 0.30),
+            width: isExpiringSoon ? 1.5 : (isWelcome ? 1.5 : 1),
           ),
           boxShadow: isWelcome
               ? [
@@ -360,7 +369,31 @@ class _RewardCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (isWelcome)
+                      // Expiry badge takes precedence over the welcome
+                      // badge — losing a bon to expiration is the more
+                      // urgent message to surface.
+                      if (isExpiringSoon)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8A93C),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            daysLeft == 0
+                                ? 'Expire aujourd\'hui'
+                                : (daysLeft == 1
+                                    ? 'Expire demain'
+                                    : 'J-${daysLeft ?? 0}'),
+                            style: GoogleFonts.outfit(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: MerchantColors.darkOverlay,
+                            ),
+                          ),
+                        )
+                      else if (isWelcome)
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
@@ -588,6 +621,10 @@ class _RewardDetailSheetState extends ConsumerState<_RewardDetailSheet> {
                 ),
               ),
             ),
+            if (reward.validUntilAt != null) ...[
+              const SizedBox(height: 12),
+              _ExpiryLine(validUntilAt: reward.validUntilAt!),
+            ],
             const SizedBox(height: 14),
             Text(
               isWelcome
@@ -655,6 +692,59 @@ class _RewardDetailSheetState extends ConsumerState<_RewardDetailSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Expiry line shown inside the reward detail sheet. Renders day-count
+/// + absolute date in French. Amber when ≤3 days left so the urgency
+/// matches the card-level badge.
+class _ExpiryLine extends StatelessWidget {
+  const _ExpiryLine({required this.validUntilAt});
+
+  final DateTime validUntilAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final diffDays = validUntilAt.difference(now).inDays;
+    final isExpiringSoon = diffDays >= 0 && diffDays <= 3;
+    final color = isExpiringSoon
+        ? const Color(0xFFE8A93C)
+        : MerchantColors.textLightGrey;
+    final headline = diffDays < 0
+        ? 'Bon expiré'
+        : diffDays == 0
+            ? 'Expire aujourd\'hui'
+            : diffDays == 1
+                ? 'Expire demain'
+                : 'Expire dans $diffDays jours';
+    final formatted =
+        '${validUntilAt.day.toString().padLeft(2, '0')}/'
+        '${validUntilAt.month.toString().padLeft(2, '0')}/'
+        '${validUntilAt.year}';
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          isExpiringSoon
+              ? Icons.warning_amber_rounded
+              : Icons.schedule_rounded,
+          color: color,
+          size: 16,
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            '$headline · $formatted',
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

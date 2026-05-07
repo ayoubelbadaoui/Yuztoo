@@ -29,10 +29,15 @@ const pubsubSchedule = {
   onRun: noopFn,
 };
 const pubsubRegion = { schedule: jest.fn().mockReturnValue(pubsubSchedule) };
-const regionMock = {
+const httpsRegion = { onCall: noopFn };
+const regionMock: any = {
   firestore: firestoreRegion,
   pubsub: pubsubRegion,
+  https: httpsRegion,
 };
+// Functions that use runWith chain back to the same mock so subsequent
+// pubsub/firestore calls keep resolving.
+regionMock.runWith = jest.fn().mockReturnValue(regionMock);
 
 jest.mock("firebase-functions", () => ({
   region: jest.fn().mockReturnValue(regionMock),

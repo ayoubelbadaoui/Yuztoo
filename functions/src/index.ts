@@ -52,6 +52,161 @@ async function getFollowerIds(merchantId: string): Promise<string[]> {
     .filter((id) => id !== "");
 }
 
+// ─── Loyalty bon helpers ─────────────────────────────────────────────────────
+//
+// Persisted reward bons live at users/{clientId}/loyalty_bons/{bonId}. Schema:
+//   merchant_id, kind ('welcome' | 'milestone'), description (snapshotted),
+//   issued_at, valid_until_at (nullable — null = evergreen), redeemed_at,
+//   notified_expiring_at, notified_expired_at.
+// Welcome bons use a deterministic ID (`welcome_${merchantId}`) so issuance is
+// naturally idempotent across CF retries. Milestone bons use random IDs but
+// the issuer pre-checks for an active (unredeemed) one before creating.
+
+/**
+ * Compute valid_until_at from a merchant's loyalty config.
+ * Returns null when the merchant has not enabled validity (evergreen bon).
+ *
+ * Exported so unit tests can verify the (config) → (timestamp | null)
+ * mapping without spinning up Firestore.
+ */
+export function computeBonValidUntil(
+  loyaltyConfig: Record<string, unknown> | undefined
+): admin.firestore.Timestamp | null {
+  if (!loyaltyConfig) return null;
+  const enabled = Boolean(loyaltyConfig.reward_validity_enabled);
+  const days = Number(loyaltyConfig.reward_validity_days ?? 0);
+  if (!enabled || !Number.isFinite(days) || days <= 0) return null;
+  const ms = Date.now() + days * 24 * 60 * 60 * 1000;
+  return admin.firestore.Timestamp.fromMillis(ms);
+}
+
+/**
+ * Issue a welcome bon doc when a client first appears in a merchant's
+ * loyalty_clients (first_visit_at). Idempotent: deterministic ID +
+ * existence check. No-op when the merchant has no welcome gift configured.
+ */
+async function issueWelcomeBonIfEligible(
+  clientId: string,
+  merchantId: string,
+  merchantData: Record<string, unknown>
+): Promise<void> {
+  const welcomeGift = String(
+    merchantData.welcome_gift_description ?? ""
+  ).trim();
+  if (welcomeGift.length === 0) return;
+  const bonId = `welcome_${merchantId}`;
+  const ref = db
+    .collection("users")
+    .doc(clientId)
+    .collection("loyalty_bons")
+    .doc(bonId);
+  try {
+    const existing = await ref.get();
+    if (existing.exists) return;
+    const loyaltyConfig =
+      (merchantData.loyalty_program as Record<string, unknown>) ?? {};
+    const validUntil = computeBonValidUntil(loyaltyConfig);
+    await ref.set({
+      merchant_id: merchantId,
+      kind: "welcome",
+      description: welcomeGift,
+      issued_at: admin.firestore.FieldValue.serverTimestamp(),
+      valid_until_at: validUntil,
+      redeemed_at: null,
+      notified_expiring_at: null,
+      notified_expired_at: null,
+    });
+  } catch (e) {
+    functions.logger.warn("issueWelcomeBon failed", {
+      clientId,
+      merchantId,
+      error: e,
+    });
+  }
+}
+
+/**
+ * Issue a milestone bon doc when a client crosses the threshold AND there
+ * is no other active (unredeemed) milestone bon for this client+merchant
+ * pair. The latter constraint avoids duplicates if the trigger fires twice
+ * (CF retry, write amplification, etc.).
+ */
+async function issueMilestoneBonIfEligible(
+  clientId: string,
+  merchantId: string,
+  merchantData: Record<string, unknown>
+): Promise<void> {
+  const ref = db
+    .collection("users")
+    .doc(clientId)
+    .collection("loyalty_bons");
+  try {
+    // Active (unredeemed) milestone bon for this merchant?
+    const existing = await ref
+      .where("merchant_id", "==", merchantId)
+      .where("kind", "==", "milestone")
+      .where("redeemed_at", "==", null)
+      .limit(1)
+      .get();
+    if (!existing.empty) return;
+    const loyaltyConfig =
+      (merchantData.loyalty_program as Record<string, unknown>) ?? {};
+    const description = String(merchantData.name ?? "Bon fidélité");
+    const validUntil = computeBonValidUntil(loyaltyConfig);
+    await ref.add({
+      merchant_id: merchantId,
+      kind: "milestone",
+      description: `Bon fidélité — ${description}`,
+      issued_at: admin.firestore.FieldValue.serverTimestamp(),
+      valid_until_at: validUntil,
+      redeemed_at: null,
+      notified_expiring_at: null,
+      notified_expired_at: null,
+    });
+  } catch (e) {
+    functions.logger.warn("issueMilestoneBon failed", {
+      clientId,
+      merchantId,
+      error: e,
+    });
+  }
+}
+
+/**
+ * Mark the (single) active bon of a given kind as redeemed for a
+ * client+merchant pair. Used when the merchant decrements
+ * validated_passages (milestone redemption) or when the client claims
+ * the welcome bon (welcome_bon_claimed_at transitions null→set).
+ */
+async function markActiveBonRedeemed(
+  clientId: string,
+  merchantId: string,
+  kind: "welcome" | "milestone"
+): Promise<void> {
+  try {
+    const snap = await db
+      .collection("users")
+      .doc(clientId)
+      .collection("loyalty_bons")
+      .where("merchant_id", "==", merchantId)
+      .where("kind", "==", kind)
+      .where("redeemed_at", "==", null)
+      .limit(1)
+      .get();
+    if (snap.empty) return;
+    await snap.docs[0].ref.update({
+      redeemed_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    functions.logger.warn("markActiveBonRedeemed failed", {
+      clientId,
+      merchantId,
+      kind,
+      error: e,
+    });
+  }
+}
+
 // ─── Segment helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -462,6 +617,34 @@ export const onLoyaltyProgressUpdated = functions
     const beforeValidated: number = before.validated_passages ?? 0;
     const afterValidated: number = after.validated_passages ?? 0;
 
+    // ── Welcome bon issuance (first visit only) ──────────────────────────────
+    // Tied to the same `!change.before.exists` predicate the auto-follow
+    // branch uses — this is the canonical "first visit" boundary.
+    if (!change.before.exists) {
+      try {
+        const merchantSnap = await db
+          .collection("merchants")
+          .doc(merchantId)
+          .get();
+        const merchantData = merchantSnap.data() ?? {};
+        await issueWelcomeBonIfEligible(clientId, merchantId, merchantData);
+      } catch (e) {
+        functions.logger.warn("welcome bon issuance lookup failed", {
+          clientId,
+          merchantId,
+          error: e,
+        });
+      }
+    }
+
+    // ── Welcome bon redemption (client tapped "Utiliser") ────────────────────
+    // The `welcome_bon_claimed_at` field is set by the existing welcome-claim
+    // path (FirestoreClientLoyaltyRepository.claimWelcomeBon). Mirror the
+    // claim onto the bon doc so the UI sees a coherent state.
+    if (!before.welcome_bon_claimed_at && after.welcome_bon_claimed_at) {
+      await markActiveBonRedeemed(clientId, merchantId, "welcome");
+    }
+
     // Passage was just validated (increment).
     if (afterValidated > beforeValidated) {
       await dispatchTrigger(
@@ -475,7 +658,8 @@ export const onLoyaltyProgressUpdated = functions
         .collection("merchants")
         .doc(merchantId)
         .get();
-      const loyaltyConfig = merchantSnap.data()?.loyalty_program ?? {};
+      const merchantData = merchantSnap.data() ?? {};
+      const loyaltyConfig = merchantData.loyalty_program ?? {};
       const visitsRequired: number =
         loyaltyConfig.visits_required ?? loyaltyConfig.visit_count ?? 10;
 
@@ -486,6 +670,10 @@ export const onLoyaltyProgressUpdated = functions
           "Récompense disponible",
           clientId
         );
+        // Persist a milestone bon doc so the scheduled expiration scan
+        // can warn / expire it later. Idempotent — won't re-issue if an
+        // active one already exists.
+        await issueMilestoneBonIfEligible(clientId, merchantId, merchantData);
       } else if (afterValidated === visitsRequired - 1) {
         // One step away from reward.
         await dispatchTrigger(
@@ -494,6 +682,15 @@ export const onLoyaltyProgressUpdated = functions
           clientId
         );
       }
+    }
+
+    // ── Milestone bon redemption (merchant honored the bon) ──────────────────
+    // RedeemLoyaltyReward decrements validated_passages by `visitsRequired`.
+    // Any decrement is treated as a redemption signal so the active bon is
+    // marked as redeemed. Safe even on edge cases (manual correction, etc.):
+    // markActiveBonRedeemed is a no-op when no active bon exists.
+    if (afterValidated < beforeValidated) {
+      await markActiveBonRedeemed(clientId, merchantId, "milestone");
     }
 
     return null;
@@ -910,6 +1107,165 @@ export const dailyScheduledTriggers = functions
       }
     );
 
+    return null;
+  });
+
+// ─── 7. Daily bon expiration scan ────────────────────────────────────────────
+//
+// Counterpart to `onLoyaltyProgressUpdated` issuance: scans every active
+// (unredeemed) loyalty bon across all users via collection-group query
+// and pushes two kinds of notification:
+//
+//   • "expire bientôt" — bon whose valid_until_at falls in the next
+//     three days, idempotently marked via notified_expiring_at.
+//   • "expiré"          — bon whose valid_until_at has already passed,
+//     idempotently marked via notified_expired_at.
+//
+// Idempotency is essential because Firestore's pubsub schedule offers
+// at-least-once delivery — without the markers we'd notify twice on a
+// retry. The markers themselves act as the cursor: any bon whose
+// notified_*_at is already set is excluded from the result set on the
+// next run.
+//
+// Bons without a valid_until_at (evergreen — merchant did not enable
+// validity) are filtered out by the index; they never expire and never
+// generate alerts.
+//
+// Scheduled at the SAME 09:00 Europe/Paris slot as the existing
+// dailyScheduledTriggers — keeps "user-visible activity" centred at one
+// predictable time of day rather than dripping notifications at random
+// hours.
+//
+// Required Firestore index: collection-group `loyalty_bons` on
+// (redeemed_at ASC, notified_expired_at ASC, valid_until_at ASC) for the
+// expired query, and a parallel one with notified_expiring_at for the
+// expiring query. Deploy via `firebase deploy --only firestore:indexes`
+// after adding the entries to firestore.indexes.json.
+export const dailyBonExpirationScan = functions
+  .region("europe-west1")
+  .runWith({ timeoutSeconds: 540, memory: "512MB" })
+  .pubsub.schedule("0 9 * * *")
+  .timeZone("Europe/Paris")
+  .onRun(async () => {
+    functions.logger.info("Running daily bon expiration scan");
+    const now = admin.firestore.Timestamp.now();
+    const inThreeDays = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() + 3 * 24 * 60 * 60 * 1000
+    );
+
+    // 1) Bons that have expired and weren't notified yet.
+    let expiredCount = 0;
+    try {
+      const expiredSnap = await db
+        .collectionGroup("loyalty_bons")
+        .where("redeemed_at", "==", null)
+        .where("notified_expired_at", "==", null)
+        .where("valid_until_at", "<=", now)
+        .get();
+      await processInChunks(expiredSnap.docs, 20, async (doc) => {
+        const userId = doc.ref.parent.parent?.id;
+        if (!userId) return;
+        const data = doc.data();
+        const merchantId = String(data.merchant_id ?? "");
+        const description = String(data.description ?? "votre bon fidélité");
+        try {
+          // Push notification — write to user's notifications subcollection,
+          // onNotificationCreated forwards the FCM push.
+          await db
+            .collection("users")
+            .doc(userId)
+            .collection("notifications")
+            .add({
+              client_id: userId,
+              merchant_id: merchantId,
+              merchant_name: "",
+              type: "bon_expired",
+              title: "Bon expiré",
+              body: `${description} a expiré.`,
+              is_read: false,
+              created_at: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          await doc.ref.update({
+            notified_expired_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          expiredCount++;
+        } catch (e) {
+          functions.logger.warn("expired-bon notify failed", {
+            userId,
+            bonId: doc.id,
+            error: e,
+          });
+        }
+      });
+    } catch (e) {
+      functions.logger.error("expired bon scan failed", { error: e });
+    }
+
+    // 2) Bons expiring within 3 days, not yet notified, not yet expired.
+    let expiringCount = 0;
+    try {
+      const expiringSnap = await db
+        .collectionGroup("loyalty_bons")
+        .where("redeemed_at", "==", null)
+        .where("notified_expiring_at", "==", null)
+        .where("valid_until_at", "<=", inThreeDays)
+        .where("valid_until_at", ">", now)
+        .get();
+      await processInChunks(expiringSnap.docs, 20, async (doc) => {
+        const userId = doc.ref.parent.parent?.id;
+        if (!userId) return;
+        const data = doc.data();
+        const merchantId = String(data.merchant_id ?? "");
+        const description = String(data.description ?? "votre bon fidélité");
+        const validUntil = data.valid_until_at as
+          | admin.firestore.Timestamp
+          | undefined;
+        const daysLeft = validUntil
+          ? Math.max(
+              0,
+              Math.ceil(
+                (validUntil.toMillis() - now.toMillis()) /
+                  (1000 * 60 * 60 * 24)
+              )
+            )
+          : 0;
+        try {
+          await db
+            .collection("users")
+            .doc(userId)
+            .collection("notifications")
+            .add({
+              client_id: userId,
+              merchant_id: merchantId,
+              merchant_name: "",
+              type: "bon_expiring",
+              title: "Bon bientôt expiré",
+              body: `${description} expire dans ${daysLeft} jour${
+                daysLeft > 1 ? "s" : ""
+              }.`,
+              is_read: false,
+              created_at: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          await doc.ref.update({
+            notified_expiring_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          expiringCount++;
+        } catch (e) {
+          functions.logger.warn("expiring-bon notify failed", {
+            userId,
+            bonId: doc.id,
+            error: e,
+          });
+        }
+      });
+    } catch (e) {
+      functions.logger.error("expiring bon scan failed", { error: e });
+    }
+
+    functions.logger.info("Bon expiration scan complete", {
+      expiredCount,
+      expiringCount,
+    });
     return null;
   });
 
