@@ -156,13 +156,18 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
           color: exceeded ? Colors.red[300] : MerchantColors.textGrey,
         ),
         const SizedBox(width: 5),
-        Text(
-          exceeded
-              ? 'Quota hebdomadaire atteint (${widget.quotaLabel})'
-              : 'Quota hebdo : ${widget.quotaLabel} envois',
-          style: GoogleFonts.outfit(
-            fontSize: 11,
-            color: exceeded ? Colors.red[300] : MerchantColors.textGrey,
+        Expanded(
+          child: Text(
+            exceeded
+                ? 'Limite atteinte : ${widget.quotaLabel} — max 5 envois / '
+                    'fenêtre glissante de 7 jours'
+                : 'Rappels : ${widget.quotaLabel} — max 5 envois / fenêtre '
+                    'glissante de 7 jours (X = déjà envoyés, 5 = plafond)',
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              color: exceeded ? Colors.red[300] : MerchantColors.textGrey,
+              height: 1.35,
+            ),
           ),
         ),
       ],

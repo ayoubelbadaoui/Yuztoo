@@ -148,6 +148,18 @@ class _GreetingBlock extends StatelessWidget {
             color: MerchantColors.textGrey,
           ),
         ),
+        if (totalCount > 0) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Récompense prête : repérez « Dispo ! » sur une carte, puis '
+            'touchez-la pour afficher votre bon.',
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              color: MerchantColors.textGrey,
+              height: 1.4,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -427,6 +439,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
         rewardAvailable: false,
         tier: null,
         showWelcomeBadge: false,
+        welcomeGiftText: '',
       ),
       error: (_, __) => _buildCard(
         context,
@@ -435,6 +448,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
         rewardAvailable: false,
         tier: null,
         showWelcomeBadge: false,
+        welcomeGiftText: '',
       ),
       data: (progress) {
         rewardAvailable = entry.isRewardAvailable(progress);
@@ -448,6 +462,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
           tier: ClientLoyaltyTier.fromPassages(progress.validatedPassages),
           showWelcomeBadge:
               progress.hasFirstVisit && welcomeGift.isNotEmpty,
+          welcomeGiftText: welcomeGift,
         );
       },
     );
@@ -589,6 +604,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
     required bool rewardAvailable,
     required ClientLoyaltyTier? tier,
     required bool showWelcomeBadge,
+    String welcomeGiftText = '',
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -722,7 +738,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
                   const Text('🎁', style: TextStyle(fontSize: 11)),
                   const SizedBox(width: 5),
                   Text(
-                    '1re connexion débloquée',
+                    'Bon d’accueil (1re connexion)',
                     style: GoogleFonts.outfit(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -730,6 +746,19 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+          if (showWelcomeBadge && welcomeGiftText.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              welcomeGiftText,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: MerchantColors.textLightGrey,
+                height: 1.45,
               ),
             ),
           ],

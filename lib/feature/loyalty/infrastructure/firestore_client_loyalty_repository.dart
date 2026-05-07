@@ -30,7 +30,10 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     final v = (data['validated_passages'] as num?)?.toInt() ?? 0;
     final p = (data['pending_passages'] as num?)?.toInt() ?? 0;
     final c = (data['cumulative_spend_euros'] as num?)?.toDouble() ?? 0.0;
-    // first_visit_at presence is the durable record that a welcome bonus was awarded.
+    // first_visit_at: first time we create the loyalty doc for this client at
+    // this merchant. The "bon d'accueil" is **not** a separate reward record:
+    // the app shows [Merchant.welcomeGiftDescription] on the loyalty card when
+    // this flag is set (no extra Firestore write for a coupon code).
     final hasFirstVisit =
         data.containsKey('first_visit_at') && data['first_visit_at'] != null;
     return ClientMerchantLoyaltyProgress(

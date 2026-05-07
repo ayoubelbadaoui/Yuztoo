@@ -266,13 +266,30 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Text(
-                                    'Votre commerce est hors ligne — invisible des clients.',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 13,
-                                      color: const Color(0xFF856404),
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Votre commerce est hors ligne — invisible des clients.',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 13,
+                                          color: const Color(0xFF856404),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Vous pouvez continuer à modifier votre vitrine ; '
+                                        'elle reste invisible jusqu\'à « Mettre en ligne ».',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 11,
+                                          color: const Color(0xFF856404)
+                                              .withValues(alpha: 0.85),
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(width: 6),

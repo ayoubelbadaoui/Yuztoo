@@ -1,8 +1,11 @@
-/// Comprehensive list of French municipalities and overseas territories.
-/// 422 unique cities, sorted alphabetically.
-/// Covers all 101 departments (metropolitan + overseas) with every city
-/// having commercial significance (population > ~10 000 or departmental capital).
-/// Used for city selection in onboarding and profile preferences.
+/// Curated list of larger French communes + overseas centres (422 entries).
+///
+/// France has on the order of **35 000** communes — this list is **not**
+/// exhaustive; it targets onboarding UX (quick pick) rather than full INSEE
+/// coverage. For a complete address book, plan a dedicated dataset or
+/// geocoding/autocomplete API (e.g. Base Adresse Nationale / API INSEE).
+///
+/// Sorted alphabetically. Used for city selection in onboarding and profile.
 const List<String> frenchCities = [
   'Agde',
   'Agen',
