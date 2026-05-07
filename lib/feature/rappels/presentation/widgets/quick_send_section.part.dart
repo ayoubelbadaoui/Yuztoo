@@ -158,11 +158,15 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
         const SizedBox(width: 5),
         Expanded(
           child: Text(
+            // Earlier feedback read the "2/5" label as "stuck at 2 max".
+            // We lead with the cap and use plain words ("envois utilisés",
+            // "plafond 5") so the ratio can't be misread as the limit.
             exceeded
-                ? 'Limite atteinte : ${widget.quotaLabel} — max 5 envois / '
-                    'fenêtre glissante de 7 jours'
-                : 'Rappels : ${widget.quotaLabel} — max 5 envois / fenêtre '
-                    'glissante de 7 jours (X = déjà envoyés, 5 = plafond)',
+                ? 'Limite hebdomadaire atteinte (${widget.quotaLabel} envois '
+                    'utilisés sur 5 max). Patientez — la fenêtre glissante '
+                    'de 7 jours libère un envoi à la fois.'
+                : 'Quota hebdomadaire : ${widget.quotaLabel} envois utilisés '
+                    '— plafond 5 sur une fenêtre glissante de 7 jours.',
             style: GoogleFonts.outfit(
               fontSize: 11,
               color: exceeded ? Colors.red[300] : MerchantColors.textGrey,
