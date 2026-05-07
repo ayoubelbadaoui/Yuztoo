@@ -1,7 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 export '../../auth/core/application/providers.dart'
-    show currentUserIdProvider, markMerchantOnboardingCompletedProvider;
+    show
+        authStateProvider,
+        currentUserIdProvider,
+        markMerchantOnboardingCompletedProvider;
+export '../../auth/core/application/state/auth_state.dart'
+    show AuthState, Authenticated;
 
 /// Selected merchant category title from the acquisition onboarding wizard.
 ///

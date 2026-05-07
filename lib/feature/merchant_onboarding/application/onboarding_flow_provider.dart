@@ -13,6 +13,7 @@ class MerchantOnboardingData {
     this.bannerImagePath,
     this.address,
     this.phoneNumber,
+    this.contactEmail,
     this.websiteUrl,
     this.categoryId,
     this.categoryTitle,
@@ -31,6 +32,14 @@ class MerchantOnboardingData {
   final String? bannerImagePath;
   final String? address;
   final String? phoneNumber;
+
+  /// Public contact email shown on the merchant's storefront. Distinct from
+  /// the Firebase Auth login email — a merchant may want to log in with
+  /// `patron@gmail.com` but display `contact@boulangerie.fr` to clients.
+  /// Defaults to the auth email at the start of onboarding; the merchant
+  /// may overwrite it on the address step.
+  final String? contactEmail;
+
   final String? websiteUrl;
   final String? categoryId;
   final String? categoryTitle;
@@ -47,6 +56,7 @@ class MerchantOnboardingData {
     String? bannerImagePath,
     String? address,
     String? phoneNumber,
+    String? contactEmail,
     String? websiteUrl,
     String? categoryId,
     String? categoryTitle,
@@ -63,6 +73,7 @@ class MerchantOnboardingData {
       bannerImagePath: bannerImagePath ?? this.bannerImagePath,
       address: address ?? this.address,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      contactEmail: contactEmail ?? this.contactEmail,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       categoryId: categoryId ?? this.categoryId,
       categoryTitle: categoryTitle ?? this.categoryTitle,
@@ -100,6 +111,16 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
 
   void setPhoneNumber(String value) => state =
       state.copyWith(phoneNumber: value.trim().isEmpty ? null : value.trim());
+
+  /// Lower-cases the contact email before persisting — Firebase Auth and
+  /// the email_index collection both store emails in lowercase, so we
+  /// normalise here to keep storefront display consistent with auth.
+  void setContactEmail(String value) {
+    final trimmed = value.trim();
+    state = state.copyWith(
+      contactEmail: trimmed.isEmpty ? null : trimmed.toLowerCase(),
+    );
+  }
 
   void setWebsiteUrl(String value) => state =
       state.copyWith(websiteUrl: value.trim().isEmpty ? null : value.trim());

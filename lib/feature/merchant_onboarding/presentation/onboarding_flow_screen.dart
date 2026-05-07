@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/shared/widgets/time_slot_picker.dart';
 import '../../../../core/utils/cities.dart';
+import '../../../../core/utils/email_validator.dart';
 import '../../../../core/utils/image_crop_utils.dart';
 import '../application/providers.dart';
 import '../domain/entities/merchant_category.dart';
@@ -58,6 +59,7 @@ class _MerchantOnboardingFlowScreenState
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _websiteController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _imagePicker = ImagePicker();
@@ -72,6 +74,7 @@ class _MerchantOnboardingFlowScreenState
     _nameController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
     _websiteController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -122,6 +125,19 @@ class _MerchantOnboardingFlowScreenState
     final uid = ref.read(currentUserIdProvider);
     if (uid == null) return;
     await ref.read(markMerchantOnboardingCompletedProvider).call(uid);
+  }
+
+  /// Best-effort auth-email lookup for prefilling the contact-email field.
+  /// Returns null when Firebase is not initialised (e.g. widget tests that
+  /// build the onboarding screen without `Firebase.initializeApp()`) — in
+  /// that case the merchant just types the email manually.
+  String? _authEmailForPrefill() {
+    try {
+      final auth = ref.read(authStateProvider);
+      return auth is Authenticated ? auth.user.email : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -200,9 +216,19 @@ class _MerchantOnboardingFlowScreenState
                     _StepAddress(
                       controller: _addressController,
                       phoneController: _phoneController,
+                      emailController: _emailController,
                       websiteController: _websiteController,
                       initialValue: data.address,
                       initialPhone: data.phoneNumber,
+                      // Prefill: previously typed onboarding email > auth
+                      // email (Firebase / social provider). The merchant
+                      // can still overwrite if they want a different
+                      // public contact email than their login. Auth lookup
+                      // is guarded so widget tests without Firebase
+                      // initialised still mount the screen (they just see
+                      // an empty email field, which is fine for them).
+                      initialEmail:
+                          data.contactEmail ?? _authEmailForPrefill(),
                       initialWebsite: data.websiteUrl,
                       onChanged: (v) => ref
                           .read(onboardingFlowProvider.notifier)
@@ -210,6 +236,9 @@ class _MerchantOnboardingFlowScreenState
                       onPhoneChanged: (v) => ref
                           .read(onboardingFlowProvider.notifier)
                           .setPhoneNumber(v),
+                      onEmailChanged: (v) => ref
+                          .read(onboardingFlowProvider.notifier)
+                          .setContactEmail(v),
                       onWebsiteChanged: (v) => ref
                           .read(onboardingFlowProvider.notifier)
                           .setWebsiteUrl(v),

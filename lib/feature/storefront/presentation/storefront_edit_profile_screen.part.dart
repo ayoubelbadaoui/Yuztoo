@@ -1094,14 +1094,25 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
               ),
               const SizedBox(height: 14),
               _Field(
+                // Email is now a required contact field. Existing merchants
+                // who finished onboarding before that change may carry the
+                // legacy `demo@example.com` placeholder OR have an empty
+                // value — both light up `isIncomplete` so they're nudged
+                // to set a real address. The text input itself stays
+                // editable, validation lives in the save flow.
                 label: 'Email professionnel',
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 prefixIcon: Icons.email_outlined,
                 onChanged: notifier.setEmail,
-                isRequired: false,
-                isIncomplete: false,
-                helpText: 'Adresse email professionnelle de contact. Yuztoo peut l\'utiliser pour des communications importantes.',
+                isRequired: true,
+                isIncomplete:
+                    EmailValidator.isPlaceholderOrEmpty(state.email) ||
+                        !EmailValidator.isValid(state.email),
+                helpText:
+                    'Adresse email professionnelle de contact. Yuztoo peut '
+                    'l\'utiliser pour des communications importantes (facturation, '
+                    'support). Visible sur votre vitrine.',
                 onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 14),
