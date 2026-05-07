@@ -1,9 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../legal/domain/legal_document.dart';
+import '../../../legal/presentation/legal_document_screen.dart';
 import '../application/providers.dart';
 import '../domain/signup_roles_map.dart';
 import '../../login/application/providers.dart' as login_providers;

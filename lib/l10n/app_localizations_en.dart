@@ -559,6 +559,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get termsOfUse => 'Terms of use';
 
   @override
+  String get privacyPolicy => 'Privacy policy';
+
+  @override
   String get browseWithoutAccount => 'Browse businesses without an account →';
 
   @override

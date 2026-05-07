@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/logout_confirm_dialog.dart';
+import '../../legal/domain/legal_document.dart';
+import '../../legal/presentation/legal_document_screen.dart';
 import '../application/providers.dart';
 import 'widgets/settings_preferences_section.dart';
 import 'widgets/settings_services_section.dart';

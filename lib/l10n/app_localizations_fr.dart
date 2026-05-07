@@ -563,6 +563,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get termsOfUse => 'Conditions d\'utilisation';
 
   @override
+  String get privacyPolicy => 'Politique de confidentialité';
+
+  @override
   String get browseWithoutAccount => 'Parcourir les commerces sans compte →';
 
   @override

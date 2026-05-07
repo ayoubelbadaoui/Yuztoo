@@ -95,24 +95,32 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                         _NavItem(
                           icon: Icons.article_outlined,
                           label: l10n.termsOfUse,
-                          onTap: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            final url = Uri.parse('https://yuztoo.app/cgu');
-                            if (await canLaunchUrl(url)) {
-                              await launchUrl(url,
-                                  mode: LaunchMode.externalApplication);
-                            } else {
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Conditions d\'utilisation bientôt disponibles',
-                                    style: GoogleFonts.outfit(fontSize: 13),
-                                  ),
-                                  backgroundColor: MerchantColors.bgHeader,
-                                  behavior: SnackBarBehavior.floating,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const LegalDocumentScreen(
+                                  document: LegalDocument.termsOfService,
                                 ),
-                              );
-                            }
+                              ),
+                            );
+                          },
+                        ),
+                        // App Store guideline 5.1.1 mandates an in-app
+                        // privacy view that's reachable without leaving
+                        // the app and that works offline. Pushing the
+                        // bundled-text screen satisfies both — see
+                        // [LegalDocument] for why content is in source.
+                        _NavItem(
+                          icon: Icons.privacy_tip_outlined,
+                          label: l10n.privacyPolicy,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const LegalDocumentScreen(
+                                  document: LegalDocument.privacyPolicy,
+                                ),
+                              ),
+                            );
                           },
                           isLast: true,
                         ),

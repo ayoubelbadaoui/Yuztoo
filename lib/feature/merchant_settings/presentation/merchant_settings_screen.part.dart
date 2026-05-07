@@ -78,6 +78,7 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
               ),
             ],
           ),
+          _buildLegalSection(),
           _buildLogoutSection(),
         ],
       ),
@@ -216,6 +217,105 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
 
 
 
+
+  // Mirrors the client side: every account-holding user must be able to
+  // reach CGU + Privacy Policy in-app (App Store guideline 5.1.1) so a
+  // pro account, which never sees the client-profile screen, gets the
+  // same affordance here.
+  Widget _buildLegalSection() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: MerchantColors.gold
+                .withValues(alpha: MerchantColors.goldBorderAlpha),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'INFORMATIONS LÉGALES',
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: MerchantColors.textGrey,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _legalItem(
+            icon: Icons.article_outlined,
+            label: 'Conditions d\'utilisation',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const LegalDocumentScreen(
+                  document: LegalDocument.termsOfService,
+                ),
+              ),
+            ),
+          ),
+          _legalItem(
+            icon: Icons.privacy_tip_outlined,
+            label: 'Politique de confidentialité',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const LegalDocumentScreen(
+                  document: LegalDocument.privacyPolicy,
+                ),
+              ),
+            ),
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _legalItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isLast = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : Border(
+                  bottom: BorderSide(
+                    color: MerchantColors.gold.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: MerchantColors.textGrey, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildLogoutSection() {
     return Column(
