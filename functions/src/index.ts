@@ -9,6 +9,20 @@ const messaging = admin.messaging();
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 /**
+ * Process an array of items with a bounded concurrency limit.
+ * Prevents spawning thousands of simultaneous Firestore reads (G8 fix).
+ */
+async function processInChunks<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  for (let i = 0; i < items.length; i += concurrency) {
+    await Promise.all(items.slice(i, i + concurrency).map(fn));
+  }
+}
+
+/**
  * Fetch all enabled auto_notifications for a merchant matching a given trigger.
  */
 async function getEnabledNotifications(
@@ -368,6 +382,43 @@ export const onLoyaltyProgressUpdated = functions
     const before = change.before.data() ?? {};
     const after = change.after.data() ?? {};
 
+    // ── G3 fix: server-side auto-follow on first loyalty passage ─────────────
+    // When the app is killed between recording a passage and calling
+    // toggleMerchantFollow, the follow document is silently lost.
+    // This server-side trigger creates it idempotently — it is not subject to
+    // app lifecycle and runs even if the client device is offline.
+    // Creating the follow doc triggers onFollowedMerchantCreated → fires
+    // "Nouveau client connecté" auto-notifications (correct first-contact UX).
+    if (!change.before.exists) {
+      try {
+        const followRef = db
+          .collection("users")
+          .doc(clientId)
+          .collection("followed_merchants")
+          .doc(merchantId);
+        const followSnap = await followRef.get();
+        if (!followSnap.exists) {
+          await followRef.set({
+            merchant_id: merchantId,
+            followed_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          functions.logger.info("Auto-follow created via loyalty passage", {
+            clientId,
+            merchantId,
+          });
+        }
+      } catch (e) {
+        // Non-fatal — passage is still recorded, follow will retry on next
+        // passage if the client returns. Log and continue.
+        functions.logger.error("onLoyaltyProgressUpdated: auto-follow failed", {
+          clientId,
+          merchantId,
+          error: e,
+        });
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const beforeValidated: number = before.validated_passages ?? 0;
     const afterValidated: number = after.validated_passages ?? 0;
 
@@ -592,14 +643,32 @@ export const weeklyQuotaReset = functions
       totalReset++;
 
       if (batchCount >= BATCH_SIZE) {
-        await batch.commit();
+        // G7 fix: wrap each commit in try/catch so a single batch failure
+        // does not prevent the remaining merchants from being reset.
+        // Affected merchants in a failed batch stay at their current count
+        // until the next Monday — far better than blocking all merchants.
+        try {
+          await batch.commit();
+        } catch (e) {
+          functions.logger.error("weeklyQuotaReset: batch commit failed", {
+            failedMerchantCount: batchCount,
+            error: e,
+          });
+        }
         batch = db.batch();
         batchCount = 0;
       }
     }
 
     if (batchCount > 0) {
-      await batch.commit();
+      try {
+        await batch.commit();
+      } catch (e) {
+        functions.logger.error("weeklyQuotaReset: final batch commit failed", {
+          failedMerchantCount: batchCount,
+          error: e,
+        });
+      }
     }
 
     functions.logger.info(`Weekly quota reset complete: ${totalReset} merchants reset`);
@@ -626,123 +695,166 @@ export const dailyScheduledTriggers = functions
     ).padStart(2, "0")}`;
 
     // Scan all merchants that have enabled auto notifications for birthday/anniversary.
+    // G8 fix: process merchants with bounded concurrency (10 at a time) instead of
+    // sequential await. At 1000 merchants × 500 followers, the old sequential loop
+    // would take ~25,000 seconds — far beyond the 9-minute CF timeout.
+    // With MERCHANT_CONCURRENCY=10 and CLIENT_CONCURRENCY=50, worst-case is:
+    //   ceil(1000/10) * ceil(500/50) * ~50ms ≈ 50,000ms < 9 minutes.
     const merchantsSnap = await db.collection("merchants").get();
+    const MERCHANT_CONCURRENCY = 10;
+    const CLIENT_CONCURRENCY = 50;
 
-    for (const merchantDoc of merchantsSnap.docs) {
-      const merchantId = merchantDoc.id;
+    await processInChunks(
+      merchantsSnap.docs,
+      MERCHANT_CONCURRENCY,
+      async (merchantDoc) => {
+        const merchantId = merchantDoc.id;
 
-      // Check if this merchant has birthday notifications enabled.
-      const birthdayNotifs = await getEnabledNotifications(
-        merchantId,
-        "Date anniversaire client"
-      );
-      const anniversaryNotifs = await getEnabledNotifications(
-        merchantId,
-        "Anniversaire de connexion"
-      );
-      const inactiveNotifs = await getEnabledNotifications(
-        merchantId,
-        "Retour d'un client inactif"
-      );
+        // Fetch all 3 trigger types in parallel (was 3 sequential awaits).
+        const [birthdayNotifs, anniversaryNotifs, inactiveNotifs] =
+          await Promise.all([
+            getEnabledNotifications(merchantId, "Date anniversaire client"),
+            getEnabledNotifications(merchantId, "Anniversaire de connexion"),
+            getEnabledNotifications(merchantId, "Retour d'un client inactif"),
+          ]);
 
-      if (
-        birthdayNotifs.length === 0 &&
-        anniversaryNotifs.length === 0 &&
-        inactiveNotifs.length === 0
-      ) {
-        continue;
-      }
+        if (
+          birthdayNotifs.length === 0 &&
+          anniversaryNotifs.length === 0 &&
+          inactiveNotifs.length === 0
+        ) {
+          return;
+        }
 
-      // Get all followers.
-      const followerIds = await getFollowerIds(merchantId);
+        // Get all followers.
+        const followerIds = await getFollowerIds(merchantId);
 
-      for (const clientId of followerIds) {
-        const userSnap = await db.collection("users").doc(clientId).get();
-        const userData = userSnap.data() ?? {};
+        // Process clients with bounded concurrency within each merchant.
+        await processInChunks(
+          followerIds,
+          CLIENT_CONCURRENCY,
+          async (clientId) => {
+            try {
+              const userSnap = await db
+                .collection("users")
+                .doc(clientId)
+                .get();
+              const userData = userSnap.data() ?? {};
 
-        // Birthday trigger.
-        if (birthdayNotifs.length > 0 && userData.date_of_birth) {
-          const dob: string = userData.date_of_birth; // expected "MM-DD" or "YYYY-MM-DD"
-          const dobMD = dob.length >= 5 ? dob.slice(dob.length - 5) : dob;
-          if (dobMD === todayMD) {
-            for (const notifDoc of birthdayNotifs) {
-              const allowed = await shouldSendToClient(notifDoc, clientId, merchantId);
-              if (!allowed) continue;
-              await fireAutoNotification(notifDoc, merchantId, clientId).catch(
-                (e) => functions.logger.warn("Birthday notif error", { e })
+              // Birthday trigger.
+              if (birthdayNotifs.length > 0 && userData.date_of_birth) {
+                const dob: string = userData.date_of_birth; // "MM-DD" or "YYYY-MM-DD"
+                const dobMD = dob.length >= 5 ? dob.slice(dob.length - 5) : dob;
+                if (dobMD === todayMD) {
+                  for (const notifDoc of birthdayNotifs) {
+                    const allowed = await shouldSendToClient(
+                      notifDoc,
+                      clientId,
+                      merchantId
+                    );
+                    if (!allowed) continue;
+                    await fireAutoNotification(
+                      notifDoc,
+                      merchantId,
+                      clientId
+                    ).catch((e) =>
+                      functions.logger.warn("Birthday notif error", { e })
+                    );
+                  }
+                }
+              }
+
+              // Anniversary of first connection.
+              if (anniversaryNotifs.length > 0) {
+                const followedMerchantSnap = await db
+                  .collection("users")
+                  .doc(clientId)
+                  .collection("followed_merchants")
+                  .doc(merchantId)
+                  .get();
+                if (followedMerchantSnap.exists) {
+                  const followedAt: FirebaseFirestore.Timestamp | undefined =
+                    followedMerchantSnap.data()?.followed_at;
+                  if (followedAt) {
+                    const followDate = followedAt.toDate();
+                    const followMD = `${String(
+                      followDate.getMonth() + 1
+                    ).padStart(2, "0")}-${String(followDate.getDate()).padStart(
+                      2,
+                      "0"
+                    )}`;
+                    // Only trigger after the first year.
+                    if (
+                      followMD === todayMD &&
+                      now.getFullYear() > followDate.getFullYear()
+                    ) {
+                      for (const notifDoc of anniversaryNotifs) {
+                        const allowed = await shouldSendToClient(
+                          notifDoc,
+                          clientId,
+                          merchantId
+                        );
+                        if (!allowed) continue;
+                        await fireAutoNotification(
+                          notifDoc,
+                          merchantId,
+                          clientId
+                        ).catch((e) =>
+                          functions.logger.warn("Anniversary notif error", { e })
+                        );
+                      }
+                    }
+                  }
+                }
+              }
+
+              // Inactive client — no visit in last 60 days.
+              if (inactiveNotifs.length > 0) {
+                const loyaltySnap = await db
+                  .collection("merchants")
+                  .doc(merchantId)
+                  .collection("loyalty_clients")
+                  .doc(clientId)
+                  .get();
+                if (loyaltySnap.exists) {
+                  const updatedAt: FirebaseFirestore.Timestamp | undefined =
+                    loyaltySnap.data()?.updated_at;
+                  if (updatedAt) {
+                    const daysSinceVisit =
+                      (now.getTime() - updatedAt.toDate().getTime()) /
+                      (1000 * 60 * 60 * 24);
+                    if (daysSinceVisit >= 60) {
+                      for (const notifDoc of inactiveNotifs) {
+                        const allowed = await shouldSendToClient(
+                          notifDoc,
+                          clientId,
+                          merchantId
+                        );
+                        if (!allowed) continue;
+                        await fireAutoNotification(
+                          notifDoc,
+                          merchantId,
+                          clientId
+                        ).catch((e) =>
+                          functions.logger.warn("Inactive notif error", { e })
+                        );
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              // Per-client errors are isolated — one bad client doc does not
+              // block the rest of the fan-out for this merchant.
+              functions.logger.error(
+                "dailyScheduledTriggers: error processing client",
+                { clientId, merchantId, error: e }
               );
             }
           }
-        }
-
-        // Anniversary of first connection.
-        if (anniversaryNotifs.length > 0) {
-          const followedMerchantSnap = await db
-            .collection("users")
-            .doc(clientId)
-            .collection("followed_merchants")
-            .doc(merchantId)
-            .get();
-          if (followedMerchantSnap.exists) {
-            const followedAt: FirebaseFirestore.Timestamp | undefined =
-              followedMerchantSnap.data()?.followed_at;
-            if (followedAt) {
-              const followDate = followedAt.toDate();
-              const followMD = `${String(followDate.getMonth() + 1).padStart(
-                2,
-                "0"
-              )}-${String(followDate.getDate()).padStart(2, "0")}`;
-              // Only trigger after the first year.
-              if (followMD === todayMD && now.getFullYear() > followDate.getFullYear()) {
-                for (const notifDoc of anniversaryNotifs) {
-                  const allowed = await shouldSendToClient(notifDoc, clientId, merchantId);
-                  if (!allowed) continue;
-                  await fireAutoNotification(
-                    notifDoc,
-                    merchantId,
-                    clientId
-                  ).catch((e) =>
-                    functions.logger.warn("Anniversary notif error", { e })
-                  );
-                }
-              }
-            }
-          }
-        }
-
-        // Inactive client — no visit in last 60 days (aligned with Flutter threshold).
-        if (inactiveNotifs.length > 0) {
-          const loyaltySnap = await db
-            .collection("merchants")
-            .doc(merchantId)
-            .collection("loyalty_clients")
-            .doc(clientId)
-            .get();
-          if (loyaltySnap.exists) {
-            const updatedAt: FirebaseFirestore.Timestamp | undefined =
-              loyaltySnap.data()?.updated_at;
-            if (updatedAt) {
-              const daysSinceVisit =
-                (now.getTime() - updatedAt.toDate().getTime()) /
-                (1000 * 60 * 60 * 24);
-              if (daysSinceVisit >= 60) {
-                for (const notifDoc of inactiveNotifs) {
-                  const allowed = await shouldSendToClient(notifDoc, clientId, merchantId);
-                  if (!allowed) continue;
-                  await fireAutoNotification(
-                    notifDoc,
-                    merchantId,
-                    clientId
-                  ).catch((e) =>
-                    functions.logger.warn("Inactive notif error", { e })
-                  );
-                }
-              }
-            }
-          }
-        }
+        );
       }
-    }
+    );
 
     return null;
   });
