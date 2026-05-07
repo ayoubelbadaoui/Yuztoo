@@ -243,63 +243,85 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                     ),
                     child: Column(
                       children: [
-                        // Offline warning banner — merchant can still edit when hors ligne
-                        if (!storefront.isPublished)
-                          GestureDetector(
-                            onTap: () => _setMerchantPublished(storefront, true),
-                            child: Container(
-                              width: double.infinity,
-                              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
+                        // Offline warning banner — stays open until user explicitly
+                        // dismisses it (X) or taps "Mettre en ligne".
+                        if (!storefront.isPublished && !_offlineBannerDismissed)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                            padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF3CD),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFFFC107).withValues(alpha: 0.6),
                               ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF3CD),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color(0xFFFFC107).withValues(alpha: 0.6),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.visibility_off_outlined,
+                                  color: Color(0xFF856404),
+                                  size: 18,
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.visibility_off_outlined,
-                                    color: Color(0xFF856404),
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      'Votre commerce est hors ligne — invisible des clients.',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 13,
-                                        color: const Color(0xFF856404),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Votre commerce est hors ligne — invisible des clients.',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 13,
                                       color: const Color(0xFF856404),
-                                      borderRadius: BorderRadius.circular(8),
+                                      fontWeight: FontWeight.w500,
                                     ),
-                                    child: Text(
-                                      'Mettre en ligne',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 11,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                // Explicit action button — only this goes online
+                                if (_isPublishingToggle)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFF856404),
+                                    ),
+                                  )
+                                else
+                                  GestureDetector(
+                                    onTap: () =>
+                                        _setMerchantPublished(storefront, true),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF856404),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        'Mettre en ligne',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 11,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
+                                // Dismiss button — hides banner, does NOT go online
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: Color(0xFF856404),
+                                  ),
+                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: _dismissOfflineBanner,
+                                ),
+                              ],
                             ),
                           ),
                         // Banner with profile picture
