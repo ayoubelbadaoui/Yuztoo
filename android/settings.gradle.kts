@@ -22,6 +22,9 @@ plugins {
     id("com.android.application") version "8.9.1" apply false
     // START: FlutterFire Configuration
     id("com.google.gms.google-services") version("4.3.15") apply false
+    // Crashlytics gradle plugin uploads the Android symbol table on each
+    // release build so the Firebase console can deobfuscate stacktraces.
+    id("com.google.firebase.crashlytics") version("3.0.2") apply false
     // END: FlutterFire Configuration
     id("org.jetbrains.kotlin.android") version "2.1.0" apply false
 }
