@@ -93,8 +93,10 @@ class TimeSlot {
 
   static TimeSlot fromMap(Map<String, dynamic> map) {
     return TimeSlot(
-      start: normalizeTimeString(map['start'] as String? ?? '8h'),
-      end: normalizeTimeString(map['end'] as String? ?? '12h'),
+      start: normalizeTimeString(
+          map['start'] is String ? map['start'] as String : '8h'),
+      end: normalizeTimeString(
+          map['end'] is String ? map['end'] as String : '12h'),
     );
   }
 }
@@ -128,12 +130,13 @@ class DayHours {
     final slots = map['timeSlots'];
     final list = slots is List
         ? slots
-            .map((e) => TimeSlot.fromMap(Map<String, dynamic>.from(e as Map)))
+            .whereType<Map>()
+            .map((e) => TimeSlot.fromMap(Map<String, dynamic>.from(e)))
             .toList()
         : <TimeSlot>[];
     return DayHours(
       dayName: _normalizeDayName(map['dayName'] as String?, dayNameFallback),
-      isEnabled: map['isEnabled'] as bool? ?? false,
+      isEnabled: map['isEnabled'] == true,
       timeSlots: list,
     );
   }
@@ -204,7 +207,7 @@ class BusinessHours {
     }
 
     return BusinessHours(
-      hasExceptionalClosure: map['hasExceptionalClosure'] as bool? ?? false,
+      hasExceptionalClosure: map['hasExceptionalClosure'] == true,
       monday: DayHours.fromMap(_safeDay('monday'), dayNameFallback: 'Lundi'),
       tuesday: DayHours.fromMap(_safeDay('tuesday'), dayNameFallback: 'Mardi'),
       wednesday:

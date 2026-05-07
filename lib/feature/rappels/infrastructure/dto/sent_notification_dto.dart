@@ -30,7 +30,7 @@ class SentNotificationDto {
       merchantId: d['merchant_id'] as String? ?? '',
       text: d['text'] as String? ?? '',
       audience: d['audience'] as String? ?? 'Tous mes clients',
-      segments: d['segments'] != null
+      segments: d['segments'] is List
           ? List<String>.from(d['segments'] as List)
           : const [],
       sentCount: d['sent_count'] as int? ?? 0,

@@ -48,7 +48,7 @@ class AutoNotificationDto {
       text: data['text'] as String? ?? '',
       trigger: data['trigger'] as String? ?? 'Date anniversaire client',
       audience: data['audience'] as String? ?? 'Tous mes clients',
-      targetSegments: data['target_segments'] != null
+      targetSegments: data['target_segments'] is List
           ? List<String>.from(data['target_segments'] as List)
           : const [],
       isEnabled: data['is_enabled'] as bool? ?? true,
