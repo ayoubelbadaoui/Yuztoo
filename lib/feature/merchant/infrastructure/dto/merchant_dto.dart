@@ -107,7 +107,7 @@ class MerchantDto {
     }
     final loyaltyParsed = LoyaltyProgramFirestoreMapper.fromFirestoreMap(lp);
     final loyaltyEnabledEffective = loyaltyParsed?.programEnabled ??
-        (data['loyalty_enabled'] as bool? ?? true);
+        (data['loyalty_enabled'] != false);
 
     return MerchantDto(
       id: doc.id,
@@ -117,11 +117,13 @@ class MerchantDto {
       phone: data['phone'] as String? ?? '',
       city: data['city'] as String? ?? '',
       address: data['address'] as String?,
-      categories: data['categories'] != null
+      categories: data['categories'] is List
           ? List<String>.from(data['categories'] as List)
           : null,
       description: data['description'] as String?,
-      hours: data['hours'] as Map<String, dynamic>?,
+      hours: data['hours'] is Map
+          ? Map<String, dynamic>.from(data['hours'] as Map)
+          : null,
       status: data['status'] as String? ?? 'inactive',
       createdAt: parseTimestamp(data['created_at']),
       updatedAt: parseTimestamp(data['updated_at']),
@@ -129,16 +131,25 @@ class MerchantDto {
       logoUrl: data['logo_url'] as String?,
       websiteUrl: data['website_url'] as String?,
       bannerUrl: data['banner_url'] as String?,
-      newsImageUrls: data['news_image_urls'] != null
+      newsImageUrls: data['news_image_urls'] is List
           ? List<String>.from(data['news_image_urls'] as List)
           : null,
       loyaltyEnabled: loyaltyEnabledEffective,
       loyaltyProgramRaw: loyaltyRaw,
-      messagingEnabled: data['messaging_enabled'] as bool? ?? true,
-      notificationsAutoEnabled: data['notifications_auto_enabled'] as bool? ?? true,
-      galerieEnabled: data['galerie_enabled'] as bool? ?? true,
-      rappelsAutoClientValidation: data['rappels_auto_client_validation'] as bool?,
-      rappelsAutoPassageValidation: data['rappels_auto_passage_validation'] as bool?,
+      // Defensive bool casts: `as bool? ?? default` throws TypeError if Firestore
+      // stored the field as an int (0/1) or string ('true'/'false'). Use `!= false`
+      // for true-defaulting fields (null → true) and `== true` for false-defaulting.
+      messagingEnabled: data['messaging_enabled'] != false,
+      notificationsAutoEnabled: data['notifications_auto_enabled'] != false,
+      galerieEnabled: data['galerie_enabled'] != false,
+      rappelsAutoClientValidation:
+          data['rappels_auto_client_validation'] is bool
+              ? data['rappels_auto_client_validation'] as bool
+              : null,
+      rappelsAutoPassageValidation:
+          data['rappels_auto_passage_validation'] is bool
+              ? data['rappels_auto_passage_validation'] as bool
+              : null,
       rappelsMonthlyConnectedClients:
           nonNegativeInt(data['rappels_monthly_connected_clients']),
       rappelsMonthlyValidatedPassages:

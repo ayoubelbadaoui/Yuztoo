@@ -335,7 +335,16 @@ export const onNotificationCreated = functions
         code === "messaging/mismatched-credential";
       if (isDeadToken) {
         functions.logger.warn("Dead FCM token — deleting", { userId, code });
-        await tokenDoc.ref.delete();
+        // Wrap in try/catch: if delete() fails (network error, permission issue),
+        // the CF would fail and GCP would retry, leading to a retry loop where
+        // messaging.send() fails again → delete() fails again → infinite retries.
+        await tokenDoc.ref.delete().catch((deleteErr) => {
+          functions.logger.error("Failed to delete dead FCM token", {
+            userId,
+            code,
+            deleteErr,
+          });
+        });
       } else {
         functions.logger.error("Failed to send push", {
           userId,
