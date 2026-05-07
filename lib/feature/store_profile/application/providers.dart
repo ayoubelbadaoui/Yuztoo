@@ -26,6 +26,10 @@ export '../../loyalty/application/client_loyalty_providers.dart'
         clientLoyaltyProgressForMerchantProvider,
         recordLoyaltyPassageProvider,
         ClientLoyaltyEntry;
+export '../../profile/application/user_safety_providers.dart'
+    show blockedMerchantIdsProvider, userSafetyRepositoryProvider;
+export '../../profile/domain/repositories/user_safety_repository.dart'
+    show ReportReason, ReportTargetType, UserSafetyRepository;
 
 /// When the user taps a business (Accueil or Découvrir), set this to the merchant id
 /// before navigating to store profile.

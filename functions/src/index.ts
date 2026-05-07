@@ -131,11 +131,42 @@ async function getClientSegment(
  * The passage-based model never produces "abonne", so "abonne" → "nouveau"
  * is the closest semantic equivalent (active follower with low engagement).
  */
+async function isMerchantBlockedByClient(
+  clientId: string,
+  merchantId: string
+): Promise<boolean> {
+  try {
+    const snap = await db
+      .collection("users")
+      .doc(clientId)
+      .collection("blocked_merchants")
+      .doc(merchantId)
+      .get();
+    return snap.exists;
+  } catch (e) {
+    functions.logger.warn("isMerchantBlockedByClient: lookup failed", {
+      clientId,
+      merchantId,
+      error: e,
+    });
+    // Fail-safe: when the lookup itself errors, default to NOT blocked so
+    // legitimate clients still get their notifications. The block is a
+    // user opt-in feature; missing it once is far less harmful than
+    // silencing every notification because of a transient Firestore blip.
+    return false;
+  }
+}
+
 async function shouldSendToClient(
   notifDoc: admin.firestore.QueryDocumentSnapshot,
   clientId: string,
   merchantId: string
 ): Promise<boolean> {
+  // Hard gate: a client who blocked this merchant must NEVER receive any
+  // automated notification from them — segment match or not. Checked first
+  // so we short-circuit the more expensive segment lookup.
+  if (await isMerchantBlockedByClient(clientId, merchantId)) return false;
+
   const data = notifDoc.data();
   const audience: string = data.audience ?? "Tous mes clients";
   const rawSegments: string[] = data.target_segments ?? [];
@@ -563,6 +594,20 @@ export const onPromotionCreated = functions
 
     if (targetIds.length === 0) return null;
 
+    // 2b. Drop clients who blocked this merchant — they must NEVER receive
+    //     a promo from a merchant they silenced. Done here (before the doc
+    //     write) so we don't even create the notification document, which
+    //     also prevents the onNotificationCreated FCM push.
+    if (targetIds.length > 0) {
+      const filtered: string[] = [];
+      await processInChunks(targetIds, 16, async (clientId) => {
+        const blocked = await isMerchantBlockedByClient(clientId, merchantId);
+        if (!blocked) filtered.push(clientId);
+      });
+      targetIds = filtered;
+    }
+    if (targetIds.length === 0) return null;
+
     // 3. Write one type:"promotion" notification per eligible follower.
     //    onNotificationCreated will forward the FCM push for each doc.
     const BATCH_SIZE = 499;
@@ -866,4 +911,187 @@ export const dailyScheduledTriggers = functions
     );
 
     return null;
+  });
+
+// ─── RGPD: account deletion with cascade ──────────────────────────────────────
+//
+// `user.delete()` from the client SDK only removes the Firebase Auth account —
+// the user's Firestore data (loyalty progress at every merchant they ever
+// followed, push tokens, notifications, blocked merchants, AND the merchant
+// document if they are a pro) all survive. That violates GDPR's right to
+// erasure and gets the app rejected by Apple App Store under guideline 5.1.1
+// ("If your app supports account creation, you must also offer account
+//  deletion within the app").
+//
+// This callable handles the full purge in a single privileged path:
+//   1. Read users/{uid} to discover dual-profile (merchant_id), followed
+//      merchants list, and indexed email / phone.
+//   2. For every followed merchant, delete the corresponding loyalty_clients
+//      and pending_clients documents (the user's loyalty footprint at
+//      that merchant).
+//   3. Recursively delete users/{uid} — wipes notifications, push_tokens,
+//      followed_merchants, blocked_merchants, and any other subcollection.
+//   4. If the user is also a merchant (owns a merchants/{uid} doc),
+//      recursively delete that document — wipes loyalty_clients of OTHER
+//      users at this merchant, partners, promotions, sent_notifications,
+//      auto_notifications. Other clients keep dangling followed_merchants
+//      refs that the UI tolerates (getMerchantById returns null for
+//      deleted merchants).
+//   5. Free the email_index and phone_index entries so the same address
+//      can be reused at re-signup.
+//   6. Delete the Firebase Auth user.
+//
+// Idempotent on a best-effort basis — a re-call after a partial failure
+// continues cleanup. Cascade errors are logged but do NOT short-circuit
+// auth deletion: orphaned docs (no PII surfaced to other users) is a
+// far better failure mode than a surviving auth account that locks the
+// user out of re-signup.
+export const purgeAccount = functions
+  .region("europe-west1")
+  .runWith({ timeoutSeconds: 300, memory: "512MB" })
+  .https.onCall(async (_data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in required to delete account."
+      );
+    }
+    const uid = context.auth.uid;
+    functions.logger.info("purgeAccount: starting", { uid });
+
+    // 1) Read user doc to discover merchant_id + indexed contact identifiers.
+    let merchantId: string | undefined;
+    let lowercaseEmail: string | undefined;
+    let phoneId: string | undefined;
+    try {
+      const userDoc = await db.collection("users").doc(uid).get();
+      const data = userDoc.data() ?? {};
+      merchantId = (data.merchant_id as string | undefined) || undefined;
+      const email = (data.email as string | undefined) || "";
+      lowercaseEmail = email ? email.trim().toLowerCase() : undefined;
+      phoneId = (data.phone as string | undefined) || undefined;
+    } catch (e) {
+      functions.logger.warn("purgeAccount: user doc read failed", { uid, error: e });
+    }
+
+    // 2) Per-merchant loyalty footprint cleanup.
+    let followedMerchantIds: string[] = [];
+    try {
+      const followedSnap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("followed_merchants")
+        .get();
+      followedMerchantIds = followedSnap.docs.map((d) => d.id);
+    } catch (e) {
+      functions.logger.warn("purgeAccount: followed list read failed", {
+        uid,
+        error: e,
+      });
+    }
+
+    await processInChunks(followedMerchantIds, 8, async (mid) => {
+      try {
+        await db
+          .collection("merchants")
+          .doc(mid)
+          .collection("loyalty_clients")
+          .doc(uid)
+          .delete();
+      } catch (e) {
+        functions.logger.warn("purgeAccount: loyalty_clients delete failed", {
+          uid,
+          mid,
+          error: e,
+        });
+      }
+      try {
+        await db
+          .collection("merchants")
+          .doc(mid)
+          .collection("pending_clients")
+          .doc(uid)
+          .delete();
+      } catch (e) {
+        functions.logger.warn("purgeAccount: pending_clients delete failed", {
+          uid,
+          mid,
+          error: e,
+        });
+      }
+    });
+
+    // 3) Recursively delete the user's own root document and every
+    //    subcollection beneath it.
+    try {
+      await db.recursiveDelete(db.collection("users").doc(uid));
+    } catch (e) {
+      functions.logger.error("purgeAccount: recursiveDelete users failed", {
+        uid,
+        error: e,
+      });
+    }
+
+    // 4) If the user is also a merchant, wipe their merchant footprint too.
+    if (merchantId) {
+      try {
+        await db.recursiveDelete(db.collection("merchants").doc(merchantId));
+      } catch (e) {
+        functions.logger.error(
+          "purgeAccount: recursiveDelete merchants failed",
+          { uid, merchantId, error: e }
+        );
+      }
+    }
+
+    // 5) Free index entries so the email / phone can be reused at re-signup.
+    if (lowercaseEmail) {
+      try {
+        await db.collection("email_index").doc(lowercaseEmail).delete();
+      } catch (e) {
+        functions.logger.warn("purgeAccount: email_index delete failed", {
+          uid,
+          lowercaseEmail,
+          error: e,
+        });
+      }
+    }
+    if (phoneId) {
+      try {
+        await db.collection("phone_index").doc(phoneId).delete();
+      } catch (e) {
+        functions.logger.warn("purgeAccount: phone_index delete failed", {
+          uid,
+          phoneId,
+          error: e,
+        });
+      }
+    }
+
+    // 6) Finally drop the auth account so the user cannot sign in any more.
+    try {
+      await admin.auth().deleteUser(uid);
+    } catch (e: unknown) {
+      // If the auth user no longer exists (a mid-failed previous run, or
+      // Firebase Auth removed it via console), treat as success — the
+      // Firestore footprint is the part that matters for GDPR.
+      const code = (e as { code?: string })?.code;
+      if (code !== "auth/user-not-found") {
+        functions.logger.error("purgeAccount: auth deleteUser failed", {
+          uid,
+          error: e,
+        });
+        throw new functions.https.HttpsError(
+          "internal",
+          "Auth deletion failed; please retry."
+        );
+      }
+    }
+
+    functions.logger.info("purgeAccount: completed", {
+      uid,
+      merchantId: merchantId ?? null,
+      followedCount: followedMerchantIds.length,
+    });
+    return { ok: true };
   });

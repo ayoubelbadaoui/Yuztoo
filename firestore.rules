@@ -110,6 +110,24 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
+    // --- /users/{userId}/blocked_merchants/{merchantId} ---
+    // Per-user blocklist of merchants the user no longer wishes to receive
+    // notifications from or see in their carnet/recommendations. Strictly
+    // private to the owning user — merchants must NOT learn they were blocked
+    // (App Store guideline 1.2: blocking should be silent and one-sided).
+    // Cloud Functions read this via collection-group; the rule below allows
+    // owner-only read/write at the per-doc path. Writes are constrained to
+    // an empty / `created_at`-only payload to minimise data exposure.
+    match /users/{userId}/blocked_merchants/{merchantId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['created_at'])
+        && (
+          !('created_at' in request.resource.data)
+          || request.resource.data.created_at is timestamp
+        );
+    }
+
     // Collection-group rule: lets a signed-in merchant read all followed_merchants
     // docs where merchant_id == their own UID (used by getFollowerIds query).
     // Also allows the merchant OWNER to read even when merchantId != authUid
@@ -311,6 +329,45 @@ service cloud.firestore {
       // Written by the app (merchant sending a quick notification).
       allow create: if isMerchantOwner(merchantId);
       allow update, delete: if false;
+    }
+
+    // --- /reports/{reportId} ---
+    // App Store guideline 1.2: any app with user-generated content needs a
+    // reporting mechanism. Writes are append-only by signed-in users; the
+    // collection is intentionally NOT readable from the client (admins
+    // review via Firebase Console with the Admin SDK).
+    //
+    // Schema gate enforced server-side so a malicious user can't flood the
+    // collection with arbitrary fields:
+    //   - reporter_uid must equal the auth uid (no spoofing)
+    //   - target_type must be one of a small allowlist
+    //   - reason must be in an allowlist (UI restricts the picker)
+    //   - message is optional, capped at 500 chars
+    //   - created_at must be a server timestamp
+    match /reports/{reportId} {
+      allow read, update, delete: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.reporter_uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'reporter_uid', 'target_type', 'target_id',
+          'reason', 'message', 'created_at'
+        ])
+        && request.resource.data.target_type is string
+        && request.resource.data.target_type in [
+          'merchant', 'promotion', 'notification', 'user'
+        ]
+        && request.resource.data.target_id is string
+        && request.resource.data.target_id.size() > 0
+        && request.resource.data.target_id.size() <= 128
+        && request.resource.data.reason is string
+        && request.resource.data.reason in [
+          'spam', 'harassment', 'inappropriate', 'fraud',
+          'fake_business', 'other'
+        ]
+        && (!('message' in request.resource.data)
+          || (request.resource.data.message is string
+            && request.resource.data.message.size() <= 500))
+        && request.resource.data.created_at is timestamp;
     }
   }
 }

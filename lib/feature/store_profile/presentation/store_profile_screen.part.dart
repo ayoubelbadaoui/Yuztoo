@@ -895,7 +895,174 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           left: 12,
           child: _BackButton(onTap: widget.onBack),
         ),
+
+        // ── Safety menu overlay (block / report) ─────────────────────────────
+        // Hidden on the merchant's OWN storefront (preview view) — there's
+        // nothing meaningful to block or report on yourself. Hidden for
+        // guests too: blocking a shop is a per-account preference and
+        // signalements need a verified reporter for moderation triage.
+        if (userId != null && userId.isNotEmpty && userId != merchant.id)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            right: 12,
+            child: _StorefrontMoreMenuButton(
+              onTap: () => _openSafetyMenu(
+                context,
+                merchant: merchant,
+                userId: userId,
+              ),
+            ),
+          ),
       ],
+    );
+  }
+
+  /// Bottom-sheet entry point for the per-storefront safety actions
+  /// (block / report). Renders the actions live: if the user has already
+  /// blocked this merchant, the first action becomes "Débloquer".
+  void _openSafetyMenu(
+    BuildContext context, {
+    required Merchant merchant,
+    required String userId,
+  }) {
+    final isBlockedAsync = ref.read(blockedMerchantIdsProvider).valueOrNull;
+    final isBlocked =
+        isBlockedAsync != null && isBlockedAsync.contains(merchant.id);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: StorefrontColors.backgroundLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => _SafetyMenuSheet(
+        merchantName: merchant.displayName?.isNotEmpty == true
+            ? merchant.displayName!
+            : merchant.name,
+        isBlocked: isBlocked,
+        onToggleBlock: () async {
+          Navigator.of(sheetCtx).pop();
+          if (isBlocked) {
+            await _confirmAndUnblock(merchant: merchant, userId: userId);
+          } else {
+            await _confirmAndBlock(merchant: merchant, userId: userId);
+          }
+        },
+        onReport: () {
+          Navigator.of(sheetCtx).pop();
+          _openReportSheet(merchant: merchant, userId: userId);
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmAndBlock({
+    required Merchant merchant,
+    required String userId,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: StorefrontColors.backgroundLight,
+        title: Text(
+          'Bloquer ce commerce ?',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.w700,
+            color: StorefrontColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'Vous ne recevrez plus aucune notification de ${merchant.displayName ?? merchant.name}, '
+          'et il ne sera plus suggéré dans vos recommandations. '
+          'Vous pouvez débloquer à tout moment depuis cette fiche.',
+          style: GoogleFonts.outfit(
+            color: StorefrontColors.textSecondary,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Annuler',
+              style: GoogleFonts.outfit(
+                  color: StorefrontColors.textSecondary),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Bloquer',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final result = await ref.read(userSafetyRepositoryProvider).blockMerchant(
+          userId: userId,
+          merchantId: merchant.id,
+        );
+    if (!mounted) return;
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message)),
+      ),
+      (_) {
+        // Dropping the merchant from carnet & recommendations is the
+        // strongest signal the user can give — pop back to the
+        // previous shell rather than leaving them on a screen they
+        // explicitly chose to silence.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Commerce bloqué — vous ne recevrez plus rien.'),
+          ),
+        );
+        widget.onBack();
+      },
+    );
+  }
+
+  Future<void> _confirmAndUnblock({
+    required Merchant merchant,
+    required String userId,
+  }) async {
+    final result =
+        await ref.read(userSafetyRepositoryProvider).unblockMerchant(
+              userId: userId,
+              merchantId: merchant.id,
+            );
+    if (!mounted) return;
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message)),
+      ),
+      (_) => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Commerce débloqué.')),
+      ),
+    );
+  }
+
+  void _openReportSheet({
+    required Merchant merchant,
+    required String userId,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: StorefrontColors.backgroundLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => Padding(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(sheetCtx).bottom),
+        child: _ReportSheet(merchantId: merchant.id, reporterUid: userId),
+      ),
     );
   }
 
@@ -2470,6 +2637,410 @@ class _FollowersPill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Storefront safety widgets — shared across the block + report flows.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Round dark button mirroring the back-arrow button on the opposite
+/// banner edge. The vertical 3-dot icon signals "more actions" without
+/// committing visual real-estate to either action label.
+class _StorefrontMoreMenuButton extends StatelessWidget {
+  const _StorefrontMoreMenuButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.25),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.more_vert_rounded,
+          color: Colors.white,
+          size: 20,
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet listing the safety actions for a storefront. The labels
+/// adapt to whether the user has already blocked the merchant —
+/// "Bloquer" / "Débloquer" — so the sheet is always actionable.
+class _SafetyMenuSheet extends StatelessWidget {
+  const _SafetyMenuSheet({
+    required this.merchantName,
+    required this.isBlocked,
+    required this.onToggleBlock,
+    required this.onReport,
+  });
+
+  final String merchantName;
+  final bool isBlocked;
+  final VoidCallback onToggleBlock;
+  final VoidCallback onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: StorefrontColors.textSecondary
+                      .withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              merchantName,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: StorefrontColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            _SafetyMenuRow(
+              icon: isBlocked
+                  ? Icons.notifications_active_outlined
+                  : Icons.block_rounded,
+              label: isBlocked
+                  ? 'Débloquer ce commerce'
+                  : 'Bloquer ce commerce',
+              destructive: !isBlocked,
+              onTap: onToggleBlock,
+            ),
+            const SizedBox(height: 8),
+            _SafetyMenuRow(
+              icon: Icons.flag_outlined,
+              label: 'Signaler',
+              destructive: false,
+              onTap: onReport,
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Annuler',
+                style: GoogleFonts.outfit(
+                  color: StorefrontColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SafetyMenuRow extends StatelessWidget {
+  const _SafetyMenuRow({
+    required this.icon,
+    required this.label,
+    required this.destructive,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool destructive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        destructive ? Colors.redAccent : StorefrontColors.textPrimary;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: StorefrontColors.textSecondary.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: StorefrontColors.textSecondary,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Full report flow rendered as an inline sheet rather than a separate
+/// screen so the user never loses the storefront context. Reasons match
+/// the Firestore-rules allowlist (snake_case wire form via
+/// [ReportReason.wire]); the optional message is capped at 500 chars
+/// client-side AND server-side.
+class _ReportSheet extends ConsumerStatefulWidget {
+  const _ReportSheet({
+    required this.merchantId,
+    required this.reporterUid,
+  });
+
+  final String merchantId;
+  final String reporterUid;
+
+  @override
+  ConsumerState<_ReportSheet> createState() => _ReportSheetState();
+}
+
+class _ReportSheetState extends ConsumerState<_ReportSheet> {
+  ReportReason? _reason;
+  final TextEditingController _msg = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _msg.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_busy) return;
+    final reason = _reason;
+    if (reason == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choisissez un motif.')),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    final result =
+        await ref.read(userSafetyRepositoryProvider).submitReport(
+              reporterUid: widget.reporterUid,
+              targetType: ReportTargetType.merchant,
+              targetId: widget.merchantId,
+              reason: reason,
+              message: _msg.text,
+            );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message)),
+      ),
+      (_) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Signalement envoyé. Notre équipe va l\'examiner.'),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: StorefrontColors.textSecondary
+                      .withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              'Signaler ce commerce',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: StorefrontColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Votre signalement est confidentiel. L\'équipe Yuztoo le '
+              'traite sous 48h.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: StorefrontColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            for (final r in ReportReason.values)
+              _ReportReasonTile(
+                label: r.label,
+                selected: _reason == r,
+                onTap: () => setState(() => _reason = r),
+              ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _msg,
+              maxLines: 3,
+              maxLength: 500,
+              decoration: InputDecoration(
+                hintText:
+                    'Détails (facultatif — 500 caractères max)',
+                hintStyle: GoogleFonts.outfit(
+                  color: StorefrontColors.textSecondary,
+                  fontSize: 13,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                    color: StorefrontColors.primaryGold,
+                    width: 1.4,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _busy ? null : _submit,
+              style: FilledButton.styleFrom(
+                backgroundColor: StorefrontColors.primaryGold,
+                foregroundColor: StorefrontColors.navyDark,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: _busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: StorefrontColors.navyDark,
+                      ),
+                    )
+                  : Text(
+                      'Envoyer le signalement',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportReasonTile extends StatelessWidget {
+  const _ReportReasonTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: selected
+                ? StorefrontColors.primaryGold.withValues(alpha: 0.12)
+                : Colors.transparent,
+            border: Border.all(
+              color: selected
+                  ? StorefrontColors.primaryGold
+                  : StorefrontColors.textSecondary.withValues(alpha: 0.25),
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected
+                    ? StorefrontColors.primaryGold
+                    : StorefrontColors.textSecondary,
+                size: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: StorefrontColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
