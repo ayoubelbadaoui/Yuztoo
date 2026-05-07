@@ -269,6 +269,8 @@
   "navYourClients": "Your clients",
   "@navYourClients": {},
   "navNotifications": "Notifications",
-  "@navNotifications": {}
+  "@navNotifications": {},
+  "navRappels": "Rappels",
+  "@navRappels": {}
 }
 

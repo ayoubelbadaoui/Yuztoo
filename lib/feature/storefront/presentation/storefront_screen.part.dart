@@ -467,13 +467,16 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                           NewsSection(
                             content: storefront.newsContent,
                             imageUrls: storefront.newsImageUrls,
+                            pendingDeleteUrls: _pendingDeleteUrls,
                             isUploading: _isUploadingNewsImage,
+                            isClearingAll: _isClearingAllNews,
                             showMedia: true,
                             showDescription: false,
                             showUploadButton: true,
                             onUploadImage: () => _uploadNewsImage(storefront),
                             onDeleteImage: (url) =>
                                 _deleteNewsImage(storefront, url),
+                            onClearAll: () => _clearAllNewsImages(storefront),
                             onSettings: null,
                           ),
                         const SizedBox(

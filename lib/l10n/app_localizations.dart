@@ -1219,6 +1219,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Notifications'**
   String get navNotifications;
+
+  /// No description provided for @navRappels.
+  ///
+  /// In en, this message translates to:
+  /// **'Rappels'**
+  String get navRappels;
 }
 
 class _AppLocalizationsDelegate

@@ -41,6 +41,8 @@ import 'feature/merchant_onboarding/application/onboarding_flow_provider.dart'
     as merchant_onboarding_providers;
 import 'feature/storefront/application/screens.dart';
 import 'feature/storefront/application/providers.dart' as storefront_providers;
+import 'feature/storefront/presentation/storefront_edit_profile_screen.dart';
+import 'feature/storefront/application/profile_edit_state.dart';
 import 'feature/merchant/application/screens.dart';
 import 'feature/rappels/application/screens.dart';
 import 'feature/merchant_settings/application/screens.dart';

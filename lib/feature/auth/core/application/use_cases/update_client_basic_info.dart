@@ -13,11 +13,13 @@ class UpdateClientBasicInfo {
     String? firstName,
     String? lastName,
     DateTime? dateOfBirth,
+    String? ownerEmail,
   }) =>
       _repository.updateClientBasicInfo(
         uid: uid,
         firstName: firstName,
         lastName: lastName,
         dateOfBirth: dateOfBirth,
+        ownerEmail: ownerEmail,
       );
 }

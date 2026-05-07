@@ -124,10 +124,19 @@ service cloud.firestore {
 
     // --- /users/{userId}/notifications/{notificationId} ---
     // Clients read and mark their own notifications.
-    // Any signed-in user (merchant) may create notifications for others.
+    // Merchant-originated creates must claim a merchant_id the caller actually owns.
+    // This prevents any signed-in user from injecting fake notifications that
+    // impersonate another merchant's name/id (cross-promotion / spam attack).
     match /users/{userId}/notifications/{notificationId} {
       allow read, update, delete: if isOwner(userId);
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+        && (
+          // No merchant_id field (or empty string): system/legacy path — permitted.
+          !('merchant_id' in request.resource.data)
+          || request.resource.data.merchant_id == ''
+          // Merchant-originated: the caller must own the referenced merchant.
+          || isMerchantOwner(request.resource.data.merchant_id)
+        );
     }
 
     // --- /users/{userId}/push_tokens/{tokenId} ---
@@ -176,11 +185,15 @@ service cloud.firestore {
     // Client: read own row; create/update with bounded increments (MVP — abuse limits only in rules).
     // Merchant owner: full read/write (validation manuelle, ajustements).
     function loyaltyClientDocKeys() {
+      // first_visit_at is written on the very first passage and must be
+      // included in the allowed set so that doc creation (which uses merge)
+      // is not rejected.  All other keys remain unchanged after creation.
       return request.resource.data.keys().hasOnly([
         'validated_passages',
         'pending_passages',
         'cumulative_spend_euros',
-        'updated_at'
+        'updated_at',
+        'first_visit_at'
       ]);
     }
 
@@ -193,7 +206,9 @@ service cloud.firestore {
         && r.updated_at is timestamp
         && r.validated_passages >= 0 && r.validated_passages <= 1
         && r.pending_passages >= 0 && r.pending_passages <= 1
-        && r.cumulative_spend_euros >= 0 && r.cumulative_spend_euros <= 5000;
+        && r.cumulative_spend_euros >= 0 && r.cumulative_spend_euros <= 5000
+        // first_visit_at is optional on creation but must be a server timestamp when present.
+        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at is timestamp);
     }
 
     function loyaltyClientSelfUpdateValid() {
@@ -209,7 +224,11 @@ service cloud.firestore {
         && r.pending_passages >= o.pending_passages
         && r.pending_passages <= o.pending_passages + 1
         && r.cumulative_spend_euros >= o.cumulative_spend_euros
-        && r.cumulative_spend_euros <= o.cumulative_spend_euros + 5000;
+        && r.cumulative_spend_euros <= o.cumulative_spend_euros + 5000
+        // first_visit_at is immutable: clients cannot add or change it after creation.
+        // After merge, it will appear in request.resource.data; its value must equal
+        // what was stored (i.e., it was not tampered with).
+        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at == o.get('first_visit_at', null));
     }
 
     match /merchants/{merchantId}/loyalty_clients/{userId} {
@@ -225,7 +244,11 @@ service cloud.firestore {
           && request.auth.uid == userId
           && loyaltyClientSelfUpdateValid());
 
-      allow delete: if isMerchantOwner(merchantId);
+      // Loyalty history is permanent: once a client earns passages,
+      // that record must never be wiped from the client SDK. Any cleanup
+      // (e.g. program reset) must go through a privileged Cloud Function
+      // (Admin SDK) which bypasses security rules.
+      allow delete: if false;
     }
 
     match /merchants/{merchantId}/promotions/{promoId} {

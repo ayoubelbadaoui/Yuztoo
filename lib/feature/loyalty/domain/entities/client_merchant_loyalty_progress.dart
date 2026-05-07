@@ -42,23 +42,37 @@ class ClientMerchantLoyaltyProgress extends Equatable {
     required this.pendingPassages,
     required this.cumulativeSpendEuros,
     this.isFirstVisit = false,
+    this.hasFirstVisit = false,
   });
 
   const ClientMerchantLoyaltyProgress.empty()
       : validatedPassages = 0,
         pendingPassages = 0,
         cumulativeSpendEuros = 0,
-        isFirstVisit = false;
+        isFirstVisit = false,
+        hasFirstVisit = false;
 
   final int validatedPassages;
   final int pendingPassages;
   final double cumulativeSpendEuros;
 
-  /// True only on the very first passage ever recorded at this merchant.
-  /// Used to surface the welcome-gift description to the client.
+  /// Transient: true only for the duration of the `applyPassageDeltas` call
+  /// when the `loyalty_clients` document did not exist before the write.
+  /// Used to show the welcome-gift sheet immediately after recording a passage.
   final bool isFirstVisit;
 
+  /// Persistent: true when `first_visit_at` is present in the Firestore doc,
+  /// meaning the client's first-visit bonus was already awarded at some point.
+  /// Survives app restarts and can be used to show a durable badge in the
+  /// Fidélité tab.
+  final bool hasFirstVisit;
+
   @override
-  List<Object?> get props =>
-      <Object?>[validatedPassages, pendingPassages, cumulativeSpendEuros, isFirstVisit];
+  List<Object?> get props => <Object?>[
+        validatedPassages,
+        pendingPassages,
+        cumulativeSpendEuros,
+        isFirstVisit,
+        hasFirstVisit,
+      ];
 }

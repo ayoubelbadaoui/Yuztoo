@@ -1192,7 +1192,13 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
+                onTap: () {
+                  if (widget.onBack != null) {
+                    widget.onBack!();
+                  } else {
+                    Navigator.of(context).pop();
+                  }
+                },
                 behavior: HitTestBehavior.opaque,
                 child: const SizedBox(
                   width: 44,
@@ -1488,10 +1494,11 @@ class _GalleryEditorSectionState extends ConsumerState<_GalleryEditorSection> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(auth_providers.authStateProvider);
-    final merchantId =
-        authState is Authenticated ? authState.user.id : '';
     final storefront = ref.watch(storefrontProvider).valueOrNull;
+    // Use the merchant id from the resolved storefront, NOT authState.user.id.
+    // The linked merchant id may differ from the user's UID (e.g. when the
+    // merchant account was created separately and linked later).
+    final merchantId = storefront?.id ?? '';
     final urls = storefront?.newsImageUrls ?? [];
 
     return Container(

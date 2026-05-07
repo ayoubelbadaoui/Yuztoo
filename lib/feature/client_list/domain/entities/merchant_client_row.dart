@@ -1,6 +1,15 @@
 import 'package:equatable/equatable.dart';
 
-/// Segment computed from heart level and follow recency.
+/// Canonical passage-based segment. Mirrors Cloud Functions `computeSegment`.
+///
+/// Computation order (same thresholds everywhere):
+///   daysSinceLastVisit > 60  → inactif  (recency check first)
+///   validatedPassages >= 10  → vip
+///   validatedPassages >= 3   → habitue
+///   otherwise                → nouveau
+///
+/// `abonne` is kept in the enum for legacy color/label mappings but is no
+/// longer produced by [MerchantClientRow.segment].
 enum ClientSegment {
   nouveau,
   vip,
@@ -32,6 +41,8 @@ class MerchantClientRow extends Equatable {
     this.city,
     this.followedAt,
     this.heartLevel = 1,
+    this.validatedPassages = 0,
+    this.lastVisitAt,
   });
 
   final String clientUid;
@@ -39,29 +50,44 @@ class MerchantClientRow extends Equatable {
   final String? city;
   final DateTime? followedAt;
 
-  /// Heart level set by the client (1–3).
+  /// Heart level set by the merchant (1–3). Kept for display only.
+  /// Does NOT drive segment computation — use [validatedPassages] for that.
   final int heartLevel;
 
+  /// Validated loyalty passages from merchants/{id}/loyalty_clients/{clientId}.
+  final int validatedPassages;
+
+  /// Last loyalty visit timestamp. Null if the client has never visited.
+  final DateTime? lastVisitAt;
+
+  /// Passage-based segment, consistent with Cloud Functions and notification
+  /// targeting. Falls back to [followedAt] when no loyalty doc exists so that
+  /// long-time followers with 0 visits are classified as [ClientSegment.inactif].
   ClientSegment get segment {
-    if (heartLevel >= 3) return ClientSegment.vip;
-    if (heartLevel >= 2) return ClientSegment.habitue;
-    final now = DateTime.now();
-    if (followedAt != null &&
-        now.difference(followedAt!).inDays < 14) {
-      return ClientSegment.nouveau;
-    }
-    if (followedAt != null &&
-        now.difference(followedAt!).inDays > 60 &&
-        heartLevel < 2) {
-      return ClientSegment.inactif;
-    }
-    return ClientSegment.abonne;
+    final reference = lastVisitAt ?? followedAt;
+    final daysSince = reference != null
+        ? DateTime.now().difference(reference).inDays
+        : 999;
+
+    if (daysSince > 60) return ClientSegment.inactif;
+    if (validatedPassages >= 10) return ClientSegment.vip;
+    if (validatedPassages >= 3) return ClientSegment.habitue;
+    return ClientSegment.nouveau;
   }
 
   String get displayLabel =>
-      displayName?.isNotEmpty == true ? displayName! : '…${clientUid.substring(clientUid.length > 8 ? clientUid.length - 8 : 0)}';
+      displayName?.isNotEmpty == true
+          ? displayName!
+          : '…${clientUid.substring(clientUid.length > 8 ? clientUid.length - 8 : 0)}';
 
   @override
-  List<Object?> get props =>
-      <Object?>[clientUid, displayName, city, followedAt, heartLevel];
+  List<Object?> get props => <Object?>[
+        clientUid,
+        displayName,
+        city,
+        followedAt,
+        heartLevel,
+        validatedPassages,
+        lastVisitAt,
+      ];
 }

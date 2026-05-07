@@ -253,12 +253,12 @@ extension _ClientListScreenUi on _ClientListScreenState {
   // ── segment chips ─────────────────────────────────────────────────────────────
 
   Widget _buildSegmentChips() {
+    // 'abonne' removed — the passage-based segment model never produces it.
     const segments = [
       null, // "Tous"
       ClientSegment.nouveau,
       ClientSegment.vip,
       ClientSegment.habitue,
-      ClientSegment.abonne,
       ClientSegment.inactif,
     ];
 
@@ -752,13 +752,11 @@ extension _ClientListScreenUi on _ClientListScreenState {
       error: (_, __) => '0',
     );
 
-    // Segment counts for bar chart
+    // Segment counts for bar chart — 4 canonical segments, no 'abonne'.
     final segCounts = <ClientSegment, int>{
       ClientSegment.vip: vipCount,
       ClientSegment.habitue:
           allClients.where((c) => c.segment == ClientSegment.habitue).length,
-      ClientSegment.abonne:
-          allClients.where((c) => c.segment == ClientSegment.abonne).length,
       ClientSegment.nouveau:
           allClients.where((c) => c.segment == ClientSegment.nouveau).length,
       ClientSegment.inactif:
@@ -994,19 +992,19 @@ extension _ClientListScreenUi on _ClientListScreenState {
   }
 
   Widget _buildSegmentChart(Map<ClientSegment, int> counts) {
+    // 4 canonical passage-based segments — 'abonne' removed.
+    // Nouveau normalized to 0xFF64B5F6 (matches client_item_card + detail sheet).
     const segments = [
       ClientSegment.vip,
       ClientSegment.habitue,
-      ClientSegment.abonne,
       ClientSegment.nouveau,
       ClientSegment.inactif,
     ];
-    const labels = ['VIP', 'Habitué', 'Abonné', 'Nouveau', 'Inactif'];
+    const labels = ['VIP', 'Habitué', 'Nouveau', 'Inactif'];
     const colors = [
       Color(0xFFFFD700),
       Color(0xFF4CAF50),
-      MerchantColors.gold,
-      Color(0xFF4FC3F7),
+      Color(0xFF64B5F6),
       Colors.grey,
     ];
 

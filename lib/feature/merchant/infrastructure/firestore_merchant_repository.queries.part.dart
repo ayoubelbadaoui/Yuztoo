@@ -12,11 +12,13 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
       final fetchLimit =
           useCityFilter ? cityFetchCap.clamp(limit, 1000) : limit;
 
-      // List merchants by recent activity. When filtering by city, scan a wider
-      // slice so a commerce that just set its city is not excluded by the
-      // global top-N limit.
+      // Only return merchants that are online (status == 'active').
+      // The composite index [status ASC, updated_at DESC] in firestore.indexes.json
+      // covers this query. When filtering by city, scan a wider slice so a
+      // commerce that just set its city is not excluded by the global top-N limit.
       final querySnapshot = await _firestore
           .collection('merchants')
+          .where('status', isEqualTo: 'active')
           .orderBy('updated_at', descending: true)
           .limit(fetchLimit)
           .get();
@@ -24,6 +26,10 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
       var merchants = querySnapshot.docs
           .map((doc) => MerchantDto.fromFirestore(doc).toDomain())
           .toList();
+
+      // Safety: keep only active merchants in case Firestore index is not yet
+      // deployed or there is a replication lag.
+      merchants = merchants.where((m) => m.status == 'active').toList();
 
       if (useCityFilter) {
         final n = trimmedFilter.toLowerCase();

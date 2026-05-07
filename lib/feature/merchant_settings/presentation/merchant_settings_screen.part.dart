@@ -55,7 +55,6 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
       child: Column(
         children: [
           if (merchant != null) _buildMerchantMiniHeader(merchant.name),
-          _buildDescriptionSection(),
           SettingsPreferencesSection(
             onNavigate: widget.onNavigate,
           ),
@@ -123,13 +122,21 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Compte professionnel Yuztoo',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: MerchantColors.textGrey,
-                  ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.workspace_premium_rounded,
+                        color: MerchantColors.gold, size: 12),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Plan Gratuit',
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: MerchantColors.gold,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -207,50 +214,7 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
     );
   }
 
-  Widget _buildDescriptionSection() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: MerchantColors.gold
-                .withValues(alpha: MerchantColors.goldBorderAlpha),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: MerchantColors.gold.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: MerchantColors.gold.withValues(alpha: 0.4),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.workspace_premium_rounded,
-                  color: MerchantColors.gold, size: 14),
-              const SizedBox(width: 6),
-              Text(
-                'Plan Gratuit',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: MerchantColors.gold,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+
 
 
   Widget _buildLogoutSection() {

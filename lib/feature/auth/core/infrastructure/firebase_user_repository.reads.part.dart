@@ -643,24 +643,41 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
     String? firstName,
     String? lastName,
     DateTime? dateOfBirth,
+    String? ownerEmail,
   }) async {
     try {
+      final userRef = _firestore.collection('users').doc(uid);
+      final snap = await userRef.get();
+      if (!snap.exists || snap.data() == null) {
+        return const Left<AuthFailure, Unit>(
+          AuthUnexpectedFailure(
+            message: 'Profil introuvable. Reconnectez-vous.',
+          ),
+        );
+      }
+
+      final existing = Map<String, dynamic>.from(snap.data()!);
       final update = <String, dynamic>{
         'updated_at': FieldValue.serverTimestamp(),
       };
-      if (firstName != null && firstName.trim().isNotEmpty) {
-        final fn = firstName.trim();
+
+      final fn = firstName?.trim() ?? '';
+      final ln = lastName?.trim() ?? '';
+
+      if (fn.isNotEmpty) {
         update['first_name'] = fn;
-        // Keep displayName in sync: prefer "First Last" when both are present.
-        if (lastName != null && lastName.trim().isNotEmpty) {
-          update['displayName'] = '$fn ${lastName.trim()}';
-        } else {
-          update['displayName'] = fn;
-        }
+        // Build displayName: use incoming lastName if provided, else fall back
+        // to whatever is already in Firestore so we never drop the last name
+        // just because only firstName was passed.
+        final existingLn = (existing['last_name'] as String? ?? '').trim();
+        final effectiveLn = ln.isNotEmpty ? ln : existingLn;
+        update['displayName'] = effectiveLn.isNotEmpty ? '$fn $effectiveLn' : fn;
       }
-      if (lastName != null && lastName.trim().isNotEmpty) {
-        update['last_name'] = lastName.trim();
+
+      if (ln.isNotEmpty) {
+        update['last_name'] = ln;
       }
+
       if (dateOfBirth != null) {
         update['date_of_birth'] =
             '${dateOfBirth.year.toString().padLeft(4, '0')}-'
@@ -668,13 +685,27 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
             '${dateOfBirth.day.toString().padLeft(2, '0')}';
       }
 
-      await _firestore.collection('users').doc(uid).update(update);
+      final oe = ownerEmail?.trim() ?? '';
+      if (oe.isNotEmpty) {
+        update['owner_email'] = oe.toLowerCase();
+      }
+
+      // Ensure the merged document satisfies onboardingShapeValid(),
+      // rolesShapeValid() and noLegacyDottedRoleKeys() in Firestore rules.
+      // Older user docs may be missing or malformed on those fields, causing
+      // every partial update() to be rejected with permission-denied.
+      mergeUserPatchForFirestoreRules(existing, update);
+
+      await userRef.set(update, SetOptions(merge: true));
       LoggerService.logInfo('Client basic info updated', context: {'uid': uid});
       return const Right<AuthFailure, Unit>(unit);
     } catch (e, st) {
       if (e is FirebaseException && e.code == 'permission-denied') {
         return const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'Permission refusée'),
+          AuthUnexpectedFailure(
+            message:
+                'Modification refusée. Reconnectez-vous et réessayez.',
+          ),
         );
       }
       LoggerService.logError(

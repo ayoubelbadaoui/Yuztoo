@@ -444,6 +444,8 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
   Widget _buildHeader(AsyncValue<List<ClientNotification>> async) {
     final list = async.valueOrNull ?? [];
     final unreadCount = list.where((n) => !n.isRead).length;
+    final hasAny = list.isNotEmpty;
+    final isAlertes = _activeTab == 'alertes';
 
     return Container(
       color: MerchantColors.bgHeader,
@@ -463,7 +465,27 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              // Left: trash icon — visible when on alertes tab and list non-empty
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: (isAlertes && hasAny)
+                    ? GestureDetector(
+                        onTap: _deleteAll,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: MerchantColors.textGrey,
+                            size: 20,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -476,7 +498,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                         color: MerchantColors.textWhite,
                       ),
                     ),
-                    if (unreadCount > 0 && _activeTab == 'alertes') ...[
+                    if (unreadCount > 0 && isAlertes) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding:
@@ -499,41 +521,41 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                   ],
                 ),
               ),
+              // Right: "Tout lire" when there are unread alerts
               SizedBox(
                 width: 44,
                 height: 44,
-                child                    : (unreadCount > 0 && _activeTab == 'alertes')
-                        ? GestureDetector(
-                            onTap: _markAllRead,
-                            behavior: HitTestBehavior.opaque,
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              alignment: Alignment.center,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 4),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: MerchantColors.gold.withValues(
-                                        alpha:
-                                            MerchantColors.goldBorderStronger),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Tout\nlire',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                    color: MerchantColors.gold,
-                                    height: 1.2,
-                                  ),
-                                ),
+                child: (unreadCount > 0 && isAlertes)
+                    ? GestureDetector(
+                        onTap: _markAllRead,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.center,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 4),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: MerchantColors.gold.withValues(
+                                    alpha: MerchantColors.goldBorderStronger),
                               ),
                             ),
-                          )
+                            child: Text(
+                              'Tout\nlire',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.outfit(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: MerchantColors.gold,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
                     : const SizedBox.shrink(),
               ),
             ],
@@ -560,11 +582,26 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
         final n = entry as ClientNotification;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: GestureDetector(
-            onLongPress: () => _showMuteDialog(context, n.merchantId),
-            child: _NotificationCard(
-              notification: n,
-              onTap: () => _handleTap(n),
+          child: Dismissible(
+            key: ValueKey(n.id),
+            direction: DismissDirection.endToStart,
+            onDismissed: (_) => _deleteOne(n),
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20),
+              decoration: BoxDecoration(
+                color: Colors.red[700],
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.delete_outline_rounded,
+                  color: Colors.white, size: 24),
+            ),
+            child: GestureDetector(
+              onLongPress: () => _showActionSheet(context, n),
+              child: _NotificationCard(
+                notification: n,
+                onTap: () => _handleTap(n),
+              ),
             ),
           ),
         );
@@ -587,7 +624,8 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
     );
   }
 
-  Future<void> _showMuteDialog(BuildContext context, String merchantId) async {
+  Future<void> _showActionSheet(
+      BuildContext context, ClientNotification notification) async {
     final authState = ref.read(authStateProvider);
     if (authState is! Authenticated) return;
     final userId = authState.user.id;
@@ -604,36 +642,55 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 12),
-              Container(width: 36, height: 4,
+              Container(
+                width: 36,
+                height: 4,
                 decoration: BoxDecoration(
                   color: MerchantColors.textGrey.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
-                )),
+                ),
+              ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.notifications_off_outlined,
+                leading: const Icon(Icons.delete_outline_rounded,
                     color: Colors.redAccent),
                 title: Text(
-                  'Mettre en sourdine ce commerce',
+                  'Supprimer cette alerte',
                   style: GoogleFonts.outfit(
                     color: Colors.white,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                onTap: () async {
+                onTap: () {
                   Navigator.of(ctx).pop();
-                  await setMute(userId, merchantId, muted: true);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Notifications désactivées'),
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: MerchantColors.bgHeader,
-                      ),
-                    );
-                  }
+                  _deleteOne(notification);
                 },
               ),
+              if (notification.merchantId.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.notifications_off_outlined,
+                      color: MerchantColors.textGrey),
+                  title: Text(
+                    'Mettre en sourdine ce commerce',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    await setMute(userId, notification.merchantId, muted: true);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Notifications désactivées'),
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: MerchantColors.bgHeader,
+                        ),
+                      );
+                    }
+                  },
+                ),
               const SizedBox(height: 8),
             ],
           ),

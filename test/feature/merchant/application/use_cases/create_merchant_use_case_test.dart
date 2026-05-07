@@ -98,6 +98,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     List<String>? categories,
     String? logoUrl,
     String? phone,
+    String? email,
     String? address,
     String? city,
     String? websiteUrl,
@@ -105,6 +106,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     List<String>? newsImageUrls,
     String? status,
     Map<String, dynamic>? hours,
+    String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     LoyaltyProgramConfig? loyaltyProgram,
@@ -207,7 +209,7 @@ void main() {
       expect(result.isLeft, isTrue);
       final failure = result.leftOrNull;
       expect(failure, isA<MerchantUnexpectedFailure>());
-      expect(failure?.message, contains('Owner UID is required'));
+      expect(failure?.message, contains('identifiant du propriétaire'));
     });
 
     test('should return error when name is empty', () async {
@@ -222,7 +224,7 @@ void main() {
       expect(result.isLeft, isTrue);
       final failure = result.leftOrNull;
       expect(failure, isA<MerchantUnexpectedFailure>());
-      expect(failure?.message, contains('Merchant name is required'));
+      expect(failure?.message, contains('nom du commerce'));
     });
 
     test('should return error when email is empty', () async {
@@ -237,7 +239,7 @@ void main() {
       expect(result.isLeft, isTrue);
       final failure = result.leftOrNull;
       expect(failure, isA<MerchantUnexpectedFailure>());
-      expect(failure?.message, contains('Email is required'));
+      expect(failure?.message, contains('e-mail'));
     });
 
     test('should return error when phone is empty', () async {
@@ -252,7 +254,7 @@ void main() {
       expect(result.isLeft, isTrue);
       final failure = result.leftOrNull;
       expect(failure, isA<MerchantUnexpectedFailure>());
-      expect(failure?.message, contains('Phone number is required'));
+      expect(failure?.message, contains('téléphone'));
     });
 
     test('should return error when city is empty', () async {
@@ -267,7 +269,7 @@ void main() {
       expect(result.isLeft, isTrue);
       final failure = result.leftOrNull;
       expect(failure, isA<MerchantUnexpectedFailure>());
-      expect(failure?.message, contains('City is required'));
+      expect(failure?.message, contains('ville'));
     });
 
     test('should return error when merchant already exists', () async {
@@ -382,6 +384,7 @@ class _FailingCreateRepository implements MerchantRepository {
     List<String>? categories,
     String? logoUrl,
     String? phone,
+    String? email,
     String? address,
     String? city,
     String? websiteUrl,
@@ -389,6 +392,7 @@ class _FailingCreateRepository implements MerchantRepository {
     List<String>? newsImageUrls,
     String? status,
     Map<String, dynamic>? hours,
+    String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
     LoyaltyProgramConfig? loyaltyProgram,

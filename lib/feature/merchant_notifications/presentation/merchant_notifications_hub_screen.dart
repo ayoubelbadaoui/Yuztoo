@@ -19,10 +19,12 @@ part 'merchant_notifications_hub_screen.part.dart';
 class MerchantNotificationsHubScreen extends ConsumerStatefulWidget {
   const MerchantNotificationsHubScreen({
     super.key,
+    this.onBack,
     this.onNavigate,
     this.isDualProfile = false,
   });
 
+  final VoidCallback? onBack;
   final void Function(String)? onNavigate;
   final bool isDualProfile;
 
@@ -48,6 +50,7 @@ class _MerchantNotificationsHubScreenState
       text: text,
       audience: audience,
       segments: segments,
+      callerUid: merchant.ownerUid,
     );
     if (!mounted) return;
     result.fold(

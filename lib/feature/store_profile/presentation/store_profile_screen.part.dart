@@ -45,6 +45,130 @@ class _StoreProfileErrorBack extends StatelessWidget {
   }
 }
 
+/// Shown when a merchant's status is not 'active' (offline / draft).
+/// Clients who reach the page via QR code or deep link see this instead of
+/// the full storefront so they are never misled by stale content.
+class _StoreProfileOffline extends StatelessWidget {
+  const _StoreProfileOffline({
+    required this.merchantName,
+    required this.onBack,
+  });
+
+  final String merchantName;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        children: [
+          // Minimal back header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: onBack,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: StorefrontColors.creamLight,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 16,
+                    color: StorefrontColors.navyDark,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: StorefrontColors.primaryGold.withValues(alpha: 0.1),
+                      ),
+                      child: const Icon(
+                        Icons.storefront_outlined,
+                        size: 36,
+                        color: StorefrontColors.primaryGold,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      merchantName,
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: StorefrontColors.navyDark,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Ce commerce est actuellement hors ligne.',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        color: StorefrontColors.textSecondary,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Revenez plus tard ou contactez-le directement.',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: StorefrontColors.textSecondary,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 28),
+                    TextButton.icon(
+                      onPressed: onBack,
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: StorefrontColors.primaryGold,
+                        size: 16,
+                      ),
+                      label: Text(
+                        'Retour',
+                        style: GoogleFonts.outfit(
+                          color: StorefrontColors.primaryGold,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Section header label (e.g. "Téléphone", "Adresse")
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
@@ -256,6 +380,7 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
     required this.clientUid,
     required this.needsPurchaseAmount,
     required this.parentContext,
+    this.isAlreadyFollowing = false,
   });
 
   final Merchant merchant;
@@ -264,6 +389,9 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
   /// Context of the parent screen — used to show the welcome-gift modal after
   /// this sheet is dismissed (its own context becomes invalid after pop).
   final BuildContext parentContext;
+  /// When false, successfully recording a passage silently auto-follows the
+  /// merchant so the client's loyalty card appears in their Fidélité tab.
+  final bool isAlreadyFollowing;
 
   @override
   ConsumerState<_RecordLoyaltyPassageSheet> createState() =>
@@ -323,6 +451,18 @@ class _RecordLoyaltyPassageSheetState
         final merchantName = widget.merchant.displayName?.isNotEmpty == true
             ? widget.merchant.displayName!
             : widget.merchant.name;
+
+        // Auto-follow the merchant when the client records a passage without
+        // already following — ensures their loyalty card appears in Fidélité.
+        if (!widget.isAlreadyFollowing) {
+          final toggleFollow = ref.read(toggleMerchantFollowProvider);
+          unawaited(toggleFollow.call(
+            userId: widget.clientUid,
+            merchantId: widget.merchant.id,
+            currentlyFollowing: false,
+          ));
+        }
+
         Navigator.of(context).pop();
         if (progress.isFirstVisit && welcomeGift.isNotEmpty) {
           // Use the parent screen's context — sheet context is invalid after pop.
@@ -696,6 +836,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                         merchant,
                         loyaltyProgressAsync,
                         userId,
+                        isFollowing: isFollowing,
                       ),
                       const SizedBox(height: 16),
 
@@ -706,7 +847,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                         _buildWelcomeGiftCard(
                             merchant.welcomeGiftDescription!.trim()),
                       const SizedBox(height: 12),
-                      _buildActionRow(context, merchant.id),
+                      _buildActionRow(context, merchant),
                     ],
                   ),
                 ),
@@ -846,7 +987,8 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 
   // ── Follow / Unfollow button ───────────────────────────────────────────────
 
-  Widget _buildActionRow(BuildContext context, String merchantId) {
+  Widget _buildActionRow(BuildContext context, Merchant merchant) {
+    final merchantId = merchant.id;
     final userId = ref.watch(currentUserIdProvider);
     final followedAsync = ref.watch(followedMerchantIdsForCurrentUserProvider);
     final isFollowing =
@@ -908,12 +1050,15 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                   ? null
                   : () async {
                       if (userId == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content:
-                                Text('Connectez-vous pour suivre des commerces'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
+                        final merchantName =
+                            merchant.displayName?.isNotEmpty == true
+                                ? merchant.displayName!
+                                : merchant.name;
+                        _showAuthGateSheet(
+                          context,
+                          merchant,
+                          message:
+                              'Connectez-vous pour suivre $merchantName et rester informé de ses actualités et promotions.',
                         );
                         return;
                       }
@@ -988,8 +1133,9 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     BuildContext context,
     Merchant merchant,
     AsyncValue<ClientMerchantLoyaltyProgress> progressAsync,
-    String? userId,
-  ) {
+    String? userId, {
+    bool isFollowing = false,
+  }) {
     final summary = merchant.loyaltyClientSummaryForDisplay;
     final program = merchant.loyaltyProgram ??
         LoyaltyProgramConfig.fallbackFromFlags(
@@ -1161,8 +1307,9 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () =>
-                    _openRecordPassageSheet(context, merchant, userId),
+                onPressed: () => _openRecordPassageSheet(
+                    context, merchant, userId,
+                    isFollowing: isFollowing),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: StorefrontColors.primaryGold,
                   side: const BorderSide(color: StorefrontColors.primaryGold),
@@ -1228,7 +1375,11 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   String _fmtEuro(double n) =>
       n == n.roundToDouble() ? n.toInt().toString() : n.toStringAsFixed(2);
 
-  void _showAuthGateSheet(BuildContext context, Merchant merchant) {
+  void _showAuthGateSheet(
+    BuildContext context,
+    Merchant merchant, {
+    String? message,
+  }) {
     final name = merchant.displayName ?? merchant.name;
     showModalBottomSheet<void>(
       context: context,
@@ -1288,7 +1439,8 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
               ),
               const SizedBox(height: 10),
               Text(
-                'Pour enregistrer votre passage chez $name et accumuler des points fidélité, veuillez vous connecter.',
+                message ??
+                    'Pour enregistrer votre passage chez $name et accumuler des points fidélité, veuillez vous connecter.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
                   fontSize: 14,
@@ -1359,8 +1511,9 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   void _openRecordPassageSheet(
     BuildContext context,
     Merchant merchant,
-    String? userId,
-  ) {
+    String? userId, {
+    bool isFollowing = false,
+  }) {
     if (userId == null || userId.isEmpty) {
       _showAuthGateSheet(context, merchant);
       return;
@@ -1383,6 +1536,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           clientUid: userId,
           needsPurchaseAmount: program.effectiveAskClientPurchaseAmount,
           parentContext: context,
+          isAlreadyFollowing: isFollowing,
         ),
       ),
     );
@@ -2053,21 +2207,70 @@ class _HoraireTab extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEEE8DE)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Exceptional closure banner — shown above the regular hours.
+          if (h.hasExceptionalClosure) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.orange.shade300, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      color: Colors.orange.shade700, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Fermeture exceptionnelle',
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.orange.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Ce commerce est temporairement fermé. Les horaires habituels ne s\'appliquent pas.',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: Colors.orange.shade700,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 12),
           ],
-        ),
-        child: Column(
-          children: h.allDays.asMap().entries.map((entry) {
+          Opacity(
+            opacity: h.hasExceptionalClosure ? 0.45 : 1.0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFEEE8DE)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: h.allDays.asMap().entries.map((entry) {
             final i = entry.key;
             final day = entry.value;
             final isToday =
@@ -2133,8 +2336,11 @@ class _HoraireTab extends StatelessWidget {
                 ),
               ],
             );
-          }).toList(),
-        ),
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -10,6 +10,7 @@ import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart';
 import '../infrastructure/client_loyalty_repository_provider.dart';
 import 'use_cases/record_loyalty_passage.dart';
+import 'use_cases/redeem_loyalty_reward.dart';
 import 'use_cases/validate_pending_loyalty_passage.dart';
 import '../domain/entities/loyalty_pending_client_row.dart';
 
@@ -28,6 +29,10 @@ final validatePendingLoyaltyPassageProvider =
     Provider<ValidatePendingLoyaltyPassage>((ref) {
   return ValidatePendingLoyaltyPassage(
       ref.watch(clientLoyaltyRepositoryProvider));
+});
+
+final redeemLoyaltyRewardProvider = Provider<RedeemLoyaltyReward>((ref) {
+  return RedeemLoyaltyReward(ref.watch(clientLoyaltyRepositoryProvider));
 });
 
 // ─── Per-merchant progress stream ─────────────────────────────────────────────
@@ -64,6 +69,28 @@ final merchantClientLoyaltyProgressProvider = StreamProvider.autoDispose.family<
   },
 );
 
+/// Clients who have earned a reward (passed the threshold) — merchant can
+/// mark their reward as used to reset the cycle.
+///
+/// Parameterised by the merchant entity so both trigger types are handled.
+final clientsWithRewardAvailableProvider = StreamProvider.autoDispose
+    .family<List<LoyaltyPendingClientRow>, ({String merchantId, int visitsRequired, double spendRequired, bool isSpendBased})>(
+  (ref, params) {
+    if (params.merchantId.isEmpty) {
+      return Stream<List<LoyaltyPendingClientRow>>.value(
+        <LoyaltyPendingClientRow>[],
+      );
+    }
+    final repo = ref.watch(clientLoyaltyRepositoryProvider);
+    return repo.watchClientsWithRewardAvailable(
+      merchantId: params.merchantId,
+      visitsRequired: params.visitsRequired,
+      spendRequiredEuros: params.spendRequired,
+      iSpendBased: params.isSpendBased,
+    );
+  },
+);
+
 /// Passages en attente (validation manuelle) pour un commerce.
 final pendingLoyaltyClientsForMerchantProvider = StreamProvider.autoDispose
     .family<List<LoyaltyPendingClientRow>, String>(
@@ -85,10 +112,16 @@ class ClientLoyaltyEntry {
   const ClientLoyaltyEntry({
     required this.merchant,
     required this.config,
+    this.isOwnMerchant = false,
   });
 
   final Merchant merchant;
   final LoyaltyProgramConfig config;
+
+  /// True when this entry is the user's own merchant (prepended for dual-profile
+  /// testing). It is NOT a "followed" merchant — the count shown to the user
+  /// should exclude it from the "X suivis" subtitle.
+  final bool isOwnMerchant;
 
   String get merchantId => merchant.id;
   String get merchantName =>
@@ -184,8 +217,16 @@ final clientLoyaltyFeedProvider =
   // Prepend own merchant (if they have loyalty enabled) so a merchant-as-client
   // can always see their own carnet — even without following themselves.
   if (ownMerchant != null) {
-    final e = toEntry(ownMerchant);
-    if (e != null) entries.add(e);
+    final cfg = ownMerchant.loyaltyProgram ??
+        LoyaltyProgramConfig.fallbackFromFlags(
+            loyaltyEnabled: ownMerchant.loyaltyEnabled);
+    if (ownMerchant.loyaltyEnabled && cfg.programEnabled) {
+      entries.add(ClientLoyaltyEntry(
+        merchant: ownMerchant,
+        config: cfg,
+        isOwnMerchant: true,
+      ));
+    }
   }
 
   for (final m in followedMerchants) {

@@ -3,71 +3,80 @@ import 'package:flutter_yuztoo/feature/client_list/domain/entities/merchant_clie
 
 void main() {
   group('MerchantClientRow — segment', () {
-    test('heartLevel 3 → VIP', () {
-      const row = MerchantClientRow(clientUid: 'u1', heartLevel: 3);
+    // Segment is driven by validatedPassages + recency, NOT heartLevel.
+
+    test('validatedPassages >= 10 + recent → VIP', () {
+      final row = MerchantClientRow(
+        clientUid: 'u1',
+        validatedPassages: 10,
+        lastVisitAt: DateTime.now().subtract(const Duration(days: 5)),
+      );
       expect(row.segment, ClientSegment.vip);
     });
 
-    test('heartLevel > 3 → VIP (clamped by >=3 check)', () {
-      const row = MerchantClientRow(clientUid: 'u1', heartLevel: 5);
+    test('validatedPassages > 10 → also VIP', () {
+      final row = MerchantClientRow(
+        clientUid: 'u1',
+        validatedPassages: 15,
+        lastVisitAt: DateTime.now().subtract(const Duration(days: 10)),
+      );
       expect(row.segment, ClientSegment.vip);
     });
 
-    test('heartLevel 2 → Habitué', () {
-      const row = MerchantClientRow(clientUid: 'u1', heartLevel: 2);
+    test('validatedPassages >= 3 + recent → Habitué', () {
+      final row = MerchantClientRow(
+        clientUid: 'u1',
+        validatedPassages: 3,
+        lastVisitAt: DateTime.now().subtract(const Duration(days: 20)),
+      );
       expect(row.segment, ClientSegment.habitue);
     });
 
-    test('heartLevel 1 + followed < 14 days ago → Nouveau', () {
+    test('validatedPassages 0 + followed 3 days ago → Nouveau', () {
       final row = MerchantClientRow(
         clientUid: 'u1',
-        heartLevel: 1,
         followedAt: DateTime.now().subtract(const Duration(days: 3)),
       );
       expect(row.segment, ClientSegment.nouveau);
     });
 
-    test('heartLevel 1 + followed exactly 13 days ago → Nouveau', () {
+    test('validatedPassages 0 + followed 13 days ago → Nouveau', () {
       final row = MerchantClientRow(
         clientUid: 'u1',
-        heartLevel: 1,
         followedAt: DateTime.now().subtract(const Duration(days: 13)),
       );
       expect(row.segment, ClientSegment.nouveau);
     });
 
-    test('heartLevel 1 + followed 14 days ago → Abonné (boundary, not Nouveau)',
+    test('validatedPassages 0 + followed 30 days ago → Nouveau (< 60 days)',
         () {
       final row = MerchantClientRow(
         clientUid: 'u1',
-        heartLevel: 1,
-        followedAt: DateTime.now().subtract(const Duration(days: 14)),
-      );
-      // 14 days ago: difference == 14, not < 14, so falls through to abonne
-      expect(row.segment, ClientSegment.abonne);
-    });
-
-    test('heartLevel 1 + followed 30 days ago → Abonné', () {
-      final row = MerchantClientRow(
-        clientUid: 'u1',
-        heartLevel: 1,
         followedAt: DateTime.now().subtract(const Duration(days: 30)),
       );
-      expect(row.segment, ClientSegment.abonne);
+      expect(row.segment, ClientSegment.nouveau);
     });
 
-    test('heartLevel 1 + followedAt null → Abonné', () {
-      const row = MerchantClientRow(clientUid: 'u1', heartLevel: 1);
-      expect(row.segment, ClientSegment.abonne);
+    test('no visits, no lastVisitAt, no followedAt → Inactif (daysSince=999)',
+        () {
+      const row = MerchantClientRow(clientUid: 'u1');
+      expect(row.segment, ClientSegment.inactif);
     });
 
-    test('heartLevel 0 + recent follow → Nouveau (0 < 2 threshold)', () {
+    test('lastVisitAt > 60 days ago → Inactif regardless of passages', () {
       final row = MerchantClientRow(
         clientUid: 'u1',
-        heartLevel: 0,
+        validatedPassages: 8,
+        lastVisitAt: DateTime.now().subtract(const Duration(days: 61)),
+      );
+      expect(row.segment, ClientSegment.inactif);
+    });
+
+    test('validatedPassages 0 + recent follow → Nouveau', () {
+      final row = MerchantClientRow(
+        clientUid: 'u1',
         followedAt: DateTime.now().subtract(const Duration(days: 1)),
       );
-      // heartLevel 0 < 2 and < 3, so segment falls to date check
       expect(row.segment, ClientSegment.nouveau);
     });
   });

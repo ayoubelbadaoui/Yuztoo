@@ -11,6 +11,9 @@ class _Trigger {
 }
 
 /// All available triggers.
+/// NOTE: "Chaque promotion créé" was removed — the onPromotionCreated Cloud
+/// Function now guarantees a fan-out to all eligible followers automatically,
+/// making this trigger redundant and potentially duplicative.
 const triggerLabels = [
   'Date anniversaire client',
   'Changement de Statut client',
@@ -20,7 +23,6 @@ const triggerLabels = [
   'Retour d\'un client inactif',
   'Récompense disponible',
   'Récompense proche',
-  'Chaque promotion créé',
   'Fermeture exceptionnelle',
   'Nouveau partenaire',
   'Anniversaire de connexion',
@@ -35,7 +37,6 @@ const _triggers = [
   _Trigger('Client inactif', Icons.schedule_outlined),
   _Trigger('Récompense dispo', Icons.card_giftcard_outlined),
   _Trigger('Récompense proche', Icons.star_outline_rounded),
-  _Trigger('Promotion créée', Icons.local_offer_outlined),
   _Trigger('Fermeture excep.', Icons.event_busy_outlined),
   _Trigger('Nouveau partenaire', Icons.handshake_outlined),
   _Trigger('Anniversaire connexion', Icons.celebration_outlined),

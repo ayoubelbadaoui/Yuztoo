@@ -11,15 +11,15 @@ import '../../../core/utils/image_crop_utils.dart';
 import '../application/profile_edit_state.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
-import '../../auth/core/application/providers.dart' as auth_providers;
-import '../../auth/core/application/state/auth_state.dart';
 import '../../storage/application/providers.dart' as storage_providers;
 import '../../merchant/application/providers.dart' as merchant_providers;
 
 part 'storefront_edit_profile_screen.part.dart';
 
 class StorefrontEditProfileScreen extends ConsumerStatefulWidget {
-  const StorefrontEditProfileScreen({super.key});
+  const StorefrontEditProfileScreen({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<StorefrontEditProfileScreen> createState() =>

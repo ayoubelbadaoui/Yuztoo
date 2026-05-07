@@ -19,11 +19,13 @@ class AudienceSection extends StatelessWidget {
   final List<String> targetSegments;
   final ValueChanged<String>? onSegmentToggled;
 
+  // Segments match the canonical passage-based model (computeSegment in Cloud Functions).
+  // 'abonne' is retired — it was heart-based and inconsistent with notification targeting.
   static const _segments = [
-    _SegmentDef('vip', 'VIP', Icons.star_rounded),
+    _SegmentDef('vip', 'VIP', Icons.workspace_premium_outlined),
     _SegmentDef('habitue', 'Habitué', Icons.repeat_rounded),
     _SegmentDef('nouveau', 'Nouveau', Icons.person_add_outlined),
-    _SegmentDef('abonne', 'Abonné', Icons.loyalty_outlined),
+    _SegmentDef('inactif', 'Inactifs', Icons.schedule_outlined),
   ];
 
   @override
@@ -114,14 +116,23 @@ class AudienceSection extends StatelessWidget {
             ),
             if (targetSegments.isEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Aucun segment sélectionné = tous les clients',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: MerchantColors.textLightGrey,
-                    fontStyle: FontStyle.italic,
-                  ),
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded,
+                        size: 14, color: Color(0xFFFFB300)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Sélectionnez au moins un segment pour cibler des clients spécifiques.',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          color: const Color(0xFFFFB300),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],

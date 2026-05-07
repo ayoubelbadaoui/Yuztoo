@@ -1,6 +1,164 @@
 part of 'personal_information_screen.dart';
 
 extension _PersonalInformationUi on _PersonalInformationScreenState {
+  // ── Photo picker ──────────────────────────────────────────────────────────
+
+  Future<void> _pickAndUploadPhoto(String uid) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: MerchantColors.bgMain,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _buildPickerSheet(ctx),
+    );
+    if (source == null || !mounted) return;
+
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      if (picked == null || !mounted) return;
+
+      final croppedPath = await cropImage(
+        picked.path,
+        ratioX: 1,
+        ratioY: 1,
+        circleShape: true,
+      );
+      if (croppedPath == null || !mounted) return;
+
+      _setPhotoUploading(true);
+
+      final result = await ref
+          .read(uploadClientAvatarProvider)
+          .call(filePath: croppedPath, uid: uid);
+
+      if (!mounted) return;
+
+      result.fold(
+        (failure) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Erreur lors de l\'envoi de la photo',
+                style: GoogleFonts.outfit(color: Colors.white),
+              ),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+        (downloadUrl) async {
+          await ref
+              .read(updateAuthUserProfileProvider)
+              .call(photoUrl: downloadUrl);
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Une erreur est survenue',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) _setPhotoUploading(false);
+    }
+  }
+
+  Widget _buildPickerSheet(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: MerchantColors.gold.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Text(
+              'Choisir une photo',
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: MerchantColors.textWhite,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildPickerOption(
+              context,
+              icon: Icons.camera_alt_outlined,
+              label: 'Prendre une photo',
+              source: ImageSource.camera,
+            ),
+            Divider(
+              height: 1,
+              indent: 20,
+              endIndent: 20,
+              color: MerchantColors.gold.withValues(alpha: 0.15),
+            ),
+            _buildPickerOption(
+              context,
+              icon: Icons.photo_library_outlined,
+              label: 'Choisir depuis la galerie',
+              source: ImageSource.gallery,
+            ),
+            const SizedBox(height: 8),
+            Divider(
+              height: 1,
+              color: MerchantColors.gold.withValues(alpha: 0.1),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close_rounded, color: Colors.redAccent),
+              title: Text(
+                'Annuler',
+                style: GoogleFonts.outfit(color: Colors.redAccent),
+              ),
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPickerOption(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required ImageSource source,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: MerchantColors.gold),
+      title: Text(
+        label,
+        style: GoogleFonts.outfit(
+          color: MerchantColors.textWhite,
+          fontSize: 14,
+        ),
+      ),
+      onTap: () => Navigator.of(context).pop(source),
+    );
+  }
+
+  // ── Scaffold ──────────────────────────────────────────────────────────────
+
   Widget _buildScaffold(
     BuildContext context, {
     required String? uid,
@@ -10,6 +168,10 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     required String city,
     required int completionPercent,
     bool hasPhoto = false,
+    bool hasDob = false,
+    String? photoUrl,
+    bool photoUploading = false,
+    VoidCallback? onPhotoTap,
     VoidCallback? onCreateProAccount,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -39,7 +201,14 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                     if (_editing)
                       _buildEditForm(context, uid: uid)
                     else
-                      _buildIdentityCard(fullName, email, phone),
+                      _buildIdentityCard(
+                        fullName,
+                        email,
+                        phone,
+                        photoUrl: photoUrl,
+                        isUploading: photoUploading,
+                        onPhotoTap: onPhotoTap,
+                      ),
                     const SizedBox(height: 24),
                     Text(
                       'Villes connectées',
@@ -55,7 +224,12 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                     const SizedBox(height: 24),
                     _buildYuztooCard(fullName),
                     const SizedBox(height: 16),
-                    _buildCompletionBar(completionPercent, hasPhoto),
+                    _buildCompletionBar(
+                      completionPercent,
+                      hasPhoto,
+                      hasDob,
+                      onPhotoTap: onPhotoTap,
+                    ),
                     const SizedBox(height: 20),
                     GestureDetector(
                       onTap: onCreateProAccount,
@@ -317,7 +491,14 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
         ),
       );
 
-  Widget _buildIdentityCard(String name, String email, String phone) {
+  Widget _buildIdentityCard(
+    String name,
+    String email,
+    String phone, {
+    String? photoUrl,
+    bool isUploading = false,
+    VoidCallback? onPhotoTap,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -332,21 +513,77 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: MerchantColors.gold.withValues(alpha: 0.15),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              avatarInitial(name),
-              style: GoogleFonts.outfit(
-                color: MerchantColors.textWhite,
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-              ),
+          GestureDetector(
+            onTap: isUploading ? null : onPhotoTap,
+            behavior: HitTestBehavior.opaque,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Avatar circle
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: MerchantColors.gold.withValues(alpha: 0.15),
+                    border: onPhotoTap != null
+                        ? Border.all(
+                            color: MerchantColors.gold.withValues(alpha: 0.5),
+                            width: 1.5,
+                          )
+                        : null,
+                    image: photoUrl != null && photoUrl.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(photoUrl),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: isUploading
+                      ? const SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: MerchantColors.gold,
+                          ),
+                        )
+                      : (photoUrl == null || photoUrl.isEmpty)
+                          ? Text(
+                              avatarInitial(name),
+                              style: GoogleFonts.outfit(
+                                color: MerchantColors.textWhite,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                          : null,
+                ),
+                // Camera badge
+                if (onPhotoTap != null && !isUploading)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: MerchantColors.gold,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: MerchantColors.bgHeader,
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt_rounded,
+                        color: MerchantColors.bgHeader,
+                        size: 12,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 14),
@@ -477,7 +714,12 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     );
   }
 
-  Widget _buildCompletionBar(int completionPercent, bool hasPhoto) {
+  Widget _buildCompletionBar(
+    int completionPercent,
+    bool hasPhoto,
+    bool hasDob, {
+    VoidCallback? onPhotoTap,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -532,24 +774,67 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
             ),
           ),
         ),
+        if (!hasDob) ...[
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _startEdit,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.cake_outlined,
+                  size: 13,
+                  color: MerchantColors.gold.withValues(alpha: 0.8),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Ajoute ta date de naissance pour recevoir des surprises le jour J 🎂',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: MerchantColors.textGrey,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 14,
+                  color: MerchantColors.gold.withValues(alpha: 0.5),
+                ),
+              ],
+            ),
+          ),
+        ],
         if (!hasPhoto) ...[
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 13,
-                color: MerchantColors.gold.withValues(alpha: 0.6),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Ajoute une photo de profil pour compléter à 100\u202f%',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  color: MerchantColors.textGrey,
+          GestureDetector(
+            onTap: onPhotoTap,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.add_a_photo_outlined,
+                  size: 13,
+                  color: MerchantColors.gold.withValues(alpha: 0.8),
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Ajoute une photo de profil pour compléter à 100\u202f%',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: MerchantColors.textGrey,
+                    ),
+                  ),
+                ),
+                if (onPhotoTap != null)
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 14,
+                    color: MerchantColors.gold.withValues(alpha: 0.5),
+                  ),
+              ],
+            ),
           ),
         ],
       ],
@@ -579,107 +864,173 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
+        // `filtered` lives in the outer closure so that StatefulBuilder
+        // reads the updated reference on each setState call.
+        var filtered = available;
         return DraggableScrollableSheet(
           initialChildSize: 0.6,
           minChildSize: 0.3,
           maxChildSize: 0.9,
           expand: false,
           builder: (_, scrollController) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 4),
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: MerchantColors.gold.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(2),
+            return StatefulBuilder(
+              builder: (ctx, setSheetState) {
+                return Column(
+                  children: [
+                    // ── Drag handle ─────────────────────────────────────────
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 12, bottom: 4),
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: MerchantColors.gold.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  child: Text(
-                    'Ajouter une ville connectée',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: Text(
+                        'Ajouter une ville connectée',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: MerchantColors.gold.withValues(alpha: 0.15),
-                ),
-                Flexible(
-                  child: ListView.separated(
-                    controller: scrollController,
-                    itemCount: available.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      thickness: 1,
-                      indent: 20,
-                      endIndent: 20,
-                      color: MerchantColors.gold.withValues(alpha: 0.08),
-                    ),
-                    itemBuilder: (_, i) {
-                      final city = available[i];
-                      return GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () async {
-                          Navigator.of(ctx).pop();
-                          final newList = [...current, city];
-                          final result = await ref
-                              .read(setConnectedCitiesProvider)
-                              .call(uid: uid, cities: newList);
-                          if (!context.mounted) return;
-                          result.fold(
-                            (f) => ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(f.message)),
-                            ),
-                            (_) =>
-                                ref.invalidate(connectedCitiesProvider(uid)),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 14),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.location_on_outlined,
-                                size: 18,
-                                color: MerchantColors.gold
-                                    .withValues(alpha: 0.7),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                city,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: MerchantColors.textWhite,
-                                ),
-                              ),
-                              const Spacer(),
-                              Icon(
-                                Icons.add_circle_outline_rounded,
-                                size: 18,
-                                color: MerchantColors.gold
-                                    .withValues(alpha: 0.5),
-                              ),
-                            ],
+                    // ── Search field ─────────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: TextField(
+                        autofocus: true,
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher une ville...',
+                          hintStyle: GoogleFonts.outfit(
+                            color: MerchantColors.textGrey,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: MerchantColors.textGrey,
+                            size: 20,
+                          ),
+                          filled: true,
+                          fillColor: MerchantColors.bgHeader,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                        onChanged: (query) {
+                          setSheetState(() {
+                            filtered = query.trim().isEmpty
+                                ? available
+                                : available
+                                    .where((c) => c
+                                        .toLowerCase()
+                                        .contains(query.toLowerCase().trim()))
+                                    .toList();
+                          });
+                        },
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: MerchantColors.gold.withValues(alpha: 0.15),
+                    ),
+                    // ── City list ─────────────────────────────────────────────
+                    if (filtered.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Text(
+                          'Aucune ville trouvée',
+                          style: GoogleFonts.outfit(
+                            color: MerchantColors.textGrey,
+                            fontSize: 14,
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.separated(
+                          controller: scrollController,
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => Divider(
+                            height: 1,
+                            thickness: 1,
+                            indent: 20,
+                            endIndent: 20,
+                            color:
+                                MerchantColors.gold.withValues(alpha: 0.08),
+                          ),
+                          itemBuilder: (_, i) {
+                            final city = filtered[i];
+                            return GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () async {
+                                Navigator.of(ctx).pop();
+                                final newList = [...current, city];
+                                final result = await ref
+                                    .read(setConnectedCitiesProvider)
+                                    .call(uid: uid, cities: newList);
+                                if (!context.mounted) return;
+                                result.fold(
+                                  (f) => ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    SnackBar(content: Text(f.message)),
+                                  ),
+                                  (_) => ref
+                                      .invalidate(connectedCitiesProvider(uid)),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 14),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 18,
+                                      color: MerchantColors.gold
+                                          .withValues(alpha: 0.7),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      city,
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: MerchantColors.textWhite,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      size: 18,
+                                      color: MerchantColors.gold
+                                          .withValues(alpha: 0.5),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                );
+              },
             );
           },
         );

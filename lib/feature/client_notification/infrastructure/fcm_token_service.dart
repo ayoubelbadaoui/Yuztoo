@@ -11,8 +11,8 @@ import '../../../../core/infrastructure/logger_service.dart';
 
 /// Manages FCM token registration for the current device.
 ///
-/// Stores the token at `users/{uid}/fcm_token` so Cloud Functions can
-/// send targeted push notifications when notifications are created.
+/// Stores the token at `users/{uid}/push_tokens/device` so Cloud Functions
+/// can send targeted push notifications when notifications are created.
 class FcmTokenService {
   FcmTokenService({required FirebaseFirestore firestore})
       : _firestore = firestore;
@@ -21,6 +21,11 @@ class FcmTokenService {
 
   /// Stopped in [clearToken] so token rotation cannot write after sign-out.
   StreamSubscription<String>? _tokenRefreshSubscription;
+
+  /// Watches `push_tokens/device`. If Cloud Function deletes it (invalid token),
+  /// we immediately re-fetch and re-persist so the next notification is delivered.
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _tokenDocSubscription;
 
   static const _batteryChannel =
       MethodChannel('com.yuztoo.app/battery');
@@ -98,12 +103,13 @@ class FcmTokenService {
     // Store in a subcollection so we don't trigger the strict shape-validation
     // rules on the root /users/{uid} document.
     // Path: users/{uid}/push_tokens/device
-    await _firestore
+    final tokenRef = _firestore
         .collection('users')
         .doc(userId)
         .collection('push_tokens')
-        .doc('device')
-        .set(
+        .doc('device');
+
+    await tokenRef.set(
       {
         'fcm_token': token,
         'updated_at': FieldValue.serverTimestamp(),
@@ -112,6 +118,39 @@ class FcmTokenService {
       SetOptions(merge: true),
     );
     LoggerService.logInfo('FCM token saved', context: {'userId': userId});
+
+    // Watch the token document. If Cloud Function deletes it (because the token
+    // was invalidated/unregistered), immediately re-fetch and re-persist so the
+    // user continues receiving notifications without needing to restart the app.
+    _tokenDocSubscription?.cancel();
+    _tokenDocSubscription = tokenRef.snapshots().listen(
+      (snap) async {
+        if (!snap.exists) {
+          // Document was deleted externally (e.g., Cloud Function on invalid token).
+          final currentUid =
+              firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+          if (currentUid == null || currentUid != userId) return;
+          try {
+            final newToken = await FirebaseMessaging.instance.getToken();
+            if (newToken != null && newToken.isNotEmpty) {
+              await _persistToken(userId, newToken);
+              LoggerService.logInfo(
+                'FCM token auto-recovered after deletion',
+                context: {'userId': userId},
+              );
+            }
+          } catch (e, st) {
+            LoggerService.logError(
+              'FCM token auto-recovery failed',
+              error: e,
+              stackTrace: st,
+              context: {'userId': userId},
+            );
+          }
+        }
+      },
+      onError: (_) {}, // Ignore Firestore permission errors on sign-out.
+    );
   }
 
   static String _platform() => Platform.isAndroid ? 'android' : 'ios';
@@ -119,8 +158,12 @@ class FcmTokenService {
   /// Remove the FCM token on sign-out so push notifications stop.
   Future<void> clearToken(String userId) async {
     if (userId.isEmpty) return;
+    // Cancel subscriptions BEFORE deleting the document to prevent the
+    // Firestore watch from trying to auto-recover a legitimately cleared token.
     await _tokenRefreshSubscription?.cancel();
     _tokenRefreshSubscription = null;
+    await _tokenDocSubscription?.cancel();
+    _tokenDocSubscription = null;
     try {
       await _firestore
           .collection('users')

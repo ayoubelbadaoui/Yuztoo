@@ -5,6 +5,9 @@ import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/client_notification/domain/entities/client_notification.dart';
 import 'package:flutter_yuztoo/feature/client_notification/domain/repositories/client_notification_repository.dart';
 import 'package:flutter_yuztoo/feature/followed_merchants/domain/repositories/followed_merchants_repository.dart';
+import 'package:flutter_yuztoo/feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
+import 'package:flutter_yuztoo/feature/loyalty/domain/entities/loyalty_pending_client_row.dart';
+import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/client_loyalty_repository.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/acknowledge_new_client.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/create_auto_notification.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/delete_auto_notification.dart';
@@ -95,7 +98,71 @@ class _FakeClientNotifRepo implements ClientNotificationRepository {
   @override
   Future<Result<Unit>> markAllAsRead(String clientId) async =>
       const Right(unit);
+
+  @override
+  Future<Result<Unit>> deleteNotification(
+          String clientId, String notificationId) async =>
+      const Right(unit);
+
+  @override
+  Future<Result<Unit>> deleteAllNotifications(String clientId) async =>
+      const Right(unit);
 }
+
+// ── Fake: ClientLoyaltyRepository (minimal — only getClientSegments used by send) ─
+
+class _FakeLoyaltyRepoForSend implements ClientLoyaltyRepository {
+  _FakeLoyaltyRepoForSend({required this.segmentMap});
+
+  /// Simulated `{clientUid: segment}` from loyalty_clients.
+  Map<String, String> segmentMap;
+
+  @override
+  Future<Map<String, String>> getClientSegments(String merchantId) async =>
+      segmentMap;
+
+  @override
+  Stream<ClientMerchantLoyaltyProgress> watchProgress(
+          String merchantId, String clientUid) async* {}
+
+  @override
+  Stream<List<LoyaltyPendingClientRow>> watchPendingLoyaltyClients(
+          String merchantId) async* {}
+
+  @override
+  Future<Result<ClientMerchantLoyaltyProgress>> applyPassageDeltas({
+    required String merchantId,
+    required String clientUid,
+    int validatedPassagesDelta = 0,
+    int pendingPassagesDelta = 0,
+    double cumulativeSpendEurosDelta = 0,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Stream<List<LoyaltyPendingClientRow>> watchClientsWithRewardAvailable({
+    required String merchantId,
+    required int visitsRequired,
+    required double spendRequiredEuros,
+    required bool iSpendBased,
+  }) async* {}
+
+  @override
+  Future<Result<ClientMerchantLoyaltyProgress>> redeemReward({
+    required String merchantId,
+    required String clientUid,
+    required int visitsRequired,
+    required double spendRequiredEuros,
+    required bool isSpendBased,
+  }) async =>
+      throw UnimplementedError();
+}
+
+Future<bool> _sendMockOwnershipOk(String merchantId, String callerUid) async =>
+    merchantId == 'm1' && callerUid == 'caller_m1';
+
+Future<bool> _sendMockOwnershipDeny(String merchantId, String callerUid) async =>
+    false;
 
 // ── Fake: ISentNotificationRepository ────────────────────────────────────────
 
@@ -208,16 +275,20 @@ void main() {
     late _FakeFollowedRepo followedRepo;
     late _FakeClientNotifRepo clientNotifRepo;
     late _FakeSentNotifRepo sentNotifRepo;
+    late _FakeLoyaltyRepoForSend loyaltyRepo;
     late SendMerchantNotification useCase;
 
     setUp(() {
       followedRepo = _FakeFollowedRepo();
       clientNotifRepo = _FakeClientNotifRepo();
       sentNotifRepo = _FakeSentNotifRepo();
+      loyaltyRepo = _FakeLoyaltyRepoForSend(segmentMap: const {});
       useCase = SendMerchantNotification(
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
         sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
       );
     });
 
@@ -227,6 +298,7 @@ void main() {
         merchantName: 'Test',
         text: 'Hello',
         audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
       );
       expect(result.isRight, isTrue);
       expect(result.fold((_) => -1, (n) => n), 0);
@@ -239,12 +311,15 @@ void main() {
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
         sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
       );
       final result = await useCase.call(
         merchantId: 'm1',
         merchantName: 'Test',
         text: '   ',
         audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
       );
       expect(result.fold((_) => -1, (n) => n), 0);
       expect(clientNotifRepo.createCallCount, 0);
@@ -256,6 +331,7 @@ void main() {
         merchantName: 'Test',
         text: 'Hello',
         audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
       );
       expect(result.fold((_) => -1, (n) => n), 0);
       expect(clientNotifRepo.createCallCount, 0);
@@ -269,12 +345,15 @@ void main() {
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
         sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
       );
       final result = await useCase.call(
         merchantId: 'm1',
         merchantName: 'Boutique Test',
         text: 'Bonne nouvelle !',
         audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
       );
       expect(result.isRight, isTrue);
       expect(result.fold((_) => -1, (n) => n), 3);
@@ -287,6 +366,8 @@ void main() {
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
         sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
       );
       await useCase.call(
         merchantId: 'm1',
@@ -294,6 +375,7 @@ void main() {
         text: 'Hello',
         audience: 'Tous mes clients',
         segments: ['vip'],
+        callerUid: 'caller_m1',
       );
       expect(sentNotifRepo.lastCreated, isNotNull);
       expect(sentNotifRepo.lastCreated!.sentCount, 2);
@@ -311,12 +393,15 @@ void main() {
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
         sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
       );
       final result = await useCase.call(
         merchantId: 'm1',
         merchantName: 'Test',
         text: 'Hi',
         audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
       );
       expect(result.isRight, isTrue);
       // sent_count should be 0 since all creates failed
@@ -330,12 +415,15 @@ void main() {
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
         sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
       );
       await useCase.call(
         merchantId: 'm1',
         merchantName: 'Boutique',
         text: '  Offre spéciale  ',
         audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
       );
       expect(sentNotifRepo.lastCreated!.text, 'Offre spéciale');
     });
@@ -346,12 +434,15 @@ void main() {
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
         sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
       );
       final result = await useCase.call(
         merchantId: 'm1',
         merchantName: 'Test',
         text: 'Hello',
         audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
       );
       // When follower fetch fails, use case treats it as 0 followers.
       expect(result.fold((_) => -1, (n) => n), 0);
@@ -365,6 +456,8 @@ void main() {
         followedRepo: followedRepo,
         notificationRepo: clientNotifRepo,
         sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
       );
       // Should not throw — persist failure is best-effort.
       final result = await useCase.call(
@@ -372,8 +465,68 @@ void main() {
         merchantName: 'Test',
         text: 'Bonjour',
         audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
       );
       expect(result.isRight, isTrue);
+    });
+
+    test('returns Left when callerUid is empty', () async {
+      followedRepo = _FakeFollowedRepo(followerIds: ['c1']);
+      final result = await useCase.call(
+        merchantId: 'm1',
+        merchantName: 'Test',
+        text: 'Hello',
+        audience: 'Tous mes clients',
+        callerUid: '',
+      );
+      expect(result.isLeft, isTrue);
+      expect(clientNotifRepo.createCallCount, 0);
+    });
+
+    test('returns Left when ownership check fails (cross-merchant)', () async {
+      followedRepo = _FakeFollowedRepo(followerIds: ['c1', 'c2']);
+      useCase = SendMerchantNotification(
+        followedRepo: followedRepo,
+        notificationRepo: clientNotifRepo,
+        sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipDeny,
+      );
+      final result = await useCase.call(
+        merchantId: 'm1',
+        merchantName: 'Fake',
+        text: 'Spam',
+        audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
+      );
+      expect(result.isLeft, isTrue);
+      expect(clientNotifRepo.createCallCount, 0);
+    });
+
+    test('Certains clients + segments filters by loyalty map', () async {
+      followedRepo = _FakeFollowedRepo(followerIds: ['c1', 'c2', 'c3']);
+      loyaltyRepo = _FakeLoyaltyRepoForSend(segmentMap: {
+        'c1': 'vip',
+        'c2': 'nouveau',
+        'c3': 'vip',
+      });
+      useCase = SendMerchantNotification(
+        followedRepo: followedRepo,
+        notificationRepo: clientNotifRepo,
+        sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
+      );
+      final result = await useCase.call(
+        merchantId: 'm1',
+        merchantName: 'Boutique',
+        text: 'VIP only',
+        audience: 'Certains clients',
+        segments: ['vip'],
+        callerUid: 'caller_m1',
+      );
+      expect(result.fold((_) => -1, (n) => n), 2);
+      expect(clientNotifRepo.createCallCount, 2);
     });
   });
 

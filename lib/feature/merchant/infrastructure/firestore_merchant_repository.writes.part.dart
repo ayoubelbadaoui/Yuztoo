@@ -247,6 +247,21 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       }
       if (loyaltyEnabledStandalone != null) {
         updateData['loyalty_enabled'] = loyaltyEnabledStandalone;
+        // loyalty_program.program_enabled takes priority in MerchantDto over
+        // the root loyalty_enabled flag, so they must stay in sync. When the
+        // wizard saves, it already updates both; when the settings toggle
+        // fires (loyaltyEnabledStandalone only, no loyaltyProgram), we patch
+        // the nested field using the already-fetched snapshot.
+        if (loyaltyProgram == null) {
+          final existingData =
+              Map<String, dynamic>.from(merchantSnap.data() ?? {});
+          final existingLp = existingData['loyalty_program'];
+          if (existingLp is Map) {
+            final updatedLp = Map<String, dynamic>.from(existingLp);
+            updatedLp['program_enabled'] = loyaltyEnabledStandalone;
+            updateData['loyalty_program'] = updatedLp;
+          }
+        }
       }
 
       // Merge partial fields (same as update; avoids update() on missing docs)

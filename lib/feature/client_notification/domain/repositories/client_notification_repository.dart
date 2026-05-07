@@ -16,4 +16,12 @@ abstract class ClientNotificationRepository {
 
   /// Mark every notification for [clientId] as read.
   Future<Result<Unit>> markAllAsRead(String clientId);
+
+  /// Delete a single notification document.
+  Future<Result<Unit>> deleteNotification(
+      String clientId, String notificationId);
+
+  /// Delete all notifications for [clientId] in a single batch.
+  /// Operates on the most-recent 50 notifications (matching the watch limit).
+  Future<Result<Unit>> deleteAllNotifications(String clientId);
 }

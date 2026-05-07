@@ -18,6 +18,7 @@ class LoyaltyCardsScreen extends ConsumerWidget {
     super.key,
     required this.onBack,
     required this.onNotifications,
+    this.onSwitchToMerchant,
     this.onStoreTap,
   });
 
@@ -25,6 +26,12 @@ class LoyaltyCardsScreen extends ConsumerWidget {
 
   final VoidCallback onBack;
   final VoidCallback onNotifications;
+
+  /// Non-null when the user has both client and merchant roles.
+  /// Shown as a storefront icon in the header so dual-profile users can
+  /// switch back to merchant shell without going through the profile tab.
+  final VoidCallback? onSwitchToMerchant;
+
   /// Called with merchant id when the user taps a loyalty card.
   final ValueChanged<String>? onStoreTap;
 
@@ -73,7 +80,10 @@ class LoyaltyCardsScreen extends ConsumerWidget {
           backgroundColor: MerchantColors.bgMain,
           body: Column(
             children: [
-              _Header(onNotifications: onNotifications),
+              _Header(
+                onNotifications: onNotifications,
+                onSwitchToMerchant: onSwitchToMerchant,
+              ),
               Expanded(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),

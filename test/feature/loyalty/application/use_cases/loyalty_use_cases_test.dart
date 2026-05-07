@@ -44,6 +44,29 @@ class _FakeClientLoyaltyRepository implements ClientLoyaltyRepository {
       Stream.value([]);
 
   @override
+  Stream<List<LoyaltyPendingClientRow>> watchClientsWithRewardAvailable({
+    required String merchantId,
+    required int visitsRequired,
+    required double spendRequiredEuros,
+    required bool iSpendBased,
+  }) =>
+      Stream.value([]);
+
+  @override
+  Future<Result<ClientMerchantLoyaltyProgress>> redeemReward({
+    required String merchantId,
+    required String clientUid,
+    required int visitsRequired,
+    required double spendRequiredEuros,
+    required bool isSpendBased,
+  }) async =>
+      const Right(ClientMerchantLoyaltyProgress.empty());
+
+  @override
+  Future<Map<String, String>> getClientSegments(String merchantId) async =>
+      {};
+
+  @override
   Future<Result<ClientMerchantLoyaltyProgress>> applyPassageDeltas({
     required String merchantId,
     required String clientUid,

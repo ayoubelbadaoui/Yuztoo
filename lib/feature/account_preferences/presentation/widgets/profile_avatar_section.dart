@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/utils/image_crop_utils.dart';
 import '../../../auth/core/application/user_display_helpers.dart';
 import '../../../auth/core/application/providers.dart' show updateAuthUserProfileProvider;
 import '../../../storage/application/providers.dart' show uploadClientAvatarProvider;
@@ -89,16 +90,26 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
         imageQuality: 85,
       );
 
-      if (pickedFile != null && mounted) {
-        final file = File(pickedFile.path);
-        setState(() {
-          _profileImageFile = file;
-          _isUploading = true;
-        });
+      if (pickedFile == null || !mounted) return;
 
-        await _saveProfileImageToCache(file.path);
-        await _uploadAvatarToCloud(file);
-      }
+      // Show the uCrop 1:1 circle-guide cropper so the user can frame their face.
+      final croppedPath = await cropImage(
+        pickedFile.path,
+        ratioX: 1,
+        ratioY: 1,
+        circleShape: true,
+      );
+      // User cancelled the crop — treat as if they cancelled the whole flow.
+      if (croppedPath == null || !mounted) return;
+
+      final file = File(croppedPath);
+      setState(() {
+        _profileImageFile = file;
+        _isUploading = true;
+      });
+
+      await _saveProfileImageToCache(file.path);
+      await _uploadAvatarToCloud(file);
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

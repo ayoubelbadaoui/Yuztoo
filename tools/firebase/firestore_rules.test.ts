@@ -706,13 +706,62 @@ describe("users/notifications", () => {
     );
   });
 
-  test("any signed-in user (merchant) can CREATE a notification for a client", async () => {
+  test("signed-in user can CREATE notification without merchant_id (legacy path)", async () => {
     await assertSucceeds(
-      authDb("merchant-owner")
+      authDb("any-user")
         .collection("users")
         .doc("alice")
         .collection("notifications")
         .add({ message: "Special offer!", is_read: false, created_at: new Date() })
+    );
+  });
+
+  test("merchant owner can CREATE notification with their merchant_id", async () => {
+    await seedMerchant("merch-owned", "owner-a");
+    await assertSucceeds(
+      authDb("owner-a")
+        .collection("users")
+        .doc("alice")
+        .collection("notifications")
+        .add({
+          merchant_id: "merch-owned",
+          merchant_name: "Legit Shop",
+          message: "Promo",
+          is_read: false,
+          created_at: new Date(),
+        })
+    );
+  });
+
+  test("non-owner CANNOT CREATE notification impersonating another merchant_id", async () => {
+    await seedMerchant("merch-victim", "owner-victim");
+    await assertFails(
+      authDb("attacker")
+        .collection("users")
+        .doc("alice")
+        .collection("notifications")
+        .add({
+          merchant_id: "merch-victim",
+          merchant_name: "Fake Shop",
+          message: "Spam",
+          is_read: false,
+          created_at: new Date(),
+        })
+    );
+  });
+
+  test("signed-in user CAN CREATE with merchant_id empty string", async () => {
+    await assertSucceeds(
+      authDb("any-user")
+        .collection("users")
+        .doc("alice")
+        .collection("notifications")
+        .add({
+          merchant_id: "",
+          message: "Legacy",
+          is_read: false,
+          created_at: new Date(),
+        })
     );
   });
 

@@ -47,7 +47,7 @@ class YBottomNav extends StatelessWidget {
               icon: Icons.people_outline,
               badgeCount: merchantClientCount,
             ),
-            _TabItem(id: 'rappels', label: l10n.navNotifications, icon: Icons.notifications_outlined),
+            _TabItem(id: 'rappels', label: l10n.navRappels, icon: Icons.campaign_rounded),
             _TabItem(id: 'storefront', label: l10n.navStorefront, icon: Icons.storefront),
             _TabItem(id: 'promotions', label: l10n.promotions, icon: Icons.local_offer_outlined),
             _TabItem(id: 'profile', label: l10n.profile, icon: Icons.person_outline),

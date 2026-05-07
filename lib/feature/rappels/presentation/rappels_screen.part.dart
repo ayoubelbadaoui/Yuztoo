@@ -43,6 +43,8 @@ extension _RappelsScreenUi on _RappelsScreenState {
                           onSend: _onQuickSend,
                           history: historyAsync.valueOrNull ?? [],
                           historyLoading: historyAsync.isLoading,
+                          quotaLabel: m.weeklyQuotaLabel,
+                          quotaExceeded: !m.canSendNotification,
                         );
                       },
                       loading: () => const SizedBox.shrink(),
@@ -82,6 +84,16 @@ extension _RappelsScreenUi on _RappelsScreenState {
                         onAutoTap: _scrollToToggles,
                       ),
                     ),
+                    // ── Récompenses à remettre (bons disponibles) ───────────
+                    merchantAsync.when(
+                      data: (Merchant? m) {
+                        if (m == null) return const SizedBox.shrink();
+                        return RewardRedemptionSection(merchant: m);
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                    // ── Passages en attente (validation manuelle) ───────────
                     merchantAsync.when(
                       data: (Merchant? m) {
                         if (m == null) return const SizedBox.shrink();

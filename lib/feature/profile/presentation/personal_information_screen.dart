@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/utils/cities.dart';
+import '../../../core/utils/image_crop_utils.dart';
+import '../../auth/core/application/providers.dart'
+    show updateAuthUserProfileProvider;
 import '../../auth/core/application/user_display_helpers.dart';
+import '../../storage/application/providers.dart' show uploadClientAvatarProvider;
 import '../application/providers.dart';
 
 part 'personal_information_screen.part.dart';
@@ -24,9 +29,11 @@ class _PersonalInformationScreenState
     extends ConsumerState<PersonalInformationScreen> {
   bool _editing = false;
   bool _saving = false;
+  bool _photoUploading = false;
 
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
+  final _picker = ImagePicker();
   DateTime? _selectedDob;
   bool _seeded = false;
 
@@ -48,7 +55,16 @@ class _PersonalInformationScreenState
 
   void _startEdit() => setState(() => _editing = true);
 
-  void _cancelEdit() => setState(() => _editing = false);
+  void _setPhotoUploading(bool v) => setState(() => _photoUploading = v);
+
+  void _cancelEdit() {
+    setState(() {
+      _editing = false;
+      // Reset seeded flag so controllers re-populate from Firestore on the
+      // next edit open (prevents stale cancelled changes appearing again).
+      _seeded = false;
+    });
+  }
 
   Future<void> _save(String uid) async {
     final fn = _firstNameCtrl.text.trim();
@@ -136,23 +152,32 @@ class _PersonalInformationScreenState
           );
     final city = cityRaw.isNotEmpty ? cityRaw : '—';
 
+    final hasDob = basics?.dateOfBirth != null;
     int completionPercent = 0;
     if (fullName != 'Utilisateur' && fullName.isNotEmpty) completionPercent += 20;
-    if (email != '—') completionPercent += 20;
-    if (phone != '—') completionPercent += 20;
-    if (city != '—') completionPercent += 20;
+    if (email != '—') completionPercent += 15;
+    if (phone != '—') completionPercent += 15;
+    if (city != '—') completionPercent += 10;
+    if (hasDob) completionPercent += 20;
     final hasPhoto = user?.photoUrl != null && user!.photoUrl!.isNotEmpty;
     if (hasPhoto) completionPercent += 20;
 
+    final uid = user?.id;
     return _buildScaffold(
       context,
-      uid: user?.id,
+      uid: uid,
       fullName: fullName,
       email: email,
       phone: phone,
       city: city,
       completionPercent: completionPercent,
       hasPhoto: hasPhoto,
+      hasDob: hasDob,
+      photoUrl: user?.photoUrl,
+      photoUploading: _photoUploading,
+      onPhotoTap: uid != null
+          ? () => _pickAndUploadPhoto(uid)
+          : null,
       onCreateProAccount: widget.onCreateProAccount,
     );
   }

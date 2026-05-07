@@ -38,13 +38,13 @@ void main() {
       expect(a, isNot(b));
     });
 
-    test('props contains all three fields', () {
+    test('props contains all five fields', () {
       const p = ClientMerchantLoyaltyProgress(
         validatedPassages: 1,
         pendingPassages: 2,
         cumulativeSpendEuros: 33.5,
       );
-      expect(p.props, [1, 2, 33.5]);
+      expect(p.props, [1, 2, 33.5, false, false]);
     });
   });
 }

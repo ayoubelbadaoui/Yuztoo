@@ -11,9 +11,12 @@ class NewsSection extends StatefulWidget {
     super.key,
     this.content,
     this.imageUrls = const [],
+    this.pendingDeleteUrls = const {},
     this.isUploading = false,
+    this.isClearingAll = false,
     this.onUploadImage,
     this.onDeleteImage,
+    this.onClearAll,
     this.showMedia = true,
     this.showDescription = true,
     this.showUploadButton = true,
@@ -23,12 +26,18 @@ class NewsSection extends StatefulWidget {
 
   final String? content;
   final List<String> imageUrls;
+  /// URLs whose deletion is in-flight; filtered out immediately for optimistic UI.
+  final Set<String> pendingDeleteUrls;
   /// Shown when [content] is null; falls back to merchant default copy if also null.
   final String? contentPlaceholder;
   final bool isUploading;
+  /// True while a "clear all" wipe is in progress.
+  final bool isClearingAll;
   final VoidCallback? onUploadImage;
   /// Called with the image URL when the merchant taps the delete overlay on a tile.
   final ValueChanged<String>? onDeleteImage;
+  /// Called when the merchant taps "Tout supprimer" to wipe the gallery.
+  final VoidCallback? onClearAll;
   final bool showMedia;
 
   /// Whether to show the description text card below the gallery.
@@ -56,12 +65,6 @@ class _NewsSectionState extends State<NewsSection> {
   /// Portrait tiles: width : height = 3 : 4 (vertical, not wide landscape).
   static const double _portraitAspect = 3 / 4;
 
-  int get _pageCount {
-    final n = widget.imageUrls.length;
-    if (n == 0) return 0;
-    return (n + 1) ~/ 2;
-  }
-
   @override
   void dispose() {
     _pageController.dispose();
@@ -74,18 +77,61 @@ class _NewsSectionState extends State<NewsSection> {
 
   @override
   Widget build(BuildContext context) {
+    // Filter out in-flight deletes for instant optimistic feedback.
+    final effectiveUrls = widget.pendingDeleteUrls.isEmpty
+        ? widget.imageUrls
+        : widget.imageUrls
+            .where((u) => !widget.pendingDeleteUrls.contains(u))
+            .toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.showMedia) ...[
-            if (widget.imageUrls.isEmpty)
+            // "Clear all" row — only shown to merchants when images exist.
+            if (widget.onClearAll != null && effectiveUrls.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: widget.isClearingAll ? null : widget.onClearAll,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red.shade600,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                    ),
+                    icon: widget.isClearingAll
+                        ? SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.red.shade400,
+                            ),
+                          )
+                        : Icon(Icons.delete_sweep_outlined,
+                            size: 18, color: Colors.red.shade600),
+                    label: Text(
+                      widget.isClearingAll ? 'Suppression…' : 'Tout effacer',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+            ],
+            if (widget.isClearingAll || effectiveUrls.isEmpty)
               _buildEmptyMediaPlaceholder()
             else
               LayoutBuilder(
                 builder: (context, constraints) {
-                  return _buildPairedPortraitGallery(constraints.maxWidth);
+                  return _buildPairedPortraitGallery(
+                      constraints.maxWidth, effectiveUrls);
                 },
               ),
             const SizedBox(height: 20),

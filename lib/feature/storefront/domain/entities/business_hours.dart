@@ -1,5 +1,82 @@
-/// Business hours domain entity
-/// Pure Dart - no Flutter dependencies
+// Business hours domain entity — pure Dart, no Flutter dependencies.
+
+// ---------------------------------------------------------------------------
+// Normalisation utilities (no Flutter dependency)
+// ---------------------------------------------------------------------------
+
+/// Converts any stored time string into the canonical `TimeSlotPicker` format:
+/// `'Nh'` or `'Nh30'` where N is the hour without a leading zero.
+///
+/// Handles the most common legacy and mis-typed formats:
+///   '08:00' → '8h'     '08h00' → '8h'    '8H30' → '8h30'
+///   '08:30' → '8h30'   '8h00'  → '8h'    '8'    → '8h'
+///   '8:58'  → '9h'     (minutes snapped to nearest 0 or 30)
+///
+/// Unknown formats (e.g. 'Fermé', '12:00 PM') are returned **unchanged** so
+/// they remain visible rather than silently replaced with a wrong value.
+String normalizeTimeString(String raw) {
+  final s = raw.trim().toLowerCase();
+  if (s.isEmpty) return raw;
+
+  int? h;
+  int? m;
+
+  // Pattern 1: 'Nh' or 'Nh30' or 'Nhm' (h separator, optional minutes)
+  final hPat = RegExp(r'^(\d{1,2})h(\d{0,2})$').firstMatch(s);
+  if (hPat != null) {
+    h = int.parse(hPat.group(1)!);
+    final minStr = hPat.group(2)!;
+    m = minStr.isEmpty ? 0 : int.parse(minStr);
+  } else {
+    // Pattern 2: 'N:MM' or 'NN:MM' (colon separator)
+    final colon = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(s);
+    if (colon != null) {
+      h = int.parse(colon.group(1)!);
+      m = int.parse(colon.group(2)!);
+    } else {
+      // Pattern 3: bare integer hour, e.g. '8' or '08'
+      final bare = RegExp(r'^(\d{1,2})$').firstMatch(s);
+      if (bare != null) {
+        h = int.parse(bare.group(1)!);
+        m = 0;
+      }
+    }
+  }
+
+  if (h == null || m == null) return raw; // unknown format → pass through
+
+  // Snap minutes to the nearest 0 or 30-minute boundary.
+  final int snappedH;
+  final int snappedM;
+  if (m < 15) {
+    snappedH = h;
+    snappedM = 0;
+  } else if (m < 45) {
+    snappedH = h;
+    snappedM = 30;
+  } else {
+    // Round up to the next hour.
+    snappedH = h + 1;
+    snappedM = 0;
+  }
+
+  // Clamp to the picker's supported range (6h – 23h30).
+  if (snappedH < 6) return '6h';
+  if (snappedH > 23 || (snappedH == 23 && snappedM > 30)) return '23h30';
+
+  return snappedM == 0 ? '${snappedH}h' : '${snappedH}h30';
+}
+
+/// Ensures a stored day name is title-cased French, e.g. 'lundi' → 'Lundi'.
+String _normalizeDayName(String? raw, String fallback) {
+  if (raw == null || raw.trim().isEmpty) return fallback;
+  final t = raw.trim();
+  // Title-case: first char upper, rest lower.
+  return t[0].toUpperCase() + t.substring(1).toLowerCase();
+}
+
+// ---------------------------------------------------------------------------
+
 /// Represents a time slot (e.g., "8h - 12h")
 class TimeSlot {
   const TimeSlot({
@@ -16,8 +93,8 @@ class TimeSlot {
 
   static TimeSlot fromMap(Map<String, dynamic> map) {
     return TimeSlot(
-      start: map['start'] as String? ?? '8h',
-      end: map['end'] as String? ?? '12h',
+      start: normalizeTimeString(map['start'] as String? ?? '8h'),
+      end: normalizeTimeString(map['end'] as String? ?? '12h'),
     );
   }
 }
@@ -55,7 +132,7 @@ class DayHours {
             .toList()
         : <TimeSlot>[];
     return DayHours(
-      dayName: map['dayName'] as String? ?? dayNameFallback,
+      dayName: _normalizeDayName(map['dayName'] as String?, dayNameFallback),
       isEnabled: map['isEnabled'] as bool? ?? false,
       timeSlots: list,
     );
@@ -121,29 +198,25 @@ class BusinessHours {
         hasExceptionalClosure: false,
       );
     }
+    Map<String, dynamic> _safeDay(String key) {
+      final v = map[key];
+      return v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
+    }
+
     return BusinessHours(
       hasExceptionalClosure: map['hasExceptionalClosure'] as bool? ?? false,
-      monday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['monday'] ?? {}) as Map),
-          dayNameFallback: 'Lundi'),
-      tuesday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['tuesday'] ?? {}) as Map),
-          dayNameFallback: 'Mardi'),
-      wednesday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['wednesday'] ?? {}) as Map),
-          dayNameFallback: 'Mercredi'),
-      thursday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['thursday'] ?? {}) as Map),
-          dayNameFallback: 'Jeudi'),
-      friday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['friday'] ?? {}) as Map),
-          dayNameFallback: 'Vendredi'),
-      saturday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['saturday'] ?? {}) as Map),
-          dayNameFallback: 'Samedi'),
-      sunday: DayHours.fromMap(
-          Map<String, dynamic>.from((map['sunday'] ?? {}) as Map),
-          dayNameFallback: 'Dimanche'),
+      monday: DayHours.fromMap(_safeDay('monday'), dayNameFallback: 'Lundi'),
+      tuesday: DayHours.fromMap(_safeDay('tuesday'), dayNameFallback: 'Mardi'),
+      wednesday:
+          DayHours.fromMap(_safeDay('wednesday'), dayNameFallback: 'Mercredi'),
+      thursday:
+          DayHours.fromMap(_safeDay('thursday'), dayNameFallback: 'Jeudi'),
+      friday:
+          DayHours.fromMap(_safeDay('friday'), dayNameFallback: 'Vendredi'),
+      saturday:
+          DayHours.fromMap(_safeDay('saturday'), dayNameFallback: 'Samedi'),
+      sunday:
+          DayHours.fromMap(_safeDay('sunday'), dayNameFallback: 'Dimanche'),
     );
   }
 }

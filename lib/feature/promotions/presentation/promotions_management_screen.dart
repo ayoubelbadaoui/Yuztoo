@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/utils/image_crop_utils.dart';
 import '../../client_notification/application/providers.dart';
 import '../../merchant/application/providers.dart' show currentMerchantForOwnerProvider;
 import '../application/providers.dart';
@@ -87,7 +88,7 @@ class _PromotionsManagementScreenState
           ),
         );
       },
-      (savedPromo) async {
+      (savedPromo) {
         ref.invalidate(merchantPromotionsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -95,19 +96,9 @@ class _PromotionsManagementScreenState
             backgroundColor: MerchantColors.gold,
           ),
         );
-
-        // Notify all followers — fire and forget (non-blocking UI).
-        final merchantAsync =
-            await ref.read(currentMerchantForOwnerProvider.future);
-        final merchantName =
-            merchantAsync?.name ?? authState.user.displayName ?? 'Votre commerce';
-
-        final notifyUseCase = ref.read(notifyFollowersOfPromotionProvider);
-        await notifyUseCase.call(
-          merchantId: authState.user.id,
-          merchantName: merchantName,
-          promotion: savedPromo,
-        );
+        // The Cloud Function onPromotionCreated already fans out a notification
+        // to all followers on .onCreate — no Flutter-side call needed here to
+        // avoid sending clients a duplicate notification.
       },
     );
   }
@@ -193,6 +184,7 @@ class _PromotionsManagementScreenState
                     merchantId: authState.user.id,
                     merchantName: merchantName,
                     promotion: updated,
+                    callerUid: authState.user.id,
                   );
             });
           }
@@ -240,18 +232,26 @@ class _PromotionsManagementScreenState
     try {
       final picked = await _picker.pickImage(
         source: source,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 80,
+        maxWidth: 1200,
+        maxHeight: 675,
+        imageQuality: 85,
       );
       if (picked == null || !context.mounted) return;
+
+      // Crop to 16:9 banner format before uploading.
+      final croppedPath = await cropImage(
+        picked.path,
+        ratioX: 16,
+        ratioY: 9,
+      );
+      if (croppedPath == null || !context.mounted) return;
 
       setState(() => _isUpdatingImage = true);
       final promo = promotions[index];
       final updatePromotion = ref.read(updatePromotionProvider);
       final result = await updatePromotion.call(
         promo,
-        imageFilePath: picked.path,
+        imageFilePath: croppedPath,
       );
       if (!context.mounted) return;
       setState(() => _isUpdatingImage = false);

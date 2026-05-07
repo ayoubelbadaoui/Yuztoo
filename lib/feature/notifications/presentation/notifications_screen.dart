@@ -45,6 +45,79 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     await useCase(authState.user.id);
   }
 
+  Future<void> _deleteOne(ClientNotification notification) async {
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) return;
+    final result = await ref
+        .read(deleteNotificationProvider)
+        .call(authState.user.id, notification.id);
+    if (!mounted) return;
+    result.fold(
+      (_) => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de supprimer cette alerte'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      ),
+      (_) {},
+    );
+  }
+
+  Future<void> _deleteAll() async {
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: MerchantColors.navyCard,
+        title: Text(
+          'Tout supprimer ?',
+          style: GoogleFonts.outfit(
+              fontWeight: FontWeight.w600, color: Colors.white),
+        ),
+        content: Text(
+          'Toutes vos alertes seront définitivement supprimées.',
+          style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: MerchantColors.textLightGrey,
+              height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Annuler',
+                style: GoogleFonts.outfit(color: MerchantColors.gold)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red[700],
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Supprimer tout',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final result = await ref
+        .read(deleteAllNotificationsProvider)
+        .call(authState.user.id);
+    if (!mounted) return;
+    result.fold(
+      (_) => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de supprimer les alertes'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      ),
+      (_) {},
+    );
+  }
+
   Future<void> _handleTap(ClientNotification notification) async {
     // 1. Mark read fire-and-forget
     if (!notification.isRead) {
