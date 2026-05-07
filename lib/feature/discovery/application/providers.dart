@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/city_input.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
@@ -21,7 +22,22 @@ final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
     merchants = result.fold((failure) => <Merchant>[], (list) => list);
   } else {
     final cityResult = await ref.read(auth_providers.getUserCityProvider).call(userId);
-    final userCity = cityResult.fold((_) => null, (c) => c?.trim());
+    String? userCity = cityResult.fold((_) => null, (c) => c?.trim());
+
+    // Fallback for dual-profile users who registered as a merchant first:
+    // their users/{id}.city may be empty while merchants/{id}.city is set.
+    // Without this, discovery falls back to a global unfiltered list instead
+    // of showing local merchants in the same city as their shop.
+    if (userCity == null || userCity.isEmpty) {
+      final merchantResult = await repo.getMerchantById(userId);
+      final merchantCity = merchantResult
+          .fold((_) => null, (m) => m?.city.trim());
+      if (merchantCity != null &&
+          merchantCity.isNotEmpty &&
+          !CityInput.isPlaceholder(merchantCity)) {
+        userCity = merchantCity;
+      }
+    }
 
     if (userCity == null || userCity.isEmpty) {
       final result = await repo.listMerchants(limit: 50);
