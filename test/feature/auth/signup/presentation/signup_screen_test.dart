@@ -125,6 +125,9 @@ class _FakeAuthRepository implements AuthRepository {
   Future<Result<AuthUser>> linkWithGoogle() => throw UnimplementedError();
 
   @override
+  Future<Result<AuthUser>> linkWithApple() => throw UnimplementedError();
+
+  @override
   List<String> getLinkedProviders() => [];
 
   @override

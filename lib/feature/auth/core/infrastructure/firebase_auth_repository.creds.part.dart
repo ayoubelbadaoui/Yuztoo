@@ -402,6 +402,79 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
     }
   }
 
+  Future<Result<AuthUser>> linkWithApple() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Aucun utilisateur connecté'),
+        );
+      }
+      // Idempotent: already linked → return current user as-is. Same
+      // pattern as linkWithGoogle so the caller never has to special-case
+      // re-tap.
+      final alreadyLinked =
+          user.providerData.any((p) => p.providerId == 'apple.com');
+      if (alreadyLinked) {
+        final dto = AuthUserDto.fromFirebase(user);
+        return Right<AuthFailure, AuthUser>(dto.toDomain());
+      }
+
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      final oauthCredential = firebase.OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+      await user.linkWithCredential(oauthCredential);
+      await user.reload();
+      final refreshed = _auth.currentUser;
+      if (refreshed == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+              message: 'Utilisateur introuvable après liaison.'),
+        );
+      }
+      final dto = AuthUserDto.fromFirebase(refreshed);
+      return Right<AuthFailure, AuthUser>(dto.toDomain());
+    } on firebase.FirebaseAuthException catch (e, st) {
+      // provider-already-linked → idempotent success.
+      if (e.code == 'provider-already-linked') {
+        final user = _auth.currentUser;
+        if (user != null) {
+          final dto = AuthUserDto.fromFirebase(user);
+          return Right<AuthFailure, AuthUser>(dto.toDomain());
+        }
+      }
+      // credential-already-in-use → the chosen Apple ID is bound to a
+      // DIFFERENT Firebase user. Surface a clear error rather than a
+      // false success — same handling as Google for symmetry.
+      if (e.code == 'credential-already-in-use') {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message:
+                'Cet identifiant Apple est déjà associé à un autre compte Yuztoo.',
+          ),
+        );
+      }
+      return Left<AuthFailure, AuthUser>(_mapAuthException(e, st));
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        return const Left<AuthFailure, AuthUser>(UserCancelledFailure());
+      }
+      return Left<AuthFailure, AuthUser>(
+        AuthUnexpectedFailure(message: e.message),
+      );
+    } catch (e, st) {
+      return Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(cause: e, stackTrace: st));
+    }
+  }
+
   List<String> getLinkedProviders() {
     final user = _auth.currentUser;
     if (user == null) return [];
