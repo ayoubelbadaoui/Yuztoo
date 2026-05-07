@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/app_logo.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/providers.dart';
 import '../../merchant/domain/entities/merchant.dart';

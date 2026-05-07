@@ -200,7 +200,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                   children: [
                     if (_editing)
                       _buildEditForm(context, uid: uid)
-                    else
+                    else ...[
                       _buildIdentityCard(
                         fullName,
                         email,
@@ -209,6 +209,51 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                         isUploading: photoUploading,
                         onPhotoTap: onPhotoTap,
                       ),
+                      // Prominent CTA in addition to the pencil icon in the
+                      // header — earlier feedback flagged the profile as
+                      // "no longer editable", which we traced to the small
+                      // pencil being easy to miss on smaller phones. The
+                      // text button is unambiguous; the pencil stays for
+                      // power-users.
+                      const SizedBox(height: 14),
+                      GestureDetector(
+                        onTap: _startEdit,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          width: double.infinity,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: MerchantColors.bgHeader,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: MerchantColors.gold,
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.edit_outlined,
+                                  color: MerchantColors.gold,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Modifier mes informations',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: MerchantColors.gold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     Text(
                       'Villes connectées',
