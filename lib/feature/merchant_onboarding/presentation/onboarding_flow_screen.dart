@@ -22,7 +22,7 @@ import '../../auth/signup/presentation/widgets/city_selection_modal.dart';
 part 'onboarding_flow_screen.part.dart';
 
 /// Steps: Welcome(0), OwnerInfo(1), Name(2), City(3), Image(4), Address(5), Description(6), Hours(7), Ready(8)
-const _totalSteps = 9;
+const _totalSteps = 10;
 
 /// Uber Eats / Glovo-style multi-step merchant onboarding.
 class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
@@ -116,9 +116,13 @@ class _MerchantOnboardingFlowScreenState
   }
 
   bool _isOptionalStep() {
-    return _currentStep == 4 || // Image
-        _currentStep == 6 || // Description
-        _currentStep == 7; // Hours
+    // Indices reflect the current PageView order:
+    //   0 Welcome · 1 OwnerInfo · 2 Name · 3 MerchantType · 4 City
+    //   5 Image (optional) · 6 Address
+    //   7 Description (optional) · 8 Hours (optional) · 9 Ready
+    return _currentStep == 5 || // Image
+        _currentStep == 7 || // Description
+        _currentStep == 8; // Hours
   }
 
   Future<void> _persistMerchantOnboardingCompleted() async {
@@ -192,6 +196,15 @@ class _MerchantOnboardingFlowScreenState
                       onChanged: (v) => ref
                           .read(onboardingFlowProvider.notifier)
                           .setFullName(v),
+                      onNext: _goNext,
+                    ),
+                    _StepMerchantType(
+                      value: data.merchantType,
+                      onChanged: (v) {
+                        ref
+                            .read(onboardingFlowProvider.notifier)
+                            .setMerchantType(v);
+                      },
                       onNext: _goNext,
                     ),
                     _StepCity(

@@ -19,6 +19,7 @@ class MerchantOnboardingData {
     this.categoryTitle,
     this.description,
     this.hoursJson,
+    this.merchantType,
   });
 
   /// Owner's personal identity — stored in users/{uid}.
@@ -46,6 +47,13 @@ class MerchantOnboardingData {
   final String? description;
   final Map<String, dynamic>? hoursJson;
 
+  /// 'b2b' or 'b2c'. Persisted to `merchants/{id}.merchant_type` on
+  /// submit. Drives the sphere filter on the Recommandations screen and
+  /// — later — a Découvrir filter for end-users. Null until the
+  /// merchant picks; the wizard step gates Suivant until they do, so
+  /// this never lands as null in the final write.
+  final String? merchantType;
+
   MerchantOnboardingData copyWith({
     String? ownerFirstName,
     String? ownerLastName,
@@ -62,6 +70,7 @@ class MerchantOnboardingData {
     String? categoryTitle,
     String? description,
     Map<String, dynamic>? hoursJson,
+    String? merchantType,
   }) {
     return MerchantOnboardingData(
       ownerFirstName: ownerFirstName ?? this.ownerFirstName,
@@ -79,6 +88,7 @@ class MerchantOnboardingData {
       categoryTitle: categoryTitle ?? this.categoryTitle,
       description: description ?? this.description,
       hoursJson: hoursJson ?? this.hoursJson,
+      merchantType: merchantType ?? this.merchantType,
     );
   }
 }
@@ -133,6 +143,14 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
 
   void setHours(Map<String, dynamic>? hours) =>
       state = state.copyWith(hoursJson: hours);
+
+  /// Defensive: only accept the wire values the schema knows about.
+  /// A bad value from a future caller is dropped (no-op) rather than
+  /// poisoning the state and cascading into a bad Firestore write.
+  void setMerchantType(String value) {
+    if (value != 'b2b' && value != 'b2c') return;
+    state = state.copyWith(merchantType: value);
+  }
 
   void reset() => state = const MerchantOnboardingData();
 }

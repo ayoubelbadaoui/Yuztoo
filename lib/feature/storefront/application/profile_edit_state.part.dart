@@ -98,6 +98,13 @@ class StorefrontProfileEditNotifier
       address: (storefront.address ?? state.address).trim().isEmpty ? 'Votre adresse' : (storefront.address ?? state.address),
       city: CityInput.forEditField(storefront.city),
       welcomeGiftDescription: merchant?.welcomeGiftDescription ?? '',
+      // Defensive read: anything other than the two known values falls
+      // back to the entity default so the picker never shows a blank
+      // state and the save path doesn't blindly forward garbage.
+      merchantType: (merchant?.merchantType == 'b2b' ||
+              merchant?.merchantType == 'b2c')
+          ? merchant!.merchantType
+          : 'b2c',
     );
   }
 
@@ -111,6 +118,13 @@ class StorefrontProfileEditNotifier
   void setCity(String v) => state = state.copyWith(city: v);
   void setWelcomeGiftDescription(String v) =>
       state = state.copyWith(welcomeGiftDescription: v);
+
+  /// Setter validates against the wire allowlist; anything else is a
+  /// no-op so the picker can never put the state into a bad shape.
+  void setMerchantType(String v) {
+    if (v != 'b2b' && v != 'b2c') return;
+    state = state.copyWith(merchantType: v);
+  }
 
   void setBannerImageUrl(String v) => state = state.copyWith(bannerImageUrl: v);
   void setProfileImageUrl(String v) => state = state.copyWith(profileImageUrl: v);
@@ -201,6 +215,7 @@ class StorefrontProfileEditNotifier
         city: city,
         websiteUrl: websiteUrl,
         welcomeGiftDescription: welcomeGiftDescription,
+        merchantType: state.merchantType,
         clearMerchantCityField: city == null,
       );
 

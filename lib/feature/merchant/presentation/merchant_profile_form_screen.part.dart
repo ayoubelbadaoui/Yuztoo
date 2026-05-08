@@ -179,6 +179,7 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         hours: data.hoursJson,
         logoUrl: logoUrl,
         bannerUrl: bannerUrl,
+        merchantType: data.merchantType,
       );
       firestoreSuccess = result.fold((_) => false, (_) => true);
     } catch (_) {}

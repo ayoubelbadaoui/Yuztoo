@@ -88,4 +88,45 @@ void main() {
       expect(b.contactEmail, 'b@b.fr');
     });
   });
+
+  // ── setMerchantType ────────────────────────────────────────────────────────
+  // Pins the wire allowlist for B2B/B2C. The Recommandations filter
+  // (merchant_partners) trusts these exact strings — a typo here would
+  // silently break the filter.
+
+  group('setMerchantType', () {
+    test('initial state is null until the user picks', () {
+      expect(state().merchantType, isNull);
+    });
+
+    test('accepts b2c', () {
+      notifier().setMerchantType('b2c');
+      expect(state().merchantType, 'b2c');
+    });
+
+    test('accepts b2b', () {
+      notifier().setMerchantType('b2b');
+      expect(state().merchantType, 'b2b');
+    });
+
+    test('drops unknown values (no-op, prior valid value preserved)', () {
+      notifier().setMerchantType('b2b');
+      notifier().setMerchantType('b2x');
+      expect(state().merchantType, 'b2b',
+          reason: 'Bad input must NOT clear the prior pick. Treat as a '
+              'no-op so a future caller bug never blanks the user choice.');
+    });
+
+    test('reset() clears merchantType', () {
+      notifier().setMerchantType('b2b');
+      notifier().reset();
+      expect(state().merchantType, isNull);
+    });
+
+    test('copyWith carries merchantType when not overridden', () {
+      const a = MerchantOnboardingData(merchantType: 'b2b');
+      final b = a.copyWith(fullName: 'X');
+      expect(b.merchantType, 'b2b');
+    });
+  });
 }

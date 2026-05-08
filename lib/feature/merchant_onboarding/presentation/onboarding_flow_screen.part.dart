@@ -618,6 +618,176 @@ class _StepNameState extends State<_StepName> {
   }
 }
 
+// ─── Step: B2B / B2C choice ───────────────────────────────────────────────
+//
+// Spec page 17 follow-through: the Recommandations screen filters
+// listings by sphere (B2C — particuliers / B2B — professionnels). That
+// filter has signal only if every merchant declares which side they're
+// on. This step persists the choice to MerchantOnboardingData and the
+// final write hands it to CompleteMerchantOnboarding.
+class _StepMerchantType extends StatelessWidget {
+  const _StepMerchantType({
+    required this.value,
+    required this.onChanged,
+    required this.onNext,
+  });
+
+  final String? value;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+          28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      child: Column(
+        children: [
+          const SizedBox(height: 32),
+          const _StepEntrance(
+            child: _StepAvatar(icon: Icons.groups_2_rounded, size: 80),
+          ),
+          const SizedBox(height: 28),
+          const _StepEntrance(
+            delayMs: 50,
+            child: _GradientTitle('À qui s\'adresse\nvotre commerce ?'),
+          ),
+          const SizedBox(height: 8),
+          _StepEntrance(
+            delayMs: 80,
+            child: Text(
+              'Vos clients principaux. Cela aide les autres commerces à '
+              'vous recommander dans la bonne sphère.',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: MerchantOnboardingColors.textGrey,
+                height: 1.5,
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 28),
+          _StepEntrance(
+            delayMs: 110,
+            child: _MerchantTypeOption(
+              icon: Icons.person_rounded,
+              title: 'Particuliers',
+              subtitle: 'Mes clients sont des particuliers (B2C)',
+              selected: value == 'b2c',
+              onTap: () => onChanged('b2c'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _StepEntrance(
+            delayMs: 140,
+            child: _MerchantTypeOption(
+              icon: Icons.business_center_rounded,
+              title: 'Professionnels',
+              subtitle: 'Mes clients sont des entreprises (B2B)',
+              selected: value == 'b2b',
+              onTap: () => onChanged('b2b'),
+            ),
+          ),
+          const SizedBox(height: 28),
+          _StepEntrance(
+            delayMs: 170,
+            child: _SuivantButton(
+              onPressed: value == null ? null : onNext,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MerchantTypeOption extends StatelessWidget {
+  const _MerchantTypeOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          color: selected
+              ? MerchantColors.gold.withValues(alpha: 0.18)
+              : MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? MerchantColors.gold
+                : MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: MerchantColors.gold.withValues(alpha: 0.15),
+              ),
+              child: Icon(icon, color: MerchantColors.gold, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: MerchantColors.textLightGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selected)
+              const Icon(
+                Icons.check_circle_rounded,
+                color: MerchantColors.gold,
+                size: 22,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StepCity extends StatefulWidget {
   const _StepCity({
     required this.initialValue,

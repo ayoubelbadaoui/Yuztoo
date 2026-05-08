@@ -1166,6 +1166,12 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                 onShowHelp: _showHelpDialog,
                 maxLines: 2,
               ),
+              const SizedBox(height: 14),
+              _MerchantTypeField(
+                value: state.merchantType,
+                onChanged: notifier.setMerchantType,
+                onShowHelp: _showHelpDialog,
+              ),
               const SizedBox(height: 28),
               const _SectionTitle('Galerie / Actualités'),
               const SizedBox(height: 16),
@@ -1399,6 +1405,146 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
         ),
       );
     }
+  }
+}
+
+/// Sphere picker (B2B / B2C) — sits inside the storefront edit form. Two
+/// segmented chips so an existing merchant can update the persisted
+/// `merchant_type` later. Same vocabulary as the onboarding wizard +
+/// the Recommandations filter so the merchant sees one term across
+/// every screen.
+class _MerchantTypeField extends StatelessWidget {
+  const _MerchantTypeField({
+    required this.value,
+    required this.onChanged,
+    required this.onShowHelp,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+  final void Function(String title, String body) onShowHelp;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Type de clientèle',
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: StorefrontColors.textTertiary,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => onShowHelp(
+                'Type de clientèle',
+                'Indiquez si vos clients principaux sont des particuliers '
+                    '(B2C) ou des professionnels (B2B). Cela aide les autres '
+                    'commerces à vous recommander dans la bonne sphère.',
+              ),
+              child: const Icon(
+                Icons.info_outline_rounded,
+                size: 14,
+                color: StorefrontColors.textTertiary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _MerchantTypeChip(
+                label: 'B2C — Particuliers',
+                icon: Icons.person_rounded,
+                selected: value == 'b2c',
+                onTap: () => onChanged('b2c'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _MerchantTypeChip(
+                label: 'B2B — Pros',
+                icon: Icons.business_center_rounded,
+                selected: value == 'b2b',
+                onTap: () => onChanged('b2b'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MerchantTypeChip extends StatelessWidget {
+  const _MerchantTypeChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? StorefrontColors.primaryGold.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? StorefrontColors.primaryGold
+                : StorefrontColors.primaryGold.withValues(alpha: 0.25),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected
+                  ? StorefrontColors.primaryGold
+                  : StorefrontColors.textTertiary,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: selected
+                      ? StorefrontColors.primaryGold
+                      : StorefrontColors.textTertiary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
