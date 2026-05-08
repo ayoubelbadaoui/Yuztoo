@@ -1269,6 +1269,245 @@ export const dailyBonExpirationScan = functions
     return null;
   });
 
+// ─── 8. Scheduled notifications tick ──────────────────────────────────────────
+//
+// Counterpart to the immediate quick-send path. Merchants who pick
+// "Programmer plus tard" write to merchants/{mid}/scheduled_notifications
+// instead of firing the SendMerchantNotification use case directly. This
+// pubsub-on-tick CF (every 5 minutes Europe/Paris) promotes pending
+// docs whose scheduled_at <= now into sent docs by mirroring the same
+// fan-out the existing immediate path does (segment + blocklist filter,
+// per-client notification doc write that triggers onNotificationCreated
+// for FCM).
+//
+// Idempotency: each doc carries a status field (pending → sent | failed
+// | cancelled) and a transactional update flips pending→processing
+// before the fan-out so a concurrent tick can't double-fire it. The
+// "processing" intermediate is only kept in-memory for the same
+// invocation; persisted final states are sent / failed / cancelled.
+//
+// Quota: same 5-per-rolling-week cap as immediate sends. If the merchant
+// is already at the cap when a scheduled notif fires, the doc is marked
+// `failed` with reason `quota_exceeded` rather than dropped — the
+// merchant can see why it didn't go out.
+//
+// Required Firestore index: collection-group scheduled_notifications
+// on (status ASC, scheduled_at ASC).
+export const processScheduledNotifications = functions
+  .region("europe-west1")
+  .runWith({ timeoutSeconds: 540, memory: "512MB" })
+  .pubsub.schedule("*/5 * * * *")
+  .timeZone("Europe/Paris")
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    let processed = 0;
+    let failedQuota = 0;
+
+    let pendingSnap: admin.firestore.QuerySnapshot;
+    try {
+      pendingSnap = await db
+        .collectionGroup("scheduled_notifications")
+        .where("status", "==", "pending")
+        .where("scheduled_at", "<=", now)
+        .get();
+    } catch (e) {
+      functions.logger.error("scheduled-notifs query failed", { error: e });
+      return null;
+    }
+
+    // Bounded concurrency — 10 docs at a time keeps Firestore reads
+    // sane even when the queue is large. Each doc spawns its own
+    // followers-list read + per-follower writes; sequential within
+    // the chunk is fine, parallel between chunks isn't worth the
+    // contention risk on the merchant doc (quota write).
+    await processInChunks(pendingSnap.docs, 10, async (doc) => {
+      const merchantId = doc.ref.parent.parent?.id;
+      if (!merchantId) return;
+      const data = doc.data();
+      const text: string = (data.text ?? "").toString();
+      const audience: string = data.audience ?? "Tous mes clients";
+      const rawSegments: unknown = data.segments;
+      const segments: string[] = Array.isArray(rawSegments)
+        ? rawSegments.filter((s): s is string => typeof s === "string")
+        : [];
+
+      try {
+        // Atomic claim of the doc — flip status to "processing" and
+        // bail out if another tick already grabbed it. Done in a
+        // transaction so two concurrent tick invocations cannot both
+        // observe pending.
+        const claimed = await db.runTransaction<boolean>(async (tx) => {
+          const fresh = await tx.get(doc.ref);
+          if (!fresh.exists) return false;
+          if (fresh.data()?.status !== "pending") return false;
+          tx.update(doc.ref, { status: "processing" });
+          return true;
+        });
+        if (!claimed) return;
+
+        // Quota check — same 5/week rolling-window logic the immediate
+        // path uses. Read merchant doc, check weekly_notif_sent_count
+        // against the reset window. Failing this is a final state.
+        const merchantSnap = await db
+          .collection("merchants")
+          .doc(merchantId)
+          .get();
+        const merchantData = merchantSnap.data() ?? {};
+        const merchantName: string =
+          merchantData.name ?? "Votre commerce";
+        const weeklyCount: number =
+          Number(merchantData.weekly_notif_sent_count ?? 0);
+        const resetAt = merchantData.weekly_notif_reset_at;
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        const windowOpen =
+          resetAt &&
+          (now.toMillis() - resetAt.toMillis()) < sevenDaysMs;
+        const overQuota = windowOpen && weeklyCount >= 5;
+
+        if (overQuota) {
+          await doc.ref.update({
+            status: "failed",
+            failure_reason: "quota_exceeded",
+            sent_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          failedQuota++;
+          return;
+        }
+
+        // Resolve eligible followers.
+        const followerIds = await getFollowerIds(merchantId);
+        if (followerIds.length === 0) {
+          await doc.ref.update({
+            status: "failed",
+            failure_reason: "no_followers",
+            sent_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          return;
+        }
+
+        // Apply segment filter when audience is "Certains clients".
+        let targetIds = followerIds;
+        if (audience === "Certains clients" && segments.length > 0) {
+          // Hand-rolled equivalent of the Dart segment filter — pulls
+          // each loyalty doc and computes the segment via computeSegment
+          // (already exported and tested).
+          const filtered: string[] = [];
+          await processInChunks(targetIds, 32, async (clientId) => {
+            try {
+              const seg = await getClientSegment(merchantId, clientId);
+              if (segments.includes(seg)) filtered.push(clientId);
+            } catch {
+              // Fail-open: a single client lookup error must not
+              // exclude the merchant from delivering to others.
+            }
+          });
+          targetIds = filtered;
+        }
+
+        // Drop blocked clients (mirrors onPromotionCreated).
+        if (targetIds.length > 0) {
+          const after: string[] = [];
+          await processInChunks(targetIds, 16, async (clientId) => {
+            const blocked = await isMerchantBlockedByClient(
+              clientId,
+              merchantId
+            );
+            if (!blocked) after.push(clientId);
+          });
+          targetIds = after;
+        }
+
+        if (targetIds.length === 0) {
+          await doc.ref.update({
+            status: "sent",
+            sent_count: 0,
+            sent_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          return;
+        }
+
+        // Write one notification doc per filtered follower. Same shape
+        // as fireAutoNotification's auto/quick-send writes so
+        // onNotificationCreated handles the FCM push uniformly.
+        let sent = 0;
+        await processInChunks(targetIds, 32, async (clientId) => {
+          try {
+            await db
+              .collection("users")
+              .doc(clientId)
+              .collection("notifications")
+              .add({
+                client_id: clientId,
+                merchant_id: merchantId,
+                merchant_name: merchantName,
+                type: "auto",
+                title: merchantName,
+                body: text,
+                is_read: false,
+                created_at:
+                  admin.firestore.FieldValue.serverTimestamp(),
+              });
+            sent++;
+          } catch (e) {
+            functions.logger.warn("scheduled notif write failed", {
+              merchantId,
+              clientId,
+              error: e,
+            });
+          }
+        });
+
+        // Increment merchant quota counter (same as quick-send path).
+        // Uses a transaction so the read-modify-write of the rolling
+        // window stays consistent under concurrent ticks.
+        await db.runTransaction(async (tx) => {
+          const merchantRef = db.collection("merchants").doc(merchantId);
+          const fresh = await tx.get(merchantRef);
+          const fdata = fresh.data() ?? {};
+          const fCount: number =
+            Number(fdata.weekly_notif_sent_count ?? 0);
+          const fReset = fdata.weekly_notif_reset_at;
+          const fWindowOpen =
+            fReset &&
+            (now.toMillis() - fReset.toMillis()) < sevenDaysMs;
+          tx.update(merchantRef, {
+            weekly_notif_sent_count: fWindowOpen ? fCount + 1 : 1,
+            weekly_notif_reset_at: fWindowOpen
+              ? fReset
+              : admin.firestore.FieldValue.serverTimestamp(),
+          });
+        });
+
+        await doc.ref.update({
+          status: "sent",
+          sent_count: sent,
+          sent_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        processed++;
+      } catch (e) {
+        functions.logger.error("scheduled notif processing failed", {
+          merchantId,
+          docId: doc.id,
+          error: e,
+        });
+        // Best-effort: leave the doc as `processing` would be confusing
+        // — flip back to pending so the next tick retries. If the
+        // failure is deterministic the merchant can cancel manually.
+        try {
+          await doc.ref.update({ status: "pending" });
+        } catch {
+          /* swallow */
+        }
+      }
+    });
+
+    functions.logger.info("Scheduled notifications tick complete", {
+      processed,
+      failedQuota,
+    });
+    return null;
+  });
+
 // ─── RGPD: account deletion with cascade ──────────────────────────────────────
 //
 // `user.delete()` from the client SDK only removes the Firebase Auth account —

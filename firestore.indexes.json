@@ -33,6 +33,14 @@
         { "fieldPath": "notified_expiring_at", "order": "ASCENDING" },
         { "fieldPath": "valid_until_at", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "scheduled_notifications",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduled_at", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

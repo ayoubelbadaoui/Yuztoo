@@ -33,8 +33,12 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
           _buildAudienceChips(),
           const SizedBox(height: 10),
           _buildQuotaRow(),
+          const SizedBox(height: 12),
+          _buildScheduleRow(context),
           const SizedBox(height: 16),
           _buildSendButton(context),
+          const SizedBox(height: 16),
+          _buildPendingScheduledList(context),
           if (widget.history.isNotEmpty || widget.historyLoading) ...[
             const SizedBox(height: 20),
             _buildHistory(context),
@@ -264,6 +268,172 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
         ),
       ),
     );
+  }
+
+  // ── Schedule row + pending list ───────────────────────────────────────────
+  // When _scheduledAt is null the toggle reads "Programmer plus tard"; when
+  // set, it shows the chosen instant + a clear-affordance. The send button's
+  // label flips to "Programmer" / "Envoyer" based on the same flag.
+  Widget _buildScheduleRow(BuildContext context) {
+    final scheduled = _scheduledAt;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: scheduled == null ? _toggleScheduleOn : _toggleScheduleOff,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: scheduled != null
+                ? MerchantColors.gold.withValues(alpha: 0.55)
+                : MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              scheduled != null
+                  ? Icons.event_available_rounded
+                  : Icons.schedule_rounded,
+              size: 16,
+              color: MerchantColors.gold,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                scheduled != null
+                    ? 'Programmé le ${_formatScheduled(scheduled)}'
+                    : 'Programmer plus tard',
+                style: GoogleFonts.outfit(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: scheduled != null
+                      ? Colors.white
+                      : MerchantColors.textLightGrey,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              scheduled != null ? 'Annuler' : 'Choisir',
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: MerchantColors.gold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingScheduledList(BuildContext context) {
+    final repo = ref.watch(scheduledNotificationRepositoryProvider);
+    return StreamBuilder<List<ScheduledNotification>>(
+      stream: repo.watchAll(widget.merchantId),
+      builder: (context, snap) {
+        final all = snap.data ?? const <ScheduledNotification>[];
+        // Only pending entries get UI surface here. Sent/cancelled/failed
+        // entries are deliberately hidden — a future "historique
+        // programmation" tab would surface them.
+        final pending = all.where((s) => s.isPending).toList();
+        if (pending.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Programmées',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: MerchantColors.textGrey,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ),
+            ...pending.map((s) => _scheduledRow(s)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _scheduledRow(ScheduledNotification s) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: MerchantColors.gold
+                .withValues(alpha: MerchantColors.goldBorderAlpha),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.schedule_rounded,
+                color: MerchantColors.gold, size: 16),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _formatScheduled(s.scheduledAt.toLocal()),
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: MerchantColors.gold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    s.text,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: Colors.white,
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () => _cancelScheduled(s),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: const Size(0, 28),
+              ),
+              child: Text(
+                'Annuler',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatScheduled(DateTime dt) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(dt.day)}/${two(dt.month)} à ${two(dt.hour)}:${two(dt.minute)}';
   }
 
   // ── History ───────────────────────────────────────────────────────────────

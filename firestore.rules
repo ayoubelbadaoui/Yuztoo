@@ -346,6 +346,42 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // --- /merchants/{merchantId}/scheduled_notifications/{scheduledId} ---
+    // Scheduled manual notifications. The CF (`processScheduledNotifications`,
+    // running every 5 minutes Europe/Paris) flips status from 'pending'
+    // to 'sent' / 'failed' and writes sent_at + sent_count. The merchant
+    // can only:
+    //   - create with status: 'pending' and the schema-allowed fields;
+    //   - update solely to flip status to 'cancelled' (no other field
+    //     change permitted; CF-only fields untouchable).
+    // Reads owner-only. Deletes allowed (owner cleanup).
+    match /merchants/{merchantId}/scheduled_notifications/{scheduledId} {
+      allow read, delete: if isMerchantOwner(merchantId);
+      allow create: if isMerchantOwner(merchantId)
+        && request.resource.data.keys().hasOnly(
+          ['text', 'audience', 'segments', 'scheduled_at', 'status',
+           'created_at', 'created_by_uid']
+        )
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.audience in [
+          'Tous mes clients', 'Certains clients'
+        ]
+        && request.resource.data.segments is list
+        && request.resource.data.scheduled_at is timestamp
+        && request.resource.data.status == 'pending'
+        && request.resource.data.created_by_uid == request.auth.uid;
+      // The cancel path: owner can ONLY change status (and only to
+      // 'cancelled'). CF-only fields (sent_at, sent_count,
+      // failure_reason) and the original payload remain locked.
+      allow update: if isMerchantOwner(merchantId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status'])
+        && request.resource.data.status == 'cancelled'
+        && resource.data.status == 'pending';
+    }
+
     // --- /merchants/{merchantId}/notification_templates/{templateId} ---
     // Merchant-owned saved templates for the manual notification flow.
     // Schema gate keeps the wire shape narrow so a future migration can
