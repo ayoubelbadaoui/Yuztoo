@@ -90,15 +90,24 @@ class ClientNotificationDto {
         promotionId: promotionId,
       );
 
+  // Wire vocabulary lives here AND on the CF side
+  // (functions/src/index.ts: dailyBonExpirationScan writes type
+  // 'bon_expiring' / 'bon_expired'). Keep these maps in lockstep — a
+  // drift here means the bon-tap deep-link silently falls through to
+  // the merchant-storefront branch.
   static String typeToString(ClientNotificationType t) => switch (t) {
         ClientNotificationType.promotion => 'promotion',
         ClientNotificationType.loyalty => 'loyalty',
         ClientNotificationType.auto => 'auto',
+        ClientNotificationType.bonExpiring => 'bon_expiring',
+        ClientNotificationType.bonExpired => 'bon_expired',
       };
 
   static ClientNotificationType _typeFromString(String s) => switch (s) {
         'loyalty' => ClientNotificationType.loyalty,
         'auto' => ClientNotificationType.auto,
+        'bon_expiring' => ClientNotificationType.bonExpiring,
+        'bon_expired' => ClientNotificationType.bonExpired,
         _ => ClientNotificationType.promotion,
       };
 }

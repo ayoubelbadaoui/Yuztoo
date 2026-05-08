@@ -15,6 +15,32 @@
         { "fieldPath": "merchant_id", "order": "ASCENDING" },
         { "fieldPath": "followed_at", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "loyalty_bons",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "redeemed_at", "order": "ASCENDING" },
+        { "fieldPath": "notified_expired_at", "order": "ASCENDING" },
+        { "fieldPath": "valid_until_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "loyalty_bons",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "redeemed_at", "order": "ASCENDING" },
+        { "fieldPath": "notified_expiring_at", "order": "ASCENDING" },
+        { "fieldPath": "valid_until_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scheduled_notifications",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduled_at", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

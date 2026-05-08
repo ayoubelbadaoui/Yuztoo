@@ -103,15 +103,95 @@ extension _PartnersUi on _MerchantPartnersScreenState {
     String merchantId,
     List<MerchantPartner> partners,
   ) {
+    final filtered = _applyTypeFilter(partners);
     return Column(
       children: [
         _buildInfoCard(),
+        // Show the filter even when no partners exist YET — the merchant
+        // can pre-select a sphere before tapping the FAB and the
+        // selection carries through to the invite-search results.
+        _buildTypeFilterRow(),
         Expanded(
           child: partners.isEmpty
               ? _buildEmptyState(context, merchantId)
-              : _buildPartnerList(context, merchantId, partners),
+              : (filtered.isEmpty
+                  ? _buildFilteredEmpty()
+                  : _buildPartnerList(context, merchantId, filtered)),
         ),
       ],
+    );
+  }
+
+  // ── B2B/B2C filter chips ─────────────────────────────────────────────────
+  // Three exclusive chips: Tous / B2B / B2C. Tapping the active one
+  // does NOT clear the filter (avoids accidental dismissal mid-browse);
+  // tapping Tous explicitly is the only way back to the unfiltered view.
+  Widget _buildTypeFilterRow() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _filterChip('Tous', null),
+            const SizedBox(width: 8),
+            _filterChip('B2C — Particuliers', 'b2c'),
+            const SizedBox(width: 8),
+            _filterChip('B2B — Pros', 'b2b'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(String label, String? value) {
+    final selected = _typeFilter == value;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _setTypeFilter(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? MerchantColors.gold.withValues(alpha: 0.18)
+              : MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? MerchantColors.gold.withValues(alpha: 0.6)
+                : MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+            width: selected ? 1.2 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: selected ? MerchantColors.gold : MerchantColors.textGrey,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilteredEmpty() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+      child: Center(
+        child: Text(
+          'Aucun partenaire ne correspond à ce filtre.\n'
+          'Choisissez « Tous » pour voir l\'ensemble de vos recommandations.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            color: MerchantColors.textGrey,
+            height: 1.5,
+          ),
+        ),
+      ),
     );
   }
 
@@ -275,7 +355,12 @@ extension _PartnersUi on _MerchantPartnersScreenState {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _InvitePartnerSheet(merchantId: merchantId),
+      builder: (_) => _InvitePartnerSheet(
+        merchantId: merchantId,
+        // Carry the active list filter into the search so the merchant
+        // doesn't re-pick their context. Tous → null = unfiltered search.
+        initialTypeFilter: _typeFilter,
+      ),
     );
     if (selected != null && mounted) {
       await _invitePartner(merchantId, selected);
@@ -350,13 +435,23 @@ class _PartnerCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  partner.partnerName,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        partner.partnerName,
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _MerchantTypeBadge(type: partner.partnerMerchantType),
+                  ],
                 ),
                 if (partner.partnerCity?.isNotEmpty == true) ...[
                   const SizedBox(height: 2),
@@ -412,9 +507,17 @@ class _PartnerCard extends StatelessWidget {
 // ── Invite partner sheet ───────────────────────────────────────────────────────
 
 class _InvitePartnerSheet extends ConsumerStatefulWidget {
-  const _InvitePartnerSheet({required this.merchantId});
+  const _InvitePartnerSheet({
+    required this.merchantId,
+    this.initialTypeFilter,
+  });
 
   final String merchantId;
+
+  /// 'b2b', 'b2c', or null for unfiltered. Pre-selected when the
+  /// list-screen already has an active filter so the merchant stays in
+  /// the same browsing context.
+  final String? initialTypeFilter;
 
   @override
   ConsumerState<_InvitePartnerSheet> createState() =>
@@ -427,6 +530,13 @@ class _InvitePartnerSheetState
   List<Map<String, dynamic>> _results = [];
   bool _loading = false;
   String _query = '';
+  String? _typeFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _typeFilter = widget.initialTypeFilter;
+  }
 
   @override
   void dispose() {
@@ -447,12 +557,56 @@ class _InvitePartnerSheetState
       _query = q.trim();
     });
     try {
-      final snap = await partners_providers
-          .searchMerchantsProvider(q.trim().toLowerCase());
+      final snap = await partners_providers.searchMerchantsProvider(
+        q.trim().toLowerCase(),
+        merchantType: _typeFilter,
+      );
       if (mounted) setState(() => _results = snap);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _setSheetTypeFilter(String? type) {
+    setState(() => _typeFilter = type);
+    // Re-run the active query with the new filter so the picker
+    // reacts immediately.
+    if (_query.isNotEmpty) {
+      _search(_searchCtrl.text);
+    }
+  }
+
+  Widget _sheetFilterChip(String label, String? value) {
+    final selected = _typeFilter == value;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _setSheetTypeFilter(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? MerchantColors.gold.withValues(alpha: 0.18)
+              : MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? MerchantColors.gold.withValues(alpha: 0.6)
+                : MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+            width: selected ? 1.2 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: selected ? MerchantColors.gold : MerchantColors.textGrey,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -488,7 +642,26 @@ class _InvitePartnerSheetState
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          // Sphere filter — same vocabulary as the list-screen chips.
+          // Pre-selected from the calling screen's _typeFilter so the
+          // merchant doesn't lose context when the sheet opens.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _sheetFilterChip('Tous', null),
+                  const SizedBox(width: 8),
+                  _sheetFilterChip('B2C — Particuliers', 'b2c'),
+                  const SizedBox(width: 8),
+                  _sheetFilterChip('B2B — Pros', 'b2b'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: TextField(
@@ -571,6 +744,8 @@ class _InvitePartnerSheetState
                             partnerName: m['name'] as String,
                             partnerLogoUrl: m['logoUrl'] as String?,
                             partnerCity: m['city'] as String?,
+                            partnerMerchantType:
+                                m['merchantType'] as String?,
                             addedAt: DateTime.now(),
                             isPending: true,
                           );
@@ -609,13 +784,26 @@ class _InvitePartnerSheetState
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      m['name'] as String,
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            m['name'] as String,
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white,
+                                            ),
+                                            maxLines: 1,
+                                            overflow:
+                                                TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _MerchantTypeBadge(
+                                            type: m['merchantType']
+                                                as String?),
+                                      ],
                                     ),
                                     if ((m['city'] as String?)
                                             ?.isNotEmpty ==
@@ -645,6 +833,42 @@ class _InvitePartnerSheetState
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Compact badge rendered next to the merchant name in both the
+/// partner-list card and the invite-search row. Mirrors the chip
+/// vocabulary so the merchant sees the same labels everywhere — the
+/// list filter, the sheet filter, and the persisted record agree.
+class _MerchantTypeBadge extends StatelessWidget {
+  const _MerchantTypeBadge({required this.type});
+
+  /// 'b2b', 'b2c', or null. Null = no badge (legacy partner doc with
+  /// no merchant_type captured at invite time).
+  final String? type;
+
+  @override
+  Widget build(BuildContext context) {
+    if (type != 'b2b' && type != 'b2c') return const SizedBox.shrink();
+    final label = type == 'b2b' ? 'B2B' : 'B2C';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: MerchantColors.gold.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: MerchantColors.gold.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.outfit(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          color: MerchantColors.gold,
+        ),
       ),
     );
   }

@@ -110,6 +110,24 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
+    // --- /users/{userId}/blocked_merchants/{merchantId} ---
+    // Per-user blocklist of merchants the user no longer wishes to receive
+    // notifications from or see in their carnet/recommendations. Strictly
+    // private to the owning user — merchants must NOT learn they were blocked
+    // (App Store guideline 1.2: blocking should be silent and one-sided).
+    // Cloud Functions read this via collection-group; the rule below allows
+    // owner-only read/write at the per-doc path. Writes are constrained to
+    // an empty / `created_at`-only payload to minimise data exposure.
+    match /users/{userId}/blocked_merchants/{merchantId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['created_at'])
+        && (
+          !('created_at' in request.resource.data)
+          || request.resource.data.created_at is timestamp
+        );
+    }
+
     // Collection-group rule: lets a signed-in merchant read all followed_merchants
     // docs where merchant_id == their own UID (used by getFollowerIds query).
     // Also allows the merchant OWNER to read even when merchantId != authUid
@@ -120,6 +138,21 @@ service cloud.firestore {
         && (resource.data.merchant_id == request.auth.uid
           || (exists(/databases/$(database)/documents/merchants/$(resource.data.merchant_id))
             && get(/databases/$(database)/documents/merchants/$(resource.data.merchant_id)).data.owner_uid == request.auth.uid));
+    }
+
+    // --- /users/{userId}/loyalty_bons/{bonId} ---
+    // Per-client persisted reward bons. Issued by Cloud Functions when a
+    // welcome bon is unlocked (first visit) or a milestone threshold is
+    // crossed; carry an optional `valid_until_at` so the scheduled
+    // expiration CF can warn the client and mark expired ones. Strictly
+    // server-written: clients read but never create/update. The
+    // redemption mark (redeemed_at) is set server-side too — when the
+    // merchant decrements validated_passages or the client claims the
+    // welcome bon, the corresponding loyalty_clients write fires
+    // onLoyaltyProgressUpdated which mirrors the change here.
+    match /users/{userId}/loyalty_bons/{bonId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
     }
 
     // --- /users/{userId}/notifications/{notificationId} ---
@@ -188,12 +221,18 @@ service cloud.firestore {
       // first_visit_at is written on the very first passage and must be
       // included in the allowed set so that doc creation (which uses merge)
       // is not rejected.  All other keys remain unchanged after creation.
+      // last_passage_at is the cooldown anchor — server timestamp written by
+      // the client SDK on every additive passage; immutable to monotonic time.
+      // welcome_bon_claimed_at is a one-shot timestamp written by the client
+      // when they redeem the welcome bon. Once set it must never be cleared.
       return request.resource.data.keys().hasOnly([
         'validated_passages',
         'pending_passages',
         'cumulative_spend_euros',
         'updated_at',
-        'first_visit_at'
+        'first_visit_at',
+        'last_passage_at',
+        'welcome_bon_claimed_at'
       ]);
     }
 
@@ -208,7 +247,12 @@ service cloud.firestore {
         && r.pending_passages >= 0 && r.pending_passages <= 1
         && r.cumulative_spend_euros >= 0 && r.cumulative_spend_euros <= 5000
         // first_visit_at is optional on creation but must be a server timestamp when present.
-        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at is timestamp);
+        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at is timestamp)
+        // last_passage_at is optional on creation; when present must be a server timestamp.
+        && (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp)
+        // welcome_bon_claimed_at must not be present on creation — it's only
+        // written via a later update once the bon is actually claimed.
+        && !r.keys().hasAll(['welcome_bon_claimed_at']);
     }
 
     function loyaltyClientSelfUpdateValid() {
@@ -228,7 +272,21 @@ service cloud.firestore {
         // first_visit_at is immutable: clients cannot add or change it after creation.
         // After merge, it will appear in request.resource.data; its value must equal
         // what was stored (i.e., it was not tampered with).
-        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at == o.get('first_visit_at', null));
+        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at == o.get('first_visit_at', null))
+        // last_passage_at must be a server timestamp on writes that touch it.
+        && (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp)
+        // welcome_bon_claimed_at is a one-shot. The client may set it from
+        // null → a server timestamp (claiming the bon), but once set it can
+        // NEVER be cleared or overwritten by the client SDK. Any reset must
+        // go through a privileged Cloud Function with Admin SDK.
+        && (
+          !r.keys().hasAll(['welcome_bon_claimed_at'])
+          || (
+            o.get('welcome_bon_claimed_at', null) == null
+              && r.welcome_bon_claimed_at is timestamp
+          )
+          || r.welcome_bon_claimed_at == o.get('welcome_bon_claimed_at', null)
+        );
     }
 
     match /merchants/{merchantId}/loyalty_clients/{userId} {
@@ -286,6 +344,108 @@ service cloud.firestore {
       // Written by the app (merchant sending a quick notification).
       allow create: if isMerchantOwner(merchantId);
       allow update, delete: if false;
+    }
+
+    // --- /merchants/{merchantId}/scheduled_notifications/{scheduledId} ---
+    // Scheduled manual notifications. The CF (`processScheduledNotifications`,
+    // running every 5 minutes Europe/Paris) flips status from 'pending'
+    // to 'sent' / 'failed' and writes sent_at + sent_count. The merchant
+    // can only:
+    //   - create with status: 'pending' and the schema-allowed fields;
+    //   - update solely to flip status to 'cancelled' (no other field
+    //     change permitted; CF-only fields untouchable).
+    // Reads owner-only. Deletes allowed (owner cleanup).
+    match /merchants/{merchantId}/scheduled_notifications/{scheduledId} {
+      allow read, delete: if isMerchantOwner(merchantId);
+      allow create: if isMerchantOwner(merchantId)
+        && request.resource.data.keys().hasOnly(
+          ['text', 'audience', 'segments', 'scheduled_at', 'status',
+           'created_at', 'created_by_uid']
+        )
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.audience in [
+          'Tous mes clients', 'Certains clients'
+        ]
+        && request.resource.data.segments is list
+        && request.resource.data.scheduled_at is timestamp
+        && request.resource.data.status == 'pending'
+        && request.resource.data.created_by_uid == request.auth.uid;
+      // The cancel path: owner can ONLY change status (and only to
+      // 'cancelled'). CF-only fields (sent_at, sent_count,
+      // failure_reason) and the original payload remain locked.
+      allow update: if isMerchantOwner(merchantId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status'])
+        && request.resource.data.status == 'cancelled'
+        && resource.data.status == 'pending';
+    }
+
+    // --- /merchants/{merchantId}/notification_templates/{templateId} ---
+    // Merchant-owned saved templates for the manual notification flow.
+    // Schema gate keeps the wire shape narrow so a future migration can
+    // rely on the documented field set:
+    //   name, text, audience, segments, created_at, updated_at.
+    // Length caps mirror the client-side validator (firestore_notification_
+    // template_repository.dart) — 80 chars for name, 500 for text — so a
+    // bypass via the REST API gets the same rejection.
+    match /merchants/{merchantId}/notification_templates/{templateId} {
+      allow read: if isMerchantOwner(merchantId);
+      allow create, update: if isMerchantOwner(merchantId)
+        && request.resource.data.keys().hasOnly(
+          ['name', 'text', 'audience', 'segments', 'created_at', 'updated_at']
+        )
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.audience in [
+          'Tous mes clients', 'Certains clients'
+        ]
+        && request.resource.data.segments is list;
+      allow delete: if isMerchantOwner(merchantId);
+    }
+
+    // --- /reports/{reportId} ---
+    // App Store guideline 1.2: any app with user-generated content needs a
+    // reporting mechanism. Writes are append-only by signed-in users; the
+    // collection is intentionally NOT readable from the client (admins
+    // review via Firebase Console with the Admin SDK).
+    //
+    // Schema gate enforced server-side so a malicious user can't flood the
+    // collection with arbitrary fields:
+    //   - reporter_uid must equal the auth uid (no spoofing)
+    //   - target_type must be one of a small allowlist
+    //   - reason must be in an allowlist (UI restricts the picker)
+    //   - message is optional, capped at 500 chars
+    //   - created_at must be a server timestamp
+    match /reports/{reportId} {
+      allow read, update, delete: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.reporter_uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'reporter_uid', 'target_type', 'target_id',
+          'reason', 'message', 'created_at'
+        ])
+        && request.resource.data.target_type is string
+        && request.resource.data.target_type in [
+          'merchant', 'promotion', 'notification', 'user'
+        ]
+        && request.resource.data.target_id is string
+        && request.resource.data.target_id.size() > 0
+        && request.resource.data.target_id.size() <= 128
+        && request.resource.data.reason is string
+        && request.resource.data.reason in [
+          'spam', 'harassment', 'inappropriate', 'fraud',
+          'fake_business', 'other'
+        ]
+        && (!('message' in request.resource.data)
+          || (request.resource.data.message is string
+            && request.resource.data.message.size() <= 500))
+        && request.resource.data.created_at is timestamp;
     }
   }
 }

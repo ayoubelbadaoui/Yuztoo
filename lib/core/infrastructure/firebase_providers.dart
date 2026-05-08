@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -21,6 +22,26 @@ final firebaseInitializationProvider = FutureProvider<void>((ref) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Crashlytics — wired right after Firebase init so any error during the
+  // remaining bootstrap (Google Sign-In init, FCM token registration, …)
+  // is captured. Collection is disabled in debug so iterating locally
+  // doesn't pollute the dashboard with developer-induced crashes;
+  // release builds (TestFlight + App Store) collect normally so App
+  // Review crashes and real-user incidents land in the console.
+  await FirebaseCrashlytics.instance
+      .setCrashlyticsCollectionEnabled(!kDebugMode);
+  // Forward all Flutter framework errors. recordFlutterError preserves
+  // the original FlutterErrorDetails (library, context, silent flag)
+  // so the dashboard groups them sensibly.
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterError;
+  // Forward platform-dispatcher errors (uncaught async errors that
+  // bubble past the framework) as fatal, since they would otherwise
+  // crash the isolate. Returning true tells the dispatcher we handled
+  // the error so it doesn't double-log to stderr.
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
   // On iOS: pass clientId (iOS OAuth client) so the plugin reads from plist.
   // On Android: serverClientId is required so authenticate() returns a non-null idToken.
   try {

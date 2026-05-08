@@ -144,6 +144,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     bool? notificationsAutoEnabled,
     bool? galerieEnabled,
     bool? loyaltyEnabledStandalone,
+    String? merchantType,
     bool clearCityField = false,
   }) async {
     if (merchantId.isEmpty) {
@@ -224,6 +225,13 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       }
       if (hours != null) {
         updateData['hours'] = hours;
+      }
+      // Defensive: only persist values the schema knows about. Anything
+      // exotic (typo, future caller) is silently dropped — better than
+      // poisoning the field with a value that crashes downstream
+      // segment filters.
+      if (merchantType == 'b2b' || merchantType == 'b2c') {
+        updateData['merchant_type'] = merchantType;
       }
       if (rappelsAutoClientValidation != null) {
         updateData['rappels_auto_client_validation'] = rappelsAutoClientValidation;

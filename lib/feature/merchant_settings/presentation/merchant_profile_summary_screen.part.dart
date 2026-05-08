@@ -310,6 +310,11 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
   Widget _buildLinkedAccountsRow(List<String> linkedProviders) {
     final googleLinked = linkedProviders.contains('google.com');
     final appleLinked = linkedProviders.contains('apple.com');
+    // Apple link is iOS-only — sign_in_with_apple's web fallback works on
+    // Android but the UX is awful and Apple Dev no longer requires
+    // cross-platform linking. Hide the row entirely off-iOS unless it's
+    // already linked (in which case showing read-only state is helpful).
+    final showAppleRow = Platform.isIOS || appleLinked;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -331,7 +336,6 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
               ),
             ),
             const SizedBox(height: 14),
-            // Google row
             _buildProviderRow(
               icon: Icons.g_mobiledata_rounded,
               label: 'Google',
@@ -339,14 +343,14 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
               isLoading: _linkingGoogle,
               onLink: googleLinked ? null : _linkGoogle,
             ),
-            if (appleLinked) ...[
+            if (showAppleRow) ...[
               const SizedBox(height: 10),
               _buildProviderRow(
                 icon: Icons.apple_rounded,
                 label: 'Apple',
-                isLinked: true,
-                isLoading: false,
-                onLink: null,
+                isLinked: appleLinked,
+                isLoading: _linkingApple,
+                onLink: appleLinked ? null : _linkApple,
               ),
             ],
           ],

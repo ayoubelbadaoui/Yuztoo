@@ -125,6 +125,7 @@ abstract class MerchantRepository {
     bool? notificationsAutoEnabled,
     bool? galerieEnabled,
     bool? loyaltyEnabledStandalone,
+    String? merchantType,
     bool clearCityField = false,
   });
 }

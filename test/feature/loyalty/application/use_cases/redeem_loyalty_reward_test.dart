@@ -86,6 +86,13 @@ class _FakeRepo implements ClientLoyaltyRepository {
       const Right(ClientMerchantLoyaltyProgress.empty());
 
   @override
+  Future<Result<ClientMerchantLoyaltyProgress>> claimWelcomeBon({
+    required String merchantId,
+    required String clientUid,
+  }) async =>
+      const Right(ClientMerchantLoyaltyProgress.empty());
+
+  @override
   Future<Map<String, String>> getClientSegments(String merchantId) async => {};
 }
 

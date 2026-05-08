@@ -11,6 +11,7 @@ class MerchantPartner extends Equatable {
     required this.addedAt,
     this.partnerLogoUrl,
     this.partnerCity,
+    this.partnerMerchantType,
     this.isPending = false,
   });
 
@@ -20,6 +21,15 @@ class MerchantPartner extends Equatable {
   final String partnerName;
   final String? partnerLogoUrl;
   final String? partnerCity;
+
+  /// Snapshot of the partner merchant's `merchant_type` ('b2b' or 'b2c')
+  /// captured at invite time. Stored on the partner doc so the
+  /// recommandations screen can filter without re-querying the
+  /// underlying merchant doc on every render. Null for entries created
+  /// before this field existed — those fall under the "Tous" filter
+  /// only and are re-typed the next time the merchant is opened.
+  final String? partnerMerchantType;
+
   final DateTime addedAt;
   final bool isPending;
 
@@ -31,6 +41,7 @@ class MerchantPartner extends Equatable {
         partnerName,
         partnerLogoUrl,
         partnerCity,
+        partnerMerchantType,
         addedAt,
         isPending,
       ];

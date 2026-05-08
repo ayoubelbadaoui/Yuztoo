@@ -69,8 +69,14 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
             ),
             const SizedBox(height: 24),
             Text(
+              // Phone-to-phone NFC: the merchant holds their phone in
+              // "show" mode, the client taps theirs against it. Same
+              // gesture as scanning a QR code in the merchant's hand,
+              // just over NFC instead of camera. Plaque-tap copy is
+              // gone because the plaque-programming UI is hidden
+              // (see _kEnableNfcPlaquePrograming in merchant_qr_screen).
               _nfcScanning
-                  ? 'Approchez votre téléphone\ndu badge NFC du commerce'
+                  ? 'Connectez les deux téléphones\npar NFC'
                   : 'Mode NFC',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
@@ -83,7 +89,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
             const SizedBox(height: 8),
             Text(
               _nfcScanning
-                  ? 'Maintenez votre téléphone à quelques centimètres'
+                  ? 'Approchez votre téléphone de celui du commerçant'
                   : 'Appuyez sur le bouton NFC pour démarrer',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(

@@ -805,6 +805,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       'merchant-identity-edit': ScreenId.merchantIdentityEdit,
       'partners': ScreenId.merchantPartners,
       'notifications-hub': ScreenId.merchantNotificationsHub,
+      'scheduled-notifications': ScreenId.merchantScheduledNotifications,
     };
 
     final target = map[screen];
@@ -1512,8 +1513,14 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .read(store_profile_providers
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
+            // Signal the storefront to auto-open the loyalty-passage sheet
+            // exactly once. The storefront resets the flag after consuming
+            // it, so re-entering from the carnet stays silent.
+            ref
+                .read(store_profile_providers
+                    .pendingScanAutoPassageProvider.notifier)
+                .state = true;
             setState(() {
-              
               _nestedScreen = ScreenId.storeProfile;
             });
           },
@@ -1578,6 +1585,17 @@ class _RootShellState extends ConsumerState<_RootShell>
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
             setState(() => _nestedScreen = ScreenId.storeProfile);
+          },
+          // Tapping a bon_expiring / bon_expired push lands on Mes
+          // avantages so the client can act on (or acknowledge) the
+          // bon — same behaviour as the type=='loyalty' deep-link
+          // path higher up in this file.
+          onBonTap: () {
+            setState(() {
+              _activeTab = 'loyalty';
+              _authScreen = ScreenId.loyalty;
+              _nestedScreen = null;
+            });
           },
         );
       case ScreenId.messages:
@@ -1708,6 +1726,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantPartners:
         return MerchantPartnersScreen(
+          onBack: _handleBackFromNested,
+        );
+      case ScreenId.merchantScheduledNotifications:
+        return ScheduledNotificationsScreen(
           onBack: _handleBackFromNested,
         );
     }

@@ -35,7 +35,15 @@ class FirestoreMerchantPartnerRepository implements IMerchantPartnerRepository {
     required String partnerName,
     String? partnerLogoUrl,
     String? partnerCity,
+    String? partnerMerchantType,
   }) {
+    // Defensive: only persist a value the schema knows about. Anything
+    // exotic gets dropped here so a typo at the call site never reaches
+    // Firestore.
+    final cleanType =
+        (partnerMerchantType == 'b2b' || partnerMerchantType == 'b2c')
+            ? partnerMerchantType
+            : null;
     final dto = MerchantPartnerDto(
       id: '',
       merchantId: merchantId,
@@ -43,6 +51,7 @@ class FirestoreMerchantPartnerRepository implements IMerchantPartnerRepository {
       partnerName: partnerName,
       partnerLogoUrl: partnerLogoUrl,
       partnerCity: partnerCity,
+      partnerMerchantType: cleanType,
       addedAt: DateTime.now(),
       isPending: true,
     );

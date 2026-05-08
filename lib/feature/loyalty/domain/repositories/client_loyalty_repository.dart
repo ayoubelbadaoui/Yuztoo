@@ -47,6 +47,20 @@ abstract class ClientLoyaltyRepository {
     required bool isSpendBased,
   });
 
+  /// Marks the welcome bon as claimed (used) at the given merchant.
+  /// Idempotent: a second call after the bon is already claimed is a no-op
+  /// success — never an error. Returns the updated progress (with
+  /// `welcomeBonClaimed = true`).
+  ///
+  /// Preconditions enforced by the implementation:
+  ///   - The loyalty_clients doc must exist (welcome bon only exists post
+  ///     first-visit). Otherwise returns a Left "Aucun bon de bienvenue".
+  ///   - `first_visit_at` must already be set.
+  Future<Result<ClientMerchantLoyaltyProgress>> claimWelcomeBon({
+    required String merchantId,
+    required String clientUid,
+  });
+
   /// Returns a map of `{clientUid: segment}` for all loyalty clients of a merchant.
   ///
   /// Canonical passage-based segment values (mirrors Cloud Functions `computeSegment`):

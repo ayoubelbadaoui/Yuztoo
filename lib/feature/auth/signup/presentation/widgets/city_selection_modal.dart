@@ -1,16 +1,34 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../../../../core/infrastructure/city_catalog_repository.dart';
 import '../constants/signup_constants.dart';
 
 class CitySelectionModal {
+  /// [cityCatalog] is injectable so unit tests can stub the network layer;
+  /// production callers pass `null` and the modal builds a default
+  /// repository internally.
   static void show(
     BuildContext context, {
     required List<String> cities,
     required String? selectedCity,
     required Function(String) onCitySelected,
     required Function() onValidateCity,
+    CityCatalogRepository? cityCatalog,
   }) {
     final TextEditingController searchController = TextEditingController();
+    // The bundled `cities` list is the offline / empty-query fallback. When
+    // the user types, we hit `geo.api.gouv.fr` for the much larger live
+    // catalog (35 000+ communes, ranked by population). On any error we
+    // silently use the bundled list filtered by substring.
+    final repo = cityCatalog ?? CityCatalogRepository();
+    final ownsRepo = cityCatalog == null;
     List<String> filteredCities = cities;
+    Timer? debounceTimer;
+    int searchToken = 0;
+    bool isLoading = false;
+    bool usingApi = false;
 
     showModalBottomSheet(
       context: context,
@@ -20,8 +38,65 @@ class CitySelectionModal {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (BuildContext context) {
+        // Tear-down hooks attached to the route's pop future. Putting this
+        // here (rather than in `runSearch`) guarantees we drop pending
+        // network work even when the user dismisses the sheet by tapping
+        // outside instead of selecting a city.
+        ModalRoute.of(context)?.popped.whenComplete(() {
+          debounceTimer?.cancel();
+          searchToken++; // invalidate any in-flight result
+          searchController.dispose();
+          if (ownsRepo) repo.close();
+        });
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
+            void runSearch(String value) {
+              debounceTimer?.cancel();
+              final query = value.trim();
+              if (query.isEmpty) {
+                searchToken++; // invalidate any in-flight request
+                setState(() {
+                  filteredCities = cities;
+                  isLoading = false;
+                  usingApi = false;
+                });
+                return;
+              }
+              setState(() => isLoading = true);
+              debounceTimer = Timer(const Duration(milliseconds: 300), () {
+                final myToken = ++searchToken;
+                repo.search(query, limit: 25).then((apiResults) {
+                  // Drop the response if a newer query has fired in the
+                  // meantime — keeps the list from flashing back to a
+                  // stale result set.
+                  if (myToken != searchToken) return;
+                  // Static fallback: substring filter on the bundled list.
+                  final lower = query.toLowerCase();
+                  final fallback = cities
+                      .where((c) => c.toLowerCase().contains(lower))
+                      .toList();
+                  // Prefer API when it has anything to show; otherwise
+                  // keep the user moving with the static list.
+                  final next = apiResults.isNotEmpty ? apiResults : fallback;
+                  setState(() {
+                    filteredCities = next;
+                    isLoading = false;
+                    usingApi = apiResults.isNotEmpty;
+                  });
+                }).catchError((_) {
+                  if (myToken != searchToken) return;
+                  final lower = query.toLowerCase();
+                  setState(() {
+                    filteredCities = cities
+                        .where((c) => c.toLowerCase().contains(lower))
+                        .toList();
+                    isLoading = false;
+                    usingApi = false;
+                  });
+                });
+              });
+            }
+
             return ConstrainedBox(
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.6,
@@ -86,30 +161,48 @@ class CitySelectionModal {
                                 ),
                               ),
                             ),
-                            onChanged: (value) {
-                              setState(() {
-                                if (value.isEmpty) {
-                                  filteredCities = cities;
-                                } else {
-                                  filteredCities = cities
-                                      .where((city) => city
-                                          .toLowerCase()
-                                          .contains(value.toLowerCase()))
-                                      .toList();
-                                }
-                              });
-                            },
+                            onChanged: runSearch,
                           ),
+                          if (isLoading || usingApi) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                if (isLoading)
+                                  const SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: SignupConstants.primaryGold,
+                                    ),
+                                  ),
+                                if (isLoading) const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    isLoading
+                                        ? 'Recherche en cours…'
+                                        : 'Catalogue en ligne — 35 000+ communes',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: SignupConstants.textGrey,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
                     // Cities list
                     Expanded(
                       child: filteredCities.isEmpty
-                          ? const Center(
+                          ? Center(
                               child: Text(
-                                'Aucune ville trouvée',
-                                style: TextStyle(
+                                isLoading
+                                    ? 'Recherche…'
+                                    : 'Aucune ville trouvée',
+                                style: const TextStyle(
                                   fontSize: 14,
                                   color: SignupConstants.textGrey,
                                 ),

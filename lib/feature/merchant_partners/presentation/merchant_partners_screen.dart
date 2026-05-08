@@ -24,6 +24,11 @@ class _MerchantPartnersScreenState
     extends ConsumerState<MerchantPartnersScreen> {
   bool _isRemoving = false;
 
+  /// Active filter on the LIST view. null = "Tous"; otherwise 'b2b' or
+  /// 'b2c'. Persisted only in memory — choosing a filter is a transient
+  /// browse action, not a saved preference.
+  String? _typeFilter;
+
   Future<void> _removePartner(String merchantId, String partnerId) async {
     if (_isRemoving) return;
     setState(() => _isRemoving = true);
@@ -57,8 +62,24 @@ class _MerchantPartnersScreenState
       partnerName: selected.partnerName,
       partnerLogoUrl: selected.partnerLogoUrl,
       partnerCity: selected.partnerCity,
+      partnerMerchantType: selected.partnerMerchantType,
     );
     ref.invalidate(partners_providers.merchantPartnersProvider(merchantId));
+  }
+
+  void _setTypeFilter(String? type) {
+    setState(() => _typeFilter = type);
+  }
+
+  /// Applies the in-memory `_typeFilter` to the live partner list.
+  /// Partners issued before the merchant_type field existed have a null
+  /// type and are bucketed under "Tous" only — keeping them findable
+  /// even when an active filter is set would mix unverified entries
+  /// into a filtered view, defeating the filter's purpose.
+  List<MerchantPartner> _applyTypeFilter(List<MerchantPartner> partners) {
+    final f = _typeFilter;
+    if (f == null) return partners;
+    return partners.where((p) => p.partnerMerchantType == f).toList();
   }
 
   @override

@@ -21,8 +21,19 @@ final merchantPartnersProvider =
 );
 
 /// Searches merchants by name prefix (case-insensitive start-of-string match).
-/// Returns a plain list of maps with keys: id, name, city, logoUrl.
-Future<List<Map<String, dynamic>>> searchMerchantsProvider(String query) async {
+/// Returns a plain list of maps with keys:
+///   id, name, city, logoUrl, merchantType ('b2b'|'b2c'|null).
+///
+/// When [merchantType] is non-null, the result set is post-filtered so
+/// only matching businesses come back. Done client-side rather than via
+/// a Firestore composite index so the existing name-prefix index keeps
+/// covering the search; we already cap the query at 40 docs (`limit`)
+/// so the cost is trivial. Pre-filter docs with no `merchant_type` are
+/// considered B2C by default (the merchantType default in the entity).
+Future<List<Map<String, dynamic>>> searchMerchantsProvider(
+  String query, {
+  String? merchantType,
+}) async {
   if (query.isEmpty) return [];
   final q = query.toLowerCase();
   final snap = await FirebaseFirestore.instance
@@ -30,15 +41,27 @@ Future<List<Map<String, dynamic>>> searchMerchantsProvider(String query) async {
       .orderBy('name_lowercase')
       .startAt([q])
       .endAt(['$q\uf8ff'])
-      .limit(20)
+      // Read more than 20 so a 100% B2C-only filter still has results
+      // even when a few B2B entries lead the prefix range.
+      .limit(40)
       .get();
-  return snap.docs.map((doc) {
+  final results = snap.docs.map((doc) {
     final data = doc.data();
+    final rawType = data['merchant_type'] as String?;
+    final type = (rawType == 'b2b' || rawType == 'b2c') ? rawType : 'b2c';
     return {
       'id': doc.id,
       'name': data['name'] as String? ?? '',
       'city': data['city'] as String? ?? '',
       'logoUrl': data['logo_url'] as String?,
+      'merchantType': type,
     };
-  }).toList();
+  });
+  if (merchantType == null) {
+    return results.take(20).toList();
+  }
+  return results
+      .where((m) => m['merchantType'] == merchantType)
+      .take(20)
+      .toList();
 }

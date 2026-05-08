@@ -20,6 +20,9 @@ import 'widgets/pending_clients_section.dart';
 import 'widgets/notifications_auto_entry.dart';
 import 'widgets/quick_send_section.dart';
 import 'widgets/rappels_clients_section.dart';
+// Kept while RappelsProductSection is hidden (see rappels_screen.part.dart)
+// so re-enabling the NFC plaque marketing block is a single-line revert.
+// ignore: unused_import
 import 'widgets/rappels_product_section.dart';
 import 'widgets/rappels_toggles_section.dart';
 

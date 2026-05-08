@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/shared/widgets/time_slot_picker.dart';
 import '../../../../core/utils/cities.dart';
+import '../../../../core/utils/email_validator.dart';
 import '../../../../core/utils/image_crop_utils.dart';
 import '../application/providers.dart';
 import '../domain/entities/merchant_category.dart';
@@ -21,7 +22,7 @@ import '../../auth/signup/presentation/widgets/city_selection_modal.dart';
 part 'onboarding_flow_screen.part.dart';
 
 /// Steps: Welcome(0), OwnerInfo(1), Name(2), City(3), Image(4), Address(5), Description(6), Hours(7), Ready(8)
-const _totalSteps = 9;
+const _totalSteps = 10;
 
 /// Uber Eats / Glovo-style multi-step merchant onboarding.
 class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
@@ -58,6 +59,7 @@ class _MerchantOnboardingFlowScreenState
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _websiteController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _imagePicker = ImagePicker();
@@ -72,6 +74,7 @@ class _MerchantOnboardingFlowScreenState
     _nameController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
     _websiteController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -113,15 +116,32 @@ class _MerchantOnboardingFlowScreenState
   }
 
   bool _isOptionalStep() {
-    return _currentStep == 4 || // Image
-        _currentStep == 6 || // Description
-        _currentStep == 7; // Hours
+    // Indices reflect the current PageView order:
+    //   0 Welcome · 1 OwnerInfo · 2 Name · 3 MerchantType · 4 City
+    //   5 Image (optional) · 6 Address
+    //   7 Description (optional) · 8 Hours (optional) · 9 Ready
+    return _currentStep == 5 || // Image
+        _currentStep == 7 || // Description
+        _currentStep == 8; // Hours
   }
 
   Future<void> _persistMerchantOnboardingCompleted() async {
     final uid = ref.read(currentUserIdProvider);
     if (uid == null) return;
     await ref.read(markMerchantOnboardingCompletedProvider).call(uid);
+  }
+
+  /// Best-effort auth-email lookup for prefilling the contact-email field.
+  /// Returns null when Firebase is not initialised (e.g. widget tests that
+  /// build the onboarding screen without `Firebase.initializeApp()`) — in
+  /// that case the merchant just types the email manually.
+  String? _authEmailForPrefill() {
+    try {
+      final auth = ref.read(authStateProvider);
+      return auth is Authenticated ? auth.user.email : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -178,6 +198,15 @@ class _MerchantOnboardingFlowScreenState
                           .setFullName(v),
                       onNext: _goNext,
                     ),
+                    _StepMerchantType(
+                      value: data.merchantType,
+                      onChanged: (v) {
+                        ref
+                            .read(onboardingFlowProvider.notifier)
+                            .setMerchantType(v);
+                      },
+                      onNext: _goNext,
+                    ),
                     _StepCity(
                       initialValue: data.city,
                       onChanged: (v) => ref
@@ -200,9 +229,19 @@ class _MerchantOnboardingFlowScreenState
                     _StepAddress(
                       controller: _addressController,
                       phoneController: _phoneController,
+                      emailController: _emailController,
                       websiteController: _websiteController,
                       initialValue: data.address,
                       initialPhone: data.phoneNumber,
+                      // Prefill: previously typed onboarding email > auth
+                      // email (Firebase / social provider). The merchant
+                      // can still overwrite if they want a different
+                      // public contact email than their login. Auth lookup
+                      // is guarded so widget tests without Firebase
+                      // initialised still mount the screen (they just see
+                      // an empty email field, which is fine for them).
+                      initialEmail:
+                          data.contactEmail ?? _authEmailForPrefill(),
                       initialWebsite: data.websiteUrl,
                       onChanged: (v) => ref
                           .read(onboardingFlowProvider.notifier)
@@ -210,6 +249,9 @@ class _MerchantOnboardingFlowScreenState
                       onPhoneChanged: (v) => ref
                           .read(onboardingFlowProvider.notifier)
                           .setPhoneNumber(v),
+                      onEmailChanged: (v) => ref
+                          .read(onboardingFlowProvider.notifier)
+                          .setContactEmail(v),
                       onWebsiteChanged: (v) => ref
                           .read(onboardingFlowProvider.notifier)
                           .setWebsiteUrl(v),

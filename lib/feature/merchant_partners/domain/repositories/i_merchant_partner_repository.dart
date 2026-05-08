@@ -9,6 +9,7 @@ abstract class IMerchantPartnerRepository {
     required String partnerName,
     String? partnerLogoUrl,
     String? partnerCity,
+    String? partnerMerchantType,
   });
 
   Future<void> removePartner({

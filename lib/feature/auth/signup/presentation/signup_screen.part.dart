@@ -743,7 +743,16 @@ extension _SignupScreenUi on _SignupScreenState {
                     onPressed:
                         (_isLoading || _isSubmitting) ? null : _handleSignup,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
+                  // RGPD/CGU consent disclaimer. Implicit acceptance via
+                  // account creation — explicit checkbox would add
+                  // friction without legal benefit since the action is
+                  // already a clear consent gesture under French law.
+                  // The two links MUST be tappable here (not just in
+                  // settings) so a prospective user can read both
+                  // documents BEFORE committing.
+                  const _LegalConsentDisclaimer(),
+                  const SizedBox(height: 16),
                   const SocialDivider(),
                   const SizedBox(height: 16),
                   SocialLoginButtons(
@@ -760,6 +769,64 @@ extension _SignupScreenUi on _SignupScreenState {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Implicit-consent disclaimer shown directly under the "S'inscrire" CTA.
+/// The two link spans push the bundled legal screens — they must work
+/// without leaving the app and without network (App Store reviewers).
+class _LegalConsentDisclaimer extends StatelessWidget {
+  const _LegalConsentDisclaimer();
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = GoogleFonts.outfit(
+      fontSize: 11.5,
+      height: 1.4,
+      color: MerchantColors.textGrey,
+    );
+    final linkStyle = baseStyle.copyWith(
+      color: SignupConstants.primaryGold,
+      decoration: TextDecoration.underline,
+      decorationColor: SignupConstants.primaryGold,
+      fontWeight: FontWeight.w600,
+    );
+    void open(LegalDocument doc) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => LegalDocumentScreen(document: doc),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Text.rich(
+        TextSpan(
+          style: baseStyle,
+          children: [
+            const TextSpan(
+              text: 'En créant un compte, vous acceptez nos ',
+            ),
+            TextSpan(
+              text: 'Conditions d\'utilisation',
+              style: linkStyle,
+              recognizer: TapGestureRecognizer()
+                ..onTap = () => open(LegalDocument.termsOfService),
+            ),
+            const TextSpan(text: ' et notre '),
+            TextSpan(
+              text: 'Politique de confidentialité',
+              style: linkStyle,
+              recognizer: TapGestureRecognizer()
+                ..onTap = () => open(LegalDocument.privacyPolicy),
+            ),
+            const TextSpan(text: '.'),
+          ],
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }

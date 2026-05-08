@@ -53,6 +53,13 @@ abstract class AuthRepository {
   /// If Google is already linked, returns the existing user without error.
   Future<Result<AuthUser>> linkWithGoogle();
 
+  /// Link the currently signed-in account with an Apple credential.
+  /// Returns the updated [AuthUser] on success.
+  /// If Apple is already linked, returns the existing user without error.
+  /// On iOS this triggers the native Sign-In-with-Apple sheet; on other
+  /// platforms callers should not expose the affordance.
+  Future<Result<AuthUser>> linkWithApple();
+
   /// Returns the list of provider IDs linked to the current Firebase user.
   /// Example values: 'google.com', 'apple.com', 'password', 'phone'.
   List<String> getLinkedProviders();

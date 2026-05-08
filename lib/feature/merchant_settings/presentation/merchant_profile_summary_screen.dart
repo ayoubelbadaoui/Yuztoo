@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +38,7 @@ class MerchantProfileSummaryScreen extends ConsumerStatefulWidget {
 class _MerchantProfileSummaryScreenState
     extends ConsumerState<MerchantProfileSummaryScreen> {
   bool _linkingGoogle = false;
+  bool _linkingApple = false;
 
   Future<void> _linkGoogle() async {
     if (_linkingGoogle) return;
@@ -44,9 +47,25 @@ class _MerchantProfileSummaryScreenState
     final Result<AuthUser> result = await link();
     if (!mounted) return;
     setState(() => _linkingGoogle = false);
+    _handleLinkResult(result, providerLabel: 'Google');
+  }
+
+  Future<void> _linkApple() async {
+    if (_linkingApple) return;
+    setState(() => _linkingApple = true);
+    final link = ref.read(auth_providers.linkWithAppleProvider);
+    final Result<AuthUser> result = await link();
+    if (!mounted) return;
+    setState(() => _linkingApple = false);
+    _handleLinkResult(result, providerLabel: 'Apple');
+  }
+
+  // Single handler so the Google/Apple flows stay symmetric — same
+  // success snackbar, same swallow-on-cancel, same provider invalidation.
+  void _handleLinkResult(Result<AuthUser> result,
+      {required String providerLabel}) {
     result.fold(
       (failure) {
-        // UserCancelledFailure: silently ignore
         if (failure.runtimeType.toString().contains('UserCancelled')) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -56,11 +75,10 @@ class _MerchantProfileSummaryScreenState
         );
       },
       (_) {
-        // Refresh the provider to reflect new linked providers.
         ref.invalidate(auth_providers.linkedProvidersProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Compte Google associé ✓'),
+          SnackBar(
+            content: Text('Compte $providerLabel associé ✓'),
             behavior: SnackBarBehavior.floating,
             backgroundColor: MerchantColors.gold,
           ),

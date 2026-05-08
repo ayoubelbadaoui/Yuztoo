@@ -786,6 +786,30 @@ class _CarnetListState extends State<_CarnetList> {
     final showSearch = widget.merchants.length > 6;
     final filtered = _filtered;
 
+    // Dual-account split: the spec (page 17) shows the user's own merchant
+    // and a "Yuztoo – Restons Proches" brand vignette pinned at the top of
+    // the carnet, with the rest of the followed merchants listed below.
+    // We hide both during search so results are not crowded by a static
+    // tile that doesn't match the query.
+    Merchant? ownMerchant;
+    if (widget.ownMerchantId != null) {
+      for (final m in filtered) {
+        if (m.id == widget.ownMerchantId) {
+          ownMerchant = m;
+          break;
+        }
+      }
+    }
+    final showPinnedSection = ownMerchant != null && _query.isEmpty;
+    final reorderableList = showPinnedSection
+        ? filtered.where((m) => m.id != widget.ownMerchantId).toList()
+        : filtered;
+    // Reorder operates on `_ordered` (the persistent ordering across
+    // searches). When the pinned section is shown, the reorderable list
+    // skips the own-merchant entry — but `_ordered` still has it at
+    // position 0, so we offset rendered indices by 1 when remapping.
+    final reorderOffset = showPinnedSection ? 1 : 0;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -825,155 +849,183 @@ class _CarnetListState extends State<_CarnetList> {
             ),
             const SizedBox(height: 16),
           ],
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            // Disable the default drag-handle overlay; use long-press instead.
-            buildDefaultDragHandles: false,
-            itemCount: filtered.length,
-            onReorder: (oldIndex, newIndex) {
-              if (_query.isNotEmpty) return; // disable reorder during search
-              setState(() {
-                if (newIndex > oldIndex) newIndex--;
-                final item = _ordered.removeAt(oldIndex);
-                _ordered.insert(newIndex, item);
-              });
-            },
-            itemBuilder: (context, index) {
-              final merchant = filtered[index];
-              final displayName = merchant.displayName ?? merchant.name;
-              final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
-              final isFollowed = widget.followedSet.contains(merchant.id);
-              final heartLevel =
-                  isFollowed ? (widget.heartLevels[merchant.id] ?? 1) : 0;
+          if (showPinnedSection) ...[
+            // Own merchant — pinned, NOT reorderable (always sits at the
+            // top of the carnet so the dual-profile user keeps a stable
+            // anchor to their own storefront).
+            _buildMerchantTile(
+              ownMerchant,
+              isLast: false,
+              isReorderable: false,
+            ),
+            const SizedBox(height: 16),
+            const _RestonsProchesTile(),
+            if (reorderableList.isNotEmpty) const SizedBox(height: 16),
+          ],
+          if (reorderableList.isNotEmpty)
+            ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              // Disable the default drag-handle overlay; use long-press instead.
+              buildDefaultDragHandles: false,
+              itemCount: reorderableList.length,
+              onReorder: (oldIndex, newIndex) {
+                if (_query.isNotEmpty) return; // disable reorder during search
+                setState(() {
+                  if (newIndex > oldIndex) newIndex--;
+                  final item =
+                      _ordered.removeAt(oldIndex + reorderOffset);
+                  _ordered.insert(newIndex + reorderOffset, item);
+                });
+              },
+              itemBuilder: (context, index) {
+                final merchant = reorderableList[index];
+                return ReorderableDelayedDragStartListener(
+                  key: ValueKey(merchant.id),
+                  index: index,
+                  enabled: _query.isEmpty && reorderableList.length > 1,
+                  child: _buildMerchantTile(
+                    merchant,
+                    isLast: index == reorderableList.length - 1,
+                    isReorderable: true,
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
 
-              return ReorderableDelayedDragStartListener(
-                key: ValueKey(merchant.id),
-                index: index,
-                enabled: _query.isEmpty && widget.merchants.length > 1,
-                child: Padding(
-                padding: EdgeInsets.only(
-                    bottom: index == filtered.length - 1 ? 0 : 16),
-                child: GestureDetector(
-                  onTap: () => widget.onMerchantTap(merchant.id),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: MerchantColors.bgHeader,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: MerchantColors.gold.withValues(
-                            alpha: MerchantColors.goldBorderAlpha),
+  /// Single source of truth for a carnet tile, used both as the pinned
+  /// own-merchant tile and inside the ReorderableListView. `isReorderable`
+  /// only changes the bottom padding handling so the pinned variant
+  /// doesn't duplicate the section spacing.
+  Widget _buildMerchantTile(
+    Merchant merchant, {
+    required bool isLast,
+    required bool isReorderable,
+  }) {
+    final displayName = merchant.displayName ?? merchant.name;
+    final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
+    final isFollowed = widget.followedSet.contains(merchant.id);
+    final heartLevel =
+        isFollowed ? (widget.heartLevels[merchant.id] ?? 1) : 0;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: (isReorderable && !isLast) ? 16 : 0),
+      child: GestureDetector(
+        onTap: () => widget.onMerchantTap(merchant.id),
+        child: Container(
+          decoration: BoxDecoration(
+            color: MerchantColors.bgHeader,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: MerchantColors.gold.withValues(
+                  alpha: MerchantColors.goldBorderAlpha),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        displayName,
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: MerchantColors.textWhite,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  displayName,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: MerchantColors.textWhite,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              if (merchant.id == widget.ownMerchantId)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: MerchantColors.gold
-                                        .withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: MerchantColors.gold
-                                            .withValues(alpha: 0.5)),
-                                  ),
-                                  child: Text(
-                                    'Mon commerce',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: MerchantColors.gold,
-                                    ),
-                                  ),
-                                )
-                              else if (isFollowed)
-                                Row(
-                                  children: List.generate(
-                                    heartLevel.clamp(0, 3),
-                                    (i) => Padding(
-                                      padding: EdgeInsets.only(
-                                          left: i == 0 ? 0 : 3),
-                                      child: const Icon(Icons.favorite,
-                                          color: MerchantColors.gold,
-                                          size: 16),
-                                    ),
-                                  ),
-                                ),
-                            ],
+                    const SizedBox(width: 8),
+                    if (merchant.id == widget.ownMerchantId)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: MerchantColors.gold
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: MerchantColors.gold
+                                  .withValues(alpha: 0.5)),
+                        ),
+                        child: Text(
+                          'Mon commerce',
+                          style: GoogleFonts.outfit(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: MerchantColors.gold,
                           ),
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Stack(
-                              children: [
-                                imageUrl != null && imageUrl.isNotEmpty
-                                    ? Image.network(
-                                        imageUrl,
-                                        width: double.infinity,
-                                        height: 150,
-                                        fit: BoxFit.cover,
-                                        loadingBuilder: (_, child, progress) =>
-                                            progress == null
-                                                ? child
-                                                : _buildPlaceholderImage(),
-                                        errorBuilder: (_, __, ___) =>
-                                            _buildPlaceholderImage(),
-                                      )
-                                    : _buildPlaceholderImage(),
-                                if (isFollowed)
-                                  Positioned(
-                                    top: 8,
-                                    left: 8,
-                                    child: Container(
-                                      width: 36,
-                                      height: 36,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.black
-                                            .withValues(alpha: 0.45),
-                                        border: Border.all(
-                                            color: MerchantColors.gold,
-                                            width: 1.5),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: const Icon(Icons.star_rounded,
-                                          color: MerchantColors.gold, size: 18),
-                                    ),
-                                  ),
-                              ],
+                        ),
+                      )
+                    else if (isFollowed)
+                      Row(
+                        children: List.generate(
+                          heartLevel.clamp(0, 3),
+                          (i) => Padding(
+                            padding: EdgeInsets.only(left: i == 0 ? 0 : 3),
+                            child: const Icon(Icons.favorite,
+                                color: MerchantColors.gold, size: 16),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Stack(
+                    children: [
+                      imageUrl != null && imageUrl.isNotEmpty
+                          ? Image.network(
+                              imageUrl,
+                              width: double.infinity,
+                              height: 150,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (_, child, progress) =>
+                                  progress == null
+                                      ? child
+                                      : _buildPlaceholderImage(),
+                              errorBuilder: (_, __, ___) =>
+                                  _buildPlaceholderImage(),
+                            )
+                          : _buildPlaceholderImage(),
+                      if (isFollowed)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color:
+                                  Colors.black.withValues(alpha: 0.45),
+                              border: Border.all(
+                                  color: MerchantColors.gold,
+                                  width: 1.5),
                             ),
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.star_rounded,
+                                color: MerchantColors.gold, size: 18),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-            );
-            },
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -993,3 +1045,207 @@ class _CarnetListState extends State<_CarnetList> {
     );
   }
 }
+
+// ─── Yuztoo "Restons Proches" brand vignette ────────────────────────────────
+//
+// Spec page 17 (Compte double Pro + Client) — pinned at the top of the
+// dual-account user's carnet, just below their own merchant tile. It is
+// purely a brand surface (no real merchant doc), so taps open an
+// informational bottom sheet rather than a vitrine. The visual style
+// mirrors the surrounding carnet tiles (dark navy, gold border, banner-
+// height aspect ratio) but uses gradient + Yuztoo iconography to read as
+// "Yuztoo, not a shop".
+
+class _RestonsProchesTile extends StatelessWidget {
+  const _RestonsProchesTile();
+
+  void _showBrandSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: MerchantColors.bgHeader,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color:
+                        MerchantColors.textGrey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Center(
+                child: AppLogo(size: 56),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Yuztoo, restons proches',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: MerchantColors.gold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Le lien direct avec vos commerces préférés. Vos clients '
+                'vous appartiennent — sans publicité, ni revente de '
+                'données.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  height: 1.55,
+                  color: MerchantColors.textLightGrey,
+                ),
+              ),
+              const SizedBox(height: 18),
+              OutlinedButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: MerchantColors.gold,
+                  side: const BorderSide(color: MerchantColors.gold),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(
+                  'Compris',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _showBrandSheet(context),
+      child: Container(
+        decoration: BoxDecoration(
+          color: MerchantColors.bgHeader,
+          borderRadius: BorderRadius.circular(14),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              MerchantColors.bgHeader,
+              MerchantColors.gold.withValues(alpha: 0.10),
+            ],
+          ),
+          border: Border.all(
+            color: MerchantColors.gold.withValues(alpha: 0.55),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: MerchantColors.gold.withValues(alpha: 0.10),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Yuztoo, restons proches',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: MerchantColors.textWhite,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: MerchantColors.gold,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Yuztoo',
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: MerchantColors.darkOverlay,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: double.infinity,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        MerchantColors.bgMain,
+                        MerchantColors.gold.withValues(alpha: 0.18),
+                      ],
+                    ),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const AppLogo(size: 48),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Présentez votre carte Yuztoo',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color:
+                                MerchantColors.textLightGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

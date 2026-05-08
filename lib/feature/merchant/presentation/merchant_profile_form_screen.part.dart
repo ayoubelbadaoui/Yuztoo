@@ -40,10 +40,18 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         await ref.read(getUserProfileBasicsProvider).call(userId);
     var basics = basicsResult.fold((_) => null, (b) => b);
 
-    String email = cachedData['email'] ??
-        basics?.email ??
-        user.email ??
-        '';
+    // Source-of-truth for the merchant contact email is the address step
+    // of the onboarding flow (data.contactEmail). Cached / basics / auth
+    // values are kept only as graceful fallbacks for older builds where
+    // the step did not exist. The legacy `demo@example.com` placeholder
+    // is now treated as "no email" so we never persist it again.
+    String email = (data.contactEmail ??
+            cachedData['email'] ??
+            basics?.email ??
+            user.email ??
+            '')
+        .trim();
+    if (EmailValidator.isPlaceholderOrEmpty(email)) email = '';
     String phone = data.phoneNumber ??
         cachedData['phone'] ??
         basics?.phone ??
@@ -56,9 +64,27 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         ? null
         : data.websiteUrl?.trim();
 
-    email = email.trim();
-    if (email.isEmpty) {
-      email = 'demo@example.com';
+    // Hard gate: a valid email must be present. The new onboarding flow
+    // collects it at the address step (and validates the format there);
+    // failing here only happens for legacy users who skipped that step
+    // (e.g. resumed mid-flow on an older build). Surface a clear error
+    // and bail out — DO NOT silently substitute a placeholder.
+    if (!EmailValidator.isValid(email)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Adresse email manquante. Revenez à l\'étape « Votre adresse » '
+              'pour la renseigner.',
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        _setSubmitting(false);
+      }
+      return;
     }
     phone = phone.trim();
     if (phone.isEmpty) {
@@ -153,6 +179,7 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         hours: data.hoursJson,
         logoUrl: logoUrl,
         bannerUrl: bannerUrl,
+        merchantType: data.merchantType,
       );
       firestoreSuccess = result.fold((_) => false, (_) => true);
     } catch (_) {}

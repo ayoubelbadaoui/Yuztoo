@@ -24,6 +24,7 @@ class StorefrontProfileEditState {
     required this.address,
     required this.city,
     required this.welcomeGiftDescription,
+    this.merchantType = 'b2c',
     this.isSaving = false,
     this.errorMessage,
   });
@@ -39,6 +40,13 @@ class StorefrontProfileEditState {
   final String address;
   final String city;
   final String welcomeGiftDescription;
+
+  /// 'b2b' or 'b2c'. Persisted to merchants/{id}.merchant_type and read
+  /// by the Recommandations screen filter. Default 'b2c' covers both
+  /// new merchants who skipped the wizard step (shouldn't happen
+  /// post-this commit) and legacy docs without the field.
+  final String merchantType;
+
   final bool isSaving;
   final String? errorMessage;
 
@@ -54,6 +62,7 @@ class StorefrontProfileEditState {
     String? address,
     String? city,
     String? welcomeGiftDescription,
+    String? merchantType,
     bool? isSaving,
     String? errorMessage,
   }) {
@@ -70,6 +79,7 @@ class StorefrontProfileEditState {
       city: city ?? this.city,
       welcomeGiftDescription:
           welcomeGiftDescription ?? this.welcomeGiftDescription,
+      merchantType: merchantType ?? this.merchantType,
       isSaving: isSaving ?? this.isSaving,
       errorMessage: errorMessage,
     );

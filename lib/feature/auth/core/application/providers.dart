@@ -209,6 +209,14 @@ final linkWithGoogleProvider = Provider<Future<Result<AuthUser>> Function()>((re
   return repo.linkWithGoogle;
 });
 
+/// Calls [AuthRepository.linkWithApple] to link the currently signed-in
+/// account with an Apple credential (association, not sign-in). iOS-only
+/// in practice — UI consumers should gate the affordance on `Platform.isIOS`.
+final linkWithAppleProvider = Provider<Future<Result<AuthUser>> Function()>((ref) {
+  final repo = ref.watch(authRepositoryProvider);
+  return repo.linkWithApple;
+});
+
 /// Synchronously returns the list of provider IDs currently linked to the
 /// signed-in Firebase user (e.g. 'google.com', 'apple.com', 'password').
 final linkedProvidersProvider = Provider<List<String>>((ref) {

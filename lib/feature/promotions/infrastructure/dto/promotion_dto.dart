@@ -67,7 +67,7 @@ class PromotionDto {
       dateFrom: parseDate(data['date_from']),
       dateTo: parseDate(data['date_to']),
       clientType: data['client_type'] as String? ?? 'gratuit',
-      isOnline: data['is_online'] as bool? ?? false,
+      isOnline: data['is_online'] == true,
       imageUrl: data['image_url'] as String?,
       viewCount: (data['view_count'] as num?)?.toInt() ?? 0,
       targetSegments: parseSegments(data['target_segments']),

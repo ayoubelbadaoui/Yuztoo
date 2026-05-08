@@ -63,6 +63,13 @@ class _FakeClientLoyaltyRepository implements ClientLoyaltyRepository {
       const Right(ClientMerchantLoyaltyProgress.empty());
 
   @override
+  Future<Result<ClientMerchantLoyaltyProgress>> claimWelcomeBon({
+    required String merchantId,
+    required String clientUid,
+  }) async =>
+      const Right(ClientMerchantLoyaltyProgress.empty());
+
+  @override
   Future<Map<String, String>> getClientSegments(String merchantId) async =>
       {};
 
@@ -285,6 +292,142 @@ void main() {
       expect(result.isRight, isTrue);
       expect(repo.lastSpendDelta, 80.0);
     });
+
+    // ── visitCount + optionalAmount edge cases ───────────────────────────────
+
+    test('visitCount + optionalAmount=true + no amount → Left (amount required)',
+        () async {
+      // effectiveAskClientPurchaseAmount = true → amount IS required even for
+      // visitCount programs when optionalAskClientPurchaseAmount is true.
+      final uc = RecordLoyaltyPassage(repo);
+      final result = await uc.call(
+        clientUid: 'c1',
+        merchant: _merchant(
+          program: LoyaltyProgramConfig(
+            programEnabled: true,
+            triggerType: LoyaltyTriggerType.visitCount,
+            passageValidation: LoyaltyPassageValidation.automatic,
+            optionalAskClientPurchaseAmount: true,
+          ),
+        ),
+      );
+      expect(result.isLeft, isTrue);
+      expect(result.fold((f) => f.message, (_) => ''), contains('montant'));
+    });
+
+    test(
+        'visitCount + optionalAmount=true + amount provided → '
+        'validated +1, spend NOT stored (visit-count program)',
+        () async {
+      // Key insight: even though the merchant collected the amount for display
+      // purposes, visitCount programs only track visit counts, NOT spend.
+      final uc = RecordLoyaltyPassage(repo);
+      final result = await uc.call(
+        clientUid: 'c1',
+        merchant: _merchant(
+          program: LoyaltyProgramConfig(
+            programEnabled: true,
+            triggerType: LoyaltyTriggerType.visitCount,
+            passageValidation: LoyaltyPassageValidation.automatic,
+            optionalAskClientPurchaseAmount: true,
+          ),
+        ),
+        purchaseAmountEuros: 50.0,
+      );
+      expect(result.isRight, isTrue);
+      expect(repo.lastValidatedDelta, 1); // visit counted
+      expect(repo.lastSpendDelta, 0); // spend NOT stored for visitCount
+      expect(repo.lastPendingDelta, 0);
+    });
+
+    test(
+        'visitCount + optionalAmount=true + minimum enabled + '
+        'amount below minimum → Left',
+        () async {
+      final uc = RecordLoyaltyPassage(repo);
+      final result = await uc.call(
+        clientUid: 'c1',
+        merchant: _merchant(
+          program: LoyaltyProgramConfig(
+            programEnabled: true,
+            triggerType: LoyaltyTriggerType.visitCount,
+            passageValidation: LoyaltyPassageValidation.automatic,
+            optionalAskClientPurchaseAmount: true,
+            minimumPerVisitEnabled: true,
+            minimumPerVisitEuros: 30,
+          ),
+        ),
+        purchaseAmountEuros: 20.0,
+      );
+      expect(result.isLeft, isTrue);
+      expect(result.fold((f) => f.message, (_) => ''), contains('minimum'));
+    });
+
+    test(
+        'visitCount + optionalAmount=true + minimum disabled + '
+        'amount below old minimum → succeeds (minimum ignored)',
+        () async {
+      final uc = RecordLoyaltyPassage(repo);
+      final result = await uc.call(
+        clientUid: 'c1',
+        merchant: _merchant(
+          program: LoyaltyProgramConfig(
+            programEnabled: true,
+            triggerType: LoyaltyTriggerType.visitCount,
+            passageValidation: LoyaltyPassageValidation.automatic,
+            optionalAskClientPurchaseAmount: true,
+            minimumPerVisitEnabled: false, // disabled!
+            minimumPerVisitEuros: 100,
+          ),
+        ),
+        purchaseAmountEuros: 5.0,
+      );
+      expect(result.isRight, isTrue);
+      expect(repo.lastValidatedDelta, 1);
+    });
+
+    // ── spend trigger: boundary conditions ──────────────────────────────────
+
+    test('spend trigger + minimum enabled + amount exactly at minimum → succeeds',
+        () async {
+      // Edge: purchaseAmountEuros == minimumPerVisitEuros is NOT below minimum
+      // The check is: purchaseAmountEuros < minimumPerVisitEuros → fail.
+      // At exactly the minimum → passes.
+      final uc = RecordLoyaltyPassage(repo);
+      final result = await uc.call(
+        clientUid: 'c1',
+        merchant: _merchant(
+          program: _spendAuto(minEnabled: true, minEuros: 50),
+        ),
+        purchaseAmountEuros: 50.0, // exactly at minimum
+      );
+      expect(result.isRight, isTrue);
+      expect(repo.lastSpendDelta, 50.0);
+    });
+
+    test('spend trigger + minimum enabled + amount 0.01 below minimum → Left',
+        () async {
+      final uc = RecordLoyaltyPassage(repo);
+      final result = await uc.call(
+        clientUid: 'c1',
+        merchant: _merchant(
+          program: _spendAuto(minEnabled: true, minEuros: 50),
+        ),
+        purchaseAmountEuros: 49.99, // just below minimum
+      );
+      expect(result.isLeft, isTrue);
+      expect(result.fold((f) => f.message, (_) => ''), contains('minimum'));
+    });
+
+    test('repository failure propagates for visitCount programs', () async {
+      repo.shouldFail = true;
+      final uc = RecordLoyaltyPassage(repo);
+      final result = await uc.call(
+        clientUid: 'c1',
+        merchant: _merchant(program: _visitCountAuto()),
+      );
+      expect(result.isLeft, isTrue);
+    });
   });
 
   // ── ValidatePendingLoyaltyPassage tests ──────────────────────────────────
@@ -439,6 +582,66 @@ void main() {
       expect(repo.lastPendingDelta, -1);
       expect(repo.lastSpendDelta, 60.0);
       expect(repo.lastValidatedDelta, 0);
+    });
+
+    // ── Boundary conditions ──────────────────────────────────────────────────
+
+    test('spend + manual + amount exactly at minimum → succeeds (boundary)', () async {
+      final uc = ValidatePendingLoyaltyPassage(repo);
+      final result = await uc.call(
+        actingOwnerUid: 'owner1',
+        merchant: _merchant(
+          program: const LoyaltyProgramConfig(
+            programEnabled: true,
+            triggerType: LoyaltyTriggerType.purchaseTotal,
+            passageValidation: LoyaltyPassageValidation.manual,
+            minimumPerVisitEnabled: true,
+            minimumPerVisitEuros: 50,
+          ),
+        ),
+        clientUid: 'c1',
+        declaredSpendEuros: 50.0, // exactly at minimum
+      );
+      // spend >= minimum (50 >= 50) → NOT below → should pass
+      expect(result.isRight, isTrue);
+      expect(repo.lastSpendDelta, 50.0);
+      expect(repo.lastPendingDelta, -1);
+    });
+
+    test('spend + manual + amount 0.01 below minimum → Left', () async {
+      final uc = ValidatePendingLoyaltyPassage(repo);
+      final result = await uc.call(
+        actingOwnerUid: 'owner1',
+        merchant: _merchant(
+          program: const LoyaltyProgramConfig(
+            programEnabled: true,
+            triggerType: LoyaltyTriggerType.purchaseTotal,
+            passageValidation: LoyaltyPassageValidation.manual,
+            minimumPerVisitEnabled: true,
+            minimumPerVisitEuros: 50,
+          ),
+        ),
+        clientUid: 'c1',
+        declaredSpendEuros: 49.99, // just below minimum
+      );
+      expect(result.isLeft, isTrue);
+      expect(result.fold((f) => f.message, (_) => ''), contains('minimum'));
+    });
+
+    test('visitCount + manual: passing amount does not change deltas', () async {
+      // Even if caller passes declaredSpendEuros for a visitCount program,
+      // the use case routes to the visitCount path (pending→validated).
+      final uc = ValidatePendingLoyaltyPassage(repo);
+      final result = await uc.call(
+        actingOwnerUid: 'owner1',
+        merchant: _merchant(program: _visitCountManual()),
+        clientUid: 'c1',
+        declaredSpendEuros: 999.0, // irrelevant for visitCount
+      );
+      expect(result.isRight, isTrue);
+      expect(repo.lastPendingDelta, -1);
+      expect(repo.lastValidatedDelta, 1);
+      expect(repo.lastSpendDelta, 0); // spend NOT used for visitCount
     });
   });
 }

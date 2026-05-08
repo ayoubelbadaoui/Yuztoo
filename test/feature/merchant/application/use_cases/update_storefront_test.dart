@@ -95,6 +95,7 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
     bool? notificationsAutoEnabled,
     bool? galerieEnabled,
     bool? loyaltyEnabledStandalone,
+    String? merchantType,
     bool clearCityField = false,
   }) async {
     lastMerchantId = merchantId;

@@ -30,6 +30,7 @@ enum ScreenId {
   merchantNotificationsAuto,
   merchantNotificationsHub,
   merchantPartners,
+  merchantScheduledNotifications,
   merchantEFidelite,
   merchantAccountPreferences,
   merchantSecurity,

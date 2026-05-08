@@ -22,6 +22,7 @@ class NotificationsScreen extends ConsumerStatefulWidget {
     super.key,
     this.onMerchantTap,
     this.onPromotionTap,
+    this.onBonTap,
   });
 
   /// Called when a notification without a specific promotion is tapped.
@@ -29,6 +30,11 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 
   /// Called when a promotion notification with a promotionId is tapped.
   final void Function(String merchantId, String promotionId)? onPromotionTap;
+
+  /// Called when a `bon_expiring` or `bon_expired` notification is tapped.
+  /// Consumers should route to "Mes avantages" so the client can act on
+  /// (or acknowledge) the affected bon.
+  final VoidCallback? onBonTap;
 
   @override
   ConsumerState<NotificationsScreen> createState() =>
@@ -124,8 +130,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       final useCase = ref.read(markNotificationReadProvider);
       unawaited(useCase(notification.clientId, notification.id));
     }
-    // 2. Deep-link navigation
-    if (notification.promotionId != null &&
+    // 2. Deep-link navigation. Order matters:
+    //    bon types → Mes avantages (own callback so the parent shell
+    //      can switch tabs without inventing a fake merchant id)
+    //    promotion → onPromotionTap when promotionId is set
+    //    everything else → onMerchantTap to the storefront
+    final isBonTap = notification.type == ClientNotificationType.bonExpiring ||
+        notification.type == ClientNotificationType.bonExpired;
+    if (isBonTap && widget.onBonTap != null) {
+      widget.onBonTap!();
+    } else if (notification.promotionId != null &&
         widget.onPromotionTap != null) {
       widget.onPromotionTap!(notification.merchantId, notification.promotionId!);
     } else if (widget.onMerchantTap != null) {

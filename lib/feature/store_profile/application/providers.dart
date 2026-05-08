@@ -26,10 +26,20 @@ export '../../loyalty/application/client_loyalty_providers.dart'
         clientLoyaltyProgressForMerchantProvider,
         recordLoyaltyPassageProvider,
         ClientLoyaltyEntry;
+export '../../profile/application/user_safety_providers.dart'
+    show blockedMerchantIdsProvider, userSafetyRepositoryProvider;
+export '../../profile/domain/repositories/user_safety_repository.dart'
+    show ReportReason, ReportTargetType, UserSafetyRepository;
 
 /// When the user taps a business (Accueil or Découvrir), set this to the merchant id
 /// before navigating to store profile.
 final selectedStoreMerchantIdProvider = StateProvider<String?>((ref) => null);
+
+/// One-shot flag set by the QR/NFC scan flow to instruct the storefront screen
+/// to automatically open the loyalty-passage sheet on first paint after entry.
+/// Consumers must reset it to `false` immediately after acting on it so that
+/// re-entering the same storefront from the carnet does not re-fire.
+final pendingScanAutoPassageProvider = StateProvider<bool>((ref) => false);
 
 /// Merchant + promotions loaded in parallel for one spinner and aligned paint.
 typedef StoreProfilePageData = ({Merchant? merchant, List<Promotion> promotions});

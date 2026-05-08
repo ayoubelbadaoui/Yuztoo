@@ -148,6 +148,18 @@ class _GreetingBlock extends StatelessWidget {
             color: MerchantColors.textGrey,
           ),
         ),
+        if (totalCount > 0) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Récompense prête : repérez « Dispo ! » sur une carte, puis '
+            'touchez-la pour afficher votre bon.',
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              color: MerchantColors.textGrey,
+              height: 1.4,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -180,6 +192,559 @@ class _LoyaltyFeed extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// ─── "Mes avantages" — aggregated bons across followed merchants ──────────────
+
+class _MesAvantagesSection extends ConsumerWidget {
+  const _MesAvantagesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rewardsAsync = ref.watch(availableClientRewardsProvider);
+    return rewardsAsync.when(
+      // No skeleton — the section is small and silently hides while loading
+      // so it doesn't push the loyalty feed down on every paint cycle.
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (rewards) {
+        if (rewards.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Mes avantages',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: MerchantColors.textWhite,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: MerchantColors.gold,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${rewards.length}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: MerchantColors.darkOverlay,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              for (var i = 0; i < rewards.length; i++) ...[
+                _RewardCard(reward: rewards[i]),
+                if (i < rewards.length - 1) const SizedBox(height: 10),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RewardCard extends StatelessWidget {
+  const _RewardCard({required this.reward});
+
+  final ClientRewardItem reward;
+
+  @override
+  Widget build(BuildContext context) {
+    final merchantName = reward.merchant.displayName?.isNotEmpty == true
+        ? reward.merchant.displayName!
+        : reward.merchant.name;
+    final isWelcome = reward.kind == ClientRewardKind.welcome;
+    final now = DateTime.now();
+    final daysLeft = reward.daysLeftAt(now);
+    final isExpiringSoon = reward.isExpiringSoonAt(now);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: MerchantColors.navyCard,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (_) => _RewardDetailSheet(reward: reward),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            // Expiring-soon outranks welcome highlight: an evergreen
+            // welcome bon is less urgent than a milestone that expires
+            // tomorrow. Amber border telegraphs urgency without leaving
+            // the gold/navy palette.
+            color: isExpiringSoon
+                ? const Color(0xFFE8A93C)
+                : MerchantColors.gold
+                    .withValues(alpha: isWelcome ? 0.55 : 0.30),
+            width: isExpiringSoon ? 1.5 : (isWelcome ? 1.5 : 1),
+          ),
+          boxShadow: isWelcome
+              ? [
+                  BoxShadow(
+                    color: MerchantColors.gold.withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: MerchantColors.bgMain,
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.5),
+                ),
+              ),
+              child: ClipOval(
+                child: reward.merchant.logoUrl != null &&
+                        reward.merchant.logoUrl!.isNotEmpty
+                    ? Image.network(
+                        reward.merchant.logoUrl!,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Icon(
+                          isWelcome
+                              ? Icons.card_giftcard_rounded
+                              : Icons.local_offer_rounded,
+                          color: MerchantColors.gold,
+                          size: 20,
+                        ),
+                      )
+                    : Icon(
+                        isWelcome
+                            ? Icons.card_giftcard_rounded
+                            : Icons.local_offer_rounded,
+                        color: MerchantColors.gold,
+                        size: 20,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          reward.title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: MerchantColors.gold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Expiry badge takes precedence over the welcome
+                      // badge — losing a bon to expiration is the more
+                      // urgent message to surface.
+                      if (isExpiringSoon)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8A93C),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            daysLeft == 0
+                                ? 'Expire aujourd\'hui'
+                                : (daysLeft == 1
+                                    ? 'Expire demain'
+                                    : 'J-${daysLeft ?? 0}'),
+                            style: GoogleFonts.outfit(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: MerchantColors.darkOverlay,
+                            ),
+                          ),
+                        )
+                      else if (isWelcome)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: MerchantColors.gold,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'À utiliser',
+                            style: GoogleFonts.outfit(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: MerchantColors.darkOverlay,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    merchantName,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    reward.description,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: MerchantColors.textLightGrey,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: MerchantColors.gold,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RewardDetailSheet extends ConsumerStatefulWidget {
+  const _RewardDetailSheet({required this.reward});
+
+  final ClientRewardItem reward;
+
+  @override
+  ConsumerState<_RewardDetailSheet> createState() =>
+      _RewardDetailSheetState();
+}
+
+class _RewardDetailSheetState extends ConsumerState<_RewardDetailSheet> {
+  bool _busy = false;
+
+  Future<void> _confirmAndClaim() async {
+    if (_busy) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: MerchantColors.bgMain,
+        title: Text(
+          'Utiliser ce bon ?',
+          style: GoogleFonts.outfit(
+            color: MerchantColors.textWhite,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Présentez votre téléphone au commerçant. Une fois confirmé, '
+          'le bon sera marqué comme utilisé et ne pourra plus être '
+          'présenté.',
+          style: GoogleFonts.outfit(
+            color: MerchantColors.textLightGrey,
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Annuler',
+              style: GoogleFonts.outfit(color: MerchantColors.textLightGrey),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: MerchantColors.gold,
+              foregroundColor: MerchantColors.darkOverlay,
+            ),
+            child: Text(
+              'Utiliser',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    setState(() => _busy = true);
+    final auth = ref.read(authStateProvider);
+    if (auth is! Authenticated) {
+      setState(() => _busy = false);
+      return;
+    }
+    final useCase = ref.read(claimWelcomeBonProvider);
+    final result = await useCase.call(
+      clientUid: auth.user.id,
+      merchant: widget.reward.merchant,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      ),
+      (_) {
+        // Invalidate the aggregator so the bon disappears from "Mes
+        // avantages" immediately. The per-merchant progress stream picks
+        // up `welcome_bon_claimed_at` on its own.
+        ref.invalidate(availableClientRewardsProvider);
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bon utilisé — bonne dégustation 🎁'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: MerchantColors.gold,
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reward = widget.reward;
+    final merchantName = reward.merchant.displayName?.isNotEmpty == true
+        ? reward.merchant.displayName!
+        : reward.merchant.name;
+    final isWelcome = reward.kind == ClientRewardKind.welcome;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: MerchantColors.textLightGrey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Icon(
+              isWelcome
+                  ? Icons.card_giftcard_rounded
+                  : Icons.local_offer_rounded,
+              color: MerchantColors.gold,
+              size: 40,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              reward.title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: MerchantColors.gold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              merchantName,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: MerchantColors.bgMain,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Text(
+                reward.description,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: MerchantColors.textWhite,
+                ),
+              ),
+            ),
+            if (reward.validUntilAt != null) ...[
+              const SizedBox(height: 12),
+              _ExpiryLine(validUntilAt: reward.validUntilAt!),
+            ],
+            const SizedBox(height: 14),
+            Text(
+              isWelcome
+                  ? 'Présentez votre téléphone au commerçant pour récupérer '
+                      'votre cadeau de bienvenue.'
+                  : 'Le commerçant validera votre bon depuis son application '
+                      'lors de votre prochain passage en boutique.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: MerchantColors.textLightGrey,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 18),
+            if (reward.actionable)
+              FilledButton(
+                onPressed: _busy ? null : _confirmAndClaim,
+                style: FilledButton.styleFrom(
+                  backgroundColor: MerchantColors.gold,
+                  foregroundColor: MerchantColors.darkOverlay,
+                  disabledBackgroundColor:
+                      MerchantColors.gold.withValues(alpha: 0.5),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: _busy
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: MerchantColors.darkOverlay,
+                        ),
+                      )
+                    : Text(
+                        'Utiliser le bon',
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              )
+            else
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: MerchantColors.gold,
+                  side: const BorderSide(color: MerchantColors.gold),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(
+                  'Compris',
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Expiry line shown inside the reward detail sheet. Renders day-count
+/// + absolute date in French. Amber when ≤3 days left so the urgency
+/// matches the card-level badge.
+class _ExpiryLine extends StatelessWidget {
+  const _ExpiryLine({required this.validUntilAt});
+
+  final DateTime validUntilAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final diffDays = validUntilAt.difference(now).inDays;
+    final isExpiringSoon = diffDays >= 0 && diffDays <= 3;
+    final color = isExpiringSoon
+        ? const Color(0xFFE8A93C)
+        : MerchantColors.textLightGrey;
+    final headline = diffDays < 0
+        ? 'Bon expiré'
+        : diffDays == 0
+            ? 'Expire aujourd\'hui'
+            : diffDays == 1
+                ? 'Expire demain'
+                : 'Expire dans $diffDays jours';
+    final formatted =
+        '${validUntilAt.day.toString().padLeft(2, '0')}/'
+        '${validUntilAt.month.toString().padLeft(2, '0')}/'
+        '${validUntilAt.year}';
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          isExpiringSoon
+              ? Icons.warning_amber_rounded
+              : Icons.schedule_rounded,
+          color: color,
+          size: 16,
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            '$headline · $formatted',
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -427,6 +992,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
         rewardAvailable: false,
         tier: null,
         showWelcomeBadge: false,
+        welcomeGiftText: '',
       ),
       error: (_, __) => _buildCard(
         context,
@@ -435,6 +1001,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
         rewardAvailable: false,
         tier: null,
         showWelcomeBadge: false,
+        welcomeGiftText: '',
       ),
       data: (progress) {
         rewardAvailable = entry.isRewardAvailable(progress);
@@ -448,6 +1015,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
           tier: ClientLoyaltyTier.fromPassages(progress.validatedPassages),
           showWelcomeBadge:
               progress.hasFirstVisit && welcomeGift.isNotEmpty,
+          welcomeGiftText: welcomeGift,
         );
       },
     );
@@ -589,6 +1157,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
     required bool rewardAvailable,
     required ClientLoyaltyTier? tier,
     required bool showWelcomeBadge,
+    String welcomeGiftText = '',
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -722,7 +1291,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
                   const Text('🎁', style: TextStyle(fontSize: 11)),
                   const SizedBox(width: 5),
                   Text(
-                    '1re connexion débloquée',
+                    'Bon d’accueil (1re connexion)',
                     style: GoogleFonts.outfit(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -730,6 +1299,19 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+          if (showWelcomeBadge && welcomeGiftText.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              welcomeGiftText,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: MerchantColors.textLightGrey,
+                height: 1.45,
               ),
             ),
           ],

@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/logout_confirm_dialog.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../legal/domain/legal_document.dart';
+import '../../legal/presentation/legal_document_screen.dart';
 import '../../merchant_settings/presentation/data_privacy_screen.dart';
 import 'personal_information_screen.dart';
 import '../application/providers.dart';

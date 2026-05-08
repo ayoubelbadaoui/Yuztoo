@@ -39,6 +39,12 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
   bool _isUploadingBannerProfile = false;
   bool _isPublishingToggle = false;
   bool _isClearingAllNews = false;
+  // When true the offline warning card is hidden until the next cold start
+  // or until the merchant goes back offline. The user dismissed it manually.
+  bool _offlineBannerDismissed = false;
+
+  void _dismissOfflineBanner() =>
+      setState(() => _offlineBannerDismissed = true);
   String? _precachedImageKey;
   final _imagePicker = ImagePicker();
   /// URLs whose Firestore removal is in-flight — excluded from the displayed
@@ -221,7 +227,11 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
       Storefront storefront, bool published) async {
     if (storefront.isPublished == published) return;
     final merchantId = _merchantIdForStorefront(storefront);
-    if (mounted) setState(() => _isPublishingToggle = true);
+    if (mounted) setState(() {
+      _isPublishingToggle = true;
+      // Re-show the banner the next time the merchant goes offline.
+      if (published) _offlineBannerDismissed = false;
+    });
     final result =
         await ref.read(merchant_providers.updateStorefrontProvider).call(
               merchantId: merchantId,

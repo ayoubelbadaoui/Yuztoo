@@ -114,6 +114,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     bool? notificationsAutoEnabled,
     bool? galerieEnabled,
     bool? loyaltyEnabledStandalone,
+    String? merchantType,
     bool clearCityField = false,
   }) async {
     if (_createdMerchant == null || _createdMerchant!.id != merchantId) {
@@ -400,6 +401,7 @@ class _FailingCreateRepository implements MerchantRepository {
     bool? notificationsAutoEnabled,
     bool? galerieEnabled,
     bool? loyaltyEnabledStandalone,
+    String? merchantType,
     bool clearCityField = false,
   }) async {
     return const Left<MerchantFailure, Merchant>(

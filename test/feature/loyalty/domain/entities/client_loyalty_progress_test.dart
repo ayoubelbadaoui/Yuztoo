@@ -38,13 +38,32 @@ void main() {
       expect(a, isNot(b));
     });
 
-    test('props contains all five fields', () {
+    test('props contains all six fields', () {
       const p = ClientMerchantLoyaltyProgress(
         validatedPassages: 1,
         pendingPassages: 2,
         cumulativeSpendEuros: 33.5,
       );
-      expect(p.props, [1, 2, 33.5, false, false]);
+      // Order: validatedPassages, pendingPassages, cumulativeSpendEuros,
+      //        isFirstVisit, hasFirstVisit, welcomeBonClaimed
+      expect(p.props, [1, 2, 33.5, false, false, false]);
+    });
+
+    test('welcomeBonClaimed defaults to false and surfaces in equality', () {
+      const a = ClientMerchantLoyaltyProgress(
+        validatedPassages: 1,
+        pendingPassages: 0,
+        cumulativeSpendEuros: 0,
+      );
+      const b = ClientMerchantLoyaltyProgress(
+        validatedPassages: 1,
+        pendingPassages: 0,
+        cumulativeSpendEuros: 0,
+        welcomeBonClaimed: true,
+      );
+      expect(a.welcomeBonClaimed, isFalse);
+      expect(a, isNot(b),
+          reason: 'two progresses with different claimed flag must differ');
     });
   });
 }

@@ -1139,6 +1139,21 @@ class _NotificationCard extends StatelessWidget {
           fgColor: const Color(0xFF4ADE80),
           icon: Icons.notifications_active_rounded,
         );
+      case ClientNotificationType.bonExpiring:
+        // Amber matches the in-app "expire bientôt" badge on the
+        // reward card so the visual language is consistent across
+        // surfaces (loyalty card → push → notifications list).
+        return _CardStyle(
+          bgColor: const Color(0xFFE8A93C).withValues(alpha: 0.15),
+          fgColor: const Color(0xFFE8A93C),
+          icon: Icons.warning_amber_rounded,
+        );
+      case ClientNotificationType.bonExpired:
+        return _CardStyle(
+          bgColor: Colors.redAccent.withValues(alpha: 0.12),
+          fgColor: Colors.redAccent,
+          icon: Icons.timer_off_rounded,
+        );
     }
   }
 

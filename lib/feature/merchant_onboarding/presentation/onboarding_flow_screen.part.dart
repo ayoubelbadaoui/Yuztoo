@@ -618,6 +618,176 @@ class _StepNameState extends State<_StepName> {
   }
 }
 
+// ─── Step: B2B / B2C choice ───────────────────────────────────────────────
+//
+// Spec page 17 follow-through: the Recommandations screen filters
+// listings by sphere (B2C — particuliers / B2B — professionnels). That
+// filter has signal only if every merchant declares which side they're
+// on. This step persists the choice to MerchantOnboardingData and the
+// final write hands it to CompleteMerchantOnboarding.
+class _StepMerchantType extends StatelessWidget {
+  const _StepMerchantType({
+    required this.value,
+    required this.onChanged,
+    required this.onNext,
+  });
+
+  final String? value;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+          28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      child: Column(
+        children: [
+          const SizedBox(height: 32),
+          const _StepEntrance(
+            child: _StepAvatar(icon: Icons.groups_2_rounded, size: 80),
+          ),
+          const SizedBox(height: 28),
+          const _StepEntrance(
+            delayMs: 50,
+            child: _GradientTitle('À qui s\'adresse\nvotre commerce ?'),
+          ),
+          const SizedBox(height: 8),
+          _StepEntrance(
+            delayMs: 80,
+            child: Text(
+              'Vos clients principaux. Cela aide les autres commerces à '
+              'vous recommander dans la bonne sphère.',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: MerchantOnboardingColors.textGrey,
+                height: 1.5,
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 28),
+          _StepEntrance(
+            delayMs: 110,
+            child: _MerchantTypeOption(
+              icon: Icons.person_rounded,
+              title: 'Particuliers',
+              subtitle: 'Mes clients sont des particuliers (B2C)',
+              selected: value == 'b2c',
+              onTap: () => onChanged('b2c'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _StepEntrance(
+            delayMs: 140,
+            child: _MerchantTypeOption(
+              icon: Icons.business_center_rounded,
+              title: 'Professionnels',
+              subtitle: 'Mes clients sont des entreprises (B2B)',
+              selected: value == 'b2b',
+              onTap: () => onChanged('b2b'),
+            ),
+          ),
+          const SizedBox(height: 28),
+          _StepEntrance(
+            delayMs: 170,
+            child: _SuivantButton(
+              onPressed: value == null ? null : onNext,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MerchantTypeOption extends StatelessWidget {
+  const _MerchantTypeOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          color: selected
+              ? MerchantColors.gold.withValues(alpha: 0.18)
+              : MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? MerchantColors.gold
+                : MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: MerchantColors.gold.withValues(alpha: 0.15),
+              ),
+              child: Icon(icon, color: MerchantColors.gold, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: MerchantColors.textLightGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selected)
+              const Icon(
+                Icons.check_circle_rounded,
+                color: MerchantColors.gold,
+                size: 22,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StepCity extends StatefulWidget {
   const _StepCity({
     required this.initialValue,
@@ -1063,24 +1233,30 @@ class _StepAddress extends StatefulWidget {
   const _StepAddress({
     required this.controller,
     required this.phoneController,
+    required this.emailController,
     required this.websiteController,
     required this.initialValue,
     required this.initialPhone,
+    required this.initialEmail,
     required this.initialWebsite,
     required this.onChanged,
     required this.onPhoneChanged,
+    required this.onEmailChanged,
     required this.onWebsiteChanged,
     required this.onNext,
   });
 
   final TextEditingController controller;
   final TextEditingController phoneController;
+  final TextEditingController emailController;
   final TextEditingController websiteController;
   final String? initialValue;
   final String? initialPhone;
+  final String? initialEmail;
   final String? initialWebsite;
   final ValueChanged<String> onChanged;
   final ValueChanged<String> onPhoneChanged;
+  final ValueChanged<String> onEmailChanged;
   final ValueChanged<String> onWebsiteChanged;
   final VoidCallback onNext;
 
@@ -1098,6 +1274,19 @@ class _StepAddressState extends State<_StepAddress> {
     return digits.isEmpty ? '' : '+33$digits';
   }
 
+  /// "Can proceed" gates on BOTH a non-empty address AND a syntactically
+  /// valid email — phone and website remain optional. Email is required
+  /// because the auth fallback path used to write `demo@example.com`,
+  /// which broke later "real email" flows (Stripe, support, etc.).
+  bool _isEmailOk() => EmailValidator.isValid(widget.emailController.text);
+
+  void _recomputeCanProceed() {
+    final next = widget.controller.text.trim().isNotEmpty && _isEmailOk();
+    if (next != _canProceed) {
+      setState(() => _canProceed = next);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1110,25 +1299,36 @@ class _StepAddressState extends State<_StepAddress> {
       if (local.startsWith('0')) local = local.substring(1);
       widget.phoneController.text = local;
     }
+    if (widget.initialEmail != null && widget.initialEmail!.isNotEmpty) {
+      // Pre-fill once on mount. We don't push this back into the
+      // onboarding state here — the parent already set it when
+      // computing initialEmail, and pushing again would race the user's
+      // first edit (they'd see auth email overwritten by the listener).
+      final prefill = widget.initialEmail!.trim();
+      // Skip the legacy placeholder so the merchant doesn't carry it
+      // forward through onboarding.
+      if (!EmailValidator.isPlaceholderOrEmpty(prefill)) {
+        widget.emailController.text = prefill;
+      }
+    }
     if (widget.initialWebsite != null) {
       widget.websiteController.text = widget.initialWebsite!;
     }
-    _canProceed = widget.controller.text.trim().isNotEmpty;
-    widget.controller.addListener(_onTextChange);
+    _canProceed = widget.controller.text.trim().isNotEmpty && _isEmailOk();
+    widget.controller.addListener(_onAddressChange);
+    widget.emailController.addListener(_onEmailFieldChange);
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onTextChange);
+    widget.controller.removeListener(_onAddressChange);
+    widget.emailController.removeListener(_onEmailFieldChange);
     super.dispose();
   }
 
-  void _onTextChange() {
-    final canProceed = widget.controller.text.trim().isNotEmpty;
-    if (canProceed != _canProceed) {
-      setState(() => _canProceed = canProceed);
-    }
-  }
+  void _onAddressChange() => _recomputeCanProceed();
+
+  void _onEmailFieldChange() => _recomputeCanProceed();
 
   @override
   Widget build(BuildContext context) {
@@ -1239,6 +1439,34 @@ class _StepAddressState extends State<_StepAddress> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          // Email — required. Prefilled with auth email so most merchants
+          // just confirm. Validation runs on every keystroke; the Suivant
+          // button stays disabled until the format is valid AND address is
+          // non-empty.
+          _StepEntrance(
+            delayMs: 130,
+            child: _TextField(
+              controller: widget.emailController,
+              hint: 'Email de contact (ex: contact@moncommerce.fr)',
+              keyboardType: TextInputType.emailAddress,
+              onChanged: widget.onEmailChanged,
+            ),
+          ),
+          if (widget.emailController.text.isNotEmpty &&
+              !EmailValidator.isValid(widget.emailController.text)) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'Format d\'email invalide.',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  color: Colors.redAccent.shade100,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           _StepEntrance(
             delayMs: 140,
@@ -2031,12 +2259,14 @@ class _TextField extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.maxLines = 1,
+    this.keyboardType,
     required this.onChanged,
   });
 
   final TextEditingController controller;
   final String hint;
   final int maxLines;
+  final TextInputType? keyboardType;
   final ValueChanged<String> onChanged;
 
   @override
@@ -2045,6 +2275,7 @@ class _TextField extends StatelessWidget {
       controller: controller,
       cursorColor: MerchantOnboardingColors.primaryGold,
       maxLines: maxLines,
+      keyboardType: keyboardType,
       onChanged: onChanged,
       style: GoogleFonts.outfit(
         fontSize: 15,

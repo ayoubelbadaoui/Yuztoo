@@ -26,7 +26,13 @@ class CompleteMerchantOnboarding {
     Map<String, dynamic>? hours,
     String? logoUrl,
     String? bannerUrl,
+    String? merchantType,
   }) async {
+    // Defensive: only persist the values the schema knows about. The
+    // wizard picker is binary so this is a backstop; anything else
+    // falls back to the entity default ('b2c').
+    final cleanType =
+        (merchantType == 'b2b' || merchantType == 'b2c') ? merchantType : null;
     // Create merchant entity
     // MVP: merchantId == user.uid (repository will use userId if id is empty)
     final merchant = Merchant(
@@ -44,6 +50,7 @@ class CompleteMerchantOnboarding {
       displayName: name,
       logoUrl: logoUrl,
       bannerUrl: bannerUrl,
+      merchantType: cleanType ?? 'b2c',
       // Visible in Découvrir / listMerchants (query expects discoverable merchants).
       status: 'active',
     );

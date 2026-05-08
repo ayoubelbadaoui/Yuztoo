@@ -13,11 +13,13 @@ class MerchantOnboardingData {
     this.bannerImagePath,
     this.address,
     this.phoneNumber,
+    this.contactEmail,
     this.websiteUrl,
     this.categoryId,
     this.categoryTitle,
     this.description,
     this.hoursJson,
+    this.merchantType,
   });
 
   /// Owner's personal identity — stored in users/{uid}.
@@ -31,11 +33,26 @@ class MerchantOnboardingData {
   final String? bannerImagePath;
   final String? address;
   final String? phoneNumber;
+
+  /// Public contact email shown on the merchant's storefront. Distinct from
+  /// the Firebase Auth login email — a merchant may want to log in with
+  /// `patron@gmail.com` but display `contact@boulangerie.fr` to clients.
+  /// Defaults to the auth email at the start of onboarding; the merchant
+  /// may overwrite it on the address step.
+  final String? contactEmail;
+
   final String? websiteUrl;
   final String? categoryId;
   final String? categoryTitle;
   final String? description;
   final Map<String, dynamic>? hoursJson;
+
+  /// 'b2b' or 'b2c'. Persisted to `merchants/{id}.merchant_type` on
+  /// submit. Drives the sphere filter on the Recommandations screen and
+  /// — later — a Découvrir filter for end-users. Null until the
+  /// merchant picks; the wizard step gates Suivant until they do, so
+  /// this never lands as null in the final write.
+  final String? merchantType;
 
   MerchantOnboardingData copyWith({
     String? ownerFirstName,
@@ -47,11 +64,13 @@ class MerchantOnboardingData {
     String? bannerImagePath,
     String? address,
     String? phoneNumber,
+    String? contactEmail,
     String? websiteUrl,
     String? categoryId,
     String? categoryTitle,
     String? description,
     Map<String, dynamic>? hoursJson,
+    String? merchantType,
   }) {
     return MerchantOnboardingData(
       ownerFirstName: ownerFirstName ?? this.ownerFirstName,
@@ -63,11 +82,13 @@ class MerchantOnboardingData {
       bannerImagePath: bannerImagePath ?? this.bannerImagePath,
       address: address ?? this.address,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      contactEmail: contactEmail ?? this.contactEmail,
       websiteUrl: websiteUrl ?? this.websiteUrl,
       categoryId: categoryId ?? this.categoryId,
       categoryTitle: categoryTitle ?? this.categoryTitle,
       description: description ?? this.description,
       hoursJson: hoursJson ?? this.hoursJson,
+      merchantType: merchantType ?? this.merchantType,
     );
   }
 }
@@ -101,6 +122,16 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
   void setPhoneNumber(String value) => state =
       state.copyWith(phoneNumber: value.trim().isEmpty ? null : value.trim());
 
+  /// Lower-cases the contact email before persisting — Firebase Auth and
+  /// the email_index collection both store emails in lowercase, so we
+  /// normalise here to keep storefront display consistent with auth.
+  void setContactEmail(String value) {
+    final trimmed = value.trim();
+    state = state.copyWith(
+      contactEmail: trimmed.isEmpty ? null : trimmed.toLowerCase(),
+    );
+  }
+
   void setWebsiteUrl(String value) => state =
       state.copyWith(websiteUrl: value.trim().isEmpty ? null : value.trim());
 
@@ -112,6 +143,14 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
 
   void setHours(Map<String, dynamic>? hours) =>
       state = state.copyWith(hoursJson: hours);
+
+  /// Defensive: only accept the wire values the schema knows about.
+  /// A bad value from a future caller is dropped (no-op) rather than
+  /// poisoning the state and cascading into a bad Firestore write.
+  void setMerchantType(String value) {
+    if (value != 'b2b' && value != 'b2c') return;
+    state = state.copyWith(merchantType: value);
+  }
 
   void reset() => state = const MerchantOnboardingData();
 }

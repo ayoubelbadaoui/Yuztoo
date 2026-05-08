@@ -7,8 +7,12 @@ import '../../client_home/application/providers.dart'
 import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
+import '../domain/entities/client_bon.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart';
+import '../domain/entities/client_reward_item.dart';
+import '../infrastructure/client_bon_repository_provider.dart';
 import '../infrastructure/client_loyalty_repository_provider.dart';
+import 'use_cases/claim_welcome_bon.dart';
 import 'use_cases/record_loyalty_passage.dart';
 import 'use_cases/redeem_loyalty_reward.dart';
 import 'use_cases/validate_pending_loyalty_passage.dart';
@@ -33,6 +37,10 @@ final validatePendingLoyaltyPassageProvider =
 
 final redeemLoyaltyRewardProvider = Provider<RedeemLoyaltyReward>((ref) {
   return RedeemLoyaltyReward(ref.watch(clientLoyaltyRepositoryProvider));
+});
+
+final claimWelcomeBonProvider = Provider<ClaimWelcomeBon>((ref) {
+  return ClaimWelcomeBon(ref.watch(clientLoyaltyRepositoryProvider));
 });
 
 // ─── Per-merchant progress stream ─────────────────────────────────────────────
@@ -235,4 +243,160 @@ final clientLoyaltyFeedProvider =
   }
 
   return entries;
+});
+
+// ─── "Mes avantages" — aggregated rewards across followed merchants ───────────
+
+/// All redeemable bons currently visible to the connected client, ordered by
+/// kind (welcome first, then milestone) and then by merchant name.
+///
+/// Resolution per loyalty entry:
+///   - Welcome bon: loyalty doc has `first_visit_at`, the merchant has a
+///     non-empty welcome gift, AND `welcome_bon_claimed_at` is null.
+///   - Milestone bon: progress meets/exceeds the configured threshold (one
+///     bon shown even if the client is multiple cycles ahead — the merchant's
+///     "Donner le bon" flow decrements per claim, and the next cycle's bon
+///     reappears once the deduction lands).
+///
+/// Implemented as a `FutureProvider` rather than a stream because the loyalty
+/// feed itself is a Future. Per-merchant progress is fetched once via
+/// `repo.watchProgress(...).first` so the aggregate has a single emission;
+/// the underlying card view continues to subscribe to the live stream and
+/// will refresh independently when a passage lands.
+final availableClientRewardsProvider =
+    FutureProvider.autoDispose<List<ClientRewardItem>>((ref) async {
+  final entries = await ref.watch(clientLoyaltyFeedProvider.future);
+  if (entries.isEmpty) return <ClientRewardItem>[];
+
+  final repo = ref.watch(clientLoyaltyRepositoryProvider);
+  final bonRepo = ref.watch(clientBonRepositoryProvider);
+  final auth = ref.watch(auth_providers.authStateProvider);
+  if (auth is! Authenticated) return <ClientRewardItem>[];
+  final clientUid = auth.user.id;
+
+  // Persisted bons are the source of truth: they carry valid_until_at
+  // and survive merchant config changes. We still fall back to
+  // on-the-fly computation for unmigrated merchants — anyone who
+  // reached threshold or first-visit BEFORE the issuance CF was
+  // deployed never got a bon doc, and we don't want their reward to
+  // disappear silently.
+  //
+  // Hybrid resolution (per merchant):
+  //   1. If a persisted bon exists for that (kind, merchantId), use it.
+  //   2. Otherwise, fall back to the legacy on-the-fly inference.
+  // This means a merchant with a persisted milestone bon will NEVER
+  // also surface a fallback milestone bon for the same client even if
+  // validated_passages also says "above threshold" — the persisted doc
+  // wins on every read.
+  final progresses = await Future.wait(
+    entries.map(
+      (e) =>
+          repo.watchProgress(e.merchantId, clientUid).first.catchError(
+                (_) => const ClientMerchantLoyaltyProgress.empty(),
+              ),
+    ),
+  );
+  final allBons = await bonRepo.watchAll(clientUid).first.catchError(
+        (_) => const <ClientBon>[],
+      );
+  final now = DateTime.now();
+  // Group active bons by (merchantId, kind) for O(1) lookup. We
+  // include 'expired' bons in the bookkeeping so the UI doesn't
+  // re-introduce them via the fallback path — but we DON'T return
+  // expired entries (they belong in a future "historique" view).
+  final activeBonByKey = <String, ClientBon>{};
+  final knownBonKeys = <String>{};
+  String key(String merchantId, ClientBonKind k) =>
+      '${merchantId}__${k.name}';
+  for (final b in allBons) {
+    knownBonKeys.add(key(b.merchantId, b.kind));
+    final status = b.statusAt(now);
+    if (status == ClientBonStatus.redeemed ||
+        status == ClientBonStatus.expired) {
+      continue;
+    }
+    activeBonByKey[key(b.merchantId, b.kind)] = b;
+  }
+
+  final rewards = <ClientRewardItem>[];
+
+  for (var i = 0; i < entries.length; i++) {
+    final entry = entries[i];
+    final progress = progresses[i];
+    final welcomeGift = entry.merchant.welcomeGiftDescription?.trim() ?? '';
+    final welcomeKey = key(entry.merchantId, ClientBonKind.welcome);
+    final milestoneKey = key(entry.merchantId, ClientBonKind.milestone);
+
+    // ── Welcome bon ────────────────────────────────────────────────────────
+    final persistedWelcome = activeBonByKey[welcomeKey];
+    if (persistedWelcome != null) {
+      rewards.add(ClientRewardItem(
+        merchant: entry.merchant,
+        kind: ClientRewardKind.welcome,
+        title: 'Bon de bienvenue',
+        description: persistedWelcome.description,
+        actionable: true,
+        validUntilAt: persistedWelcome.validUntilAt,
+      ));
+    } else if (!knownBonKeys.contains(welcomeKey) &&
+        progress.hasFirstVisit &&
+        !progress.welcomeBonClaimed &&
+        welcomeGift.isNotEmpty) {
+      // Legacy fallback — no doc was ever issued for this merchant.
+      rewards.add(ClientRewardItem(
+        merchant: entry.merchant,
+        kind: ClientRewardKind.welcome,
+        title: 'Bon de bienvenue',
+        description: welcomeGift,
+        actionable: true,
+      ));
+    }
+
+    // ── Milestone bon ──────────────────────────────────────────────────────
+    final persistedMilestone = activeBonByKey[milestoneKey];
+    if (persistedMilestone != null) {
+      rewards.add(ClientRewardItem(
+        merchant: entry.merchant,
+        kind: ClientRewardKind.milestone,
+        title: 'Bon fidélité disponible',
+        description: persistedMilestone.description,
+        actionable: false,
+        validUntilAt: persistedMilestone.validUntilAt,
+      ));
+    } else if (!knownBonKeys.contains(milestoneKey) &&
+        entry.isRewardAvailable(progress)) {
+      // Legacy fallback — pre-CF user above threshold without a doc.
+      rewards.add(ClientRewardItem(
+        merchant: entry.merchant,
+        kind: ClientRewardKind.milestone,
+        title: 'Bon fidélité disponible',
+        description: entry.rewardLabel(),
+        actionable: false,
+      ));
+    }
+  }
+
+  // Welcome bons first (the most "delightful" reveal), then milestones.
+  // Within a kind, soonest-to-expire first so the user is nudged to use
+  // bons before they vanish; evergreen bons sink to the bottom.
+  rewards.sort((a, b) {
+    if (a.kind != b.kind) {
+      return a.kind == ClientRewardKind.welcome ? -1 : 1;
+    }
+    final av = a.validUntilAt;
+    final bv = b.validUntilAt;
+    if (av != null && bv != null) {
+      final cmp = av.compareTo(bv);
+      if (cmp != 0) return cmp;
+    } else if (av != null) {
+      return -1;
+    } else if (bv != null) {
+      return 1;
+    }
+    final an = a.merchant.displayName ?? a.merchant.name;
+    final bn = b.merchant.displayName ?? b.merchant.name;
+    return an.toLowerCase().compareTo(bn.toLowerCase());
+  });
+
+  return rewards;
 });

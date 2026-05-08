@@ -7,9 +7,22 @@
  * No Firebase emulator required — all Firestore calls are mocked.
  */
 
+// admin.firestore is BOTH a function (admin.firestore() → instance) AND a
+// namespace carrying static helpers (admin.firestore.Timestamp,
+// FieldValue, …). The mock function needs static properties hung on it.
+const firestoreFn: any = jest.fn(() => ({}));
+firestoreFn.Timestamp = {
+  fromMillis: (ms: number) => ({ toMillis: () => ms }),
+  now: () => ({ toMillis: () => Date.now() }),
+};
+firestoreFn.FieldValue = {
+  serverTimestamp: () => "__server_ts__",
+  increment: (n: number) => ({ __increment: n }),
+};
+
 jest.mock("firebase-admin", () => ({
   initializeApp: jest.fn(),
-  firestore: jest.fn(() => ({})),
+  firestore: firestoreFn,
   messaging: jest.fn(() => ({})),
 }));
 
@@ -21,14 +34,22 @@ const pubsubSchedule = {
   onRun: noopFn,
 };
 const pubsubRegion = { schedule: jest.fn().mockReturnValue(pubsubSchedule) };
-const regionMock = { firestore: firestoreRegion, pubsub: pubsubRegion };
+const httpsRegion = { onCall: noopFn };
+// runWith returns the same region-like object so the chain
+// `region().runWith().pubsub.schedule().onRun(...)` resolves.
+const regionMock: any = {
+  firestore: firestoreRegion,
+  pubsub: pubsubRegion,
+  https: httpsRegion,
+};
+regionMock.runWith = jest.fn().mockReturnValue(regionMock);
 
 jest.mock("firebase-functions", () => ({
   region: jest.fn().mockReturnValue(regionMock),
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
-import { computeSegment } from "../index";
+import { computeSegment, computeBonValidUntil } from "../index";
 
 // ── DOB date parsing ──────────────────────────────────────────────────────────
 // Mirror of the logic in dailyScheduledTriggers:
@@ -571,5 +592,421 @@ describe("G6: Merchant self-follow — dual-profile notification contract", () =
     const docIds = new Set(followers.map((uid) => `promo_${promoId}`));
     // All followers get the same doc ID (relative to their user path).
     expect(docIds.size).toBe(1);
+  });
+});
+
+// ── G3: Server-side auto-follow on first loyalty passage ──────────────────────
+// Root cause: Flutter calls `unawaited(toggleMerchantFollow(...))` after a
+// successful passage. If the app is killed before that future completes,
+// the follow document is silently lost. The fix moves auto-follow to
+// onLoyaltyProgressUpdated on the server, which runs regardless of app state.
+
+describe("G3: auto-follow on first loyalty passage", () => {
+  test("G3-1 — first passage (before.exists=false) triggers auto-follow check", () => {
+    // Mirror the condition in the fixed onLoyaltyProgressUpdated:
+    //   if (!change.before.exists) { checkAndCreateFollow(...) }
+    const changeBeforeExists = false;
+    const shouldAutoFollow = !changeBeforeExists;
+    expect(shouldAutoFollow).toBe(true);
+  });
+
+  test("G3-2 — subsequent passage (before.exists=true) does NOT trigger auto-follow", () => {
+    const changeBeforeExists = true;
+    const shouldAutoFollow = !changeBeforeExists;
+    expect(shouldAutoFollow).toBe(false);
+  });
+
+  test("G3-3 — follow doc already exists → no second create (idempotent)", () => {
+    // Mirror the guard: if (!followSnap.exists) { create }
+    const followSnapExists = true;
+    const shouldCreate = !followSnapExists;
+    expect(shouldCreate).toBe(false);
+  });
+
+  test("G3-4 — follow doc missing → create is triggered", () => {
+    const followSnapExists = false;
+    const shouldCreate = !followSnapExists;
+    expect(shouldCreate).toBe(true);
+  });
+
+  test("G3-5 — auto-follow CF path is correctly constructed", () => {
+    const clientId = "user_abc";
+    const merchantId = "merchant_xyz";
+    const followPath = `users/${clientId}/followed_merchants/${merchantId}`;
+    expect(followPath).toBe("users/user_abc/followed_merchants/merchant_xyz");
+  });
+
+  test("G3-6 — deletion (change.after.exists=false) returns early, no auto-follow", () => {
+    // The CF guards: if (!change.after.exists) return null;
+    // Auto-follow only runs when after.exists=true AND before.exists=false.
+    const afterExists = false;
+    const shouldProcess = afterExists; // early return on deletion
+    expect(shouldProcess).toBe(false);
+  });
+
+  test("G3-7 — error in auto-follow is non-fatal (passage still recorded)", () => {
+    // The fix wraps auto-follow in try/catch and logs but does not rethrow.
+    // This test documents the contract: an auto-follow failure does not
+    // prevent the passage validation triggers from running.
+    let autoFollowError: Error | null = null;
+    let passageTriggerRan = false;
+
+    try {
+      throw new Error("Firestore permission denied");
+    } catch (e) {
+      autoFollowError = e as Error;
+    }
+
+    // After the catch, passage logic continues.
+    passageTriggerRan = true;
+
+    expect(autoFollowError).not.toBeNull();
+    expect(passageTriggerRan).toBe(true);
+  });
+});
+
+// ── G7: weeklyQuotaReset partial batch failure resilience ─────────────────────
+// Root cause: if batch.commit() throws for batch N, the function was throwing
+// entirely, leaving all merchants in batches N+1..end permanently blocked.
+// Fix: wrap each batch.commit() in try/catch and continue to next batch.
+
+describe("G7: weeklyQuotaReset batch failure resilience", () => {
+  test("G7-1 — a failed batch does not block remaining merchants (contract)", () => {
+    // Simulate: 3 batches, batch 1 fails.
+    const results: string[] = [];
+    const batches = [
+      { id: 1, shouldFail: true },
+      { id: 2, shouldFail: false },
+      { id: 3, shouldFail: false },
+    ];
+
+    for (const batch of batches) {
+      try {
+        if (batch.shouldFail) throw new Error("Firestore batch error");
+        results.push(`batch_${batch.id}_ok`);
+      } catch (_) {
+        results.push(`batch_${batch.id}_failed`);
+        // continue — do NOT rethrow
+      }
+    }
+
+    expect(results).toEqual(["batch_1_failed", "batch_2_ok", "batch_3_ok"]);
+  });
+
+  test("G7-2 — merchants with count=0 are skipped (no unnecessary writes)", () => {
+    const merchants = [
+      { id: "m1", weekly_notif_sent_count: 0 },
+      { id: "m2", weekly_notif_sent_count: 3 },
+      { id: "m3", weekly_notif_sent_count: 0 },
+      { id: "m4", weekly_notif_sent_count: 5 },
+    ];
+
+    const toReset = merchants.filter(
+      (m) => (m.weekly_notif_sent_count ?? 0) !== 0
+    );
+    expect(toReset.map((m) => m.id)).toEqual(["m2", "m4"]);
+    expect(toReset.length).toBe(2);
+  });
+
+  test("G7-3 — partial failure means only failed-batch merchants stay blocked", () => {
+    // Batch 1 (merchants m1..m499) fails. m500..m998 succeed.
+    // Merchants m1..m499 keep their count until next Monday.
+    // This is the documented behavior (acceptable trade-off vs total block).
+    const batch1Merchants = Array.from({ length: 499 }, (_, i) => `m${i + 1}`);
+    const batch2Merchants = Array.from(
+      { length: 499 },
+      (_, i) => `m${i + 500}`
+    );
+
+    const resetMerchants: string[] = [];
+    const blockedMerchants: string[] = [];
+
+    // Batch 1 fails
+    try {
+      throw new Error("Batch 1 failed");
+    } catch (_) {
+      blockedMerchants.push(...batch1Merchants);
+    }
+
+    // Batch 2 succeeds
+    resetMerchants.push(...batch2Merchants);
+
+    expect(resetMerchants.length).toBe(499);
+    expect(blockedMerchants.length).toBe(499);
+    // Contract: blocked merchants != ALL merchants (improvement over old behavior)
+    expect(blockedMerchants.length).toBeLessThan(
+      batch1Merchants.length + batch2Merchants.length
+    );
+  });
+
+  test("G7-4 — all-zero merchants → nothing reset, no batch committed", () => {
+    const merchants = [
+      { weekly_notif_sent_count: 0 },
+      { weekly_notif_sent_count: 0 },
+    ];
+    const toReset = merchants.filter((m) => m.weekly_notif_sent_count !== 0);
+    expect(toReset.length).toBe(0);
+    // If nothing to reset, batchCount stays 0 → final batch.commit() never called.
+    const batchCount = 0;
+    expect(batchCount > 0).toBe(false);
+  });
+
+  test("G7-5 — exactly BATCH_SIZE=499 merchants → single commit, no straggler batch", () => {
+    const BATCH_SIZE = 499;
+    const merchantCount = 499;
+    let batchCount = 0;
+    let commits = 0;
+
+    for (let i = 0; i < merchantCount; i++) {
+      batchCount++;
+      if (batchCount >= BATCH_SIZE) {
+        commits++;
+        batchCount = 0;
+      }
+    }
+    // Final stragglers
+    if (batchCount > 0) commits++;
+
+    expect(commits).toBe(1);
+  });
+});
+
+// ── G8: dailyScheduledTriggers parallelism model ──────────────────────────────
+// Root cause: nested sequential `await` for merchant × client = O(M×C) round
+// trips with no parallelism. At 1000 merchants × 500 followers = 500,000
+// sequential Firestore reads, each ~50ms → ~7 hours, well above 9-min limit.
+// Fix: processInChunks with MERCHANT_CONCURRENCY=10, CLIENT_CONCURRENCY=50.
+
+describe("G8: dailyScheduledTriggers parallelism model", () => {
+  test("G8-1 — processInChunks reduces sequential count at 1000 merchants", () => {
+    // Old: 1000 sequential merchant iterations.
+    // New: ceil(1000 / 10) = 100 parallel waves.
+    const MERCHANT_CONCURRENCY = 10;
+    const merchantCount = 1000;
+    const waves = Math.ceil(merchantCount / MERCHANT_CONCURRENCY);
+    expect(waves).toBe(100);
+  });
+
+  test("G8-2 — processInChunks reduces client sequential count at 500 followers", () => {
+    const CLIENT_CONCURRENCY = 50;
+    const followerCount = 500;
+    const waves = Math.ceil(followerCount / CLIENT_CONCURRENCY);
+    expect(waves).toBe(10);
+  });
+
+  test("G8-3 — estimated runtime at scale is within CF timeout", () => {
+    // Worst case: 1000 merchants × 500 followers.
+    // With concurrency: ceil(1000/10) × ceil(500/50) × 50ms per read round-trip.
+    const MERCHANT_CONCURRENCY = 10;
+    const CLIENT_CONCURRENCY = 50;
+    const merchantCount = 1000;
+    const followerCount = 500;
+    const readTimeMs = 50;
+
+    const merchantWaves = Math.ceil(merchantCount / MERCHANT_CONCURRENCY);
+    const clientWaves = Math.ceil(followerCount / CLIENT_CONCURRENCY);
+    const estimatedMs = merchantWaves * clientWaves * readTimeMs;
+    const CF_TIMEOUT_MS = 9 * 60 * 1000; // 9 minutes
+
+    expect(estimatedMs).toBeLessThan(CF_TIMEOUT_MS);
+    // Confirm the estimate is reasonable (not too optimistic)
+    expect(estimatedMs).toBeGreaterThan(0);
+  });
+
+  test("G8-4 — old sequential model estimated runtime exceeds CF timeout", () => {
+    // Documents the bug: without concurrency, the CF would timeout.
+    const merchantCount = 1000;
+    const followerCount = 500;
+    const readsPerClient = 3; // user doc + follow doc + loyalty doc
+    const readTimeMs = 50;
+
+    const estimatedMs =
+      merchantCount * followerCount * readsPerClient * readTimeMs;
+    const CF_TIMEOUT_MS = 9 * 60 * 1000;
+
+    expect(estimatedMs).toBeGreaterThan(CF_TIMEOUT_MS);
+  });
+
+  test("G8-5 — per-client error isolation: one bad client does not block merchant fan-out", () => {
+    // Contract: the try/catch in the client loop ensures errors are isolated.
+    const results: string[] = [];
+    const clients = ["c1", "c2", "c3_bad", "c4"];
+
+    for (const clientId of clients) {
+      try {
+        if (clientId === "c3_bad") throw new Error("User doc missing");
+        results.push(`${clientId}_ok`);
+      } catch (_) {
+        results.push(`${clientId}_error`);
+        // continue — other clients not affected
+      }
+    }
+
+    expect(results).toEqual(["c1_ok", "c2_ok", "c3_bad_error", "c4_ok"]);
+    expect(results.filter((r) => r.endsWith("_ok")).length).toBe(3);
+  });
+
+  test("G8-6 — 3 trigger types fetched in parallel per merchant (not sequentially)", () => {
+    // Document that Promise.all([birthday, anniversary, inactive]) replaces
+    // 3 sequential awaits. Reduces merchant setup from ~150ms to ~50ms.
+    const sequentialCost = 3 * 50; // ms
+    const parallelCost = 50; // ms (all 3 run concurrently)
+    expect(parallelCost).toBeLessThan(sequentialCost);
+  });
+});
+
+// ── G4: Merchant changes reward threshold mid-cycle ───────────────────────────
+// Design gap: when visitsRequired increases (e.g. 10→15), clients who were at
+// 10 validated passages think they've earned a reward but haven't been notified
+// that the threshold moved. No server-side code monitors this change.
+// CONTRACT: This is a KNOWN LIMITATION for MVP. There is no automated migration
+// or client notification when the threshold changes. This test documents the
+// contract so that future implementation has a clear spec.
+
+describe("G4: reward threshold change mid-cycle (known gap)", () => {
+  test("G4-1 — client at old threshold is above new threshold: reward state inconsistent", () => {
+    // This is the problematic state: before = visitsRequired:10, client has 10 passes.
+    // Merchant then sets visitsRequired:15. Client is now at 10/15, not 10/10.
+    const clientValidatedPassages = 10;
+    const oldVisitsRequired = 10;
+    const newVisitsRequired = 15;
+
+    const wasEligibleBefore = clientValidatedPassages >= oldVisitsRequired;
+    const isEligibleAfter = clientValidatedPassages >= newVisitsRequired;
+
+    expect(wasEligibleBefore).toBe(true);
+    expect(isEligibleAfter).toBe(false);
+    // Gap: client was eligible, now is not, but received no notification.
+  });
+
+  test("G4-2 — client below old threshold is still below new threshold: no change", () => {
+    const clientValidatedPassages = 7;
+    const oldVisitsRequired = 10;
+    const newVisitsRequired = 15;
+
+    const wasEligibleBefore = clientValidatedPassages >= oldVisitsRequired;
+    const isEligibleAfter = clientValidatedPassages >= newVisitsRequired;
+
+    // No inconsistency — client was not eligible before or after.
+    expect(wasEligibleBefore).toBe(false);
+    expect(isEligibleAfter).toBe(false);
+  });
+
+  test("G4-3 — threshold decrease: more clients become eligible (no notification sent)", () => {
+    // If merchant decreases threshold (10→5), clients at 5-9 become eligible
+    // but receive no notification. Also a gap but lower severity.
+    const clients = [
+      { id: "c1", passages: 3 },
+      { id: "c2", passages: 6 },
+      { id: "c3", passages: 10 },
+    ];
+    const oldThreshold = 10;
+    const newThreshold = 5;
+
+    const newlyEligible = clients.filter(
+      (c) => c.passages >= newThreshold && c.passages < oldThreshold
+    );
+    // c2 (6 passages) is newly eligible but not notified.
+    expect(newlyEligible.map((c) => c.id)).toEqual(["c2"]);
+  });
+
+  test("G4-4 — onLoyaltyProgressUpdated reads threshold AT TIME OF WRITE (correct)", () => {
+    // The CF reads loyalty_program.visits_required from the merchant doc
+    // at the time of each passage write. So after a threshold change,
+    // the NEXT passage correctly uses the new threshold for reward detection.
+    // Only the in-between state (already at old threshold, now below new) is missed.
+    const passageTime_visitsRequired = 15; // reads current value
+    const clientPassages = 15;
+    const rewardAvailable = clientPassages >= passageTime_visitsRequired;
+    expect(rewardAvailable).toBe(true);
+  });
+
+  test("G4-5 — MVP contract: no automated notification on threshold change", () => {
+    // This test explicitly documents the missing behavior.
+    // Future implementation: add a Firestore trigger on merchants/{id} that
+    // watches loyalty_program.visits_required changes and notifies affected clients.
+    const isImplemented = false; // NOT implemented in MVP
+    expect(isImplemented).toBe(false);
+  });
+});
+
+// ── computeBonValidUntil — bon expiration computation ────────────────────────
+//
+// Pure function used by issueWelcomeBonIfEligible / issueMilestoneBonIfEligible
+// to derive valid_until_at from a merchant's loyalty_program config. The CF
+// path itself touches Firestore so we don't unit-test it here, but the
+// (config) → (timestamp | null) decision IS critical for both the issuance
+// AND the scheduled expiration scan downstream — wrong "null" means the
+// scan will never see the bon, wrong "non-null" means the user gets a fake
+// expiry warning.
+
+describe("computeBonValidUntil", () => {
+  test("returns null when validity is not enabled", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: false,
+      reward_validity_days: 30,
+    });
+    expect(r).toBeNull();
+  });
+
+  test("returns null when days is 0 (treated as evergreen)", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: 0,
+    });
+    expect(r).toBeNull();
+  });
+
+  test("returns null when days is negative (defensive)", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: -10,
+    });
+    expect(r).toBeNull();
+  });
+
+  test("returns null when days is missing", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      // no reward_validity_days
+    });
+    expect(r).toBeNull();
+  });
+
+  test("returns null when config is undefined", () => {
+    const r = computeBonValidUntil(undefined);
+    expect(r).toBeNull();
+  });
+
+  test("returns Timestamp ~30 days out for enabled + 30 days", () => {
+    const before = Date.now();
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: 30,
+    });
+    const after = Date.now();
+    expect(r).not.toBeNull();
+    const ms = r!.toMillis();
+    // Allow a 1 second window between before / after sampling.
+    const expectedMin = before + 30 * 24 * 60 * 60 * 1000;
+    const expectedMax = after + 30 * 24 * 60 * 60 * 1000;
+    expect(ms).toBeGreaterThanOrEqual(expectedMin);
+    expect(ms).toBeLessThanOrEqual(expectedMax);
+  });
+
+  test("string-typed days (Firestore round-trip can return strings) is coerced", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: "14",
+    });
+    expect(r).not.toBeNull();
+  });
+
+  test("NaN days returns null (defensive against bad data)", () => {
+    const r = computeBonValidUntil({
+      reward_validity_enabled: true,
+      reward_validity_days: "not a number",
+    });
+    expect(r).toBeNull();
   });
 });

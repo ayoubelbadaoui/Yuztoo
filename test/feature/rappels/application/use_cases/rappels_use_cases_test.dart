@@ -156,6 +156,13 @@ class _FakeLoyaltyRepoForSend implements ClientLoyaltyRepository {
     required bool isSpendBased,
   }) async =>
       throw UnimplementedError();
+
+  @override
+  Future<Result<ClientMerchantLoyaltyProgress>> claimWelcomeBon({
+    required String merchantId,
+    required String clientUid,
+  }) async =>
+      throw UnimplementedError();
 }
 
 Future<bool> _sendMockOwnershipOk(String merchantId, String callerUid) async =>

@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../domain/entities/scheduled_notification.dart';
 import '../../domain/entities/sent_notification.dart';
+import '../../infrastructure/scheduled_notification_repository_provider.dart';
+import 'notification_templates_widgets.dart';
 import 'rappels_section_header.dart';
 
 part 'quick_send_section.part.dart';
@@ -52,6 +55,12 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
   int _audienceIndex = 0; // 0 = Tous, 1..N = segments
   bool _sending = false;
 
+  /// When non-null, the send button is in "Programmer" mode and tapping
+  /// it schedules the notification at this instant instead of firing
+  /// immediately. Cleared when the user toggles scheduling off OR after
+  /// a successful schedule (so the next compose starts fresh).
+  DateTime? _scheduledAt;
+
   static const _audienceOptions = [
     _AudienceOption('Tous', Icons.groups_outlined, ''),
     _AudienceOption('VIP', Icons.workspace_premium_outlined, 'vip'),
@@ -66,6 +75,135 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
     super.dispose();
   }
 
+  // Maps the persisted (audience, segments) pair back into the
+  // _audienceIndex / chip selection so loading a template restores the
+  // exact same UI state. A persisted "Certains clients" with an
+  // unknown segment falls back to "Tous" (index 0) — the form is
+  // never put into an inconsistent state, and the merchant can re-pick.
+  void _applyTemplate(TemplatePick pick) {
+    setState(() {
+      _ctrl.text = pick.text;
+      _ctrl.selection = TextSelection.collapsed(offset: pick.text.length);
+      if (pick.audience == 'Tous mes clients' || pick.segments.isEmpty) {
+        _audienceIndex = 0;
+      } else {
+        final key = pick.segments.first;
+        final i = _audienceOptions
+            .indexWhere((o) => o.segmentKey == key);
+        _audienceIndex = i >= 0 ? i : 0;
+      }
+    });
+  }
+
+  Future<void> _openTemplatesPicker() async {
+    final pick = await showTemplatesPickerSheet(
+      context: context,
+      merchantId: widget.merchantId,
+    );
+    if (pick == null || !mounted) return;
+    _applyTemplate(pick);
+  }
+
+  Future<void> _saveCurrentAsTemplate() async {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Composez un message avant d\'enregistrer.',
+              style: GoogleFonts.outfit()),
+          backgroundColor: MerchantColors.bgHeader,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final option = _audienceOptions[_audienceIndex];
+    final audience =
+        _audienceIndex == 0 ? 'Tous mes clients' : 'Certains clients';
+    final segments =
+        _audienceIndex == 0 ? const <String>[] : [option.segmentKey];
+    final saved = await showSaveTemplateDialog(
+      context: context,
+      ref: ref,
+      merchantId: widget.merchantId,
+      text: text,
+      audience: audience,
+      segments: segments,
+    );
+    if (!mounted || !saved) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Template enregistré ✓',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+        backgroundColor: MerchantColors.gold,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // Opens a date+time picker tuple. Returns the chosen DateTime in
+  // local time, or null on cancel. Floors at "now + 5 minutes" so the
+  // server-side "earliest" check can't reject what the merchant
+  // confirmed in the picker.
+  Future<DateTime?> _pickScheduledAt() async {
+    final now = DateTime.now();
+    final earliest = now.add(const Duration(minutes: 6));
+    final initial = _scheduledAt ?? now.add(const Duration(hours: 1));
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(earliest) ? earliest : initial,
+      firstDate: earliest,
+      // 90-day horizon is plenty for the SMB use case and keeps the
+      // picker scrollable. Spec doesn't ask for further-out scheduling.
+      lastDate: now.add(const Duration(days: 90)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: MerchantColors.gold,
+            onPrimary: MerchantColors.darkOverlay,
+            surface: MerchantColors.bgHeader,
+            onSurface: Colors.white,
+          ),
+        ),
+        child: child ?? const SizedBox.shrink(),
+      ),
+    );
+    if (pickedDate == null || !mounted) return null;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: MerchantColors.gold,
+            onPrimary: MerchantColors.darkOverlay,
+            surface: MerchantColors.bgHeader,
+            onSurface: Colors.white,
+          ),
+        ),
+        child: child ?? const SizedBox.shrink(),
+      ),
+    );
+    if (pickedTime == null) return null;
+    return DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+  }
+
+  Future<void> _toggleScheduleOn() async {
+    final picked = await _pickScheduledAt();
+    if (!mounted || picked == null) return;
+    setState(() => _scheduledAt = picked);
+  }
+
+  void _toggleScheduleOff() {
+    setState(() => _scheduledAt = null);
+  }
+
   Future<void> _onSendTap() async {
     if (_ctrl.text.trim().isEmpty || widget.quotaExceeded) return;
     setState(() => _sending = true);
@@ -77,11 +215,83 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
         _audienceIndex == 0 ? const <String>[] : [option.segmentKey];
 
     try {
-      await widget.onSend(_ctrl.text.trim(), audience, segments);
-      if (mounted) _ctrl.clear();
+      final scheduled = _scheduledAt;
+      if (scheduled != null) {
+        // Scheduling path — does NOT touch widget.onSend; we don't burn
+        // weekly quota at scheduling time (the CF will, at fire time).
+        final repo =
+            ref.read(scheduledNotificationRepositoryProvider);
+        // The merchantOwnerUid is the same as the widget's merchantId in
+        // the current single-owner model, but the use case wants a
+        // distinct creator UID so multi-user merchants stay auditable.
+        // Fall back to merchantId when no separate owner is plumbed.
+        final result = await repo.schedule(
+          merchantId: widget.merchantId,
+          createdByUid: widget.merchantId,
+          text: _ctrl.text.trim(),
+          audience: audience,
+          segments: segments,
+          scheduledAt: scheduled,
+        );
+        if (!mounted) return;
+        result.fold(
+          (failure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(failure.message,
+                    style: GoogleFonts.outfit()),
+                backgroundColor: Colors.red[400],
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+          (_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Notification programmée ✓',
+                    style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w600)),
+                backgroundColor: MerchantColors.gold,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            _ctrl.clear();
+            setState(() => _scheduledAt = null);
+          },
+        );
+      } else {
+        await widget.onSend(_ctrl.text.trim(), audience, segments);
+        if (mounted) _ctrl.clear();
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  Future<void> _cancelScheduled(ScheduledNotification s) async {
+    final repo = ref.read(scheduledNotificationRepositoryProvider);
+    final result = await repo.cancel(
+      merchantId: widget.merchantId,
+      scheduledId: s.id,
+    );
+    if (!mounted) return;
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message, style: GoogleFonts.outfit()),
+          backgroundColor: Colors.red[400],
+          behavior: SnackBarBehavior.floating,
+        ),
+      ),
+      (_) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Programmation annulée',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+          backgroundColor: MerchantColors.bgHeader,
+          behavior: SnackBarBehavior.floating,
+        ),
+      ),
+    );
   }
   @override
   Widget build(BuildContext context) => _buildBody(context);
