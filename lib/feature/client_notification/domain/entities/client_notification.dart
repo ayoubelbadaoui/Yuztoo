@@ -10,6 +10,16 @@ enum ClientNotificationType {
 
   /// A merchant's auto-notification (rappel) triggered.
   auto,
+
+  /// A persisted loyalty bon will expire within ≤3 days. Issued by the
+  /// dailyBonExpirationScan CF. Tapping should route to "Mes avantages"
+  /// so the client can use the bon before it lapses.
+  bonExpiring,
+
+  /// A persisted loyalty bon has lapsed. Issued by the same scan. Tap
+  /// also routes to Mes avantages so the client can see the bon move
+  /// to the historique state.
+  bonExpired,
 }
 
 /// An in-app notification delivered to a client's inbox.

@@ -1586,6 +1586,17 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .state = merchantId;
             setState(() => _nestedScreen = ScreenId.storeProfile);
           },
+          // Tapping a bon_expiring / bon_expired push lands on Mes
+          // avantages so the client can act on (or acknowledge) the
+          // bon — same behaviour as the type=='loyalty' deep-link
+          // path higher up in this file.
+          onBonTap: () {
+            setState(() {
+              _activeTab = 'loyalty';
+              _authScreen = ScreenId.loyalty;
+              _nestedScreen = null;
+            });
+          },
         );
       case ScreenId.messages:
         return MessagesScreen(
