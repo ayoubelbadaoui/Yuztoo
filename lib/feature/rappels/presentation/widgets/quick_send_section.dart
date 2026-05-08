@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../domain/entities/sent_notification.dart';
+import 'notification_templates_widgets.dart';
 import 'rappels_section_header.dart';
 
 part 'quick_send_section.part.dart';
@@ -64,6 +65,72 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
   void dispose() {
     _ctrl.dispose();
     super.dispose();
+  }
+
+  // Maps the persisted (audience, segments) pair back into the
+  // _audienceIndex / chip selection so loading a template restores the
+  // exact same UI state. A persisted "Certains clients" with an
+  // unknown segment falls back to "Tous" (index 0) — the form is
+  // never put into an inconsistent state, and the merchant can re-pick.
+  void _applyTemplate(TemplatePick pick) {
+    setState(() {
+      _ctrl.text = pick.text;
+      _ctrl.selection = TextSelection.collapsed(offset: pick.text.length);
+      if (pick.audience == 'Tous mes clients' || pick.segments.isEmpty) {
+        _audienceIndex = 0;
+      } else {
+        final key = pick.segments.first;
+        final i = _audienceOptions
+            .indexWhere((o) => o.segmentKey == key);
+        _audienceIndex = i >= 0 ? i : 0;
+      }
+    });
+  }
+
+  Future<void> _openTemplatesPicker() async {
+    final pick = await showTemplatesPickerSheet(
+      context: context,
+      merchantId: widget.merchantId,
+    );
+    if (pick == null || !mounted) return;
+    _applyTemplate(pick);
+  }
+
+  Future<void> _saveCurrentAsTemplate() async {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Composez un message avant d\'enregistrer.',
+              style: GoogleFonts.outfit()),
+          backgroundColor: MerchantColors.bgHeader,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final option = _audienceOptions[_audienceIndex];
+    final audience =
+        _audienceIndex == 0 ? 'Tous mes clients' : 'Certains clients';
+    final segments =
+        _audienceIndex == 0 ? const <String>[] : [option.segmentKey];
+    final saved = await showSaveTemplateDialog(
+      context: context,
+      ref: ref,
+      merchantId: widget.merchantId,
+      text: text,
+      audience: audience,
+      segments: segments,
+    );
+    if (!mounted || !saved) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Template enregistré ✓',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+        backgroundColor: MerchantColors.gold,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _onSendTap() async {

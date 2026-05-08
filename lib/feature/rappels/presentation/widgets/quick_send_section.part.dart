@@ -25,7 +25,9 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
             title: 'Notification rapide',
             subtitle: 'envoi immédiat à vos clients',
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          _buildTemplateToolbar(context),
+          const SizedBox(height: 10),
           _buildCompose(context),
           const SizedBox(height: 14),
           _buildAudienceChips(),
@@ -39,6 +41,29 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
           ],
         ],
       ),
+    );
+  }
+
+  // ── Templates toolbar ─────────────────────────────────────────────────────
+  // Two-button row above the compose field. Loading is the primary
+  // affordance (saves typing); save is gated on the field being non-empty
+  // to avoid creating empty templates by accident.
+  Widget _buildTemplateToolbar(BuildContext context) {
+    final hasText = _ctrl.text.trim().isNotEmpty;
+    return Row(
+      children: [
+        _TemplateChip(
+          icon: Icons.folder_open_rounded,
+          label: 'Charger un template',
+          onTap: _openTemplatesPicker,
+        ),
+        const SizedBox(width: 8),
+        _TemplateChip(
+          icon: Icons.bookmark_add_outlined,
+          label: 'Enregistrer',
+          onTap: hasText ? _saveCurrentAsTemplate : null,
+        ),
+      ],
     );
   }
 
@@ -342,6 +367,62 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
               style: GoogleFonts.outfit(
                 fontSize: 10,
                 color: MerchantColors.gold.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TemplateChip extends StatelessWidget {
+  const _TemplateChip({
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: MerchantColors.bgMain,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: MerchantColors.gold.withValues(
+                alpha: disabled ? 0.15 : MerchantColors.goldBorderAlpha),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: disabled
+                  ? MerchantColors.textGrey
+                  : MerchantColors.gold,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: disabled
+                    ? MerchantColors.textGrey
+                    : MerchantColors.gold,
               ),
             ),
           ],

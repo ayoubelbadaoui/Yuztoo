@@ -346,6 +346,33 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // --- /merchants/{merchantId}/notification_templates/{templateId} ---
+    // Merchant-owned saved templates for the manual notification flow.
+    // Schema gate keeps the wire shape narrow so a future migration can
+    // rely on the documented field set:
+    //   name, text, audience, segments, created_at, updated_at.
+    // Length caps mirror the client-side validator (firestore_notification_
+    // template_repository.dart) — 80 chars for name, 500 for text — so a
+    // bypass via the REST API gets the same rejection.
+    match /merchants/{merchantId}/notification_templates/{templateId} {
+      allow read: if isMerchantOwner(merchantId);
+      allow create, update: if isMerchantOwner(merchantId)
+        && request.resource.data.keys().hasOnly(
+          ['name', 'text', 'audience', 'segments', 'created_at', 'updated_at']
+        )
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.audience in [
+          'Tous mes clients', 'Certains clients'
+        ]
+        && request.resource.data.segments is list;
+      allow delete: if isMerchantOwner(merchantId);
+    }
+
     // --- /reports/{reportId} ---
     // App Store guideline 1.2: any app with user-generated content needs a
     // reporting mechanism. Writes are append-only by signed-in users; the
