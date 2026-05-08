@@ -11,6 +11,7 @@ class MerchantPartnerDto {
     required this.addedAt,
     this.partnerLogoUrl,
     this.partnerCity,
+    this.partnerMerchantType,
     this.isPending = false,
   });
 
@@ -20,6 +21,7 @@ class MerchantPartnerDto {
   final String partnerName;
   final String? partnerLogoUrl;
   final String? partnerCity;
+  final String? partnerMerchantType;
   final DateTime addedAt;
   final bool isPending;
 
@@ -33,6 +35,12 @@ class MerchantPartnerDto {
     final addedAt = addedAtRaw is Timestamp
         ? addedAtRaw.toDate()
         : DateTime.now();
+    // Defensive: only accept the wire values we ship. Anything else
+    // (typo, future value) becomes null so the UI treats the partner
+    // as "type unknown" rather than displaying garbage in the badge.
+    final rawType = data['partner_merchant_type'] as String?;
+    final partnerType =
+        (rawType == 'b2b' || rawType == 'b2c') ? rawType : null;
     return MerchantPartnerDto(
       id: doc.id,
       merchantId: merchantId,
@@ -40,6 +48,7 @@ class MerchantPartnerDto {
       partnerName: data['partner_name'] as String? ?? '',
       partnerLogoUrl: data['partner_logo_url'] as String?,
       partnerCity: data['partner_city'] as String?,
+      partnerMerchantType: partnerType,
       addedAt: addedAt,
       isPending: data['is_pending'] as bool? ?? false,
     );
@@ -52,6 +61,7 @@ class MerchantPartnerDto {
         partnerName: partnerName,
         partnerLogoUrl: partnerLogoUrl,
         partnerCity: partnerCity,
+        partnerMerchantType: partnerMerchantType,
         addedAt: addedAt,
         isPending: isPending,
       );
@@ -61,6 +71,8 @@ class MerchantPartnerDto {
         'partner_name': partnerName,
         if (partnerLogoUrl != null) 'partner_logo_url': partnerLogoUrl,
         if (partnerCity != null) 'partner_city': partnerCity,
+        if (partnerMerchantType != null)
+          'partner_merchant_type': partnerMerchantType,
         'added_at': Timestamp.fromDate(addedAt),
         'is_pending': isPending,
       };
