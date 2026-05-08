@@ -805,6 +805,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       'merchant-identity-edit': ScreenId.merchantIdentityEdit,
       'partners': ScreenId.merchantPartners,
       'notifications-hub': ScreenId.merchantNotificationsHub,
+      'scheduled-notifications': ScreenId.merchantScheduledNotifications,
     };
 
     final target = map[screen];
@@ -1714,6 +1715,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantPartners:
         return MerchantPartnersScreen(
+          onBack: _handleBackFromNested,
+        );
+      case ScreenId.merchantScheduledNotifications:
+        return ScheduledNotificationsScreen(
           onBack: _handleBackFromNested,
         );
     }
