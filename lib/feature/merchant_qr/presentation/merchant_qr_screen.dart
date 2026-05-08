@@ -16,6 +16,18 @@ import '../../../core/config/vitrine_qr_config.dart';
 import '../../../core/infrastructure/nfc_service.dart';
 import '../../merchant/application/providers.dart';
 
+/// Feature flag — NFC plaque programming UI is currently hidden. The
+/// future model is phone-to-phone NFC (handled on the client scanner
+/// side); merchant-side plaque writing is preserved here so it can be
+/// re-enabled with a single flag flip when / if hardware plaques come
+/// back into scope.
+///
+/// Read by the build() of MerchantQRCodeScreen — the analyzer does NOT
+/// flag a flag-gated branch as dead code as long as the constant is
+/// declared at file scope (same convention as the existing
+/// `_kRappelsDummy` flag in rappels_screen.dart).
+const bool _kEnableNfcPlaquePrograming = false;
+
 /// Merchant QR Code screen — real QR backed by the merchant's Firestore ID.
 /// Merchants scan this to let clients follow their store.
 class MerchantQRCodeScreen extends ConsumerStatefulWidget {
@@ -352,48 +364,55 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
           ),
           const SizedBox(height: 28),
 
-          // ── NFC write button ────────────────────────────────────────
-          GestureDetector(
-            onTap: _isWritingNfc ? null : () => _writeNfc(merchantId),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color: MerchantColors.navyCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: MerchantColors.gold
-                      .withValues(alpha: MerchantColors.goldBorderAlpha),
+          // ── NFC plaque write button (hidden) ────────────────────────
+          // Kept in source so flipping _kEnableNfcPlaquePrograming back
+          // to true restores the full plaque-programming flow without
+          // any rework. The reading side (qr_scanner_screen) keeps
+          // working — so plaques already programmed in the wild stay
+          // functional even with the merchant button hidden.
+          if (_kEnableNfcPlaquePrograming) ...[
+            GestureDetector(
+              onTap: _isWritingNfc ? null : () => _writeNfc(merchantId),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: MerchantColors.navyCard,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: MerchantColors.gold
+                        .withValues(alpha: MerchantColors.goldBorderAlpha),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _isWritingNfc
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: MerchantColors.gold),
+                          )
+                        : const Icon(Icons.nfc_rounded,
+                            color: MerchantColors.gold, size: 22),
+                    const SizedBox(width: 10),
+                    Text(
+                      _isWritingNfc
+                          ? 'Approchez le badge NFC...'
+                          : 'Programmer un badge NFC',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _isWritingNfc
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: MerchantColors.gold),
-                        )
-                      : const Icon(Icons.nfc_rounded,
-                          color: MerchantColors.gold, size: 22),
-                  const SizedBox(width: 10),
-                  Text(
-                    _isWritingNfc
-                        ? 'Approchez le badge NFC...'
-                        : 'Programmer un badge NFC',
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
             ),
-          ),
-          const SizedBox(height: 28),
+            const SizedBox(height: 28),
+          ],
 
           // ── tips card ───────────────────────────────────────────────
           Container(
@@ -428,7 +447,10 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
                 _tip('Imprimez et affichez-le à la caisse'),
                 _tip('Partagez-le sur vos réseaux sociaux'),
                 _tip('Ajoutez-le à vos cartes de visite'),
-                _tip('Programmez un badge NFC pour un accès sans scan'),
+                if (_kEnableNfcPlaquePrograming)
+                  _tip('Programmez un badge NFC pour un accès sans scan')
+                else
+                  _tip('Connectez deux téléphones par NFC pour valider un passage'),
               ],
             ),
           ),

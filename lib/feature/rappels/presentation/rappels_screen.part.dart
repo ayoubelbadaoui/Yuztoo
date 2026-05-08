@@ -124,11 +124,14 @@ extension _RappelsScreenUi on _RappelsScreenState {
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
-                    RappelsProductSection(
-                      onProgramNfc: widget.onNavigate != null
-                          ? () => widget.onNavigate!('qr-code')
-                          : null,
-                    ),
+                    // RappelsProductSection (the NFC plaque marketing
+                    // block) is hidden while plaque-programming is out
+                    // of scope. Kept in source as a SizedBox.shrink()
+                    // wrapper so the existing widget + its callback
+                    // wiring survive a future re-enable. The new model
+                    // is phone-to-phone NFC handled on the client
+                    // scanner; merchants don't need a plaque flow.
+                    const SizedBox.shrink(),
                     storefrontAsync.when(
                       data: (storefront) {
                         final autoClient =

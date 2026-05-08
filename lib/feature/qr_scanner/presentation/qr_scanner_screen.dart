@@ -95,7 +95,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     }
     setState(() => _nfcScanning = true);
     final result = await NfcService.readVitrineMerchantId(
-      alertMessage: 'Approchez votre téléphone du badge NFC du commerce',
+      alertMessage: 'Approchez votre téléphone de celui du commerçant',
     );
     if (!mounted) return;
     setState(() => _nfcScanning = false);
@@ -107,7 +107,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Ce badge NFC ne contient pas de vitrine Yuztoo.',
+              content: Text('Aucune vitrine Yuztoo détectée par NFC.',
                   style: GoogleFonts.outfit()),
               backgroundColor: MerchantColors.navyCard,
             ),

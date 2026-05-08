@@ -41,8 +41,12 @@ class NfcService {
 
   /// Read an NDEF tag and extract a Yuztoo vitrine URL.
   /// Returns the merchant ID on success, or an error message.
+  ///
+  /// Default copy uses generic "tag NFC" wording — callers (typically
+  /// the client scanner) override `alertMessage` with the
+  /// phone-to-phone message that fits their context.
   static Future<NfcResult> readVitrineMerchantId({
-    String alertMessage = 'Approchez votre téléphone du badge NFC',
+    String alertMessage = 'Approchez votre téléphone',
   }) async {
     if (!isSupported) return const NfcUnavailable();
     try {
@@ -82,8 +86,8 @@ class NfcService {
       }
 
       await FlutterNfcKit.finish(
-          iosErrorMessage: 'Ce badge NFC n\'appartient pas à un commerce Yuztoo.');
-      return const NfcError('Ce badge NFC ne contient pas de vitrine Yuztoo.');
+          iosErrorMessage: 'Aucune vitrine Yuztoo détectée.');
+      return const NfcError('Aucune vitrine Yuztoo détectée par NFC.');
     } catch (e) {
       try {
         await FlutterNfcKit.finish(iosErrorMessage: 'Erreur de lecture.');
@@ -92,7 +96,7 @@ class NfcService {
       if (msg.contains('cancel') || msg.contains('Cancel')) {
         return const NfcError('Lecture annulée.');
       }
-      return NfcError('Impossible de lire le badge NFC : $msg');
+      return NfcError('Impossible de lire le tag NFC : $msg');
     }
   }
 
