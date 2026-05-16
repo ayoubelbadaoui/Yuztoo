@@ -3,6 +3,7 @@ import '../../../../core/domain/core/failure.dart';
 import '../../../../core/domain/core/result.dart';
 import '../../../../core/infrastructure/logger_service.dart';
 import '../../../client_notification/domain/entities/client_notification.dart';
+import '../../../client_notification/domain/promotion_segment_matching.dart';
 import '../../../client_notification/domain/repositories/client_notification_repository.dart';
 import '../../../followed_merchants/domain/repositories/followed_merchants_repository.dart';
 import '../../../loyalty/domain/repositories/client_loyalty_repository.dart';
@@ -66,7 +67,7 @@ class SendMerchantNotification {
       final clientSegments = await _loyaltyRepo.getClientSegments(merchantId);
       targetIds = targetIds.where((id) {
         final seg = clientSegments[id] ?? 'nouveau';
-        return segments.contains(seg);
+        return promotionSegmentMatchesTarget(seg, segments);
       }).toList();
     }
     if (targetIds.isEmpty) return const Right(0);

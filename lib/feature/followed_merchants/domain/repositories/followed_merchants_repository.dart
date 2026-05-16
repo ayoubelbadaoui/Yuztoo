@@ -38,4 +38,12 @@ abstract class FollowedMerchantsRepository {
   /// Requires a Firestore collection-group index on `followed_merchants`
   /// with field `merchant_id` (ascending).
   Future<Result<List<String>>> getFollowerIds(String merchantId);
+
+  /// Get saved carnet sort indexes (merchantId → sort_index).
+  /// Missing entries mean the merchant has never been manually reordered.
+  Future<Result<Map<String, int>>> getFollowedSortIndexes(String userId);
+
+  /// Persist carnet reorder. [sortIndexes] maps every visible merchantId
+  /// to its new 0-based position. Uses a batched write.
+  Future<Result<Unit>> updateSortOrder(String userId, Map<String, int> sortIndexes);
 }

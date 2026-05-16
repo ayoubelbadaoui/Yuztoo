@@ -585,7 +585,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
           child: Dismissible(
             key: ValueKey(n.id),
             direction: DismissDirection.endToStart,
-            onDismissed: (_) => _deleteOne(n),
+            confirmDismiss: (_) => _deleteOne(n),
             background: Container(
               alignment: Alignment.centerRight,
               padding: const EdgeInsets.only(right: 20),
@@ -661,9 +661,9 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                onTap: () {
+                onTap: () async {
                   Navigator.of(ctx).pop();
-                  _deleteOne(notification);
+                  await _deleteOne(notification);
                 },
               ),
               if (notification.merchantId.isNotEmpty)

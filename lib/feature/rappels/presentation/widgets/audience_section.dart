@@ -23,6 +23,7 @@ class AudienceSection extends StatelessWidget {
   // 'abonne' is retired — it was heart-based and inconsistent with notification targeting.
   static const _segments = [
     _SegmentDef('vip', 'VIP', Icons.workspace_premium_outlined),
+    _SegmentDef('soutien', 'Soutien', Icons.favorite_outline_rounded),
     _SegmentDef('habitue', 'Habitué', Icons.repeat_rounded),
     _SegmentDef('nouveau', 'Nouveau', Icons.person_add_outlined),
     _SegmentDef('inactif', 'Inactifs', Icons.schedule_outlined),

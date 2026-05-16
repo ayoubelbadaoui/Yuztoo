@@ -7,6 +7,9 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/providers.dart';
+import '../domain/carnet_merchant_order.dart';
+import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
 import '../../merchant/domain/entities/merchant.dart';
 import '../../promotions/domain/entities/promotion.dart';
 
@@ -69,6 +72,7 @@ class ClientHomeScreen extends ConsumerWidget {
                       feedAsync.when(
                         data: (feed) => _buildBusinessCard(
                           context,
+                          ref,
                           feed.merchants,
                           heartLevelsAsync.valueOrNull ?? const <String, int>{},
                           followedIds: feed.followedIds,

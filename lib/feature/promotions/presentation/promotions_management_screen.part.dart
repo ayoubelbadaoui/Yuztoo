@@ -61,7 +61,6 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                                     _buildOthersSection(others),
                                   PromoAnalytics(promotions: promotions),
                                 ],
-                                _buildNotificationsAutoButton(),
                               ],
                             ),
                           ),
@@ -733,69 +732,4 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
     );
   }
 
-  // ── Notifications auto button ────────────────────────────────────────────
-
-  Widget _buildNotificationsAutoButton() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: GestureDetector(
-        onTap: () => widget.onNavigate?.call('notifications-auto'),
-        child: Container(
-          width: double.infinity,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: BoxDecoration(
-            color: MerchantColors.navyCard,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: MerchantColors.gold
-                  .withValues(alpha: MerchantColors.goldBorderStronger),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: MerchantColors.gold,
-                ),
-                child: const Center(
-                  child: Icon(Icons.notifications_active_outlined,
-                      color: MerchantColors.darkOverlay, size: 20),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Notifications automatiques',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      'Relancez vos clients au bon moment',
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        color: MerchantColors.textGrey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios_rounded,
-                  color: MerchantColors.gold, size: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -51,22 +51,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     await useCase(authState.user.id);
   }
 
-  Future<void> _deleteOne(ClientNotification notification) async {
+  Future<bool> _deleteOne(ClientNotification notification) async {
     final authState = ref.read(authStateProvider);
-    if (authState is! Authenticated) return;
+    if (authState is! Authenticated) return false;
+    if (notification.id.isEmpty) return false;
     final result = await ref
         .read(deleteNotificationProvider)
         .call(authState.user.id, notification.id);
-    if (!mounted) return;
-    result.fold(
-      (_) => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Impossible de supprimer cette alerte'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.red,
-        ),
-      ),
-      (_) {},
+    if (!mounted) return false;
+    return result.fold(
+      (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible de supprimer cette alerte'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      },
+      (_) => true,
     );
   }
 

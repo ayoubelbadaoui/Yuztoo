@@ -54,6 +54,15 @@ class _FakeFollowed implements FollowedMerchantsRepository {
   @override
   Future<Result<Set<String>>> getMutedMerchantIds(String userId) async =>
       const Right(<String>{});
+
+  @override
+  Future<Result<Map<String, int>>> getFollowedSortIndexes(String userId) async =>
+      const Right({});
+
+  @override
+  Future<Result<Unit>> updateSortOrder(
+          String userId, Map<String, int> sortIndexes) async =>
+      const Right(unit);
 }
 
 class _FakeNotifRepo implements ClientNotificationRepository {

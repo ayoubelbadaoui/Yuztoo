@@ -116,6 +116,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
 
   Widget _buildBusinessCard(
     BuildContext context,
+    WidgetRef ref,
     List<Merchant> merchants,
     Map<String, int> heartLevels, {
     List<String> followedIds = const [],
@@ -125,26 +126,11 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
       return _buildEmptyCarnet(context);
     }
 
-    // Sort: followed merchants first, then others
+    // Order comes from [clientHomeFeedProvider] (sort_index + heart fallback).
     final followedSet = followedIds.toSet();
-    final sortedMerchants = List<Merchant>.from(merchants);
-    sortedMerchants.sort((a, b) {
-      if (a.id == ownMerchantId) return -1;
-      if (b.id == ownMerchantId) return 1;
-      final aFollowed = followedSet.contains(a.id);
-      final bFollowed = followedSet.contains(b.id);
-      if (aFollowed && !bFollowed) return -1;
-      if (!aFollowed && bFollowed) return 1;
-      if (aFollowed && bFollowed) {
-        final ah = heartLevels[a.id] ?? 1;
-        final bh = heartLevels[b.id] ?? 1;
-        return bh.compareTo(ah);
-      }
-      return 0;
-    });
 
     return _CarnetList(
-      merchants: sortedMerchants,
+      merchants: merchants,
       heartLevels: heartLevels,
       followedSet: followedSet,
       ownMerchantId: ownMerchantId,
@@ -154,6 +140,13 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
         } else {
           onNavigate('store-profile');
         }
+      },
+      onOrderChanged: (sortIndexes) {
+        final userId = ref.read(auth_providers.currentUserIdProvider);
+        if (userId == null) return;
+        ref
+            .read(followedMerchantsRepositoryProvider)
+            .updateSortOrder(userId, sortIndexes);
       },
     );
   }
@@ -742,6 +735,7 @@ class _CarnetList extends StatefulWidget {
     required this.followedSet,
     required this.onMerchantTap,
     this.ownMerchantId,
+    this.onOrderChanged,
   });
 
   final List<Merchant> merchants;
@@ -749,6 +743,7 @@ class _CarnetList extends StatefulWidget {
   final Set<String> followedSet;
   final void Function(String merchantId) onMerchantTap;
   final String? ownMerchantId;
+  final void Function(Map<String, int> sortIndexes)? onOrderChanged;
 
   @override
   State<_CarnetList> createState() => _CarnetListState();
@@ -767,7 +762,7 @@ class _CarnetListState extends State<_CarnetList> {
   @override
   void didUpdateWidget(_CarnetList old) {
     super.didUpdateWidget(old);
-    if (old.merchants != widget.merchants) {
+    if (!carnetMerchantIdsEqualOrder(old.merchants, widget.merchants)) {
       _ordered = List<Merchant>.from(widget.merchants);
     }
   }
@@ -877,6 +872,15 @@ class _CarnetListState extends State<_CarnetList> {
                       _ordered.removeAt(oldIndex + reorderOffset);
                   _ordered.insert(newIndex + reorderOffset, item);
                 });
+                // Persist new order — skip own merchant (not in followed_merchants).
+                final reorderable = _ordered
+                    .where((m) => m.id != widget.ownMerchantId)
+                    .toList();
+                final indexes = {
+                  for (var i = 0; i < reorderable.length; i++)
+                    reorderable[i].id: i
+                };
+                widget.onOrderChanged?.call(indexes);
               },
               itemBuilder: (context, index) {
                 final merchant = reorderableList[index];

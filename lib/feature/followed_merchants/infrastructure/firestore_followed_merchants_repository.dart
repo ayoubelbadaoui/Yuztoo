@@ -270,15 +270,48 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
   }
 
   @override
-  Future<Result<Map<String, int>>> getFollowersCounts(List<String> merchantIds) async {
+  Future<Result<Map<String, int>>> getFollowersCounts(
+      List<String> merchantIds) async {
     if (merchantIds.isEmpty) {
       return const Right<AppFailure, Map<String, int>>(<String, int>{});
     }
     final distinctIds = merchantIds.toSet().toList();
-    final baseCounts = <String, int>{for (final id in distinctIds) id: 0};
-    // Avoid global users scan in client apps: rules usually deny list on /users.
-    // Keep UI responsive with a stable fallback until a server-side counter exists.
-    return Right<AppFailure, Map<String, int>>(baseCounts);
+    final counts = <String, int>{for (final id in distinctIds) id: 0};
+
+    try {
+      // For each merchant, run the same collection-group query used by
+      // [getFollowerIds] but only count the results via Firestore's
+      // server-side `count()` aggregation — no document payload transferred,
+      // which keeps the storefront badge snappy. The query is covered by the
+      // existing collectionGroup=followed_merchants, merchant_id ASC index.
+      await Future.wait(distinctIds.map((id) async {
+        try {
+          final agg = await _firestore
+              .collectionGroup('followed_merchants')
+              .where('merchant_id', isEqualTo: id)
+              .count()
+              .get();
+          counts[id] = agg.count ?? 0;
+        } on FirebaseException catch (e, st) {
+          LoggerService.logError(
+            'Follower count query failed for merchant',
+            error: e,
+            stackTrace: st,
+            context: {'merchantId': id, 'code': e.code},
+          );
+          // Leave the entry at 0 rather than failing the whole batch.
+        }
+      }));
+
+      return Right<AppFailure, Map<String, int>>(counts);
+    } catch (e, st) {
+      LoggerService.logError(
+        'Error loading follower counts batch',
+        error: e,
+        stackTrace: st,
+      );
+      return Right<AppFailure, Map<String, int>>(counts);
+    }
   }
 
   @override
@@ -315,6 +348,54 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
       LoggerService.logError('Error loading follower IDs', error: e, stackTrace: st);
       return Left<AppFailure, List<String>>(
         UnexpectedFailure(message: 'Erreur de chargement des abonnés', cause: e, stackTrace: st),
+      );
+    }
+  }
+
+  @override
+  Future<Result<Map<String, int>>> getFollowedSortIndexes(String userId) async {
+    if (userId.isEmpty) {
+      return const Right<AppFailure, Map<String, int>>(<String, int>{});
+    }
+    try {
+      final snap = await _followedRef(userId).get();
+      final result = <String, int>{};
+      for (final doc in snap.docs) {
+        final idx = doc.data()['sort_index'];
+        if (idx is int) result[doc.id] = idx;
+      }
+      return Right<AppFailure, Map<String, int>>(result);
+    } catch (e, st) {
+      LoggerService.logError('Error loading carnet sort indexes', error: e, stackTrace: st);
+      return const Right<AppFailure, Map<String, int>>(<String, int>{});
+    }
+  }
+
+  @override
+  Future<Result<Unit>> updateSortOrder(
+      String userId, Map<String, int> sortIndexes) async {
+    if (userId.isEmpty || sortIndexes.isEmpty) {
+      return const Right<AppFailure, Unit>(unit);
+    }
+    try {
+      final batch = _firestore.batch();
+      sortIndexes.forEach((merchantId, index) {
+        batch.update(
+          _followedRef(userId).doc(merchantId),
+          {'sort_index': index},
+        );
+      });
+      await batch.commit();
+      return const Right<AppFailure, Unit>(unit);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError('Firebase error saving carnet order', error: e, stackTrace: st);
+      return Left<AppFailure, Unit>(
+        UnexpectedFailure(message: 'Impossible de sauvegarder l\'ordre', cause: e, stackTrace: st),
+      );
+    } catch (e, st) {
+      LoggerService.logError('Error saving carnet order', error: e, stackTrace: st);
+      return Left<AppFailure, Unit>(
+        UnexpectedFailure(message: 'Erreur de sauvegarde de l\'ordre', cause: e, stackTrace: st),
       );
     }
   }

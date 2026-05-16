@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/infrastructure/logger_service.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
 import '../../merchant/domain/entities/merchant.dart';
@@ -8,6 +9,7 @@ import '../../profile/application/user_safety_providers.dart'
     show blockedMerchantIdsProvider;
 import '../../promotions/domain/entities/promotion.dart';
 import '../../promotions/infrastructure/promotion_repository_provider.dart';
+import '../domain/carnet_merchant_order.dart';
 import '../infrastructure/viewed_merchants_local_service.dart';
 
 /// Followed merchant IDs for the current user. Invalidated when user follows/unfollows.
@@ -65,6 +67,8 @@ typedef ClientHomeFeed = ({
   List<Promotion> promotions,
   /// Merchant ID owned by the current user (shown as "Mon commerce"), or null.
   String? ownMerchantId,
+  /// Saved carnet sort indexes (merchantId → position). Empty = not yet reordered.
+  Map<String, int> sortIndexes,
 });
 
 final clientHomeFeedProvider = FutureProvider<ClientHomeFeed>((ref) async {
@@ -81,40 +85,72 @@ final clientHomeFeedProvider = FutureProvider<ClientHomeFeed>((ref) async {
 
   // Only followed merchants after sign-in — no guest preview list.
   if (userId == null) {
-    return (merchants: <Merchant>[], followedIds: <String>[], promotions: <Promotion>[], ownMerchantId: null);
+    return (merchants: <Merchant>[], followedIds: <String>[], promotions: <Promotion>[], ownMerchantId: null, sortIndexes: <String, int>{});
   }
 
-  // Kick off all three reads in parallel — no ref.watch after await.
+  // Kick off all reads in parallel — no ref.watch after await.
   final ownFuture = merchantRepo.getMerchantById(userId);
   final idsFuture = followedRepo.getFollowedIds(userId);
   final heartLevelsFuture = followedRepo.getFollowedHeartLevels(userId);
+  final sortIndexesFuture = followedRepo.getFollowedSortIndexes(userId);
 
   final ownResult = await ownFuture;
   final idsResult = await idsFuture;
   final heartLevelsResult = await heartLevelsFuture;
+  final sortIndexesResult = await sortIndexesFuture;
 
   final Merchant? ownMerchant = ownResult.fold((_) => null, (m) => m);
   // followedIds excludes own merchant AND any merchant the user blocked
   // (the blocklist hides them from the carnet, recommendations, and the
   // notification fan-out — see functions/src/index.ts:isMerchantBlocked).
-  final followedIds = idsResult
-      .fold((_) => <String>[], (v) => v)
+  final rawIds = idsResult.fold((_) => <String>[], (v) => v);
+  final followedIds = rawIds
       .where((id) => id != userId && !blockedIds.contains(id))
       .toList();
   final heartLevels = heartLevelsResult.fold((_) => <String, int>{}, (v) => v);
+  final sortIndexes = sortIndexesResult.fold((_) => <String, int>{}, (v) => v);
+
+  LoggerService.logInfo(
+    'Client home feed loaded',
+    context: {
+      'userId': userId,
+      'rawFollowed': rawIds.length,
+      'followedAfterFilter': followedIds.length,
+      'blocked': blockedIds.length,
+      'hasOwnMerchant': ownMerchant != null,
+    },
+  );
 
   if (followedIds.isEmpty && ownMerchant == null) {
-    return (merchants: <Merchant>[], followedIds: <String>[], promotions: <Promotion>[], ownMerchantId: null);
+    return (merchants: <Merchant>[], followedIds: <String>[], promotions: <Promotion>[], ownMerchantId: null, sortIndexes: sortIndexes);
   }
 
   final merchantsResult = await merchantRepo.getMerchantsByIds(followedIds);
-  final merchants = merchantsResult.fold((_) => <Merchant>[], (list) => list);
-  // Sort followed merchants by heart level descending.
-  merchants.sort((a, b) {
-    final ah = heartLevels[a.id] ?? 1;
-    final bh = heartLevels[b.id] ?? 1;
-    return bh.compareTo(ah);
-  });
+  final merchants = merchantsResult.fold((failure) {
+    LoggerService.logError(
+      'Client home feed: getMerchantsByIds failed',
+      context: {'failure': failure.toString(), 'requested': followedIds.length},
+    );
+    return <Merchant>[];
+  }, (list) => list);
+
+  if (followedIds.isNotEmpty && merchants.isEmpty) {
+    // Followed IDs exist but no merchant docs returned — likely the merchant
+    // docs were deleted, the IDs are stale, or there's a project-config
+    // issue. Log so we can diagnose if a user reports an empty carnet.
+    LoggerService.logError(
+      'Client home feed: followed IDs returned zero merchant docs',
+      context: {'followedIds': followedIds},
+    );
+  }
+  merchants.sort(
+    (a, b) => compareCarnetMerchants(
+      a,
+      b,
+      sortIndexes: sortIndexes,
+      heartLevels: heartLevels,
+    ),
+  );
 
   // Prepend own merchant at the top.
   if (ownMerchant != null) {
@@ -122,7 +158,7 @@ final clientHomeFeedProvider = FutureProvider<ClientHomeFeed>((ref) async {
   }
 
   if (merchants.isEmpty) {
-    return (merchants: <Merchant>[], followedIds: followedIds, promotions: <Promotion>[], ownMerchantId: null);
+    return (merchants: <Merchant>[], followedIds: followedIds, promotions: <Promotion>[], ownMerchantId: null, sortIndexes: sortIndexes);
   }
 
   final merchantIds = merchants.map((m) => m.id).toList();
@@ -144,6 +180,7 @@ final clientHomeFeedProvider = FutureProvider<ClientHomeFeed>((ref) async {
     followedIds: followedIds,
     promotions: filteredPromos,
     ownMerchantId: ownMerchant?.id,
+    sortIndexes: sortIndexes,
   );
 });
 
