@@ -121,7 +121,17 @@ abstract class _FirebaseAuthRepositoryBase {
                 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
           );
         }
-        return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
+        // Surface the Firebase error code in the user-facing message so
+        // unmapped codes are debuggable from the snackbar (otherwise the
+        // user just sees "une erreur est survenue" and we have to dig in
+        // Crashlytics to identify what actually fired). The code is short
+        // and not sensitive (e.g. "too-many-requests", "operation-not-allowed").
+        return AuthUnexpectedFailure(
+          message: 'Connexion impossible (code: ${error.code}). '
+              'Réessayez ou contactez le support.',
+          cause: error,
+          stackTrace: stackTrace,
+        );
     }
   }
 
@@ -165,7 +175,15 @@ abstract class _FirebaseAuthRepositoryBase {
       case 'network-request-failed':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
       default:
-        return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
+        // Same rationale as _mapAuthException: surface the Firebase code
+        // so an unhandled signup failure is debuggable rather than being
+        // flattened to a generic "unexpected error" message.
+        return AuthUnexpectedFailure(
+          message: 'Inscription impossible (code: ${error.code}). '
+              'Réessayez ou contactez le support.',
+          cause: error,
+          stackTrace: stackTrace,
+        );
     }
   }
 }
