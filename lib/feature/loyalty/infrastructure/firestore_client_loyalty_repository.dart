@@ -4,6 +4,7 @@ import '../../../core/domain/core/either.dart';
 import '../../../core/domain/core/failure.dart';
 import '../../../core/domain/core/result.dart';
 import '../../../core/infrastructure/logger_service.dart';
+import '../../merchant/domain/entities/client_gratification_config.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart';
 import '../domain/entities/loyalty_pending_client_row.dart';
 import '../domain/repositories/client_loyalty_repository.dart';
@@ -506,6 +507,23 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   Future<Map<String, String>> getClientSegments(String merchantId) async {
     if (merchantId.isEmpty) return {};
     try {
+      var gratification = ClientGratificationConfig.defaults;
+      try {
+        final merchantSnap =
+            await _firestore.collection('merchants').doc(merchantId).get();
+        final raw = merchantSnap.data()?['gratification_config'];
+        if (raw is Map) {
+          gratification = ClientGratificationConfig.fromMap(
+            Map<String, dynamic>.from(raw),
+          );
+        }
+      } catch (e) {
+        LoggerService.logError(
+          'getClientSegments: gratification_config',
+          error: e,
+        );
+      }
+
       final loyaltySnap = await _firestore
           .collection('merchants')
           .doc(merchantId)
@@ -535,7 +553,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         final daysSince = lastVisit != null
             ? now.difference(lastVisit).inDays
             : 999;
-        result[doc.id] = _computeSegment(
+        result[doc.id] = gratification.segmentKeyFor(
           validatedPassages: validated,
           daysSinceLastVisit: daysSince,
         );

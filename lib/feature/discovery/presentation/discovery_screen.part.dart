@@ -345,8 +345,6 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     Set<String> followedIds,
   ) {
     final hasFollowed = followedIds.isNotEmpty;
-    final followedMerchantsAsync =
-        ref.watch(discoveryFollowedMerchantsProvider);
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
@@ -393,7 +391,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
             const SizedBox(height: 8),
             Text(
               hasFollowed
-                  ? 'Ici apparaissent les partenaires recommandés par les commerces que vous suivez — pas vos commerces suivis eux-mêmes.'
+                  ? 'Quand un commerce que vous suivez recommande un partenaire sur sa vitrine, le partenaire apparaît ici — pas le commerce que vous suivez déjà.'
                   : 'Les commerces que vous suivez recommandent ici leurs partenaires de confiance.',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
@@ -403,69 +401,15 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
               ),
             ),
             if (hasFollowed) ...[
-              const SizedBox(height: 24),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Vos commerces suivis',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: MerchantColors.textGrey,
-                    letterSpacing: 0.3,
-                  ),
+              const SizedBox(height: 16),
+              Text(
+                'Vos commerces suivis restent dans « Proche de moi » et dans votre carnet.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: MerchantColors.textGrey,
+                  height: 1.45,
                 ),
-              ),
-              const SizedBox(height: 10),
-              followedMerchantsAsync.when(
-                data: (merchants) {
-                  if (merchants.isEmpty) {
-                    return Text(
-                      'Retrouvez-les dans l\'onglet Proche de moi.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        color: MerchantColors.textGrey,
-                      ),
-                    );
-                  }
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.35,
-                    ),
-                    itemCount: merchants.length,
-                    itemBuilder: (context, index) {
-                      final m = merchants[index];
-                      return _BusinessGridCard(
-                        merchant: m,
-                        hasViewed: false,
-                        isFollowing: true,
-                        onTap: () => widget.onStoreSelect(m.id),
-                        placeholderBuilder: () => _placeholderImage(null),
-                      );
-                    },
-                  );
-                },
-                loading: () => const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: MerchantColors.gold,
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  ),
-                ),
-                error: (_, __) => const SizedBox.shrink(),
               ),
             ],
             const SizedBox(height: 20),

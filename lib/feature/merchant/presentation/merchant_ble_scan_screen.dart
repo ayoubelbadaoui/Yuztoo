@@ -142,9 +142,12 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
 
     if (!mounted) return;
 
-    final needsAmount = widget.merchant.loyaltyProgram
-            ?.effectiveAskClientPurchaseAmount ??
-        false;
+    final loyaltyActive = widget.merchant.loyaltyEnabled &&
+        (widget.merchant.loyaltyProgram?.programEnabled ??
+            widget.merchant.loyaltyEnabled);
+    final needsAmount = loyaltyActive &&
+        (widget.merchant.loyaltyProgram?.effectiveAskClientPurchaseAmount ??
+            false);
 
     double? amount;
     if (needsAmount) {

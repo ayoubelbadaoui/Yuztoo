@@ -23,8 +23,9 @@ import '../../domain/repositories/client_notification_repository.dart';
 /// `'soutien'` is intentionally mapped to both `'vip'` and `'habitue'`
 /// (active regulars with ≥ 3 passages).
 ///
-/// On any segment-lookup failure, the use case falls back to notifying ALL
-/// followers rather than silently dropping promotions.
+/// Segment lookup mirrors [SendMerchantNotification]: followers without a
+/// loyalty row are treated as `'nouveau'`; an empty segment map does not
+/// widen the audience to all followers.
 class NotifyFollowersOfPromotion {
   const NotifyFollowersOfPromotion({
     required FollowedMerchantsRepository followedRepo,
@@ -80,24 +81,28 @@ class NotifyFollowersOfPromotion {
         promotion.targetSegments.isNotEmpty;
 
     if (mustFilter) {
-      // Fetch loyalty segment map; fall back to all followers on error so
-      // promotions are never silently dropped due to a transient read failure.
       final clientSegments =
           await _loyaltyRepo.getClientSegments(merchantId);
-
-      if (clientSegments.isEmpty) {
-        // Could not read loyalty data — broadcast to all to avoid data loss.
-        LoggerService.logInfo(
-          'Segment lookup returned empty — broadcasting promotion to all followers',
-          context: {'merchantId': merchantId, 'promotionId': promotion.id},
-        );
-      } else {
-        targetIds = targetIds.where((id) {
-          // Followers with no loyalty doc have never visited → treat as 'nouveau'.
-          final seg = clientSegments[id] ?? 'nouveau';
-          return promotionSegmentMatchesTarget(seg, promotion.targetSegments);
-        }).toList();
-      }
+      final beforeCount = targetIds.length;
+      final segDistribution = <String, int>{};
+      targetIds = targetIds.where((id) {
+        // Same as Rappels manual sends: no loyalty doc → 'nouveau'.
+        final seg = clientSegments[id] ?? 'nouveau';
+        segDistribution.update(seg, (v) => v + 1, ifAbsent: () => 1);
+        return promotionSegmentMatchesTarget(seg, promotion.targetSegments);
+      }).toList();
+      LoggerService.logInfo(
+        'Segment filter applied to promotion notification',
+        context: <String, Object?>{
+          'merchantId': merchantId,
+          'promotionId': promotion.id,
+          'targetSegments': promotion.targetSegments,
+          'followersBeforeFilter': beforeCount,
+          'followersAfterFilter': targetIds.length,
+          'segmentDistribution': segDistribution,
+          'loyaltyRowsLoaded': clientSegments.length,
+        },
+      );
     }
 
     if (targetIds.isEmpty) {

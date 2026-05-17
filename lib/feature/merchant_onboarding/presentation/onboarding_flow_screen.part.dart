@@ -2,7 +2,12 @@ part of 'onboarding_flow_screen.dart';
 
 // ─── Shared design helpers ───────────────────────────────────────────────────
 
-/// Gold gradient CTA — replaces ElevatedButton everywhere in onboarding.
+/// iOS-pill CTA — solid gold fill, no gradient, no drop shadow. Replaces
+/// the previous diagonal-gradient + glow shadow variant which read as
+/// decorative ("Material with brand color") rather than as Apple-luxe.
+/// Apple's onboarding CTAs (Watch / iCloud / Migration Assistant) are
+/// flat single-color pills with tight typography and a soft press-down
+/// state — the same recipe we use here.
 class _GoldCTAButton extends StatelessWidget {
   const _GoldCTAButton({
     required this.label,
@@ -18,40 +23,39 @@ class _GoldCTAButton extends StatelessWidget {
   final bool isLoading;
   final double height;
 
+  static const _goldEnabled = MerchantOnboardingColors.primaryGold;
+  static const _goldDisabled = Color(0x66D4A017);
+
   @override
   Widget build(BuildContext context) {
+    final canTap = enabled && !isLoading;
     return GestureDetector(
-      onTap: (enabled && !isLoading) ? onTap : null,
+      onTap: canTap
+          ? () {
+              HapticFeedback.lightImpact();
+              onTap?.call();
+            }
+          : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
         height: height,
         decoration: BoxDecoration(
-          gradient: enabled
-              ? const LinearGradient(
-                  colors: [Color(0xFFD4AF37), Color(0xFFD4A017)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: enabled ? null : const Color(0xFFD4A017).withValues(alpha: 0.25),
+          color: canTap ? _goldEnabled : _goldDisabled,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: enabled
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFD4A017).withValues(alpha: 0.35),
-                    blurRadius: 16,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 6),
-                  ),
-                ]
-              : null,
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: (enabled && !isLoading) ? onTap : null,
+            onTap: canTap
+                ? () {
+                    HapticFeedback.lightImpact();
+                    onTap?.call();
+                  }
+                : null,
             borderRadius: BorderRadius.circular(14),
             splashColor: Colors.white.withValues(alpha: 0.08),
+            highlightColor: Colors.black.withValues(alpha: 0.06),
             child: Center(
               child: isLoading
                   ? const SizedBox(
@@ -66,13 +70,13 @@ class _GoldCTAButton extends StatelessWidget {
                   : Text(
                       label,
                       style: GoogleFonts.outfit(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: enabled
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        color: canTap
                             ? MerchantOnboardingColors.bgDark1
-                            : MerchantOnboardingColors.textGrey
-                                .withValues(alpha: 0.5),
-                        letterSpacing: 0.2,
+                            : MerchantOnboardingColors.bgDark1
+                                .withValues(alpha: 0.45),
                       ),
                     ),
             ),
@@ -385,9 +389,11 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
 
   Future<void> _pickDob() async {
     final now = DateTime.now();
+    // See client_onboarding_screen.dart::_pickDob for rationale —
+    // open on today, clamp to max-allowed (today − 13y).
     final picked = await showCupertinoDobPicker(
       context: context,
-      initial: _dob ?? DateTime(1990),
+      initial: _dob ?? now,
       minimum: DateTime(1920),
       maximum: now.subtract(const Duration(days: 365 * 13)),
     );
@@ -2020,6 +2026,11 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                       endTime: _editableSlots[i].end,
                       onStartChanged: (v) => _updateStart(i, v),
                       onEndChanged: (v) => _updateEnd(i, v),
+                      // Merchant onboarding sits on the dark brand chrome —
+                      // use the matching dark wheel. The storefront hours
+                      // editor (day_row.part.dart) stays on the default
+                      // light theme.
+                      darkTheme: true,
                     ),
                   ),
                   if (_editableSlots.length > 1) ...[

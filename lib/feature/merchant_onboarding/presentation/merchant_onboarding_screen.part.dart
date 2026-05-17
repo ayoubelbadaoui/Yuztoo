@@ -55,51 +55,10 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
               const OnboardingFooter(),
               Padding(
                 padding: EdgeInsets.fromLTRB(20, 0, 20, (bottomPad > 0 ? bottomPad : 16) + 8),
-                child: GestureDetector(
-                  onTap: _selectedCategoryId == null ? null : _continue,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    height: 54,
-                    decoration: BoxDecoration(
-                      gradient: _selectedCategoryId != null
-                          ? const LinearGradient(
-                              colors: [
-                                Color(0xFFD4AF37),
-                                MerchantOnboardingColors.primaryGold,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: _selectedCategoryId == null
-                          ? MerchantOnboardingColors.primaryGold.withValues(alpha: 0.25)
-                          : null,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: _selectedCategoryId != null
-                          ? [
-                              BoxShadow(
-                                color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.35),
-                                blurRadius: 16,
-                                spreadRadius: -2,
-                                offset: const Offset(0, 6),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Continuer',
-                        style: GoogleFonts.outfit(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: _selectedCategoryId != null
-                              ? MerchantOnboardingColors.bgDark1
-                              : MerchantOnboardingColors.textGrey.withValues(alpha: 0.5),
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ),
-                  ),
+                child: _IphoneCta(
+                  label: 'Continuer',
+                  enabled: _selectedCategoryId != null,
+                  onTap: _continue,
                 ),
               ),
             ],
@@ -112,7 +71,7 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
 
   Widget _buildProgressBar(int current, int total) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
         children: [
           SizedBox(
@@ -123,35 +82,27 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
               child: GestureDetector(
                 onTap: widget.onBack,
                 behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: MerchantOnboardingColors.primaryGold, width: 2),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: MerchantOnboardingColors.primaryGold,
-                      size: 16,
-                    ),
-                  ),
+                // Chevron alone — the previous bordered circle around the
+                // chevron read as Material-style. iOS nav back is just a
+                // chevron + (optionally) a label.
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: MerchantOnboardingColors.primaryGold,
+                  size: 18,
                 ),
               ),
             ),
           ),
           Expanded(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(2),
               child: LinearProgressIndicator(
                 value: current / total,
                 backgroundColor: MerchantOnboardingColors.bgDark2,
                 valueColor: const AlwaysStoppedAnimation<Color>(
                   MerchantOnboardingColors.primaryGold,
                 ),
-                minHeight: 5,
+                minHeight: 2,
               ),
             ),
           ),
@@ -165,31 +116,87 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
     return FadeTransition(
       opacity: _animationController,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Votre activité',
               style: GoogleFonts.outfit(
-                fontSize: 22,
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
                 color: MerchantOnboardingColors.textLight,
-                height: 1.25,
-                letterSpacing: -0.3,
+                height: 1.15,
+                letterSpacing: -0.6,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               'Sélectionnez votre secteur d\'activité',
               style: GoogleFonts.outfit(
-                fontSize: 13,
+                fontSize: 15,
                 fontWeight: FontWeight.w400,
                 color: MerchantOnboardingColors.textGrey,
                 height: 1.4,
+                letterSpacing: -0.1,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared iOS-pill CTA — solid color, no gradient, no glow shadow. Used
+/// across the merchant onboarding flow so every "Continuer" button feels
+/// identical. The previous variant had a diagonal gold gradient + glow
+/// that read as decorative; Apple's onboarding CTAs (Apple Watch / iCloud
+/// setup) are flat single-color pills relying on typography + corner
+/// radius for premium feel.
+class _IphoneCta extends StatelessWidget {
+  const _IphoneCta({
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  static const _goldEnabled = MerchantOnboardingColors.primaryGold;
+  static const _goldDisabled = Color(0x66D4A017);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled
+          ? () {
+              HapticFeedback.lightImpact();
+              onTap();
+            }
+          : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        height: 54,
+        decoration: BoxDecoration(
+          color: enabled ? _goldEnabled : _goldDisabled,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+              color: enabled
+                  ? MerchantOnboardingColors.bgDark1
+                  : MerchantOnboardingColors.bgDark1.withValues(alpha: 0.45),
+            ),
+          ),
         ),
       ),
     );

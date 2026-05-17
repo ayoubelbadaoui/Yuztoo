@@ -821,8 +821,8 @@ export const onLoyaltyProgressUpdated = functions
  * Segment filtering:
  *   - client_type == "premium" && target_segments non-empty → only matching followers
  *   - all other promotions (gratuit, payant, or empty segments) → broadcast to all
- *   - On any read failure the segment filter is skipped and we broadcast to all
- *     rather than silently dropping a notification.
+ *   - On segment read failure we resolve each follower via [getClientSegment]
+ *     (same as manual notifications) instead of broadcasting to all.
  *
  * Writes type:"promotion" with promotion_id so clients can deep-link to the promo.
  */
@@ -869,9 +869,15 @@ export const onPromotionCreated = functions
           const d = doc.data() ?? {};
           const validated: number =
             typeof d.validated_passages === "number" ? d.validated_passages : 0;
-          const updatedAt: FirebaseFirestore.Timestamp | undefined = d.updated_at;
-          const days = updatedAt
-            ? (Date.now() - updatedAt.toDate().getTime()) / (1000 * 60 * 60 * 24)
+          const lastPassageAt = d.last_passage_at as
+            | FirebaseFirestore.Timestamp
+            | undefined;
+          const updatedAt = d.updated_at as
+            | FirebaseFirestore.Timestamp
+            | undefined;
+          const anchor = lastPassageAt ?? updatedAt;
+          const days = anchor
+            ? (Date.now() - anchor.toDate().getTime()) / (1000 * 60 * 60 * 24)
             : 999;
           segmentMap[doc.id] = computeSegment(validated, days);
         }
@@ -882,27 +888,21 @@ export const onPromotionCreated = functions
 
         targetIds = followerIds.filter((clientId) => {
           const seg = segmentMap[clientId] ?? "nouveau";
-          // Mirror promotionSegmentMatchesTarget from Dart:
-          //   'soutien' target matches 'vip' or 'habitue' clients.
-          for (const target of targetSegments) {
-            if (target === seg) return true;
-            if (
-              target === "soutien" &&
-              (seg === "vip" || seg === "habitue")
-            ) {
-              return true;
-            }
-          }
-          return false;
+          return autoNotificationSegmentMatches(seg, targetSegments);
         });
       } catch (e) {
-        // On any read failure fall back to broadcasting to all followers.
-        functions.logger.warn("onPromotionCreated: segment filter failed, broadcasting to all", {
-          merchantId,
-          promoId,
-          error: e,
+        functions.logger.warn(
+          "onPromotionCreated: bulk segment load failed, per-client fallback",
+          { merchantId, promoId, error: e }
+        );
+        const filtered: string[] = [];
+        await processInChunks(followerIds, 16, async (clientId) => {
+          const seg = await getClientSegment(clientId, merchantId);
+          if (autoNotificationSegmentMatches(seg, targetSegments)) {
+            filtered.push(clientId);
+          }
         });
-        targetIds = followerIds;
+        targetIds = filtered;
       }
     }
 

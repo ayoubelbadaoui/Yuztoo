@@ -5,21 +5,89 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/merchant_colors.dart';
 
-/// Matches [CupertinoDatePicker] intrinsic height — do not stretch in [Expanded].
-const double kCupertinoWheelHeight = 224.0;
+// ─────────────────────────────────────────────────────────────────────────────
+// Dark iPhone-native wheel picker.
+//
+// Visual contract (matches iOS 17 Date & Time wheel):
+//   - Near-black background (`#0F1419`), 20pt top-rounded sheet.
+//   - 44pt toolbar: grey "Annuler" / centered title / gold "Valider".
+//   - Wheel: 216pt tall, 5–6 rows visible, items rendered uniformly in
+//     SF-like sans-serif. NO custom selection band — Cupertino's native
+//     `CupertinoPickerDefaultSelectionOverlay` paints the two grey hairlines
+//     that Apple uses on every system wheel.
+//   - Selected row at full white; adjacent rows ~0.78 alpha; distant ~0.45.
+//   - No magnification gimmick — the 3D barrel curvature alone makes the
+//     selected row pop. Magnification > 1.0 reads as "comic" and was the
+//     biggest "rough" tell of the previous iteration.
+//
+// Tactile contract:
+//   - Per-tick `HapticFeedback.selectionClick()` on every row crossing.
+//     iOS native pickers detent on every row — flutter's
+//     `CupertinoPicker` emits this on iOS automatically, but not on
+//     Android, so we fire it explicitly to keep the feel consistent.
+// ─────────────────────────────────────────────────────────────────────────────
 
-/// Default row height for [CupertinoPicker] columns (aligned with iOS wheels).
-const double kCupertinoWheelItemExtent = 40.0;
+/// Matches Apple's wheel height (216pt). Do not stretch in [Expanded].
+const double kCupertinoWheelHeight = 216.0;
 
-/// Wheel physics tuned for a soft, luxe iOS-style feel:
-///   - higher diameter ratio → deeper curvature, more "drum"-like depth.
-///   - tight squeeze → adjacent rows compress, drawing the eye to the center.
-///   - subtle magnification → selected row pops without looking comic.
-const double _kWheelDiameterRatio = 1.6;
-const double _kWheelSqueeze = 0.92;
-const double _kWheelMagnification = 1.12;
+/// 32pt row extent — Apple's default. Smaller than the previous 40pt
+/// experiment, which crowded the wheel and reduced visible-row count.
+const double kCupertinoWheelItemExtent = 32.0;
 
-/// Bottom sheet with toolbar + fixed-height, centered wheel (no vertical stretch).
+/// iOS-native wheel parameters. Values match `CupertinoPicker`'s defaults:
+///   - 1.07 diameter ratio: subtle barrel curvature, not a drum.
+///   - 1.45 squeeze: loose spacing so 5+ rows are comfortably visible.
+///   - 1.0 magnification: NO size jump on the selected row.
+const double _kWheelDiameterRatio = 1.07;
+const double _kWheelSqueeze = 1.45;
+const double _kWheelMagnification = 1.0;
+
+// ─── Palette ─────────────────────────────────────────────────────────────────
+
+/// Sheet background — brand dark navy (matches the rest of the merchant
+/// onboarding chrome). Reads warmer than pure black while keeping the
+/// "luxe dark" feel.
+const Color _kDarkSheetBackground = MerchantColors.bgMain;
+
+/// Light-mode background — used in the storefront hours picker. Off-white
+/// rather than pure white so the wheel doesn't glare against the rest of
+/// the storefront UI.
+const Color _kLightSheetBackground = Color(0xFFF8F6F0);
+
+/// Dark-theme text colors.
+const Color _kDarkTextSelected = Color(0xFFFFFFFF);
+const Color _kDarkTextAdjacent = Color(0xCCFFFFFF); // 0.80
+const Color _kDarkTextDistant = Color(0x73FFFFFF); // 0.45
+const Color _kDarkCancelColor = Color(0x99FFFFFF); // 0.60 alpha white
+
+/// Light-theme text colors.
+const Color _kLightTextSelected = Color(0xFF1E293B);
+const Color _kLightTextAdjacent = Color(0xCC1E293B); // 0.80
+const Color _kLightTextDistant = Color(0x731E293B); // 0.45
+const Color _kLightCancelColor = Color(0xFF64748B);
+
+/// Confirm button is brand gold on both themes.
+const Color _kConfirmColor = MerchantColors.gold;
+
+/// 44pt toolbar height (iOS standard nav bar height).
+const double _kToolbarHeight = 44.0;
+
+Color _bgFor(bool light) =>
+    light ? _kLightSheetBackground : _kDarkSheetBackground;
+Color _titleColorFor(bool light) =>
+    light ? _kLightTextSelected : _kDarkTextSelected;
+Color _cancelColorFor(bool light) =>
+    light ? _kLightCancelColor : _kDarkCancelColor;
+Color _textSelectedFor(bool light) =>
+    light ? _kLightTextSelected : _kDarkTextSelected;
+Color _textAdjacentFor(bool light) =>
+    light ? _kLightTextAdjacent : _kDarkTextAdjacent;
+Color _textDistantFor(bool light) =>
+    light ? _kLightTextDistant : _kDarkTextDistant;
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Bottom sheet with toolbar + fixed-height, centered wheel.
 class YuztooCupertinoPickerSheet extends StatelessWidget {
   const YuztooCupertinoPickerSheet({
     super.key,
@@ -29,9 +97,13 @@ class YuztooCupertinoPickerSheet extends StatelessWidget {
     this.title,
     this.confirmLabel = 'Valider',
     this.cancelLabel = 'Annuler',
-    this.backgroundColor = MerchantColors.bgHeader,
-    this.showSelectionBand = true,
     this.lightTheme = false,
+    @Deprecated('Use lightTheme instead. backgroundColor is now derived from '
+        'the theme to keep palettes consistent across pickers.')
+    this.backgroundColor,
+    @Deprecated('Selection band is no longer custom-drawn or auto-overlaid. '
+        'Flag is retained as a no-op so legacy call sites compile.')
+    this.showSelectionBand = true,
   });
 
   final Widget picker;
@@ -40,102 +112,33 @@ class YuztooCupertinoPickerSheet extends StatelessWidget {
   final String? title;
   final String confirmLabel;
   final String cancelLabel;
-  final Color backgroundColor;
-  final bool showSelectionBand;
   final bool lightTheme;
+  // ignore: deprecated_member_use_from_same_package
+  final Color? backgroundColor;
+  // ignore: deprecated_member_use_from_same_package
+  final bool showSelectionBand;
 
   @override
   Widget build(BuildContext context) {
-    final cancelColor = lightTheme
-        ? const Color(0xFF64748B)
-        : MerchantColors.textGrey;
-    final confirmColor =
-        lightTheme ? const Color(0xFFD4A017) : MerchantColors.gold;
-    final titleColor =
-        lightTheme ? const Color(0xFF1E293B) : MerchantColors.textWhite;
-
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: _bgFor(lightTheme),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 24,
-            offset: const Offset(0, -4),
-          ),
-        ],
       ),
       child: SafeArea(
         top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: (lightTheme ? Colors.black : Colors.white)
-                        .withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    onPressed: onCancel,
-                    child: Text(
-                      cancelLabel,
-                      style: GoogleFonts.outfit(
-                        color: cancelColor,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                  if (title != null)
-                    Expanded(
-                      child: Text(
-                        title!,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          color: titleColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    )
-                  else
-                    const Spacer(),
-                  CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      onConfirm();
-                    },
-                    child: Text(
-                      confirmLabel,
-                      style: GoogleFonts.outfit(
-                        color: confirmColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            _Toolbar(
+              title: title,
+              cancelLabel: cancelLabel,
+              confirmLabel: confirmLabel,
+              onCancel: onCancel,
+              onConfirm: onConfirm,
+              lightTheme: lightTheme,
             ),
             YuztooCupertinoWheelViewport(
-              showSelectionBand: showSelectionBand,
               lightTheme: lightTheme,
               child: picker,
             ),
@@ -146,78 +149,119 @@ class YuztooCupertinoPickerSheet extends StatelessWidget {
   }
 }
 
-/// Fixed 216pt viewport: centers the wheel, gold selection band, edge fades.
-class YuztooCupertinoWheelViewport extends StatelessWidget {
-  const YuztooCupertinoWheelViewport({
-    super.key,
-    required this.child,
-    this.showSelectionBand = true,
-    this.lightTheme = false,
+/// 44pt toolbar with grey "Annuler" / centered title / gold "Valider".
+/// No bottom separator — the picker chrome is cleaner without the hairline
+/// under the title; the wheel's own depth + the gold confirm button are
+/// enough hierarchy.
+class _Toolbar extends StatelessWidget {
+  const _Toolbar({
+    required this.title,
+    required this.cancelLabel,
+    required this.confirmLabel,
+    required this.onCancel,
+    required this.onConfirm,
+    required this.lightTheme,
   });
 
-  final Widget child;
-  final bool showSelectionBand;
+  final String? title;
+  final String cancelLabel;
+  final String confirmLabel;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
   final bool lightTheme;
 
   @override
   Widget build(BuildContext context) {
-    final bandColor =
-        lightTheme ? const Color(0xFFD4A017) : MerchantColors.gold;
-    final fadeColor = lightTheme
-        ? const Color(0xFFF8F6F0)
-        : MerchantColors.bgHeader;
+    return SizedBox(
+      height: _kToolbarHeight,
+      child: Row(
+        children: [
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            minimumSize: const Size(0, _kToolbarHeight),
+            onPressed: onCancel,
+            child: Text(
+              cancelLabel,
+              style: GoogleFonts.outfit(
+                color: _cancelColorFor(lightTheme),
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          if (title != null)
+            Expanded(
+              child: Text(
+                title!,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.outfit(
+                  color: _titleColorFor(lightTheme),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            )
+          else
+            const Spacer(),
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            minimumSize: const Size(0, _kToolbarHeight),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              onConfirm();
+            },
+            child: Text(
+              confirmLabel,
+              style: GoogleFonts.outfit(
+                color: _kConfirmColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
+/// Fixed 216pt viewport. NO selection band — the wheel's 3D barrel
+/// transform + three-stop text opacity is enough to lock the eye on the
+/// center row. The previous gold band / hairline overlays were the
+/// "rough" tell the user called out.
+class YuztooCupertinoWheelViewport extends StatelessWidget {
+  const YuztooCupertinoWheelViewport({
+    super.key,
+    required this.child,
+    this.lightTheme = false,
+    @Deprecated('Selection band is no longer drawn — flag is a no-op.')
+    this.showSelectionBand = true,
+  });
+
+  final Widget child;
+  final bool lightTheme;
+  // ignore: deprecated_member_use_from_same_package
+  final bool showSelectionBand;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = _bgFor(lightTheme);
     return SizedBox(
       height: kCupertinoWheelHeight,
       width: double.infinity,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Positioned.fill(
-            child: Center(child: child),
-          ),
-          if (showSelectionBand)
-            Positioned(
-              left: 16,
-              right: 16,
-              child: Container(
-                height: kCupertinoWheelItemExtent,
-                decoration: BoxDecoration(
-                  // Soft gold sheen: brightest at center, fading toward the
-                  // edges. Reads as a polished metallic band rather than a
-                  // flat highlight rectangle — feels less plastic.
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      bandColor.withValues(alpha: 0),
-                      bandColor.withValues(alpha: lightTheme ? 0.14 : 0.13),
-                      bandColor.withValues(alpha: lightTheme ? 0.14 : 0.13),
-                      bandColor.withValues(alpha: 0),
-                    ],
-                    stops: const [0.0, 0.18, 0.82, 1.0],
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.symmetric(
-                    horizontal: BorderSide(
-                      // Hairline — bold border was the previous "rough"
-                      // look. 0.6px reads as a subtle separator on Retina.
-                      color: bandColor.withValues(alpha: 0.38),
-                      width: 0.6,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          // Top fade: multi-stop gradient (full → faint → none) so adjacent
-          // rows are still readable but recede smoothly into the chrome.
-          // The previous two-stop fade was visibly linear and made wheels
-          // look "cut off".
+          Positioned.fill(child: Center(child: child)),
+          // Top and bottom fades blend the wheel into the sheet chrome.
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            height: 72,
+            height: 60,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -225,12 +269,11 @@ class YuztooCupertinoWheelViewport extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      fadeColor,
-                      fadeColor.withValues(alpha: 0.86),
-                      fadeColor.withValues(alpha: 0.3),
-                      fadeColor.withValues(alpha: 0),
+                      bg,
+                      bg.withValues(alpha: 0.7),
+                      bg.withValues(alpha: 0),
                     ],
-                    stops: const [0.0, 0.4, 0.8, 1.0],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
                 ),
               ),
@@ -240,7 +283,7 @@ class YuztooCupertinoWheelViewport extends StatelessWidget {
             bottom: 0,
             left: 0,
             right: 0,
-            height: 72,
+            height: 60,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -248,12 +291,11 @@ class YuztooCupertinoWheelViewport extends StatelessWidget {
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                     colors: [
-                      fadeColor,
-                      fadeColor.withValues(alpha: 0.86),
-                      fadeColor.withValues(alpha: 0.3),
-                      fadeColor.withValues(alpha: 0),
+                      bg,
+                      bg.withValues(alpha: 0.7),
+                      bg.withValues(alpha: 0),
                     ],
-                    stops: const [0.0, 0.4, 0.8, 1.0],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
                 ),
               ),
@@ -267,15 +309,10 @@ class YuztooCupertinoWheelViewport extends StatelessWidget {
 
 /// Single centered scroll column — use inside [Row] with [Expanded] for balance.
 ///
-/// Tactile contract:
-///   - emits [HapticFeedback.selectionClick] on every wheel tick, matching
-///     iOS native pickers. Without this the wheel feels mechanical; with it
-///     it feels like a physical wheel detenting under your thumb.
-///   - the currently-selected item is rendered with extra weight and a
-///     slight gold tint so the eye locks onto the band without needing to
-///     squint at the highlight bar.
-///   - off-selection items fade subtly toward the edges of the viewport,
-///     emphasizing the center and hiding the abrupt edge cutoff.
+/// Renders in three opacity stops (selected / adjacent / distant) so the
+/// wheel reads with proper depth without relying on a colored highlight bar
+/// or any hairlines. Fires a per-tick haptic on every row crossing to mimic
+/// the iOS detent.
 class YuztooCupertinoScrollWheel extends StatefulWidget {
   const YuztooCupertinoScrollWheel({
     super.key,
@@ -310,9 +347,6 @@ class _YuztooCupertinoScrollWheelState
   }
 
   void _handleSelectionChanged(int index) {
-    // Selection-tick haptic on every item crossing. This is the single
-    // biggest "luxe feel" upgrade for an iOS-style wheel — native pickers
-    // detent on each row and users perceive a silent wheel as buggy.
     HapticFeedback.selectionClick();
     if (index != _selected) {
       setState(() => _selected = index);
@@ -322,14 +356,21 @@ class _YuztooCupertinoScrollWheelState
 
   Widget _buildItem(int i) {
     final distance = (i - _selected).abs();
-    final style = _wheelItemStyle(
-      lightTheme: widget.lightTheme,
-      distanceFromSelected: distance,
-    );
+    final color = distance == 0
+        ? _textSelectedFor(widget.lightTheme)
+        : distance == 1
+            ? _textAdjacentFor(widget.lightTheme)
+            : _textDistantFor(widget.lightTheme);
     return Center(
       child: Text(
         widget.labelBuilder(i),
-        style: style,
+        style: GoogleFonts.outfit(
+          color: color,
+          fontSize: 22,
+          fontWeight: FontWeight.w500,
+          letterSpacing: -0.2,
+          height: 1.1,
+        ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -338,11 +379,11 @@ class _YuztooCupertinoScrollWheelState
 
   @override
   Widget build(BuildContext context) {
-    const selectionOverlay = CupertinoPickerDefaultSelectionOverlay(
-      background: Colors.transparent,
-    );
-    // .builder doesn't accept `looping`, so when looping is requested fall
-    // back to the static constructor (which materialises all rows up-front).
+    // NO selection overlay — keeps the wheel clean. The selected row is
+    // still unambiguous because we render distance-based opacity and the
+    // 3D barrel transform foreshortens off-center rows. Empty SizedBox
+    // is required (the Cupertino default would otherwise draw hairlines).
+    const selectionOverlay = SizedBox.shrink();
     if (widget.looping) {
       return CupertinoPicker(
         scrollController: widget.scrollController,
@@ -350,7 +391,7 @@ class _YuztooCupertinoScrollWheelState
         diameterRatio: _kWheelDiameterRatio,
         squeeze: _kWheelSqueeze,
         magnification: _kWheelMagnification,
-        useMagnifier: true,
+        useMagnifier: false,
         looping: true,
         backgroundColor: Colors.transparent,
         selectionOverlay: selectionOverlay,
@@ -364,7 +405,7 @@ class _YuztooCupertinoScrollWheelState
       diameterRatio: _kWheelDiameterRatio,
       squeeze: _kWheelSqueeze,
       magnification: _kWheelMagnification,
-      useMagnifier: true,
+      useMagnifier: false,
       backgroundColor: Colors.transparent,
       selectionOverlay: selectionOverlay,
       onSelectedItemChanged: _handleSelectionChanged,
@@ -374,39 +415,13 @@ class _YuztooCupertinoScrollWheelState
   }
 }
 
-/// Returns the text style for a wheel item, varying weight + tint by distance
-/// from the selected row. Centered items lock the eye; adjacent rows fade
-/// toward the viewport edge — produces the iOS-native "selected row pops"
-/// effect without an opaque band.
-TextStyle _wheelItemStyle({
-  required bool lightTheme,
-  required int distanceFromSelected,
-}) {
-  final isSelected = distanceFromSelected == 0;
-  final isAdjacent = distanceFromSelected == 1;
-  final baseColor = lightTheme ? const Color(0xFF1E293B) : Colors.white;
-  final selectedColor =
-      lightTheme ? const Color(0xFF1E293B) : Colors.white;
-  final color = isSelected
-      ? selectedColor
-      : baseColor.withValues(
-          alpha: isAdjacent ? 0.78 : 0.52,
-        );
-  return GoogleFonts.outfit(
-    color: color,
-    fontSize: 20,
-    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-    letterSpacing: isSelected ? 0.1 : 0,
-    height: 1.1,
-  );
-}
-
-/// Default text style for wheel items — exposed for consumers that need
-/// to compute layout (intrinsic widths) outside of the wheel itself.
+/// Default text style for wheel items — exposed for consumers that compute
+/// layout (intrinsic widths) outside of the wheel itself.
 TextStyle yuztooWheelTextStyle({bool lightTheme = false}) => GoogleFonts.outfit(
-      color: lightTheme ? const Color(0xFF1E293B) : Colors.white,
-      fontSize: 20,
+      color: _textSelectedFor(lightTheme),
+      fontSize: 22,
       fontWeight: FontWeight.w500,
+      letterSpacing: -0.2,
       height: 1.1,
     );
 
@@ -421,7 +436,35 @@ Future<T?> _showPickerSheet<T>({
   );
 }
 
-/// Dark-themed date + time wheel (merchant notifications schedule, etc.).
+// ── CupertinoDatePicker theming ──────────────────────────────────────────────
+//
+// The system `CupertinoDatePicker` (used for date+time, date-only, time-only
+// wheels) has its own internal text style. We wrap it in a `CupertinoTheme`
+// so the rendered text matches our wheel: 22pt, regular weight, -0.2 letter
+// spacing. Sizing matters because Cupertino's default is 21pt and looks
+// small against our 22pt custom wheels.
+
+const _kSystemPickerTextStyleDark = TextStyle(
+  color: _kDarkTextSelected,
+  fontSize: 22,
+  fontWeight: FontWeight.w500,
+  letterSpacing: -0.2,
+  height: 1.1,
+);
+
+const _kSystemPickerTextStyleLight = TextStyle(
+  color: _kLightTextSelected,
+  fontSize: 22,
+  fontWeight: FontWeight.w500,
+  letterSpacing: -0.2,
+  height: 1.1,
+);
+
+TextStyle _systemPickerTextStyleFor(bool light) =>
+    light ? _kSystemPickerTextStyleLight : _kSystemPickerTextStyleDark;
+
+/// Date + time wheel (merchant notifications schedule, etc.). Dark by
+/// default — used inside onboarding and merchant tools.
 Future<DateTime?> showYuztooCupertinoDateTimePicker({
   required BuildContext context,
   required DateTime initial,
@@ -429,6 +472,7 @@ Future<DateTime?> showYuztooCupertinoDateTimePicker({
   required DateTime maximumDate,
   int minuteInterval = 1,
   String? title = 'Date et heure',
+  bool lightTheme = false,
 }) {
   var temp = initial;
   return _showPickerSheet<DateTime>(
@@ -436,17 +480,14 @@ Future<DateTime?> showYuztooCupertinoDateTimePicker({
     sheet: Builder(
       builder: (ctx) => YuztooCupertinoPickerSheet(
         title: title,
-        showSelectionBand: false,
+        lightTheme: lightTheme,
         onCancel: () => Navigator.of(ctx).pop(),
         onConfirm: () => Navigator.of(ctx).pop(temp),
         picker: CupertinoTheme(
-          data: const CupertinoThemeData(
-            brightness: Brightness.dark,
+          data: CupertinoThemeData(
+            brightness: lightTheme ? Brightness.light : Brightness.dark,
             textTheme: CupertinoTextThemeData(
-              dateTimePickerTextStyle: TextStyle(
-                color: Colors.white,
-                fontSize: 21,
-              ),
+              dateTimePickerTextStyle: _systemPickerTextStyleFor(lightTheme),
             ),
           ),
           child: SizedBox(
@@ -454,12 +495,15 @@ Future<DateTime?> showYuztooCupertinoDateTimePicker({
             height: kCupertinoWheelHeight,
             child: CupertinoDatePicker(
               mode: CupertinoDatePickerMode.dateAndTime,
-            use24hFormat: true,
-            minuteInterval: minuteInterval,
-            initialDateTime: initial,
-            minimumDate: minimumDate,
-            maximumDate: maximumDate,
-              onDateTimeChanged: (d) => temp = d,
+              use24hFormat: true,
+              minuteInterval: minuteInterval,
+              initialDateTime: initial,
+              minimumDate: minimumDate,
+              maximumDate: maximumDate,
+              onDateTimeChanged: (d) {
+                HapticFeedback.selectionClick();
+                temp = d;
+              },
             ),
           ),
         ),
@@ -468,13 +512,14 @@ Future<DateTime?> showYuztooCupertinoDateTimePicker({
   );
 }
 
-/// Dark-themed date-only wheel.
+/// Date-only wheel.
 Future<DateTime?> showYuztooCupertinoDatePicker({
   required BuildContext context,
   required DateTime initial,
   required DateTime minimumDate,
   required DateTime maximumDate,
   String? title = 'Choisir une date',
+  bool lightTheme = false,
 }) {
   var temp = initial;
   return _showPickerSheet<DateTime>(
@@ -482,17 +527,14 @@ Future<DateTime?> showYuztooCupertinoDatePicker({
     sheet: Builder(
       builder: (ctx) => YuztooCupertinoPickerSheet(
         title: title,
-        showSelectionBand: false,
+        lightTheme: lightTheme,
         onCancel: () => Navigator.of(ctx).pop(),
         onConfirm: () => Navigator.of(ctx).pop(temp),
         picker: CupertinoTheme(
-          data: const CupertinoThemeData(
-            brightness: Brightness.dark,
+          data: CupertinoThemeData(
+            brightness: lightTheme ? Brightness.light : Brightness.dark,
             textTheme: CupertinoTextThemeData(
-              dateTimePickerTextStyle: TextStyle(
-                color: Colors.white,
-                fontSize: 21,
-              ),
+              dateTimePickerTextStyle: _systemPickerTextStyleFor(lightTheme),
             ),
           ),
           child: SizedBox(
@@ -500,10 +542,13 @@ Future<DateTime?> showYuztooCupertinoDatePicker({
             height: kCupertinoWheelHeight,
             child: CupertinoDatePicker(
               mode: CupertinoDatePickerMode.date,
-            initialDateTime: initial,
-            minimumDate: minimumDate,
-            maximumDate: maximumDate,
-              onDateTimeChanged: (d) => temp = d,
+              initialDateTime: initial,
+              minimumDate: minimumDate,
+              maximumDate: maximumDate,
+              onDateTimeChanged: (d) {
+                HapticFeedback.selectionClick();
+                temp = d;
+              },
             ),
           ),
         ),
@@ -512,12 +557,16 @@ Future<DateTime?> showYuztooCupertinoDatePicker({
   );
 }
 
-/// Light-themed time wheel (storefront hours).
+/// Time-only wheel — LIGHT theme by default because the storefront hours
+/// picker (its primary caller) sits on the light storefront chrome. Callers
+/// inside the dark onboarding flow pass `lightTheme: false` to opt into
+/// the brand dark navy variant.
 Future<DateTime?> showYuztooCupertinoTimePicker({
   required BuildContext context,
   required DateTime initial,
   int minuteInterval = 5,
   String? title = 'Choisir l\'heure',
+  bool lightTheme = true,
 }) {
   var temp = initial;
   return _showPickerSheet<DateTime>(
@@ -525,19 +574,14 @@ Future<DateTime?> showYuztooCupertinoTimePicker({
     sheet: Builder(
       builder: (ctx) => YuztooCupertinoPickerSheet(
         title: title,
-        lightTheme: true,
-        backgroundColor: const Color(0xFFF8F6F0),
-        showSelectionBand: false,
+        lightTheme: lightTheme,
         onCancel: () => Navigator.of(ctx).pop(),
         onConfirm: () => Navigator.of(ctx).pop(temp),
         picker: CupertinoTheme(
-          data: const CupertinoThemeData(
-            brightness: Brightness.light,
+          data: CupertinoThemeData(
+            brightness: lightTheme ? Brightness.light : Brightness.dark,
             textTheme: CupertinoTextThemeData(
-              dateTimePickerTextStyle: TextStyle(
-                color: Color(0xFF1E293B),
-                fontSize: 22,
-              ),
+              dateTimePickerTextStyle: _systemPickerTextStyleFor(lightTheme),
             ),
           ),
           child: SizedBox(
@@ -545,10 +589,13 @@ Future<DateTime?> showYuztooCupertinoTimePicker({
             height: kCupertinoWheelHeight,
             child: CupertinoDatePicker(
               mode: CupertinoDatePickerMode.time,
-            use24hFormat: true,
-            minuteInterval: minuteInterval,
-            initialDateTime: initial,
-              onDateTimeChanged: (d) => temp = d,
+              use24hFormat: true,
+              minuteInterval: minuteInterval,
+              initialDateTime: initial,
+              onDateTimeChanged: (d) {
+                HapticFeedback.selectionClick();
+                temp = d;
+              },
             ),
           ),
         ),

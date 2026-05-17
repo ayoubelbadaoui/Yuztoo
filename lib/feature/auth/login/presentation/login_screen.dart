@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -317,9 +318,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref
           .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
           .state = false;
-      await ref
-          .read(auth_providers.authControllerProvider.notifier)
-          .refreshAuthState();
+      // Defer the refresh to the next frame so the login screen's
+      // pending setState calls (e.g. _isSocialLoading = false) finish
+      // BEFORE the shell unmounts this screen. Inline awaiting created
+      // a race that fired '_dependents.isEmpty: is not true' in the
+      // Flutter framework when the inherited element disposed mid-build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(
+          ref
+              .read(auth_providers.authControllerProvider.notifier)
+              .refreshAuthState(),
+        );
+      });
       return;
     }
 
@@ -418,9 +428,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ?.updatePhotoURL(pu);
       }
     } catch (_) {}
-    await ref
-        .read(auth_providers.authControllerProvider.notifier)
-        .refreshAuthState();
+    // Defer to next frame (see same comment in the existing-user branch
+    // above) — prevents '_dependents.isEmpty: is not true' from firing
+    // when the shell unmounts the login screen mid-build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        ref
+            .read(auth_providers.authControllerProvider.notifier)
+            .refreshAuthState(),
+      );
+    });
   }
 
   /// Shows a modal dialog asking the user to enter their phone number.

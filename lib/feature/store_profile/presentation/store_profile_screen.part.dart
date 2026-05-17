@@ -382,11 +382,14 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
     required this.parentContext,
     this.isAlreadyFollowing = false,
     this.skipWelcomeOnPassage = false,
+    this.visitOnly = false,
   });
 
   final Merchant merchant;
   final String clientUid;
   final bool needsPurchaseAmount;
+  /// Passage seul (fidélité désactivée) — alimente la gratification client.
+  final bool visitOnly;
   /// Context of the parent screen — used to show the welcome-gift modal after
   /// this sheet is dismissed (its own context becomes invalid after pop).
   final BuildContext parentContext;
@@ -431,12 +434,19 @@ class _RecordLoyaltyPassageSheetState
     }
 
     setState(() => _busy = true);
-    final useCase = ref.read(recordLoyaltyPassageProvider);
-    final result = await useCase.call(
-      clientUid: widget.clientUid,
-      merchant: widget.merchant,
-      purchaseAmountEuros: purchaseAmount,
-    );
+    final Result<ClientMerchantLoyaltyProgress> result;
+    if (widget.visitOnly) {
+      result = await ref.read(recordClientVisitPassageProvider).call(
+            clientUid: widget.clientUid,
+            merchant: widget.merchant,
+          );
+    } else {
+      result = await ref.read(recordLoyaltyPassageProvider).call(
+            clientUid: widget.clientUid,
+            merchant: widget.merchant,
+            purchaseAmountEuros: purchaseAmount,
+          );
+    }
     if (!mounted) return;
     setState(() => _busy = false);
 
@@ -469,6 +479,9 @@ class _RecordLoyaltyPassageSheetState
           ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
           ref.invalidate(clientHomeFeedProvider);
         }
+        ref.invalidate(
+          clientLoyaltyProgressForMerchantProvider(widget.merchant.id),
+        );
 
         Navigator.of(context).pop();
         if (!widget.skipWelcomeOnPassage &&
@@ -488,9 +501,14 @@ class _RecordLoyaltyPassageSheetState
             );
           });
         } else {
+          final grat = widget.merchant.effectiveGratificationConfig;
+          final tierLabel = grat.labelForPassages(progress.validatedPassages);
+          final message = widget.visitOnly
+              ? 'Passage enregistré — statut : $tierLabel'
+              : 'Passage enregistré ✓';
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Passage enregistré ✓'),
+            SnackBar(
+              content: Text(message),
               behavior: SnackBarBehavior.floating,
               backgroundColor: StorefrontColors.primaryGold,
             ),
@@ -502,6 +520,7 @@ class _RecordLoyaltyPassageSheetState
 
   @override
   Widget build(BuildContext context) {
+    final grat = widget.merchant.effectiveGratificationConfig;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
@@ -522,7 +541,7 @@ class _RecordLoyaltyPassageSheetState
               ),
             ),
             Text(
-              'Enregistrer un passage',
+              widget.visitOnly ? 'Enregistrer votre passage' : 'Enregistrer un passage',
               style: GoogleFonts.outfit(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -531,7 +550,10 @@ class _RecordLoyaltyPassageSheetState
             ),
             const SizedBox(height: 8),
             Text(
-              widget.needsPurchaseAmount
+              widget.visitOnly
+                  ? 'Votre visite est comptée pour votre statut chez ce commerce '
+                      '(${grat.nouveauLabel}, ${grat.habituelLabel}, ${grat.vipLabel}).'
+                  : widget.needsPurchaseAmount
                   ? 'Indiquez le montant de votre achat pour mettre à jour votre fidélité.'
                   : 'Confirmez votre passage en boutique pour valider votre fidélité.',
               style: GoogleFonts.outfit(
@@ -540,7 +562,7 @@ class _RecordLoyaltyPassageSheetState
                 color: StorefrontColors.textSecondary,
               ),
             ),
-            if (widget.needsPurchaseAmount) ...[
+            if (!widget.visitOnly && widget.needsPurchaseAmount) ...[
               const SizedBox(height: 20),
               TextField(
                 controller: _amountController,
@@ -1770,13 +1792,13 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 
     void offerPassage() {
       if (!context.mounted) return;
-      if (!_merchantLoyaltyActive(merchant)) return;
       _openRecordPassageSheet(
         context,
         merchant,
         userId,
         isFollowing: true,
         skipWelcomeOnPassage: _welcomeShownForMerchantId == merchant.id,
+        visitOnly: !_merchantLoyaltyActive(merchant),
       );
     }
 
@@ -1812,14 +1834,19 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     String? userId, {
     bool isFollowing = false,
     bool skipWelcomeOnPassage = false,
+    bool visitOnly = false,
   }) {
     if (userId == null || userId.isEmpty) {
       _showAuthGateSheet(context, merchant);
       return;
     }
+    final loyaltyActive = _merchantLoyaltyActive(merchant);
+    final effectiveVisitOnly = visitOnly || !loyaltyActive;
     final program = merchant.loyaltyProgram ??
         LoyaltyProgramConfig.fallbackFromFlags(
             loyaltyEnabled: merchant.loyaltyEnabled);
+    final needsAmount =
+        !effectiveVisitOnly && program.effectiveAskClientPurchaseAmount;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1833,10 +1860,11 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
         child: _RecordLoyaltyPassageSheet(
           merchant: merchant,
           clientUid: userId,
-          needsPurchaseAmount: program.effectiveAskClientPurchaseAmount,
+          needsPurchaseAmount: needsAmount,
           parentContext: context,
           isAlreadyFollowing: isFollowing,
           skipWelcomeOnPassage: skipWelcomeOnPassage,
+          visitOnly: effectiveVisitOnly,
         ),
       ),
     );
@@ -1888,8 +1916,6 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 
       _clearVitrineScanIntent();
 
-      if (!_merchantLoyaltyActive(merchant)) return;
-
       if (!isFollowing) {
         unawaited(_showScanFollowFirstSheet(context, merchant, userId));
         return;
@@ -1900,6 +1926,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
         merchant,
         userId,
         isFollowing: true,
+        visitOnly: !_merchantLoyaltyActive(merchant),
       );
     });
   }

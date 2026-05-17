@@ -208,10 +208,14 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
       return;
     }
 
-    ref.invalidate(storefrontProvider);
-    invalidateDiscoveryCatalog(ref as Ref);
-    ref.invalidate(auth_providers.connectedCitiesProvider(userId));
-
+    // Navigate FIRST, then run the cache invalidations and the auth-user
+    // refresh in the background. Mirrors the symmetrical fix in
+    // client_onboarding_screen.dart: any async auth refresh that happens
+    // BEFORE widget.onComplete() can re-emit the auth state mid-await and
+    // dump the user on splash for the duration of role-lookup retries.
+    // Synchronous `ref.invalidate` is safe to run after navigation —
+    // dependents re-fetch on next read, and the storefront screen reads
+    // through the freshly-invalidated providers on its first build.
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -223,6 +227,19 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
       );
       widget.onComplete?.call();
       _setSubmitting(false);
+      ref.invalidate(storefrontProvider);
+      invalidateDiscoveryCatalog(ref as Ref);
+      ref.invalidate(auth_providers.connectedCitiesProvider(userId));
+      // Pull the freshly-written displayName / city / phone into the
+      // AuthUser. The shell's _handleAuthStateChange short-circuits the
+      // re-emission (same uid + not on splash + not navigating) so this
+      // is now safe to fire after navigation.
+      unawaited(refreshUserProfileCache(
+        ref as Ref,
+        uid: userId,
+        isMerchant: true,
+        cityChanged: city.isNotEmpty,
+      ));
     }
   }
 }

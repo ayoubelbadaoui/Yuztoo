@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/email_validator.dart';
-import '../../../core/utils/oauth_profile_photo.dart';
 import '../../discovery/application/providers.dart';
 import '../application/providers.dart';
 import '../infrastructure/merchant_city_resolution.dart';
@@ -10,6 +11,7 @@ import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../merchant_onboarding/application/onboarding_flow_provider.dart';
 import '../../merchant_onboarding/application/screens.dart';
 import '../../merchant_onboarding/application/widgets.dart';
+import '../../profile/application/providers.dart' show refreshUserProfileCache;
 
 part 'merchant_profile_form_screen.part.dart';
 
@@ -100,17 +102,6 @@ class _MerchantProfileFormScreenState
         if (basics.city.isNotEmpty) {
           notifier.setCity(basics.city);
         }
-      }
-    }
-
-    // Seed commerce logo from Google / Apple profile photo when available.
-    final oauthUrl = authState.user.photoUrl?.trim();
-    final existingLogo = ref.read(onboardingFlowProvider).imagePath?.trim();
-    if ((existingLogo == null || existingLogo.isEmpty) &&
-        isUsableOAuthProfilePhotoUrl(oauthUrl)) {
-      final path = await downloadOAuthProfilePhotoToTempFile(oauthUrl!);
-      if (path != null && mounted) {
-        notifier.setImagePath(path);
       }
     }
   }

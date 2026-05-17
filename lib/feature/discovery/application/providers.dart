@@ -7,6 +7,9 @@ import '../../client_home/application/providers.dart'
     show followedMerchantIdsForCurrentUserProvider;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
+import '../../profile/application/user_safety_providers.dart'
+    show blockedMerchantIdsProvider;
+import '../domain/discovery_recommended_partners.dart';
 
 /// 'proche' = same-city merchants (default), 'recommandes' = partner businesses
 /// of merchants the client follows.
@@ -83,7 +86,10 @@ final discoveryFollowedMerchantsProvider =
 });
 
 /// Partner-based recommendations: merchants listed as accepted partners by
-/// businesses the client follows (merchants/{id}/partners).
+/// businesses the client follows (`merchants/{id}/partners`).
+///
+/// Shows the **recommended** business (e.g. Imigo), never merchants the client
+/// already follows (e.g. Lkhobz). No city filter — partners may be in any city.
 final discoveryRecommendedMerchantsProvider =
     FutureProvider<List<Merchant>>((ref) async {
   final userId = ref.watch(auth_providers.currentUserIdProvider);
@@ -93,9 +99,13 @@ final discoveryRecommendedMerchantsProvider =
       await ref.watch(followedMerchantIdsForCurrentUserProvider.future);
   if (followedIds.isEmpty) return [];
 
+  final followedSet = followedIds.toSet();
+  final blockedIds =
+      ref.watch(blockedMerchantIdsProvider).valueOrNull ?? const <String>{};
+
   final repo = ref.watch(merchantRepositoryProvider);
   final firestore = FirebaseFirestore.instance;
-  final partnerIds = <String>{};
+  final partnerSnapshots = <String, DiscoveryPartnerSnapshot>{};
 
   await Future.wait(followedIds.map((merchantId) async {
     final snap = await firestore
@@ -106,17 +116,48 @@ final discoveryRecommendedMerchantsProvider =
     for (final doc in snap.docs) {
       final data = doc.data();
       if (data['is_pending'] == true) continue;
-      final pid = data['partner_merchant_id'] as String?;
-      if (pid != null && pid.isNotEmpty && pid != userId) {
-        partnerIds.add(pid);
+      final pid = partnerMerchantIdFromFirestore(data);
+      if (pid == null) continue;
+      if (!shouldIncludeInDiscoveryRecommendations(
+        partnerMerchantId: pid,
+        currentUserId: userId,
+        followedMerchantIds: followedSet,
+        blockedMerchantIds: blockedIds,
+      )) {
+        continue;
       }
+      partnerSnapshots.putIfAbsent(
+        pid,
+        () => DiscoveryPartnerSnapshot(
+          partnerMerchantId: pid,
+          partnerName: (data['partner_name'] as String?)?.trim() ?? '',
+          partnerLogoUrl: data['partner_logo_url'] as String?,
+          partnerCity: data['partner_city'] as String?,
+        ),
+      );
     }
   }));
 
-  if (partnerIds.isEmpty) return [];
+  if (partnerSnapshots.isEmpty) return [];
 
-  final result = await repo.getMerchantsByIds(partnerIds.toList());
-  return result.fold((_) => <Merchant>[], (list) => _activeOnly(list));
+  final orderedIds = partnerSnapshots.keys.toList();
+  final result = await repo.getMerchantsByIds(orderedIds);
+  final loaded = result.fold((_) => <Merchant>[], (list) => list);
+  final byId = {for (final m in loaded) m.id: m};
+
+  final merchants = <Merchant>[];
+  for (final id in orderedIds) {
+    final full = byId[id];
+    if (full != null) {
+      merchants.add(full);
+    } else {
+      final snap = partnerSnapshots[id]!;
+      if (snap.partnerName.isNotEmpty) {
+        merchants.add(merchantFromPartnerSnapshot(snap));
+      }
+    }
+  }
+  return merchants;
 });
 
 /// Merchants list for Découvrir.

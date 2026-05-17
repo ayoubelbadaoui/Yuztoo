@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../merchant/domain/entities/client_gratification_config.dart';
+
 /// Canonical passage-based segment. Mirrors Cloud Functions `computeSegment`.
 ///
 /// Computation order (same thresholds everywhere):
@@ -31,6 +33,21 @@ enum ClientSegment {
         return 'Inactif';
     }
   }
+
+  static ClientSegment fromSegmentKey(String key) {
+    switch (key) {
+      case 'vip':
+        return ClientSegment.vip;
+      case 'habitue':
+        return ClientSegment.habitue;
+      case 'inactif':
+        return ClientSegment.inactif;
+      case 'abonne':
+        return ClientSegment.abonne;
+      default:
+        return ClientSegment.nouveau;
+    }
+  }
 }
 
 /// A single client row in the merchant CRM list.
@@ -47,6 +64,7 @@ class MerchantClientRow extends Equatable {
     this.validatedPassages = 0,
     this.lastVisitAt,
     this.manualSegment,
+    this.gratificationConfig,
   });
 
   final String clientUid;
@@ -82,6 +100,10 @@ class MerchantClientRow extends Equatable {
   /// label a long-standing customer as VIP even before they hit 10 passages.
   final ClientSegment? manualSegment;
 
+  /// Merchant gratification thresholds; [ClientGratificationConfig.defaults]
+  /// when null.
+  final ClientGratificationConfig? gratificationConfig;
+
   /// Passage-based segment, consistent with Cloud Functions and notification
   /// targeting. Falls back to [followedAt] when no loyalty doc exists so that
   /// long-time followers with 0 visits are classified as [ClientSegment.inactif].
@@ -98,15 +120,17 @@ class MerchantClientRow extends Equatable {
   /// UI wants to surface the "real" passage-based status alongside a manual
   /// tag.
   ClientSegment get autoSegment {
+    final grat = gratificationConfig ?? ClientGratificationConfig.defaults;
     final reference = lastVisitAt ?? followedAt;
     final daysSince = reference != null
         ? DateTime.now().difference(reference).inDays
         : 999;
-
-    if (daysSince > 60) return ClientSegment.inactif;
-    if (validatedPassages >= 10) return ClientSegment.vip;
-    if (validatedPassages >= 3) return ClientSegment.habitue;
-    return ClientSegment.nouveau;
+    return ClientSegment.fromSegmentKey(
+      grat.segmentKeyFor(
+        validatedPassages: validatedPassages,
+        daysSinceLastVisit: daysSince,
+      ),
+    );
   }
 
   /// Best human-readable label for the client. Tries, in order:
@@ -139,5 +163,6 @@ class MerchantClientRow extends Equatable {
         validatedPassages,
         lastVisitAt,
         manualSegment,
+        gratificationConfig,
       ];
 }

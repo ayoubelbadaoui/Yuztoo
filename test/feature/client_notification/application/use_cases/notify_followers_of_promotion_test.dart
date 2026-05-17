@@ -249,7 +249,8 @@ void main() {
       expect(notif.createCount, 2);
     });
 
-    test('empty loyalty map falls back to broadcast (no silent drop)', () async {
+    test('empty loyalty map treats followers as nouveau (parity with Rappels)',
+        () async {
       final notif = _FakeNotifRepo();
       final loyalty = _FakeLoyalty(segments: {});
       final uc = NotifyFollowersOfPromotion(
@@ -268,8 +269,36 @@ void main() {
         ),
         callerUid: 'owner1',
       );
-      expect(r.fold((_) => -1, (n) => n), 2);
-      expect(notif.createCount, 2);
+      expect(r.fold((_) => -1, (n) => n), 0);
+      expect(notif.createCount, 0);
+    });
+
+    test('premium + vip targets only vip followers', () async {
+      final notif = _FakeNotifRepo();
+      final uc = NotifyFollowersOfPromotion(
+        followedRepo: _FakeFollowed(followerIds: ['f1', 'f2', 'f3']),
+        notificationRepo: notif,
+        loyaltyRepo: _FakeLoyalty(
+          segments: {
+            'f1': 'vip',
+            'f2': 'habitue',
+            'f3': 'nouveau',
+          },
+        ),
+        isOwner: _ownsM1,
+      );
+      final r = await uc.call(
+        merchantId: 'm1',
+        merchantName: 'Shop',
+        promotion: _promo(
+          id: 'p4',
+          type: ClientType.premium,
+          targetSegments: const ['vip'],
+        ),
+        callerUid: 'owner1',
+      );
+      expect(r.fold((_) => -1, (n) => n), 1);
+      expect(notif.createCount, 1);
     });
   });
 }

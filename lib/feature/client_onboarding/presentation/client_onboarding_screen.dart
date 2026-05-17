@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -137,7 +138,10 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
 
   Future<void> _pickDob() async {
     final now = DateTime.now();
-    final initial = _selectedDob ?? DateTime(now.year - 25, now.month, now.day);
+    // Default to today so the wheel opens on a familiar date instead of
+    // an arbitrary "X years ago, January 1". The picker clamps to the
+    // configured max (today − 13y) on render — the user adjusts down.
+    final initial = _selectedDob ?? now;
     final picked = await showCupertinoDobPicker(
       context: context,
       initial: initial,
@@ -283,13 +287,23 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
             await u?.updatePhotoURL(photoUrl);
           }
         } catch (_) {}
-        final auth = ref.read(authControllerProvider);
-        if (auth is Authenticated) {
-          await refreshUserProfileCache(ref as Ref, uid: auth.user.id);
-        }
+        // Navigate FIRST, then refresh the auth/profile cache in the
+        // background. The previous order (refresh, then navigate)
+        // synchronously re-emitted the auth state from `reloadProfile()`
+        // mid-await, which dumped the user on splash for the entire
+        // 5–30s role-lookup retry window in `_handleAuthenticatedUser`
+        // — perceived as "the app is stuck loading after I finish
+        // onboarding". The home screen will pick up the refreshed
+        // profile values once the unawaited reload lands; in the
+        // intervening tens of milliseconds it shows the just-written
+        // displayName from cache, which is correct.
         if (!mounted) return;
         setState(() => _isSaving = false);
         widget.onComplete();
+        final auth = ref.read(authControllerProvider);
+        if (auth is Authenticated) {
+          unawaited(refreshUserProfileCache(ref as Ref, uid: auth.user.id));
+        }
       },
     );
   }

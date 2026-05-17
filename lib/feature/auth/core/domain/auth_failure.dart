@@ -23,8 +23,14 @@ final class AuthNetworkFailure extends AuthFailure {
 }
 
 final class AuthUnexpectedFailure extends AuthFailure {
+  // Default message is French — every signup/login error eventually flows
+  // through this failure type, and the previous English default leaked
+  // straight to the user (the "unexpected error" snackbar that prevented
+  // email signup). Callers that have specific French copy should still
+  // pass `message: ...` to override.
   const AuthUnexpectedFailure({
-    String message = 'Unexpected authentication error.',
+    String message =
+        'Une erreur est survenue. Vérifiez votre connexion et réessayez.',
     Object? cause,
     StackTrace? stackTrace,
   }) : super(message, cause: cause, stackTrace: stackTrace);
