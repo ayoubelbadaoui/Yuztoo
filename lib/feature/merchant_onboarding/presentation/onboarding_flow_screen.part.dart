@@ -389,9 +389,11 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
 
   Future<void> _pickDob() async {
     final now = DateTime.now();
+    // See client_onboarding_screen.dart::_pickDob for rationale —
+    // open on today, clamp to max-allowed (today − 13y).
     final picked = await showCupertinoDobPicker(
       context: context,
-      initial: _dob ?? DateTime(1990),
+      initial: _dob ?? now,
       minimum: DateTime(1920),
       maximum: now.subtract(const Duration(days: 365 * 13)),
     );
@@ -2024,6 +2026,11 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                       endTime: _editableSlots[i].end,
                       onStartChanged: (v) => _updateStart(i, v),
                       onEndChanged: (v) => _updateEnd(i, v),
+                      // Merchant onboarding sits on the dark brand chrome —
+                      // use the matching dark wheel. The storefront hours
+                      // editor (day_row.part.dart) stays on the default
+                      // light theme.
+                      darkTheme: true,
                     ),
                   ),
                   if (_editableSlots.length > 1) ...[

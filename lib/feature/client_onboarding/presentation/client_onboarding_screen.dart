@@ -138,7 +138,10 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
 
   Future<void> _pickDob() async {
     final now = DateTime.now();
-    final initial = _selectedDob ?? DateTime(now.year - 25, now.month, now.day);
+    // Default to today so the wheel opens on a familiar date instead of
+    // an arbitrary "X years ago, January 1". The picker clamps to the
+    // configured max (today − 13y) on render — the user adjusts down.
+    final initial = _selectedDob ?? now;
     final picked = await showCupertinoDobPicker(
       context: context,
       initial: initial,

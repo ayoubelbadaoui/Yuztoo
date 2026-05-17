@@ -8,6 +8,7 @@ import '../application/create_user_document.dart';
 import '../../core/application/auth_error_mapper.dart';
 import '../../core/application/use_cases/get_user_role.dart';
 import '../../core/application/providers.dart' as auth_core;
+import '../../core/application/state/auth_state.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
 import '../domain/signup_roles_map.dart';
@@ -23,6 +24,7 @@ class OTPScreen extends ConsumerStatefulWidget {
   const OTPScreen({
     super.key,
     this.onBack,
+    this.onSignupComplete,
     required this.userId,
     required this.phone,
     required this.onResend,
@@ -36,6 +38,10 @@ class OTPScreen extends ConsumerStatefulWidget {
   /// Optional external back handler (used when OTP is shown via RootShell state,
   /// where there may be no Navigator stack to pop).
   final VoidCallback? onBack;
+
+  /// Called after Firestore profile creation so the shell can route to
+  /// onboarding / home (auth stream may not re-emit for the same uid).
+  final VoidCallback? onSignupComplete;
   final String userId;
   final String phone;
   final VoidCallback onResend;

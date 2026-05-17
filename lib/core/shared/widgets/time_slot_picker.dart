@@ -18,6 +18,7 @@ class TimeSlotPicker extends StatelessWidget {
     required this.onStartChanged,
     required this.onEndChanged,
     this.enabled = true,
+    this.darkTheme = false,
   });
 
   final String startTime;
@@ -25,6 +26,12 @@ class TimeSlotPicker extends StatelessWidget {
   final ValueChanged<String> onStartChanged;
   final ValueChanged<String> onEndChanged;
   final bool enabled;
+
+  /// When true, the spawned time wheel uses the brand dark navy palette
+  /// (merchant onboarding "Horaires" step). Defaults to light because the
+  /// storefront hours editor — the primary caller — sits on the
+  /// light storefront chrome.
+  final bool darkTheme;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +73,7 @@ class TimeSlotPicker extends StatelessWidget {
       context: context,
       initial: initial,
       minuteInterval: 5,
+      lightTheme: !darkTheme,
     );
     if (picked != null) {
       onPicked(_format(picked));

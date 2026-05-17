@@ -180,33 +180,33 @@ extension _OTPScreenFlow on _OTPScreenState {
           }
         }
 
-        if (mounted) {
-          showSuccessSnackbar(context, 'Inscription réussie!');
-        }
-
-        // Clear the guard BEFORE refreshAuthState so the shell can now
-        // handle the auth-state change and route to onboarding.
         try {
           ref
               .read(auth_core.oauthFirestoreProfilePendingProvider.notifier)
               .state = false;
         } catch (_) {}
 
-        // Defer the auth refresh to the next frame so the OTP screen
-        // has time to finish the current build/setState cycle before
-        // the shell yanks it out of the tree. Awaiting it inline races
-        // with the `finally` block's `_setVerifying(false)` setState —
-        // the shell navigates first, the OTP element starts unmounting,
-        // then setState dirties dependents on the disposing inherited
-        // element → 'package:flutter/src/widgets/framework.dart:6171
-        // _dependents.isEmpty: is not true'. Deferring + not awaiting
-        // keeps the unmount serialized after the OTP rebuild.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          unawaited(
-            ref
-                .read(auth_core.authControllerProvider.notifier)
-                .refreshAuthState(),
+        // Reload profile from Firestore (roles, primary_role) — unlike
+        // refreshAuthState(), this always pushes a new Authenticated state.
+        await ref.read(auth_core.authControllerProvider.notifier).reloadProfile();
+
+        if (!mounted) return;
+
+        final authAfterReload = ref.read(auth_core.authControllerProvider);
+        if (authAfterReload is! Authenticated) {
+          showErrorSnackbar(
+            context,
+            'Compte créé. Relancez l\'application pour continuer.',
           );
+          return;
+        }
+
+        showSuccessSnackbar(context, 'Inscription réussie!');
+
+        // Shell routes to client/merchant onboarding — do not rely on
+        // userChanges() re-emitting after signup (same uid is skipped).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          widget.onSignupComplete?.call();
         });
       },
     );

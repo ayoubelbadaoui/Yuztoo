@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/email_validator.dart';
-import '../../../core/utils/oauth_profile_photo.dart';
 import '../../discovery/application/providers.dart';
 import '../application/providers.dart';
 import '../infrastructure/merchant_city_resolution.dart';
@@ -103,17 +102,6 @@ class _MerchantProfileFormScreenState
         if (basics.city.isNotEmpty) {
           notifier.setCity(basics.city);
         }
-      }
-    }
-
-    // Seed commerce logo from Google / Apple profile photo when available.
-    final oauthUrl = authState.user.photoUrl?.trim();
-    final existingLogo = ref.read(onboardingFlowProvider).imagePath?.trim();
-    if ((existingLogo == null || existingLogo.isEmpty) &&
-        isUsableOAuthProfilePhotoUrl(oauthUrl)) {
-      final path = await downloadOAuthProfilePhotoToTempFile(oauthUrl!);
-      if (path != null && mounted) {
-        notifier.setImagePath(path);
       }
     }
   }

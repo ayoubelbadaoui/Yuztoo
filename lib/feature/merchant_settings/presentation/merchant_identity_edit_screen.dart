@@ -69,8 +69,8 @@ class _MerchantIdentityEditScreenState
   // ── DOB picker ─────────────────────────────────────────────────────────────
   Future<void> _pickDob() async {
     final now = DateTime.now();
-    final initial =
-        _selectedDob ?? DateTime(now.year - 30, now.month, now.day);
+    // Open on today; the picker clamps to max-allowed (today − 16y).
+    final initial = _selectedDob ?? now;
     final picked = await showCupertinoDobPicker(
       context: context,
       initial: initial,

@@ -722,6 +722,19 @@ class _RootShellState extends ConsumerState<_RootShell>
   // Note: navigation to role selection is driven by AuthState (Unauthenticated),
   // not by the splash screen timer.
 
+  /// After email/phone OTP signup + Firestore user doc — route off OTP.
+  void _routeAfterOtpSignupComplete() {
+    if (!mounted) return;
+    final authState = ref.read(authControllerProvider);
+    if (authState is! Authenticated) return;
+
+    _isNavigatingToHome = true;
+    if (_authScreen != ScreenId.splash) {
+      setState(() => _authScreen = ScreenId.splash);
+    }
+    unawaited(_handleAuthenticatedUser(authState.user));
+  }
+
   void _handleRoleSelect(UserRole role) {
     // Set role and navigate based on role
     // This is called when user clicks action buttons (Découvrir, Scan, Login)
@@ -1724,6 +1737,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.otp:
         return OTPScreen(
           onBack: _handleBackToLogin,
+          onSignupComplete: _routeAfterOtpSignupComplete,
           userId: _signupUserId ?? '',
           phone: _phoneNumber ?? '',
           verificationId: _verificationId,
