@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../merchant/domain/entities/loyalty_program_config.dart';
+
 /// Loyalty tier computed from validated passage count.
 enum ClientLoyaltyTier {
   /// 0–2 passages — first-time visitor.
@@ -44,6 +46,8 @@ class ClientMerchantLoyaltyProgress extends Equatable {
     this.isFirstVisit = false,
     this.hasFirstVisit = false,
     this.welcomeBonClaimed = false,
+    this.enrolledProgram,
+    this.programStatus,
   });
 
   const ClientMerchantLoyaltyProgress.empty()
@@ -52,7 +56,9 @@ class ClientMerchantLoyaltyProgress extends Equatable {
         cumulativeSpendEuros = 0,
         isFirstVisit = false,
         hasFirstVisit = false,
-        welcomeBonClaimed = false;
+        welcomeBonClaimed = false,
+        enrolledProgram = null,
+        programStatus = null;
 
   final int validatedPassages;
   final int pendingPassages;
@@ -74,6 +80,14 @@ class ClientMerchantLoyaltyProgress extends Equatable {
   /// Once true, the bon must NOT reappear in "Mes avantages".
   final bool welcomeBonClaimed;
 
+  /// Snapshot of the loyalty program at enrollment (grandfathering).
+  final LoyaltyProgramConfig? enrolledProgram;
+
+  /// `active` | `merchant_disabled` | `merchant_changed` (Firestore string).
+  final String? programStatus;
+
+  bool get hasEnrolledProgram => enrolledProgram != null;
+
   @override
   List<Object?> get props => <Object?>[
         validatedPassages,
@@ -82,5 +96,7 @@ class ClientMerchantLoyaltyProgress extends Equatable {
         isFirstVisit,
         hasFirstVisit,
         welcomeBonClaimed,
+        enrolledProgram,
+        programStatus,
       ];
 }

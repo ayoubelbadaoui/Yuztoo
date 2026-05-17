@@ -1,19 +1,16 @@
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/failure.dart';
 import '../../../../core/domain/core/result.dart';
-import '../../../client_notification/domain/entities/client_notification.dart';
 import '../../../client_notification/domain/repositories/client_notification_repository.dart';
+import '../../../loyalty/application/loyalty_passage_notification_helper.dart';
 import '../../../loyalty/domain/entities/client_merchant_loyalty_progress.dart';
 import '../../../loyalty/domain/repositories/client_loyalty_repository.dart';
 import '../../domain/entities/loyalty_program_config.dart';
 import '../../domain/entities/merchant.dart';
 
-/// Records a passage on behalf of a client when the merchant physically
-/// validates it in real-time (BLE proximity or QR scan).
+/// Records a passage when the merchant validates in person (BLE).
 ///
-/// Unlike [RecordLoyaltyPassage] — which routes through `pending_passages` for
-/// manual-validation merchants — this use case always writes directly to
-/// `validated_passages` because the merchant's presence IS the confirmation.
+/// Clears a pending client request when present, then writes validated progress.
 class MerchantRecordClientPassage {
   MerchantRecordClientPassage(this._loyaltyRepo, this._notificationRepo);
 
@@ -31,14 +28,15 @@ class MerchantRecordClientPassage {
       );
     }
     final loyaltyActive = merchant.loyaltyEnabled &&
-        (merchant.loyaltyProgram?.programEnabled ??
-            merchant.loyaltyEnabled);
+        (merchant.loyaltyProgram?.programEnabled ?? merchant.loyaltyEnabled);
 
     if (!loyaltyActive) {
+      final pendingClear = await _pendingClearDelta(clientUid, merchant.id);
       return _loyaltyRepo.applyPassageDeltas(
         merchantId: merchant.id,
         clientUid: clientUid,
         validatedPassagesDelta: 1,
+        pendingPassagesDelta: pendingClear,
       );
     }
 
@@ -59,20 +57,27 @@ class MerchantRecordClientPassage {
       );
     }
 
+    final pendingClear = await _pendingClearDelta(clientUid, merchant.id);
+
     if (config.triggerType == LoyaltyTriggerType.visitCount) {
       final result = await _loyaltyRepo.applyPassageDeltas(
         merchantId: merchant.id,
         clientUid: clientUid,
+        pendingPassagesDelta: pendingClear,
         validatedPassagesDelta: 1,
       );
-      await result.fold((_) async {}, (progress) async {
-        final after = progress.validatedPassages;
-        final threshold = config.visitsRequired;
-        if (threshold > 0 && after >= threshold && (after - 1) < threshold) {
-          await _writeRewardNotification(
-              clientUid: clientUid, merchant: merchant, config: config);
-        }
-      });
+      await result.fold(
+        (_) async {},
+        (progress) async {
+          await writePassageValidatedNotification(
+            repository: _notificationRepo,
+            clientUid: clientUid,
+            merchant: merchant,
+            config: config,
+            progressAfter: progress,
+          );
+        },
+      );
       return result;
     }
 
@@ -85,54 +90,28 @@ class MerchantRecordClientPassage {
     final result = await _loyaltyRepo.applyPassageDeltas(
       merchantId: merchant.id,
       clientUid: clientUid,
+      pendingPassagesDelta: pendingClear,
       cumulativeSpendEurosDelta: spend,
     );
-    await result.fold((_) async {}, (progress) async {
-      final after = progress.cumulativeSpendEuros;
-      final threshold = config.cumulativeSpendRequiredEuros;
-      final before = after - spend;
-      if (threshold > 0 && after >= threshold && before < threshold) {
-        await _writeRewardNotification(
-            clientUid: clientUid, merchant: merchant, config: config);
-      }
-    });
+    await result.fold(
+      (_) async {},
+      (progress) async {
+        await writePassageValidatedNotification(
+          repository: _notificationRepo,
+          clientUid: clientUid,
+          merchant: merchant,
+          config: config,
+          progressAfter: progress,
+          validatedSpendEuros: spend,
+        );
+      },
+    );
     return result;
   }
 
-  Future<void> _writeRewardNotification({
-    required String clientUid,
-    required Merchant merchant,
-    required LoyaltyProgramConfig config,
-  }) async {
-    final name = merchant.displayName?.isNotEmpty == true
-        ? merchant.displayName!
-        : merchant.name;
-    final notification = ClientNotification(
-      id: '',
-      clientId: clientUid,
-      merchantId: merchant.id,
-      merchantName: name,
-      type: ClientNotificationType.loyalty,
-      title: 'Récompense disponible chez $name 🎁',
-      body: _rewardLabel(config),
-      isRead: false,
-      createdAt: DateTime.now(),
-    );
-    await _notificationRepo.create(notification);
-  }
-
-  String _rewardLabel(LoyaltyProgramConfig config) {
-    switch (config.rewardKind) {
-      case LoyaltyRewardKind.purchaseVoucher:
-        if (config.purchaseVoucherUsesPercent) {
-          return 'Bon d\'achat ${config.purchaseVoucherValue.toStringAsFixed(0)} % disponible.';
-        }
-        return 'Bon d\'achat ${config.purchaseVoucherValue.toStringAsFixed(0)} € disponible.';
-      case LoyaltyRewardKind.discountPercent:
-        return 'Remise ${config.discountNextPurchasePercent.toStringAsFixed(0)} % sur votre prochain achat.';
-      case LoyaltyRewardKind.freeProduct:
-      case LoyaltyRewardKind.loyaltyPoints:
-        return 'Votre récompense fidélité est disponible.';
-    }
+  Future<int> _pendingClearDelta(String clientUid, String merchantId) async {
+    final snap = await _loyaltyRepo.readProgress(merchantId, clientUid);
+    if (snap.pendingPassages > 0) return -1;
+    return 0;
   }
 }

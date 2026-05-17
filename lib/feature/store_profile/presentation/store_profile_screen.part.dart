@@ -378,7 +378,6 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
   const _RecordLoyaltyPassageSheet({
     required this.merchant,
     required this.clientUid,
-    required this.needsPurchaseAmount,
     required this.parentContext,
     this.isAlreadyFollowing = false,
     this.skipWelcomeOnPassage = false,
@@ -387,7 +386,6 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
 
   final Merchant merchant;
   final String clientUid;
-  final bool needsPurchaseAmount;
   /// Passage seul (fidélité désactivée) — alimente la gratification client.
   final bool visitOnly;
   /// Context of the parent screen — used to show the welcome-gift modal after
@@ -406,32 +404,10 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
 
 class _RecordLoyaltyPassageSheetState
     extends ConsumerState<_RecordLoyaltyPassageSheet> {
-  final TextEditingController _amountController = TextEditingController();
   bool _busy = false;
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
-  }
 
   Future<void> _submit() async {
     if (_busy) return;
-    double? purchaseAmount;
-    if (widget.needsPurchaseAmount) {
-      final raw = _amountController.text.replaceAll(',', '.').trim();
-      purchaseAmount = double.tryParse(raw);
-      if (purchaseAmount == null || purchaseAmount <= 0) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Indiquez un montant valide (€)'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-    }
 
     setState(() => _busy = true);
     final Result<ClientMerchantLoyaltyProgress> result;
@@ -444,7 +420,6 @@ class _RecordLoyaltyPassageSheetState
       result = await ref.read(recordLoyaltyPassageProvider).call(
             clientUid: widget.clientUid,
             merchant: widget.merchant,
-            purchaseAmountEuros: purchaseAmount,
           );
     }
     if (!mounted) return;
@@ -482,6 +457,7 @@ class _RecordLoyaltyPassageSheetState
         ref.invalidate(
           clientLoyaltyProgressForMerchantProvider(widget.merchant.id),
         );
+        ref.invalidate(clientLoyaltyFeedProvider);
 
         Navigator.of(context).pop();
         if (!widget.skipWelcomeOnPassage &&
@@ -505,7 +481,7 @@ class _RecordLoyaltyPassageSheetState
           final tierLabel = grat.labelForPassages(progress.validatedPassages);
           final message = widget.visitOnly
               ? 'Passage enregistré — statut : $tierLabel'
-              : 'Passage enregistré ✓';
+              : 'Demande envoyée — en attente de validation par le commerçant';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(message),
@@ -541,7 +517,7 @@ class _RecordLoyaltyPassageSheetState
               ),
             ),
             Text(
-              widget.visitOnly ? 'Enregistrer votre passage' : 'Enregistrer un passage',
+              widget.visitOnly ? 'Enregistrer votre passage' : 'Demander un passage',
               style: GoogleFonts.outfit(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -553,42 +529,14 @@ class _RecordLoyaltyPassageSheetState
               widget.visitOnly
                   ? 'Votre visite est comptée pour votre statut chez ce commerce '
                       '(${grat.nouveauLabel}, ${grat.habituelLabel}, ${grat.vipLabel}).'
-                  : widget.needsPurchaseAmount
-                  ? 'Indiquez le montant de votre achat pour mettre à jour votre fidélité.'
-                  : 'Confirmez votre passage en boutique pour valider votre fidélité.',
+                  : 'Votre passage sera validé par le commerçant. '
+                      'Vous recevrez une notification dès qu’il sera confirmé.',
               style: GoogleFonts.outfit(
                 fontSize: 14,
                 height: 1.5,
                 color: StorefrontColors.textSecondary,
               ),
             ),
-            if (!widget.visitOnly && widget.needsPurchaseAmount) ...[
-              const SizedBox(height: 20),
-              TextField(
-                controller: _amountController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                textInputAction: TextInputAction.done,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Montant (€)',
-                  hintText: 'ex. 24,90',
-                  prefixIcon: const Icon(Icons.euro_rounded,
-                      color: StorefrontColors.primaryGold),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: StorefrontColors.primaryGold,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-                onSubmitted: (_) => _submit(),
-              ),
-            ],
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _busy ? null : _submit,
@@ -1873,11 +1821,6 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     }
     final loyaltyActive = _merchantLoyaltyActive(merchant);
     final effectiveVisitOnly = visitOnly || !loyaltyActive;
-    final program = merchant.loyaltyProgram ??
-        LoyaltyProgramConfig.fallbackFromFlags(
-            loyaltyEnabled: merchant.loyaltyEnabled);
-    final needsAmount =
-        !effectiveVisitOnly && program.effectiveAskClientPurchaseAmount;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1891,7 +1834,6 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
         child: _RecordLoyaltyPassageSheet(
           merchant: merchant,
           clientUid: userId,
-          needsPurchaseAmount: needsAmount,
           parentContext: context,
           isAlreadyFollowing: isFollowing,
           skipWelcomeOnPassage: skipWelcomeOnPassage,

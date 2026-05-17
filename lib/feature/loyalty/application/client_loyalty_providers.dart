@@ -28,10 +28,7 @@ export '../../auth/core/application/state/auth_state.dart'
 // ─── Use-case providers ────────────────────────────────────────────────────────
 
 final recordLoyaltyPassageProvider = Provider<RecordLoyaltyPassage>((ref) {
-  return RecordLoyaltyPassage(
-    ref.watch(clientLoyaltyRepositoryProvider),
-    ref.watch(clientNotificationRepositoryProvider),
-  );
+  return RecordLoyaltyPassage(ref.watch(clientLoyaltyRepositoryProvider));
 });
 
 final recordClientVisitPassageProvider = Provider<RecordClientVisitPassage>((ref) {
@@ -41,7 +38,9 @@ final recordClientVisitPassageProvider = Provider<RecordClientVisitPassage>((ref
 final validatePendingLoyaltyPassageProvider =
     Provider<ValidatePendingLoyaltyPassage>((ref) {
   return ValidatePendingLoyaltyPassage(
-      ref.watch(clientLoyaltyRepositoryProvider));
+    ref.watch(clientLoyaltyRepositoryProvider),
+    ref.watch(clientNotificationRepositoryProvider),
+  );
 });
 
 final redeemLoyaltyRewardProvider = Provider<RedeemLoyaltyReward>((ref) {
@@ -125,15 +124,31 @@ final pendingLoyaltyClientsForMerchantProvider = StreamProvider.autoDispose
 // ─── Loyalty feed for client tab ───────────────────────────────────────────────
 
 /// A merchant the client follows that has an active loyalty program.
+/// Whether two program configs differ on reward/threshold axes (grandfathering).
+bool loyaltyProgramsDiffer(
+  LoyaltyProgramConfig a,
+  LoyaltyProgramConfig b,
+) {
+  return a.rewardKind != b.rewardKind ||
+      a.triggerType != b.triggerType ||
+      a.visitsRequired != b.visitsRequired ||
+      (a.cumulativeSpendRequiredEuros - b.cumulativeSpendRequiredEuros).abs() >
+          0.01;
+}
+
 class ClientLoyaltyEntry {
   const ClientLoyaltyEntry({
     required this.merchant,
     required this.config,
     this.isOwnMerchant = false,
+    this.programEnded = false,
   });
 
   final Merchant merchant;
   final LoyaltyProgramConfig config;
+
+  /// Merchant disabled loyalty; client keeps enrolled progress/rewards.
+  final bool programEnded;
 
   /// True when this entry is the user's own merchant (prepended for dual-profile
   /// testing). It is NOT a "followed" merchant — the count shown to the user
@@ -204,10 +219,10 @@ final clientLoyaltyFeedProvider =
   if (auth is! Authenticated) return <ClientLoyaltyEntry>[];
 
   final userId = auth.user.id;
-  final repo = ref.watch(merchantRepositoryProvider);
+  final merchantRepo = ref.watch(merchantRepositoryProvider);
+  final loyaltyRepo = ref.watch(clientLoyaltyRepositoryProvider);
 
-  // Run own-merchant lookup and followed-ids lookup in parallel.
-  final ownMerchantFuture = repo.getMerchantById(userId);
+  final ownMerchantFuture = merchantRepo.getMerchantById(userId);
   final idsFuture = ref.watch(followedMerchantIdsForCurrentUserProvider.future);
 
   final ownMerchantResult = await ownMerchantFuture;
@@ -215,39 +230,62 @@ final clientLoyaltyFeedProvider =
 
   final Merchant? ownMerchant = ownMerchantResult.fold((_) => null, (m) => m);
 
-  // Followed merchants (exclude own store to avoid duplicate).
   final filteredIds = ids.where((id) => id != userId).toList();
   final followedMerchants = filteredIds.isEmpty
       ? <Merchant>[]
-      : (await repo.getMerchantsByIds(filteredIds))
+      : (await merchantRepo.getMerchantsByIds(filteredIds))
           .fold((_) => <Merchant>[], (list) => list);
 
-  ClientLoyaltyEntry? toEntry(Merchant m) {
-    final cfg = m.loyaltyProgram ??
+  final candidates = <Merchant>[
+    if (ownMerchant != null) ownMerchant,
+    ...followedMerchants,
+  ];
+
+  final progressByMerchant = <String, ClientMerchantLoyaltyProgress>{};
+  await Future.wait(
+    candidates.map((m) async {
+      progressByMerchant[m.id] =
+          await loyaltyRepo.readProgress(m.id, userId);
+    }),
+  );
+
+  ClientLoyaltyEntry? toEntry(Merchant m, {required bool isOwn}) {
+    final liveCfg = m.loyaltyProgram ??
         LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: m.loyaltyEnabled);
-    if (!m.loyaltyEnabled || !cfg.programEnabled) return null;
-    return ClientLoyaltyEntry(merchant: m, config: cfg);
+    final progress = progressByMerchant[m.id] ??
+        const ClientMerchantLoyaltyProgress.empty();
+    final enrolled = progress.enrolledProgram;
+
+    if (m.loyaltyEnabled && liveCfg.programEnabled) {
+      final cfg = enrolled ?? liveCfg;
+      return ClientLoyaltyEntry(merchant: m, config: cfg, isOwnMerchant: isOwn);
+    }
+
+    if (enrolled != null) {
+      return ClientLoyaltyEntry(
+        merchant: m,
+        config: enrolled,
+        isOwnMerchant: isOwn,
+        programEnded: !m.loyaltyEnabled || !liveCfg.programEnabled,
+      );
+    }
+    return null;
   }
 
   final entries = <ClientLoyaltyEntry>[];
+  final seen = <String>{};
 
-  // Prepend own merchant (if they have loyalty enabled) so a merchant-as-client
-  // can always see their own carnet — even without following themselves.
   if (ownMerchant != null) {
-    final cfg = ownMerchant.loyaltyProgram ??
-        LoyaltyProgramConfig.fallbackFromFlags(
-            loyaltyEnabled: ownMerchant.loyaltyEnabled);
-    if (ownMerchant.loyaltyEnabled && cfg.programEnabled) {
-      entries.add(ClientLoyaltyEntry(
-        merchant: ownMerchant,
-        config: cfg,
-        isOwnMerchant: true,
-      ));
+    final e = toEntry(ownMerchant, isOwn: true);
+    if (e != null) {
+      entries.add(e);
+      seen.add(ownMerchant.id);
     }
   }
 
   for (final m in followedMerchants) {
-    final e = toEntry(m);
+    if (seen.contains(m.id)) continue;
+    final e = toEntry(m, isOwn: false);
     if (e != null) entries.add(e);
   }
 
@@ -375,6 +413,7 @@ final availableClientRewardsProvider =
         description: persistedWelcome.description,
         actionable: true,
         validUntilAt: persistedWelcome.validUntilAt,
+        rewardKind: entry.config.rewardKind,
       ));
     } else if (!knownBonKeys.contains(welcomeKey) &&
         progress.hasFirstVisit &&
@@ -387,6 +426,7 @@ final availableClientRewardsProvider =
         title: 'Bon de bienvenue',
         description: welcomeGift,
         actionable: true,
+        rewardKind: entry.config.rewardKind,
       ));
     }
 
@@ -400,6 +440,7 @@ final availableClientRewardsProvider =
         description: persistedMilestone.description,
         actionable: false,
         validUntilAt: persistedMilestone.validUntilAt,
+        rewardKind: entry.config.rewardKind,
       ));
     } else if (!knownBonKeys.contains(milestoneKey) &&
         entry.isRewardAvailable(progress)) {
@@ -410,6 +451,7 @@ final availableClientRewardsProvider =
         title: 'Bon fidélité disponible',
         description: entry.rewardLabel(),
         actionable: false,
+        rewardKind: entry.config.rewardKind,
       ));
     }
   }

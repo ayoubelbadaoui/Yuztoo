@@ -5,6 +5,8 @@ import '../../../core/domain/core/failure.dart';
 import '../../../core/domain/core/result.dart';
 import '../../../core/infrastructure/logger_service.dart';
 import '../../merchant/domain/entities/client_gratification_config.dart';
+import '../../merchant/domain/entities/loyalty_program_config.dart';
+import '../../merchant/infrastructure/loyalty_program_firestore_mapper.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart';
 import '../domain/entities/loyalty_pending_client_row.dart';
 import '../domain/repositories/client_loyalty_repository.dart';
@@ -73,12 +75,18 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         data.containsKey('first_visit_at') && data['first_visit_at'] != null;
     final welcomeBonClaimed = data.containsKey('welcome_bon_claimed_at') &&
         data['welcome_bon_claimed_at'] != null;
+    final enrolled = LoyaltyProgramFirestoreMapper.fromFirestoreMap(
+      data['enrolled_loyalty_program'],
+    );
+    final status = data['program_status'] as String?;
     return ClientMerchantLoyaltyProgress(
       validatedPassages: v,
       pendingPassages: p,
       cumulativeSpendEuros: c,
       hasFirstVisit: hasFirstVisit,
       welcomeBonClaimed: welcomeBonClaimed,
+      enrolledProgram: enrolled,
+      programStatus: status,
     );
   }
 
@@ -96,6 +104,18 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           (DocumentSnapshot<Map<String, dynamic>> s) =>
               _fromMap(s.data()),
         );
+  }
+
+  @override
+  Future<ClientMerchantLoyaltyProgress> readProgress(
+    String merchantId,
+    String clientUid,
+  ) async {
+    if (merchantId.isEmpty || clientUid.isEmpty) {
+      return const ClientMerchantLoyaltyProgress.empty();
+    }
+    final snap = await _docRef(merchantId, clientUid).get();
+    return _fromMap(snap.data());
   }
 
   @override
@@ -135,6 +155,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     int validatedPassagesDelta = 0,
     int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
+    LoyaltyProgramConfig? enrollProgram,
   }) async {
     if (merchantId.isEmpty || clientUid.isEmpty) {
       return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
@@ -213,19 +234,22 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
               next.cumulativeSpendEuros < 0) {
             throw StateError('invalid_loyalty_counters');
           }
-          tx.set(
-            ref,
-            <String, dynamic>{
-              'validated_passages': next.validatedPassages,
-              'pending_passages': next.pendingPassages,
-              'cumulative_spend_euros': next.cumulativeSpendEuros,
-              'updated_at': FieldValue.serverTimestamp(),
-              if (isNewPassageEvent)
-                'last_passage_at': FieldValue.serverTimestamp(),
-              if (isFirstVisit) 'first_visit_at': FieldValue.serverTimestamp(),
+          final write = <String, dynamic>{
+            'validated_passages': next.validatedPassages,
+            'pending_passages': next.pendingPassages,
+            'cumulative_spend_euros': next.cumulativeSpendEuros,
+            'updated_at': FieldValue.serverTimestamp(),
+            if (isNewPassageEvent)
+              'last_passage_at': FieldValue.serverTimestamp(),
+            if (isFirstVisit) 'first_visit_at': FieldValue.serverTimestamp(),
+            if (isFirstVisit && enrollProgram != null) ...<String, dynamic>{
+              'enrolled_loyalty_program':
+                  LoyaltyProgramFirestoreMapper.toFirestoreMap(enrollProgram),
+              'enrolled_at': FieldValue.serverTimestamp(),
+              'program_status': 'active',
             },
-            SetOptions(merge: true),
-          );
+          };
+          tx.set(ref, write, SetOptions(merge: true));
           return next;
         },
       );

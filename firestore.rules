@@ -232,7 +232,10 @@ service cloud.firestore {
         'updated_at',
         'first_visit_at',
         'last_passage_at',
-        'welcome_bon_claimed_at'
+        'welcome_bon_claimed_at',
+        'enrolled_loyalty_program',
+        'enrolled_at',
+        'program_status'
       ]);
     }
 
@@ -252,9 +255,9 @@ service cloud.firestore {
         && r.pending_passages is int
         && r.cumulative_spend_euros is number
         && r.updated_at is timestamp
-        && r.validated_passages >= 0 && r.validated_passages <= 1
-        && r.pending_passages >= 0 && r.pending_passages <= 1
-        && r.cumulative_spend_euros >= 0 && r.cumulative_spend_euros <= 5000
+        && r.validated_passages == 0
+        && r.pending_passages == 1
+        && r.cumulative_spend_euros == 0
         // first_visit_at is optional on creation but must be a server timestamp when present.
         && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at is timestamp)
         // last_passage_at: required & server-stamped if this create is also
@@ -293,12 +296,9 @@ service cloud.firestore {
         && r.pending_passages is int
         && r.cumulative_spend_euros is number
         && r.updated_at is timestamp
-        && r.validated_passages >= o.validated_passages
-        && r.validated_passages <= o.validated_passages + 1
-        && r.pending_passages >= o.pending_passages
-        && r.pending_passages <= o.pending_passages + 1
-        && r.cumulative_spend_euros >= o.cumulative_spend_euros
-        && r.cumulative_spend_euros <= o.cumulative_spend_euros + 5000
+        && r.validated_passages == o.validated_passages
+        && r.pending_passages == o.pending_passages + 1
+        && r.cumulative_spend_euros == o.cumulative_spend_euros
         && cooldownOk
         // first_visit_at is immutable: clients cannot add or change it after creation.
         // After merge, it will appear in request.resource.data; its value must equal
@@ -330,7 +330,13 @@ service cloud.firestore {
               && r.welcome_bon_claimed_at is timestamp
           )
           || r.welcome_bon_claimed_at == o.get('welcome_bon_claimed_at', null)
-        );
+        )
+        && (!r.keys().hasAll(['enrolled_loyalty_program'])
+            || r.enrolled_loyalty_program == o.get('enrolled_loyalty_program', null))
+        && (!r.keys().hasAll(['enrolled_at'])
+            || r.enrolled_at == o.get('enrolled_at', null))
+        && (!r.keys().hasAll(['program_status'])
+            || r.program_status == o.get('program_status', null));
     }
 
     match /merchants/{merchantId}/loyalty_clients/{userId} {

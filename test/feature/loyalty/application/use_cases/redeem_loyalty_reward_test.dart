@@ -57,6 +57,13 @@ class _FakeRepo implements ClientLoyaltyRepository {
   }
 
   @override
+  Future<ClientMerchantLoyaltyProgress> readProgress(
+    String merchantId,
+    String clientUid,
+  ) async =>
+      const ClientMerchantLoyaltyProgress.empty();
+
+  @override
   Stream<ClientMerchantLoyaltyProgress> watchProgress(
           String merchantId, String clientUid) =>
       Stream.value(const ClientMerchantLoyaltyProgress.empty());
@@ -82,6 +89,7 @@ class _FakeRepo implements ClientLoyaltyRepository {
     int validatedPassagesDelta = 0,
     int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
+    LoyaltyProgramConfig? enrollProgram,
   }) async =>
       const Right(ClientMerchantLoyaltyProgress.empty());
 

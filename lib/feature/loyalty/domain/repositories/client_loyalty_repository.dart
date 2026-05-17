@@ -1,10 +1,16 @@
 import '../../../../core/domain/core/result.dart';
+import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../entities/client_merchant_loyalty_progress.dart';
 import '../entities/loyalty_pending_client_row.dart';
 
 /// Persistance progression fidélité côté client.
 abstract class ClientLoyaltyRepository {
   Stream<ClientMerchantLoyaltyProgress> watchProgress(
+    String merchantId,
+    String clientUid,
+  );
+
+  Future<ClientMerchantLoyaltyProgress> readProgress(
     String merchantId,
     String clientUid,
   );
@@ -20,6 +26,8 @@ abstract class ClientLoyaltyRepository {
     int validatedPassagesDelta = 0,
     int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
+    /// Snapshot current program on first enrollment (client passage request).
+    LoyaltyProgramConfig? enrollProgram,
   });
 
   /// Returns a real-time stream of loyalty clients whose progress meets or

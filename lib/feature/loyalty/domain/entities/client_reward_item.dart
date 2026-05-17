@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../../merchant/domain/entities/merchant.dart';
 
 /// Origin of a redeemable bon shown in the client's "Mes avantages" view.
@@ -35,10 +36,14 @@ class ClientRewardItem extends Equatable {
     required this.description,
     required this.actionable,
     this.validUntilAt,
+    this.rewardKind,
   });
 
   final Merchant merchant;
   final ClientRewardKind kind;
+
+  /// Reward type for Mes avantages tabs (uses enrolled program when set).
+  final LoyaltyRewardKind? rewardKind;
 
   /// Short headline shown on the carousel card. Examples:
   ///   - "Bon de bienvenue"
@@ -91,5 +96,6 @@ class ClientRewardItem extends Equatable {
         description,
         actionable,
         validUntilAt,
+        rewardKind,
       ];
 }

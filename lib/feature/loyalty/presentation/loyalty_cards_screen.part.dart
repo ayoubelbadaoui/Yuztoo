@@ -167,18 +167,37 @@ class _GreetingBlock extends StatelessWidget {
 
 // ─── Feed (loading / empty / list) ────────────────────────────────────────────
 
-enum _FeedFilter { bonCommande, remise }
-
-bool _entryIsBonCommande(ClientLoyaltyEntry e) {
-  final k = e.config.rewardKind;
-  return k == LoyaltyRewardKind.purchaseVoucher ||
-      k == LoyaltyRewardKind.freeProduct;
+enum _FeedFilter {
+  purchaseVoucher,
+  discountPercent,
+  freeProduct,
+  loyaltyPoints,
 }
 
-bool _entryIsRemise(ClientLoyaltyEntry e) {
-  final k = e.config.rewardKind;
-  return k == LoyaltyRewardKind.discountPercent ||
-      k == LoyaltyRewardKind.loyaltyPoints;
+String _feedFilterLabel(_FeedFilter f) {
+  switch (f) {
+    case _FeedFilter.purchaseVoucher:
+      return 'Bon d\'achat';
+    case _FeedFilter.discountPercent:
+      return 'Remise';
+    case _FeedFilter.freeProduct:
+      return 'Produit offert';
+    case _FeedFilter.loyaltyPoints:
+      return 'Points';
+  }
+}
+
+bool _entryMatchesFilter(ClientLoyaltyEntry e, _FeedFilter f) {
+  switch (f) {
+    case _FeedFilter.purchaseVoucher:
+      return e.config.rewardKind == LoyaltyRewardKind.purchaseVoucher;
+    case _FeedFilter.discountPercent:
+      return e.config.rewardKind == LoyaltyRewardKind.discountPercent;
+    case _FeedFilter.freeProduct:
+      return e.config.rewardKind == LoyaltyRewardKind.freeProduct;
+    case _FeedFilter.loyaltyPoints:
+      return e.config.rewardKind == LoyaltyRewardKind.loyaltyPoints;
+  }
 }
 
 class _LoyaltyFeed extends StatefulWidget {
@@ -204,27 +223,31 @@ class _LoyaltyFeedState extends State<_LoyaltyFeed> {
       data: (entries) {
         if (entries.isEmpty) return const _EmptyState();
 
-        final bonCount = entries.where(_entryIsBonCommande).length;
-        final remiseCount = entries.where(_entryIsRemise).length;
-        final showFilters = bonCount > 0 && remiseCount > 0;
+        final activeFilters = _FeedFilter.values
+            .where((f) => entries.any((e) => _entryMatchesFilter(e, f)))
+            .toList();
+        final showFilters = activeFilters.length > 1;
 
         List<ClientLoyaltyEntry> visible = entries;
-        if (_filter == _FeedFilter.bonCommande) {
-          visible = entries.where(_entryIsBonCommande).toList();
-        } else if (_filter == _FeedFilter.remise) {
-          visible = entries.where(_entryIsRemise).toList();
+        if (_filter != null) {
+          visible =
+              entries.where((e) => _entryMatchesFilter(e, _filter!)).toList();
         }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (showFilters) ...[
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  _filterPill('Bon de commande', _FeedFilter.bonCommande,
-                      bonCount),
-                  const SizedBox(width: 8),
-                  _filterPill('Remise', _FeedFilter.remise, remiseCount),
+                  for (final f in activeFilters)
+                    _filterPill(
+                      _feedFilterLabel(f),
+                      f,
+                      entries.where((e) => _entryMatchesFilter(e, f)).length,
+                    ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -312,17 +335,25 @@ class _MesAvantagesSection extends ConsumerStatefulWidget {
 }
 
 class _MesAvantagesSectionState extends ConsumerState<_MesAvantagesSection> {
-  bool _showBons = true; // true = "Bon de commande", false = "Remise"
+  _FeedFilter? _selectedTab;
 
-  /// A reward belongs to "Remise" when it is a milestone bon whose merchant
-  /// uses a discount-based reward kind. Everything else (welcome bons,
-  /// purchase-voucher / free-product milestone bons) belongs to "Bon de commande".
-  static bool _isRemise(ClientRewardItem r) =>
-      r.kind == ClientRewardKind.milestone &&
-      (r.merchant.loyaltyProgram?.rewardKind ==
-              LoyaltyRewardKind.discountPercent ||
-          r.merchant.loyaltyProgram?.rewardKind ==
-              LoyaltyRewardKind.loyaltyPoints);
+  static LoyaltyRewardKind _rewardKindFor(ClientRewardItem r) =>
+      r.rewardKind ??
+      r.merchant.loyaltyProgram?.rewardKind ??
+      LoyaltyRewardKind.purchaseVoucher;
+
+  static _FeedFilter _filterForReward(ClientRewardItem r) {
+    switch (_rewardKindFor(r)) {
+      case LoyaltyRewardKind.purchaseVoucher:
+        return _FeedFilter.purchaseVoucher;
+      case LoyaltyRewardKind.discountPercent:
+        return _FeedFilter.discountPercent;
+      case LoyaltyRewardKind.freeProduct:
+        return _FeedFilter.freeProduct;
+      case LoyaltyRewardKind.loyaltyPoints:
+        return _FeedFilter.loyaltyPoints;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -333,23 +364,32 @@ class _MesAvantagesSectionState extends ConsumerState<_MesAvantagesSection> {
       data: (rewards) {
         if (rewards.isEmpty) return const SizedBox.shrink();
 
-        final bons = rewards.where((r) => !_isRemise(r)).toList();
-        final remises = rewards.where(_isRemise).toList();
+        final activeTabs = _FeedFilter.values
+            .where((f) => rewards.any((r) => _filterForReward(r) == f))
+            .toList();
+        final selected = _selectedTab != null &&
+                activeTabs.contains(_selectedTab)
+            ? _selectedTab!
+            : activeTabs.first;
+        final active =
+            rewards.where((r) => _filterForReward(r) == selected).toList();
 
-        final active = _showBons ? bons : remises;
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Tab pills — always visible when there are any rewards ────
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  _tab('Bon de commande', bons.length, _showBons,
-                      () => setState(() => _showBons = true)),
-                  const SizedBox(width: 8),
-                  _tab('Remise', remises.length, !_showBons,
-                      () => setState(() => _showBons = false)),
+                  for (final f in activeTabs)
+                    _rewardTabPill(
+                      _feedFilterLabel(f),
+                      rewards.where((r) => _filterForReward(r) == f).length,
+                      selected == f,
+                      () => setState(() => _selectedTab = f),
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -376,7 +416,12 @@ class _MesAvantagesSectionState extends ConsumerState<_MesAvantagesSection> {
     );
   }
 
-  Widget _tab(String label, int count, bool active, VoidCallback onTap) {
+  Widget _rewardTabPill(
+    String label,
+    int count,
+    bool active,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -1197,6 +1242,8 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
           showWelcomeBadge:
               progress.hasFirstVisit && welcomeGift.isNotEmpty,
           welcomeGiftText: welcomeGift,
+          pendingPassages: progress.pendingPassages,
+          programEnded: entry.programEnded,
         );
       },
     );
@@ -1340,6 +1387,8 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
     required int validatedPassages,
     required bool showWelcomeBadge,
     String welcomeGiftText = '',
+    int pendingPassages = 0,
+    bool programEnded = false,
   }) {
     final gratConfig = entry.merchant.effectiveGratificationConfig;
     return Container(
@@ -1450,6 +1499,30 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
                 ),
             ],
           ),
+
+          if (programEnded) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: MerchantColors.textGrey.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: MerchantColors.textGrey.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Text(
+                'Programme terminé — vos avantages obtenus restent valides',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: MerchantColors.textLightGrey,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
 
           // First-visit welcome bonus badge — shown when first_visit_at exists
           // in Firestore AND the merchant has a welcome gift description.

@@ -12,7 +12,7 @@ import '../../domain/entities/loyalty_pending_client_row.dart';
 
 part 'pending_loyalty_validations_section.part.dart';
 
-/// Liste des clients avec passage(s) en attente — affiché dans Rappels si validation manuelle.
+/// Liste des clients avec passage(s) en attente — affiché dans Rappels (validation commerçant).
 class PendingLoyaltyValidationsSection extends ConsumerStatefulWidget {
   const PendingLoyaltyValidationsSection({super.key, required this.merchant});
 
@@ -34,9 +34,7 @@ class _PendingLoyaltyValidationsSectionState
       );
 
   bool get _visible =>
-      widget.merchant.loyaltyEnabled &&
-      _config.programEnabled &&
-      _config.passageValidation == LoyaltyPassageValidation.manual;
+      widget.merchant.loyaltyEnabled && _config.programEnabled;
 
   static String _shortClientLabel(String uid) {
     if (uid.length <= 8) return uid;
