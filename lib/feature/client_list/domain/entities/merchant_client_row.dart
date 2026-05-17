@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../merchant/domain/entities/client_gratification_config.dart';
+
 /// Canonical passage-based segment. Mirrors Cloud Functions `computeSegment`.
 ///
 /// Computation order (same thresholds everywhere):

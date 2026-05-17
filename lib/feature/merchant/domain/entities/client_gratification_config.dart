@@ -84,12 +84,38 @@ class ClientGratificationConfig extends Equatable {
         'show_tier_to_client': showTierToClient,
       };
 
+  /// Passage-based segment key (`nouveau`, `habitue`, `vip`, `inactif`) using
+  /// this merchant's thresholds — same order as CRM / notification ciblage.
+  String segmentKeyFor({
+    required int validatedPassages,
+    required int daysSinceLastVisit,
+  }) {
+    if (daysSinceLastVisit > inactifAfterDays) return 'inactif';
+    if (validatedPassages >= vipThreshold) return 'vip';
+    if (validatedPassages >= habituelThreshold) return 'habitue';
+    return 'nouveau';
+  }
+
   /// Returns the custom tier label for a given passage count, using this
   /// merchant's configured thresholds and names instead of the hardcoded enum.
   String labelForPassages(int passages) {
     if (passages >= vipThreshold) return vipLabel;
     if (passages >= habituelThreshold) return habituelLabel;
     return nouveauLabel;
+  }
+
+  /// Label for [segmentKeyFor] output (inactive clients → fixed « Inactif »).
+  String labelForSegmentKey(String segmentKey) {
+    switch (segmentKey) {
+      case 'vip':
+        return vipLabel;
+      case 'habitue':
+        return habituelLabel;
+      case 'inactif':
+        return 'Inactif';
+      default:
+        return nouveauLabel;
+    }
   }
 
   @override

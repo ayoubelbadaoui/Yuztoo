@@ -371,16 +371,30 @@ class _RootShellState extends ConsumerState<_RootShell>
     // chain (up to 15–30s with timeouts), so users saw "still loading"
     // after finishing onboarding and had to force-quit the app.
     //
+    // IMPORTANT: short-circuit ONLY when the user is already past the
+    // pre-auth screens. Screens in [_kPreAuthScreens] need the shell
+    // to re-route on every auth emission — that is literally how the
+    // OTP screen reaches client/merchant onboarding after a successful
+    // signup. Skipping the re-route there left the user stuck on OTP
+    // after entering a valid code.
+    //
     // Conditions for the short-circuit:
     //   - same user uid (no actual sign-in/out happened),
-    //   - we already routed past splash (real screen visible),
+    //   - we are NOT on a pre-auth screen (splash/login/signup/otp/role),
     //   - we are NOT mid-navigation (don't interrupt a still-running
     //     _handleAuthenticatedUser).
+    const preAuthScreens = <ScreenId>{
+      ScreenId.splash,
+      ScreenId.roleSelection,
+      ScreenId.login,
+      ScreenId.signup,
+      ScreenId.otp,
+    };
     if (authState is Authenticated &&
         previous is Authenticated &&
         previous.user.id == authState.user.id &&
         _authScreen != null &&
-        _authScreen != ScreenId.splash &&
+        !preAuthScreens.contains(_authScreen) &&
         !_isNavigatingToHome) {
       return;
     }
