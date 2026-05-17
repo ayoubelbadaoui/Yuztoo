@@ -11,7 +11,8 @@ import '../../auth/core/domain/entities/user_profile_basics.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
-import '../../profile/application/providers.dart' show refreshUserProfileCache;
+import '../../profile/application/providers.dart'
+    show refreshUserProfileCacheWidget;
 
 /// Lets a merchant edit their personal identity (owner first/last name, DOB,
 /// professional contact email) and core commerce info (trading name, phone).
@@ -130,8 +131,8 @@ class _MerchantIdentityEditScreenState
       return;
     }
 
-    await refreshUserProfileCache(
-      ref as Ref,
+    await refreshUserProfileCacheWidget(
+      ref,
       uid: uid,
       isMerchant: true,
     );

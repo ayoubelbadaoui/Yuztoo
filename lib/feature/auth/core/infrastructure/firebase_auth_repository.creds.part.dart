@@ -93,32 +93,20 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
         },
         verificationFailed: (firebase.FirebaseAuthException e) {
           if (!completer.isCompleted) {
-            // Check for billing errors specifically
-            final errorMessage = e.message ?? '';
-            if (errorMessage.contains('BILLING_NOT_ENABLED') ||
-                errorMessage.toLowerCase().contains('billing')) {
-              // ignore: prefer_const_constructors
-              completer.complete(Left<AuthFailure, String>(
-                const AuthUnexpectedFailure(
-                  message:
-                      'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
-                ),
-              ));
-            } else if (e.code == 'app-not-authorized' ||
-                errorMessage.contains('INVALID_CERT_HASH') ||
-                errorMessage.contains('missing client identifier') ||
-                errorMessage.contains('package certificate hash')) {
-              completer.complete(const Left<AuthFailure, String>(
-                AuthUnexpectedFailure(
-                  message:
-                      'L\'application n\'est pas autorisée (certificat SHA-1 manquant dans la console Firebase). Contactez le support.',
-                ),
-              ));
-            } else {
-              completer.complete(Left<AuthFailure, String>(
-                _mapAuthException(e, StackTrace.current),
-              ));
-            }
+            LoggerService.logError(
+              'sendPhoneVerification failed',
+              error: e,
+              context: {
+                'code': e.code,
+                'message': e.message ?? '',
+                'phone': phoneNumber,
+              },
+            );
+            completer.complete(
+              Left<AuthFailure, String>(
+                _mapPhoneVerificationException(e, StackTrace.current),
+              ),
+            );
           }
         },
         codeSent: (String verificationId, int? resendToken) {
@@ -133,10 +121,37 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
         },
       );
 
-      return completer.future;
+      return completer.future.timeout(
+        const Duration(seconds: 90),
+        onTimeout: () {
+          if (!completer.isCompleted) {
+            LoggerService.logError(
+              'sendPhoneVerification timed out',
+              context: {'phone': phoneNumber},
+            );
+          }
+          return const Left<AuthFailure, String>(
+            AuthUnexpectedFailure(
+              message:
+                  'Délai dépassé lors de l\'envoi du SMS. Vérifiez votre connexion et réessayez.',
+            ),
+          );
+        },
+      );
     } catch (e, st) {
+      LoggerService.logError(
+        'sendPhoneVerification threw',
+        error: e,
+        stackTrace: st,
+        context: {'phone': phoneNumber},
+      );
       return Left<AuthFailure, String>(
-        AuthUnexpectedFailure(cause: e, stackTrace: st),
+        AuthUnexpectedFailure(
+          message:
+              'Impossible d\'envoyer le code SMS. Vérifiez votre connexion et réessayez.',
+          cause: e,
+          stackTrace: st,
+        ),
       );
     }
   }

@@ -4,14 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/email_validator.dart';
-import '../../discovery/application/providers.dart';
+import '../../discovery/application/providers.dart'
+    show invalidateDiscoveryCatalogWidget;
 import '../application/providers.dart';
 import '../infrastructure/merchant_city_resolution.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../merchant_onboarding/application/onboarding_flow_provider.dart';
 import '../../merchant_onboarding/application/screens.dart';
 import '../../merchant_onboarding/application/widgets.dart';
-import '../../profile/application/providers.dart' show refreshUserProfileCache;
+import '../../profile/application/providers.dart'
+    show refreshUserProfileCacheWidget;
 
 part 'merchant_profile_form_screen.part.dart';
 

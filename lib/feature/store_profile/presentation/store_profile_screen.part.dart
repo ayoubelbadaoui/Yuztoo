@@ -817,14 +817,44 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
       children: [
         // ── Scrollable body ──────────────────────────────────────────────────
         Positioned.fill(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom + 24,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child: RefreshIndicator(
+            color: StorefrontColors.primaryGold,
+            backgroundColor: Colors.white,
+            displacement: 80,
+            // Real refresh: invalidate every provider this screen reads from
+            // and await the storefront page-data future before completing —
+            // so the spinner stays up until the new data has actually
+            // landed (not just been requested). Without awaiting `.future`
+            // the spinner snaps back instantly and users assume "nothing
+            // happened" because the new merchant/promotions paint a few
+            // hundred ms later.
+            onRefresh: () async {
+              HapticFeedback.mediumImpact();
+              ref.invalidate(storeProfilePageDataProvider);
+              ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+              ref.invalidate(
+                  followedMerchantHeartLevelsForCurrentUserProvider);
+              ref.invalidate(followersCountByMerchantIdsProvider(
+                  <String>[merchant.id]));
+              ref.invalidate(viewedMerchantIdsForCurrentUserProvider);
+              ref.invalidate(
+                  clientLoyaltyProgressForMerchantProvider(merchant.id));
+              try {
+                await ref.read(storeProfilePageDataProvider.future);
+              } catch (_) {
+                // Even if the refresh fails, we still hide the spinner.
+                // Riverpod's error state will surface in the body.
+              }
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics()),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).padding.bottom + 24,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 // Banner (full-bleed, absorbs the status-bar space)
                 StoreProfileBannerSection(
                   bannerImageUrl: merchant.bannerUrl ?? merchant.logoUrl,
@@ -929,6 +959,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 
                 const SizedBox(height: 32),
               ],
+            ),
             ),
           ),
         ),

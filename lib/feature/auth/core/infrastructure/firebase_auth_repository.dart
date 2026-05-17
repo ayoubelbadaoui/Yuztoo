@@ -89,6 +89,36 @@ abstract class _FirebaseAuthRepositoryBase {
         return const InvalidCredentialsFailure();
       case 'network-request-failed':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
+      case 'invalid-phone-number':
+        return const AuthUnexpectedFailure(
+          message:
+              'Numéro de téléphone invalide. Utilisez le format international (ex. +33 6 12 34 56 78).',
+        );
+      case 'too-many-requests':
+        return const AuthUnexpectedFailure(
+          message:
+              'Trop de tentatives. Attendez quelques minutes avant de redemander un code SMS.',
+        );
+      case 'quota-exceeded':
+        return const AuthUnexpectedFailure(
+          message:
+              'Quota SMS dépassé. Réessayez plus tard ou contactez le support.',
+        );
+      case 'operation-not-allowed':
+        return const AuthUnexpectedFailure(
+          message:
+              'La vérification par SMS n\'est pas activée pour cette application. Contactez le support.',
+        );
+      case 'missing-client-identifier':
+        return const AuthUnexpectedFailure(
+          message:
+              'Impossible d\'envoyer le SMS (configuration iOS : notifications push / APNs manquantes dans Firebase). Contactez le support.',
+        );
+      case 'captcha-check-failed':
+        return const AuthUnexpectedFailure(
+          message:
+              'Vérification anti-spam échouée. Réessayez ou utilisez un autre réseau.',
+        );
       case 'user-cancelled':
         return const UserCancelledFailure();
       case 'app-not-authorized':
@@ -97,15 +127,7 @@ abstract class _FirebaseAuthRepositoryBase {
               'L\'application n\'est pas autorisée à utiliser Firebase Auth. Ajoutez l\'empreinte SHA-1 dans la console Firebase.',
         );
       case 'internal-error':
-        // Check if it's a billing error
-        if (error.message?.contains('BILLING_NOT_ENABLED') == true ||
-            error.message?.toLowerCase().contains('billing') == true) {
-          return const AuthUnexpectedFailure(
-            message:
-                'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
-          );
-        }
-        return AuthUnexpectedFailure(cause: error, stackTrace: stackTrace);
+        return _mapPhoneOrInternalAuthFailure(error, stackTrace);
       default:
         // Check error message for invalid credential keywords (fallback for edge cases)
         if (error.message?.toLowerCase().contains('invalid') == true ||
@@ -133,6 +155,82 @@ abstract class _FirebaseAuthRepositoryBase {
           stackTrace: stackTrace,
         );
     }
+  }
+
+  /// Maps Firebase phone-SMS failures to actionable French copy (signup OTP).
+  AuthFailure _mapPhoneVerificationException(
+    firebase.FirebaseAuthException error,
+    StackTrace stackTrace,
+  ) {
+    final errorMessage = error.message ?? '';
+    final lower = errorMessage.toLowerCase();
+
+    if (errorMessage.contains('BILLING_NOT_ENABLED') ||
+        lower.contains('billing')) {
+      return const AuthUnexpectedFailure(
+        message:
+            'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+      );
+    }
+
+    if (error.code == 'app-not-authorized' ||
+        errorMessage.contains('INVALID_CERT_HASH') ||
+        lower.contains('missing client identifier') ||
+        lower.contains('package certificate hash') ||
+        lower.contains('certificate hash')) {
+      return const AuthUnexpectedFailure(
+        message:
+            'L\'application n\'est pas autorisée (empreinte SHA-1 Android ou certificat iOS manquant dans Firebase). Contactez le support.',
+      );
+    }
+
+    if (lower.contains('recaptcha') || lower.contains('play_integrity')) {
+      return const AuthUnexpectedFailure(
+        message:
+            'Impossible d\'envoyer le SMS (vérification de l\'appareil échouée). Mettez à jour l\'app, vérifiez Google Play Services, puis réessayez.',
+      );
+    }
+
+    return _mapAuthException(error, stackTrace);
+  }
+
+  AuthFailure _mapPhoneOrInternalAuthFailure(
+    firebase.FirebaseAuthException error,
+    StackTrace stackTrace,
+  ) {
+    final errorMessage = error.message ?? '';
+    final lower = errorMessage.toLowerCase();
+
+    if (errorMessage.contains('BILLING_NOT_ENABLED') ||
+        lower.contains('billing')) {
+      return const AuthUnexpectedFailure(
+        message:
+            'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
+      );
+    }
+
+    if (lower.contains('certificate') ||
+        lower.contains('cert_hash') ||
+        lower.contains('invalid_cert')) {
+      return const AuthUnexpectedFailure(
+        message:
+            'Configuration Firebase incorrecte (certificat / SHA-1). Contactez le support.',
+      );
+    }
+
+    if (lower.contains('recaptcha') || lower.contains('play_integrity')) {
+      return const AuthUnexpectedFailure(
+        message:
+            'Impossible d\'envoyer le SMS (vérification de l\'appareil échouée). Réessayez sur un autre réseau.',
+      );
+    }
+
+    return AuthUnexpectedFailure(
+      message:
+          'Impossible d\'envoyer le SMS (erreur interne). Réessayez ou contactez le support.',
+      cause: error,
+      stackTrace: stackTrace,
+    );
   }
 
   AuthFailure _mapSignupException(

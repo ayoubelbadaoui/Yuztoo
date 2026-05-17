@@ -17,7 +17,8 @@ import '../../../core/utils/image_crop_utils.dart';
 import '../../../core/utils/oauth_profile_photo.dart';
 import '../../auth/core/application/oauth_identity_helpers.dart';
 import '../../auth/core/application/providers.dart';
-import '../../profile/application/providers.dart' show refreshUserProfileCache;
+import '../../profile/application/providers.dart'
+    show refreshUserProfileCacheWidget;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/core/infrastructure/user_repository_provider.dart';
 import '../../merchant_onboarding/application/widgets.dart';
@@ -302,7 +303,7 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
         widget.onComplete();
         final auth = ref.read(authControllerProvider);
         if (auth is Authenticated) {
-          unawaited(refreshUserProfileCache(ref as Ref, uid: auth.user.id));
+          unawaited(refreshUserProfileCacheWidget(ref, uid: auth.user.id));
         }
       },
     );

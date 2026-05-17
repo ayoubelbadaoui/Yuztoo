@@ -19,7 +19,7 @@ export '../../auth/core/application/state/auth_state.dart'
 export '../../storefront/application/providers.dart' show storefrontProvider;
 
 export '../../profile/application/refresh_user_profile_cache.dart'
-    show refreshUserProfileCache;
+    show refreshUserProfileCacheWidget;
 
 final personalProfileImageCacheProvider =
     Provider<PersonalProfileImageCache>((ref) {
