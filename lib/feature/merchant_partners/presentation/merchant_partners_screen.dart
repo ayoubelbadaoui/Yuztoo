@@ -7,6 +7,7 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../application/providers.dart' as partners_providers;
 import '../domain/entities/merchant_partner.dart';
+import 'partner_invite_sheet.dart';
 
 part 'merchant_partners_screen.part.dart';
 

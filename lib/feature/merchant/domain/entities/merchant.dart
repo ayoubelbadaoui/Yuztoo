@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/utils/city_input.dart';
+import 'client_gratification_config.dart';
 import 'loyalty_program_config.dart';
 
 /// Domain representation of a merchant business entity.
@@ -27,7 +28,7 @@ class Merchant extends Equatable {
     this.websiteUrl,
     this.bannerUrl,
     this.newsImageUrls,
-    this.loyaltyEnabled = true,
+    this.loyaltyEnabled = false,
     this.loyaltyProgram,
     this.messagingEnabled = true,
     this.notificationsAutoEnabled = true,
@@ -40,6 +41,9 @@ class Merchant extends Equatable {
     this.weeklyNotifResetAt,
     this.merchantType = 'b2c',
     this.welcomeGiftDescription,
+    this.categoryId,
+    this.subcategoryTitle,
+    this.gratificationConfig,
   });
 
   /// Unique identifier for the merchant document
@@ -126,6 +130,20 @@ class Merchant extends Equatable {
   /// Optional description of a welcome gift for new followers.
   final String? welcomeGiftDescription;
 
+  /// Onboarding category ID (e.g. 'food', 'beauty'). Saved at creation.
+  final String? categoryId;
+
+  /// Onboarding subcategory / precise type (e.g. 'Boulangerie & Pâtisserie').
+  final String? subcategoryTitle;
+
+  /// Merchant-configured client tier thresholds and visibility settings.
+  /// Falls back to [ClientGratificationConfig.defaults] when null.
+  final ClientGratificationConfig? gratificationConfig;
+
+  /// Returns the effective gratification config (never null).
+  ClientGratificationConfig get effectiveGratificationConfig =>
+      gratificationConfig ?? ClientGratificationConfig.defaults;
+
   /// Free-tier allows 5 manual notifications per rolling 7-day window.
   bool get canSendNotification {
     if (weeklyNotifResetAt == null) return true;
@@ -193,6 +211,9 @@ class Merchant extends Equatable {
         weeklyNotifResetAt,
         merchantType,
         welcomeGiftDescription,
+        categoryId,
+        subcategoryTitle,
+        gratificationConfig,
       ];
 
   /// Creates a copy of the merchant with updated fields
@@ -228,6 +249,9 @@ class Merchant extends Equatable {
     DateTime? weeklyNotifResetAt,
     String? merchantType,
     String? welcomeGiftDescription,
+    String? categoryId,
+    String? subcategoryTitle,
+    ClientGratificationConfig? gratificationConfig,
   }) {
     return Merchant(
       id: id ?? this.id,
@@ -266,6 +290,9 @@ class Merchant extends Equatable {
       weeklyNotifResetAt: weeklyNotifResetAt ?? this.weeklyNotifResetAt,
       merchantType: merchantType ?? this.merchantType,
       welcomeGiftDescription: welcomeGiftDescription ?? this.welcomeGiftDescription,
+      categoryId: categoryId ?? this.categoryId,
+      subcategoryTitle: subcategoryTitle ?? this.subcategoryTitle,
+      gratificationConfig: gratificationConfig ?? this.gratificationConfig,
     );
   }
 

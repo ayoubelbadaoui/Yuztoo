@@ -73,4 +73,27 @@ void main() {
       );
     });
   });
+
+  group('mergedOwnerConnectedCities', () {
+    test('adds merchant city to existing cities list', () {
+      expect(
+        mergedOwnerConnectedCities(
+          existingUserData: {
+            'cities': ['Paris'],
+            'city': 'Paris',
+          },
+          persistedCity: 'Lyon',
+        ),
+        containsAll(['Paris', 'Lyon']),
+      );
+    });
+
+    test('dedupes case-sensitive entries as separate (display names)', () {
+      final list = mergedOwnerConnectedCities(
+        existingUserData: const {'cities': ['Lyon']},
+        persistedCity: 'Lyon',
+      );
+      expect(list, ['Lyon']);
+    });
+  });
 }

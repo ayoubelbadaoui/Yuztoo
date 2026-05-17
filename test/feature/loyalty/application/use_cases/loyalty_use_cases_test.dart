@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/failure.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
+import 'package:flutter_yuztoo/feature/client_notification/domain/entities/client_notification.dart';
+import 'package:flutter_yuztoo/feature/client_notification/domain/repositories/client_notification_repository.dart';
 import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/record_loyalty_passage.dart';
 import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/validate_pending_loyalty_passage.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
@@ -10,7 +12,32 @@ import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/client_loyalt
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 
-// ── Fake repository ──────────────────────────────────────────────────────────
+// ── Fake repositories ────────────────────────────────────────────────────────
+
+class _FakeClientNotificationRepository implements ClientNotificationRepository {
+  @override
+  Stream<List<ClientNotification>> watchForClient(String clientId) =>
+      Stream.value([]);
+
+  @override
+  Future<Result<ClientNotification>> create(ClientNotification notification) async =>
+      Right(notification.copyWith(id: 'fake-id'));
+
+  @override
+  Future<Result<Unit>> markAsRead(String clientId, String notificationId) async =>
+      const Right(unit);
+
+  @override
+  Future<Result<Unit>> markAllAsRead(String clientId) async => const Right(unit);
+
+  @override
+  Future<Result<Unit>> deleteNotification(String clientId, String notificationId) async =>
+      const Right(unit);
+
+  @override
+  Future<Result<Unit>> deleteAllNotifications(String clientId) async =>
+      const Right(unit);
+}
 
 class _FakeClientLoyaltyRepository implements ClientLoyaltyRepository {
   // capture last call
@@ -152,16 +179,18 @@ LoyaltyProgramConfig _spendAuto({
 
 void main() {
   late _FakeClientLoyaltyRepository repo;
+  late _FakeClientNotificationRepository notifRepo;
 
   setUp(() {
     repo = _FakeClientLoyaltyRepository();
+    notifRepo = _FakeClientNotificationRepository();
   });
 
   group('RecordLoyaltyPassage', () {
     // ── guard validations ────────────────────────────────────────────────────
 
     test('returns Left when clientUid is empty', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(clientUid: '', merchant: _merchant());
       expect(result.isLeft, isTrue);
       expect(result.fold((f) => f.message, (_) => ''),
@@ -169,7 +198,7 @@ void main() {
     });
 
     test('returns Left when loyaltyEnabled is false', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(loyaltyEnabled: false),
@@ -178,7 +207,7 @@ void main() {
     });
 
     test('returns Left when programEnabled is false', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -191,7 +220,7 @@ void main() {
     // ── spend-based: amount required ─────────────────────────────────────────
 
     test('spend trigger — returns Left when amount null', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(program: _spendAuto()),
@@ -202,7 +231,7 @@ void main() {
     });
 
     test('spend trigger — returns Left when amount is zero', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(program: _spendAuto()),
@@ -212,7 +241,7 @@ void main() {
     });
 
     test('spend trigger — returns Left when amount below minimum', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -227,7 +256,7 @@ void main() {
     // ── visit-count auto: happy paths ────────────────────────────────────────
 
     test('visitCount + auto — increments validatedPassages by 1', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(program: _visitCountAuto()),
@@ -241,7 +270,7 @@ void main() {
     test('visitCount + auto — minimum irrelevant when no amount provided',
         () async {
       // visitCount does not check purchase amount at all
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -255,7 +284,7 @@ void main() {
     // ── visit-count manual ───────────────────────────────────────────────────
 
     test('visitCount + manual — increments pendingPassages by 1', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(program: _visitCountManual()),
@@ -268,7 +297,7 @@ void main() {
     // ── spend auto: happy path ───────────────────────────────────────────────
 
     test('spend trigger + auto — adds spend delta', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(program: _spendAuto()),
@@ -281,7 +310,7 @@ void main() {
     });
 
     test('spend trigger + auto — amount above minimum succeeds', () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -299,7 +328,7 @@ void main() {
         () async {
       // effectiveAskClientPurchaseAmount = true → amount IS required even for
       // visitCount programs when optionalAskClientPurchaseAmount is true.
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -321,7 +350,7 @@ void main() {
         () async {
       // Key insight: even though the merchant collected the amount for display
       // purposes, visitCount programs only track visit counts, NOT spend.
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -344,7 +373,7 @@ void main() {
         'visitCount + optionalAmount=true + minimum enabled + '
         'amount below minimum → Left',
         () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -367,7 +396,7 @@ void main() {
         'visitCount + optionalAmount=true + minimum disabled + '
         'amount below old minimum → succeeds (minimum ignored)',
         () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -393,7 +422,7 @@ void main() {
       // Edge: purchaseAmountEuros == minimumPerVisitEuros is NOT below minimum
       // The check is: purchaseAmountEuros < minimumPerVisitEuros → fail.
       // At exactly the minimum → passes.
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -407,7 +436,7 @@ void main() {
 
     test('spend trigger + minimum enabled + amount 0.01 below minimum → Left',
         () async {
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(
@@ -421,7 +450,7 @@ void main() {
 
     test('repository failure propagates for visitCount programs', () async {
       repo.shouldFail = true;
-      final uc = RecordLoyaltyPassage(repo);
+      final uc = RecordLoyaltyPassage(repo, notifRepo);
       final result = await uc.call(
         clientUid: 'c1',
         merchant: _merchant(program: _visitCountAuto()),

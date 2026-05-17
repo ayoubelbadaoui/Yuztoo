@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../../core/utils/city_input.dart';
+import '../../domain/entities/client_gratification_config.dart';
 import '../../domain/entities/merchant.dart';
 import '../loyalty_program_firestore_mapper.dart';
 
@@ -24,7 +26,7 @@ class MerchantDto {
     this.websiteUrl,
     this.bannerUrl,
     this.newsImageUrls,
-    this.loyaltyEnabled = true,
+    this.loyaltyEnabled = false,
     this.loyaltyProgramRaw,
     this.messagingEnabled = true,
     this.notificationsAutoEnabled = true,
@@ -37,6 +39,9 @@ class MerchantDto {
     this.weeklyNotifResetAt,
     this.merchantType = 'b2c',
     this.welcomeGiftDescription,
+    this.categoryId,
+    this.subcategoryTitle,
+    this.gratificationConfigRaw,
   });
 
   final String id;
@@ -71,6 +76,10 @@ class MerchantDto {
   final DateTime? weeklyNotifResetAt;
   final String merchantType;
   final String? welcomeGiftDescription;
+  final String? categoryId;
+  final String? subcategoryTitle;
+  /// Raw `gratification_config` map from Firestore (parsed in [toDomain]).
+  final Map<String, dynamic>? gratificationConfigRaw;
 
   /// Create DTO from Firestore document snapshot.
   factory MerchantDto.fromFirestore(
@@ -107,7 +116,7 @@ class MerchantDto {
     }
     final loyaltyParsed = LoyaltyProgramFirestoreMapper.fromFirestoreMap(lp);
     final loyaltyEnabledEffective = loyaltyParsed?.programEnabled ??
-        (data['loyalty_enabled'] != false);
+        (data['loyalty_enabled'] == true);
 
     return MerchantDto(
       id: doc.id,
@@ -158,6 +167,12 @@ class MerchantDto {
       weeklyNotifResetAt: parseTimestamp(data['weekly_notif_reset_at']),
       merchantType: data['merchant_type'] as String? ?? 'b2c',
       welcomeGiftDescription: data['welcome_gift_description'] as String?,
+      categoryId: data['category_id'] as String?,
+      subcategoryTitle: data['subcategory_title'] as String?,
+      gratificationConfigRaw: data['gratification_config'] is Map
+          ? Map<String, dynamic>.from(
+              data['gratification_config'] as Map)
+          : null,
     );
   }
 
@@ -195,6 +210,11 @@ class MerchantDto {
         weeklyNotifResetAt: weeklyNotifResetAt,
         merchantType: merchantType,
         welcomeGiftDescription: welcomeGiftDescription,
+        categoryId: categoryId,
+        subcategoryTitle: subcategoryTitle,
+        gratificationConfig: gratificationConfigRaw != null
+            ? ClientGratificationConfig.fromMap(gratificationConfigRaw!)
+            : null,
       );
   factory MerchantDto.fromDomain(Merchant merchant) => MerchantDto(
         id: merchant.id,
@@ -230,14 +250,18 @@ class MerchantDto {
         weeklyNotifResetAt: merchant.weeklyNotifResetAt,
         merchantType: merchant.merchantType,
         welcomeGiftDescription: merchant.welcomeGiftDescription,
+        categoryId: merchant.categoryId,
+        subcategoryTitle: merchant.subcategoryTitle,
+        gratificationConfigRaw: merchant.gratificationConfig?.toMap(),
       );
   /// Note: 'id' is not included as it's the Firestore document ID.
   Map<String, dynamic> toFirestore() => <String, dynamic>{
         'owner_uid': ownerUid,
         'name': name,
+        'name_lowercase': name.toLowerCase(),
         'email': email,
         'phone': phone,
-        'city': city,
+        'city': CityInput.forFirestore(city) ?? city,
         if (address != null) 'address': address,
         if (categories != null) 'categories': categories,
         if (description != null) 'description': description,
@@ -257,6 +281,10 @@ class MerchantDto {
         'merchant_type': merchantType,
         if (welcomeGiftDescription != null)
           'welcome_gift_description': welcomeGiftDescription,
+        if (categoryId != null) 'category_id': categoryId,
+        if (subcategoryTitle != null) 'subcategory_title': subcategoryTitle,
+        if (gratificationConfigRaw != null)
+          'gratification_config': gratificationConfigRaw,
         'status': status,
         'created_at': createdAt != null
             ? Timestamp.fromDate(createdAt!)

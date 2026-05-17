@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_yuztoo/feature/role_selection/application/screens.dart';
+import 'package:flutter_yuztoo/feature/merchant_onboarding/application/providers.dart';
 import 'package:flutter_yuztoo/feature/merchant_onboarding/application/screens.dart';
 import 'package:flutter_yuztoo/feature/merchant_onboarding/presentation/widgets/subcategory/subcategory_card.dart';
 import 'package:flutter_yuztoo/types.dart';
@@ -120,8 +121,15 @@ void main() {
     testWidgets(
         '4. Subcategory Selection - Suivant button navigates when subcategory selected',
         (tester) async {
+      // Seed the category-id provider — the screen now auto-skips when no
+      // category was picked (categories without a curated subcategory list
+      // skip the step entirely). For this test we exercise the restaurant
+      // path which has the canonical list.
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            selectedMerchantCategoryIdProvider.overrideWith((ref) => 'restaurant'),
+          ],
           child: MaterialApp(
             home: SubcategorySelectionScreen(
               onBack: () {},

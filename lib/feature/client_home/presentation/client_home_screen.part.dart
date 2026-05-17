@@ -1,7 +1,10 @@
 part of 'client_home_screen.dart';
 
 extension _ClientHomeScreenUi on ClientHomeScreen {
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(
+    BuildContext context, {
+    required bool showMerchantSwitch,
+  }) {
     return Container(
       color: MerchantColors.bgHeader,
       child: SafeArea(
@@ -30,7 +33,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
                   ),
                 ),
               ),
-              if (isDualProfile)
+              if (showMerchantSwitch)
                 GestureDetector(
                   onTap: () => onNavigate('switch-to-merchant'),
                   behavior: HitTestBehavior.opaque,
@@ -116,6 +119,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
 
   Widget _buildBusinessCard(
     BuildContext context,
+    WidgetRef ref,
     List<Merchant> merchants,
     Map<String, int> heartLevels, {
     List<String> followedIds = const [],
@@ -125,26 +129,11 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
       return _buildEmptyCarnet(context);
     }
 
-    // Sort: followed merchants first, then others
+    // Order comes from [clientHomeFeedProvider] (sort_index + heart fallback).
     final followedSet = followedIds.toSet();
-    final sortedMerchants = List<Merchant>.from(merchants);
-    sortedMerchants.sort((a, b) {
-      if (a.id == ownMerchantId) return -1;
-      if (b.id == ownMerchantId) return 1;
-      final aFollowed = followedSet.contains(a.id);
-      final bFollowed = followedSet.contains(b.id);
-      if (aFollowed && !bFollowed) return -1;
-      if (!aFollowed && bFollowed) return 1;
-      if (aFollowed && bFollowed) {
-        final ah = heartLevels[a.id] ?? 1;
-        final bh = heartLevels[b.id] ?? 1;
-        return bh.compareTo(ah);
-      }
-      return 0;
-    });
 
     return _CarnetList(
-      merchants: sortedMerchants,
+      merchants: merchants,
       heartLevels: heartLevels,
       followedSet: followedSet,
       ownMerchantId: ownMerchantId,
@@ -154,6 +143,18 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
         } else {
           onNavigate('store-profile');
         }
+      },
+      onOrderChanged: (sortIndexes) {
+        final userId = ref.read(auth_providers.currentUserIdProvider);
+        if (userId == null) return;
+        ref
+            .read(followedMerchantsRepositoryProvider)
+            .updateSortOrder(userId, sortIndexes)
+            .then((result) {
+          if (result.isRight) {
+            ref.invalidate(clientHomeFeedProvider);
+          }
+        });
       },
     );
   }
@@ -254,6 +255,8 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const _RestonsProchesTile(),
+          const SizedBox(height: 16),
           Text(
             AppLocalizations.of(context)!.stores,
             style: GoogleFonts.outfit(
@@ -742,6 +745,7 @@ class _CarnetList extends StatefulWidget {
     required this.followedSet,
     required this.onMerchantTap,
     this.ownMerchantId,
+    this.onOrderChanged,
   });
 
   final List<Merchant> merchants;
@@ -749,6 +753,7 @@ class _CarnetList extends StatefulWidget {
   final Set<String> followedSet;
   final void Function(String merchantId) onMerchantTap;
   final String? ownMerchantId;
+  final void Function(Map<String, int> sortIndexes)? onOrderChanged;
 
   @override
   State<_CarnetList> createState() => _CarnetListState();
@@ -767,7 +772,7 @@ class _CarnetListState extends State<_CarnetList> {
   @override
   void didUpdateWidget(_CarnetList old) {
     super.didUpdateWidget(old);
-    if (old.merchants != widget.merchants) {
+    if (!carnetMerchantIdsEqualOrder(old.merchants, widget.merchants)) {
       _ordered = List<Merchant>.from(widget.merchants);
     }
   }
@@ -786,11 +791,8 @@ class _CarnetListState extends State<_CarnetList> {
     final showSearch = widget.merchants.length > 6;
     final filtered = _filtered;
 
-    // Dual-account split: the spec (page 17) shows the user's own merchant
-    // and a "Yuztoo – Restons Proches" brand vignette pinned at the top of
-    // the carnet, with the rest of the followed merchants listed below.
-    // We hide both during search so results are not crowded by a static
-    // tile that doesn't match the query.
+    // Carnet order: brand vignette first, then optional own-merchant tile
+    // (dual profile), then followed merchants. Hidden during search.
     Merchant? ownMerchant;
     if (widget.ownMerchantId != null) {
       for (final m in filtered) {
@@ -800,16 +802,11 @@ class _CarnetListState extends State<_CarnetList> {
         }
       }
     }
-    final showPinnedSection = ownMerchant != null && _query.isEmpty;
-    final reorderableList = showPinnedSection
+    final showRestonsProches = _query.isEmpty;
+    final showOwnMerchant = ownMerchant != null && _query.isEmpty;
+    final reorderableList = showOwnMerchant
         ? filtered.where((m) => m.id != widget.ownMerchantId).toList()
         : filtered;
-    // Reorder operates on `_ordered` (the persistent ordering across
-    // searches). When the pinned section is shown, the reorderable list
-    // skips the own-merchant entry — but `_ordered` still has it at
-    // position 0, so we offset rendered indices by 1 when remapping.
-    final reorderOffset = showPinnedSection ? 1 : 0;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -849,18 +846,29 @@ class _CarnetListState extends State<_CarnetList> {
             ),
             const SizedBox(height: 16),
           ],
-          if (showPinnedSection) ...[
-            // Own merchant — pinned, NOT reorderable (always sits at the
-            // top of the carnet so the dual-profile user keeps a stable
-            // anchor to their own storefront).
+          if (showRestonsProches) ...[
+            const _RestonsProchesTile(),
+            if (showOwnMerchant || reorderableList.isNotEmpty)
+              const SizedBox(height: 16),
+          ],
+          if (showOwnMerchant) ...[
+            // Own merchant — pinned below brand tile, NOT reorderable.
             _buildMerchantTile(
               ownMerchant,
               isLast: false,
               isReorderable: false,
             ),
-            const SizedBox(height: 16),
-            const _RestonsProchesTile(),
             if (reorderableList.isNotEmpty) const SizedBox(height: 16),
+          ],
+          if (reorderableList.isNotEmpty && _query.isEmpty) ...[
+            Text(
+              'Maintenir une vignette pour réorganiser',
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: MerchantColors.textGrey,
+              ),
+            ),
+            const SizedBox(height: 8),
           ],
           if (reorderableList.isNotEmpty)
             ReorderableListView.builder(
@@ -873,17 +881,36 @@ class _CarnetListState extends State<_CarnetList> {
                 if (_query.isNotEmpty) return; // disable reorder during search
                 setState(() {
                   if (newIndex > oldIndex) newIndex--;
-                  final item =
-                      _ordered.removeAt(oldIndex + reorderOffset);
-                  _ordered.insert(newIndex + reorderOffset, item);
+                  // Rebuild from the reorderable subset to avoid offset
+                  // arithmetic bugs: simple +1 assumes ownMerchant is always
+                  // at _ordered[0] which is not guaranteed.
+                  final workingList = _ordered
+                      .where((m) => m.id != widget.ownMerchantId)
+                      .toList();
+                  final item = workingList.removeAt(oldIndex);
+                  workingList.insert(newIndex, item);
+                  if (showOwnMerchant && ownMerchant != null) {
+                    _ordered = [ownMerchant, ...workingList];
+                  } else {
+                    _ordered = workingList;
+                  }
                 });
+                // Persist new order — skip own merchant (not in followed_merchants).
+                final reorderable = _ordered
+                    .where((m) => m.id != widget.ownMerchantId)
+                    .toList();
+                final indexes = {
+                  for (var i = 0; i < reorderable.length; i++)
+                    reorderable[i].id: i
+                };
+                widget.onOrderChanged?.call(indexes);
               },
               itemBuilder: (context, index) {
                 final merchant = reorderableList[index];
                 return ReorderableDelayedDragStartListener(
                   key: ValueKey(merchant.id),
                   index: index,
-                  enabled: _query.isEmpty && reorderableList.length > 1,
+                  enabled: _query.isEmpty && reorderableList.isNotEmpty,
                   child: _buildMerchantTile(
                     merchant,
                     isLast: index == reorderableList.length - 1,
@@ -967,16 +994,31 @@ class _CarnetListState extends State<_CarnetList> {
                           ),
                         ),
                       )
-                    else if (isFollowed)
+                    else if (isReorderable || isFollowed)
                       Row(
-                        children: List.generate(
-                          heartLevel.clamp(0, 3),
-                          (i) => Padding(
-                            padding: EdgeInsets.only(left: i == 0 ? 0 : 3),
-                            child: const Icon(Icons.favorite,
-                                color: MerchantColors.gold, size: 16),
-                          ),
-                        ),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isReorderable)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Icon(
+                                Icons.drag_indicator_rounded,
+                                size: 20,
+                                color: MerchantColors.textGrey
+                                    .withValues(alpha: 0.7),
+                              ),
+                            ),
+                          if (isFollowed)
+                            ...List.generate(
+                              heartLevel.clamp(0, 3),
+                              (i) => Padding(
+                                padding:
+                                    EdgeInsets.only(left: i == 0 ? 0 : 3),
+                                child: const Icon(Icons.favorite,
+                                    color: MerchantColors.gold, size: 16),
+                              ),
+                            ),
+                        ],
                       ),
                   ],
                 ),
@@ -1048,8 +1090,7 @@ class _CarnetListState extends State<_CarnetList> {
 
 // ─── Yuztoo "Restons Proches" brand vignette ────────────────────────────────
 //
-// Spec page 17 (Compte double Pro + Client) — pinned at the top of the
-// dual-account user's carnet, just below their own merchant tile. It is
+// Pinned at the top of the client carnet (above followed merchants). It is
 // purely a brand surface (no real merchant doc), so taps open an
 // informational bottom sheet rather than a vitrine. The visual style
 // mirrors the surrounding carnet tiles (dark navy, gold border, banner-

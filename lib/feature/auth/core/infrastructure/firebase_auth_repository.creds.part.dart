@@ -286,6 +286,7 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
       final lastName = appleCredential.familyName;
       if (firstName != null && user.displayName == null) {
         await user.updateDisplayName('$firstName ${lastName ?? ''}'.trim());
+        await user.reload();
       }
       DocumentSnapshot<Map<String, dynamic>>? profileDoc;
       try {

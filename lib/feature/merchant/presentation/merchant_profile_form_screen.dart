@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/email_validator.dart';
+import '../../../core/utils/oauth_profile_photo.dart';
+import '../../discovery/application/providers.dart';
 import '../application/providers.dart';
+import '../infrastructure/merchant_city_resolution.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../merchant_onboarding/application/onboarding_flow_provider.dart';
 import '../../merchant_onboarding/application/screens.dart';
@@ -17,10 +20,15 @@ class MerchantProfileFormScreen extends ConsumerStatefulWidget {
     super.key,
     this.onBack,
     this.onComplete,
+    this.skipPersonalInfo = false,
   });
 
   final VoidCallback? onBack;
   final VoidCallback? onComplete;
+
+  /// When true (client upgrading to merchant), personal steps — owner name,
+  /// DOB, and logo — are skipped since that data already exists on the account.
+  final bool skipPersonalInfo;
 
   @override
   ConsumerState<MerchantProfileFormScreen> createState() =>
@@ -51,23 +59,59 @@ class _MerchantProfileFormScreenState
     final cacheService = ref.read(merchantProfileCacheServiceProvider);
     final cachedData = await cacheService.loadProfile();
 
-    if (cachedData['userId'] != userId) return;
-
     if (!mounted) return;
     final notifier = ref.read(onboardingFlowProvider.notifier);
-    if (cachedData['name'] != null) notifier.setFullName(cachedData['name']!);
-    if (cachedData['address'] != null) notifier.setAddress(cachedData['address']!);
-    if (cachedData['category'] != null) {
-      notifier.setCategory(cachedData['category']!, cachedData['category']!);
+
+    if (cachedData['userId'] == userId) {
+      if (cachedData['name'] != null) notifier.setFullName(cachedData['name']!);
+      if (cachedData['address'] != null) notifier.setAddress(cachedData['address']!);
+      if (cachedData['category'] != null) {
+        notifier.setCategory(cachedData['category']!, cachedData['category']!);
+      }
+      if (cachedData['description'] != null) {
+        notifier.setDescription(cachedData['description']!);
+      }
+      if (cachedData['phone'] != null) {
+        notifier.setPhoneNumber(cachedData['phone']!);
+      }
+      if (cachedData['websiteUrl'] != null) {
+        notifier.setWebsiteUrl(cachedData['websiteUrl']!);
+      }
     }
-    if (cachedData['description'] != null) {
-      notifier.setDescription(cachedData['description']!);
+
+    // For a client upgrading to merchant, personal info (name, DOB, city)
+    // already exists on the user profile — pre-fill silently so the
+    // skipped steps still land in onboarding state for the final save.
+    if (widget.skipPersonalInfo) {
+      final basicsResult =
+          await ref.read(auth_providers.getUserProfileBasicsProvider).call(userId);
+      if (!mounted) return;
+      final basics = basicsResult.fold((_) => null, (b) => b);
+      if (basics != null) {
+        if (basics.firstName?.isNotEmpty == true) {
+          notifier.setOwnerFirstName(basics.firstName!);
+        }
+        if (basics.lastName?.isNotEmpty == true) {
+          notifier.setOwnerLastName(basics.lastName!);
+        }
+        if (basics.dateOfBirth != null) {
+          notifier.setOwnerDateOfBirth(basics.dateOfBirth);
+        }
+        if (basics.city.isNotEmpty) {
+          notifier.setCity(basics.city);
+        }
+      }
     }
-    if (cachedData['phone'] != null) {
-      notifier.setPhoneNumber(cachedData['phone']!);
-    }
-    if (cachedData['websiteUrl'] != null) {
-      notifier.setWebsiteUrl(cachedData['websiteUrl']!);
+
+    // Seed commerce logo from Google / Apple profile photo when available.
+    final oauthUrl = authState.user.photoUrl?.trim();
+    final existingLogo = ref.read(onboardingFlowProvider).imagePath?.trim();
+    if ((existingLogo == null || existingLogo.isEmpty) &&
+        isUsableOAuthProfilePhotoUrl(oauthUrl)) {
+      final path = await downloadOAuthProfilePhotoToTempFile(oauthUrl!);
+      if (path != null && mounted) {
+        notifier.setImagePath(path);
+      }
     }
   }
 
@@ -80,6 +124,7 @@ class _MerchantProfileFormScreenState
   Widget build(BuildContext context) {
     return MerchantOnboardingFlowScreen(
       isPostSignup: true,
+      skipPersonalInfo: widget.skipPersonalInfo,
       onBack: widget.onBack ?? () {},
       onComplete: () {},
       onPostSignupPersist: _saveFromOnboarding,

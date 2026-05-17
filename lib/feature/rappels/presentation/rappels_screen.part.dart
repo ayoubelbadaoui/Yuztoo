@@ -40,6 +40,7 @@ extension _RappelsScreenUi on _RappelsScreenState {
                         return QuickSendSection(
                           merchantId: m.id,
                           merchantName: m.name,
+                          createdByUid: m.ownerUid,
                           onSend: _onQuickSend,
                           history: historyAsync.valueOrNull ?? [],
                           historyLoading: historyAsync.isLoading,
@@ -53,12 +54,10 @@ extension _RappelsScreenUi on _RappelsScreenState {
                     // ── Clients + stats ─────────────────────────────────────
                     storefrontAsync.when(
                       data: (storefront) => RappelsClientsSection(
-                        connectedClientsThisMonth: _kRappelsDummy
-                            ? _kDummyConnected
-                            : (storefront?.rappelsMonthlyConnectedClients ?? 0),
-                        validatedPassagesThisMonth: _kRappelsDummy
-                            ? _kDummyValidatedPassages
-                            : (storefront?.rappelsMonthlyValidatedPassages ?? 0),
+                        connectedClientsThisMonth:
+                            storefront?.rappelsMonthlyConnectedClients ?? 0,
+                        validatedPassagesThisMonth:
+                            storefront?.rappelsMonthlyValidatedPassages ?? 0,
                         pendingLoyaltyPassagesToConfirm: totalPendingPassages,
                         isManualPassageValidation: isManualPassageValidation,
                         onConfirmPendingPassagesTap:
@@ -66,8 +65,8 @@ extension _RappelsScreenUi on _RappelsScreenState {
                         onAutoTap: _scrollToToggles,
                       ),
                       loading: () => RappelsClientsSection(
-                        connectedClientsThisMonth: _kRappelsDummy ? _kDummyConnected : 0,
-                        validatedPassagesThisMonth: _kRappelsDummy ? _kDummyValidatedPassages : 0,
+                        connectedClientsThisMonth: 0,
+                        validatedPassagesThisMonth: 0,
                         pendingLoyaltyPassagesToConfirm: totalPendingPassages,
                         isManualPassageValidation: isManualPassageValidation,
                         onConfirmPendingPassagesTap:
@@ -75,8 +74,8 @@ extension _RappelsScreenUi on _RappelsScreenState {
                         onAutoTap: _scrollToToggles,
                       ),
                       error: (_, __) => RappelsClientsSection(
-                        connectedClientsThisMonth: _kRappelsDummy ? _kDummyConnected : 0,
-                        validatedPassagesThisMonth: _kRappelsDummy ? _kDummyValidatedPassages : 0,
+                        connectedClientsThisMonth: 0,
+                        validatedPassagesThisMonth: 0,
                         pendingLoyaltyPassagesToConfirm: totalPendingPassages,
                         isManualPassageValidation: isManualPassageValidation,
                         onConfirmPendingPassagesTap:
@@ -111,7 +110,6 @@ extension _RappelsScreenUi on _RappelsScreenState {
                         merchantId: storefront?.id ?? '',
                         isAutoValidation:
                             storefront?.rappelsAutoClientValidation ?? true,
-                        showDummyWhenEmpty: _kRappelsDummy,
                       ),
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
@@ -198,7 +196,7 @@ extension _RappelsScreenUi on _RappelsScreenState {
               Expanded(
                 child: Center(
                   child: Text(
-                    'Vos rappels',
+                    'Notifications',
                     style: GoogleFonts.outfit(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,

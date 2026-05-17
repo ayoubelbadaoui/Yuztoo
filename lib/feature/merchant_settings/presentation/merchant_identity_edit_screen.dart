@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/cupertino_dob_picker.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/core/domain/entities/user_profile_basics.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
+import '../../profile/application/providers.dart' show refreshUserProfileCache;
 
 /// Lets a merchant edit their personal identity (owner first/last name, DOB,
 /// professional contact email) and core commerce info (trading name, phone).
@@ -69,21 +71,11 @@ class _MerchantIdentityEditScreenState
     final now = DateTime.now();
     final initial =
         _selectedDob ?? DateTime(now.year - 30, now.month, now.day);
-    final picked = await showDatePicker(
+    final picked = await showCupertinoDobPicker(
       context: context,
-      initialDate: initial,
-      firstDate: DateTime(1920),
-      lastDate: DateTime(now.year - 16, now.month, now.day),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: MerchantColors.gold,
-            surface: MerchantColors.bgHeader,
-            onSurface: MerchantColors.textWhite,
-          ),
-        ),
-        child: child!,
-      ),
+      initial: initial,
+      minimum: DateTime(1920),
+      maximum: DateTime(now.year - 16, now.month, now.day),
     );
     if (picked != null && mounted) setState(() => _selectedDob = picked);
   }
@@ -138,9 +130,11 @@ class _MerchantIdentityEditScreenState
       return;
     }
 
-    // Invalidate providers so screens reflect the new data immediately.
-    ref.invalidate(auth_providers.userProfileBasicsProvider(uid));
-    ref.invalidate(merchant_providers.currentMerchantForOwnerProvider);
+    await refreshUserProfileCache(
+      ref as Ref,
+      uid: uid,
+      isMerchant: true,
+    );
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

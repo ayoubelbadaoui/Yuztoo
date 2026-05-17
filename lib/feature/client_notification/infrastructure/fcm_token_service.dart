@@ -53,6 +53,21 @@ class FcmTokenService {
       // Without this Samsung/Xiaomi/etc. kill FCM delivery after ~20 min idle.
       await _requestBatteryExemption();
 
+      // On iOS, FCM can return a token before APNs has issued a device token.
+      // The resulting FCM token has no APNs binding and Firebase silently
+      // drops sends to it — the symptom is "permission granted, no pushes".
+      // Wait (with timeout) for getAPNSToken to come back non-null first.
+      if (Platform.isIOS) {
+        final apnsToken = await _waitForApnsToken(messaging);
+        if (apnsToken == null) {
+          LoggerService.logInfo(
+            'APNs token unavailable — skipping FCM registration',
+            context: {'userId': userId},
+          );
+          return;
+        }
+      }
+
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) return;
 
@@ -71,6 +86,25 @@ class FcmTokenService {
         context: {'userId': userId},
       );
     }
+  }
+
+  /// Poll FirebaseMessaging.getAPNSToken until it returns non-null or we hit
+  /// the timeout. APNs typically issues the device token within ~1s of
+  /// registerForRemoteNotifications, but on cold launch with poor network it
+  /// can take several seconds — returning null means we should bail and let
+  /// the next app-resume retry (didChangeAppLifecycleState calls us again).
+  Future<String?> _waitForApnsToken(
+    FirebaseMessaging messaging, {
+    Duration timeout = const Duration(seconds: 10),
+    Duration interval = const Duration(milliseconds: 500),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final token = await messaging.getAPNSToken();
+      if (token != null && token.isNotEmpty) return token;
+      await Future<void>.delayed(interval);
+    }
+    return null;
   }
 
   /// Opens the system dialog asking the user to exempt this app from

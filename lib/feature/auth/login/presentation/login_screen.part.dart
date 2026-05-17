@@ -272,8 +272,7 @@ class _GoogleIconPainter extends CustomPainter {
 
 extension _LoginScreenFlow on _LoginScreenState {
   void _showCityPicker(String uid) {
-    // Controller lives outside StatefulBuilder to avoid recreation on setState
-    final searchController = TextEditingController();
+    var citySelected = false;
 
     showModalBottomSheet(
       context: context,
@@ -285,161 +284,188 @@ extension _LoginScreenFlow on _LoginScreenState {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final filteredCities = <String>[];
-
-            void filterCities(String query) {
-              setModalState(() {
-                filteredCities.clear();
-                if (query.isNotEmpty) {
-                  filteredCities.addAll(
-                    frenchCities.where(
-                      (c) => c.toLowerCase().contains(query.toLowerCase()),
-                    ),
-                  );
-                }
-              });
-            }
-
-            final citiesToShow =
-                filteredCities.isEmpty ? frenchCities : filteredCities;
-
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.75,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Handle
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: _borderColor,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Votre ville',
-                      style: GoogleFonts.outfit(
-                        color: _textLight,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Sélectionnez votre ville de résidence',
-                      style: GoogleFonts.outfit(
-                        color: _textGrey,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: _bgDark1,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _borderColor),
-                      ),
-                      child: TextField(
-                        controller: searchController,
-                        style: GoogleFonts.outfit(
-                          color: _textLight,
-                          fontSize: 14,
-                        ),
-                        cursorColor: _primaryGold,
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher une ville...',
-                          hintStyle: GoogleFonts.outfit(
-                            color: _textGrey,
-                            fontSize: 13,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: _primaryGold,
-                            size: 20,
-                          ),
-                          filled: true,
-                          fillColor: Colors.transparent,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
-                        onChanged: filterCities,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Flexible(
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: citiesToShow.length,
-                        separatorBuilder: (_, __) => Divider(
-                          height: 1,
-                          color: _borderColor.withValues(alpha: 0.4),
-                        ),
-                        itemBuilder: (context, index) {
-                          final city = citiesToShow[index];
-                          return ListTile(
-                            dense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 2,
-                            ),
-                            title: Text(
-                              city,
-                              style: GoogleFonts.outfit(
-                                color: _textLight,
-                                fontSize: 14,
-                              ),
-                            ),
-                            trailing: const Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              color: _primaryGold,
-                              size: 14,
-                            ),
-                            onTap: () {
-                              Navigator.pop(context);
-                              ref
-                                  .read(loginFlowControllerProvider.notifier)
-                                  .updateCity(uid, city);
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
+        return _LoginCityPickerSheet(
+          onCitySelected: (city) {
+            citySelected = true;
+            Navigator.pop(context);
+            ref.read(loginFlowControllerProvider.notifier).updateCity(uid, city);
           },
         );
       },
     ).whenComplete(() {
-      searchController.dispose();
+      if (citySelected) return;
       final currentState = ref.read(loginFlowControllerProvider);
       if (currentState is LoginFlowCityRequired) {
         ref.read(loginFlowControllerProvider.notifier).reset();
       }
     });
   }
+}
 
+// Moved below extension so the sheet widget can sit at library level in the part file.
+class _LoginCityPickerSheet extends StatefulWidget {
+  const _LoginCityPickerSheet({required this.onCitySelected});
+
+  final ValueChanged<String> onCitySelected;
+
+  @override
+  State<_LoginCityPickerSheet> createState() => _LoginCityPickerSheetState();
+}
+
+class _LoginCityPickerSheetState extends State<_LoginCityPickerSheet> {
+  late final TextEditingController _searchController;
+  List<String> _filteredCities = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterCities(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredCities = [];
+      } else {
+        _filteredCities = frenchCities
+            .where((c) => c.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final citiesToShow =
+        _filteredCities.isEmpty ? frenchCities : _filteredCities;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Votre ville',
+              style: GoogleFonts.outfit(
+                color: _textLight,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Sélectionnez votre ville de résidence',
+              style: GoogleFonts.outfit(
+                color: _textGrey,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: _bgDark1,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _borderColor),
+              ),
+              child: TextField(
+                controller: _searchController,
+                style: GoogleFonts.outfit(
+                  color: _textLight,
+                  fontSize: 14,
+                ),
+                cursorColor: _primaryGold,
+                decoration: InputDecoration(
+                  hintText: 'Rechercher une ville...',
+                  hintStyle: GoogleFonts.outfit(
+                    color: _textGrey,
+                    fontSize: 13,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: _primaryGold,
+                    size: 20,
+                  ),
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+                onChanged: _filterCities,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: citiesToShow.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  color: _borderColor.withValues(alpha: 0.4),
+                ),
+                itemBuilder: (context, index) {
+                  final city = citiesToShow[index];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    title: Text(
+                      city,
+                      style: GoogleFonts.outfit(
+                        color: _textLight,
+                        fontSize: 14,
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: _primaryGold,
+                      size: 14,
+                    ),
+                    onTap: () => widget.onCitySelected(city),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+extension _LoginScreenFlowContinued on _LoginScreenState {
   void _showRoleMismatchDialog(LoginFlowRoleMismatch state) {
     showDialog(
       context: context,

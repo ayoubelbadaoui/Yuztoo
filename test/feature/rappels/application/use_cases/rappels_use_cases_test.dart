@@ -69,6 +69,15 @@ class _FakeFollowedRepo implements FollowedMerchantsRepository {
   @override
   Future<Result<Set<String>>> getMutedMerchantIds(String userId) async =>
       const Right(<String>{});
+
+  @override
+  Future<Result<Map<String, int>>> getFollowedSortIndexes(String userId) async =>
+      const Right({});
+
+  @override
+  Future<Result<Unit>> updateSortOrder(
+          String userId, Map<String, int> sortIndexes) async =>
+      const Right(unit);
 }
 
 // ── Fake: ClientNotificationRepository ───────────────────────────────────────
@@ -510,6 +519,31 @@ void main() {
       expect(clientNotifRepo.createCallCount, 0);
     });
 
+    test('Certains clients + segments uses manual VIP from segment map', () async {
+      followedRepo = _FakeFollowedRepo(followerIds: ['c1', 'c2']);
+      loyaltyRepo = _FakeLoyaltyRepoForSend(segmentMap: {
+        'c1': 'nouveau',
+        'c2': 'vip',
+      });
+      useCase = SendMerchantNotification(
+        followedRepo: followedRepo,
+        notificationRepo: clientNotifRepo,
+        sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
+      );
+      final result = await useCase.call(
+        merchantId: 'm1',
+        merchantName: 'Boutique',
+        text: 'VIP only',
+        audience: 'Certains clients',
+        segments: ['vip'],
+        callerUid: 'caller_m1',
+      );
+      expect(result.fold((_) => -1, (n) => n), 1);
+      expect(clientNotifRepo.createCallCount, 1);
+    });
+
     test('Certains clients + segments filters by loyalty map', () async {
       followedRepo = _FakeFollowedRepo(followerIds: ['c1', 'c2', 'c3']);
       loyaltyRepo = _FakeLoyaltyRepoForSend(segmentMap: {
@@ -530,6 +564,33 @@ void main() {
         text: 'VIP only',
         audience: 'Certains clients',
         segments: ['vip'],
+        callerUid: 'caller_m1',
+      );
+      expect(result.fold((_) => -1, (n) => n), 2);
+      expect(clientNotifRepo.createCallCount, 2);
+    });
+
+    test('Certains clients + soutien matches vip and habitue', () async {
+      followedRepo = _FakeFollowedRepo(followerIds: ['c1', 'c2', 'c3', 'c4']);
+      loyaltyRepo = _FakeLoyaltyRepoForSend(segmentMap: {
+        'c1': 'vip',
+        'c2': 'habitue',
+        'c3': 'nouveau',
+        'c4': 'inactif',
+      });
+      useCase = SendMerchantNotification(
+        followedRepo: followedRepo,
+        notificationRepo: clientNotifRepo,
+        sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
+      );
+      final result = await useCase.call(
+        merchantId: 'm1',
+        merchantName: 'Boutique',
+        text: 'Soutien',
+        audience: 'Certains clients',
+        segments: ['soutien'],
         callerUid: 'caller_m1',
       );
       expect(result.fold((_) => -1, (n) => n), 2);

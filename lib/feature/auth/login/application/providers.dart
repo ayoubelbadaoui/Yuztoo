@@ -33,6 +33,7 @@ final loginControllerProvider =
     signInWithEmailPassword: ref.watch(signInWithEmailPasswordProvider),
     signOut: ref.watch(signOutProvider),
     watchAuthState: ref.watch(watchAuthStateProvider),
+    reloadCurrentUserProfile: ref.watch(reloadCurrentUserProfileProvider),
   );
 });
 

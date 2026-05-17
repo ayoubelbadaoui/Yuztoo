@@ -57,7 +57,9 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
         incomingMerchantCity: merchantToCreate.city,
         signupCityFromUserDoc: signupCity,
       );
-      merchantToCreate = merchantToCreate.copyWith(city: resolvedCity);
+      final persistedCity =
+          persistableMerchantCity(resolvedCity) ?? resolvedCity.trim();
+      merchantToCreate = merchantToCreate.copyWith(city: persistedCity);
 
       if (!merchantToCreate.isValid()) {
         return const Left<MerchantFailure, Merchant>(
@@ -75,25 +77,48 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
       final merchantDto = MerchantDto.fromDomain(merchantToCreate);
       batch.set(merchantRef, merchantDto.toFirestore(), SetOptions(merge: false));
 
-      // Update user document with merchant_id and merchant role flags
+      // Update user document with merchant_id and merchant role flags.
+      // Build the onboarding + roles maps by MERGING into the existing
+      // doc state. Firestore's merge:true does not deep-merge nested
+      // maps — writing `{'onboarding': {merchant: ...}}` would replace
+      // the whole onboarding map (dropping `client`), and writing
+      // `{'roles': {merchant: true, client: false, provider: true}}`
+      // would force `client: false` even for dual-profile users who
+      // already had it set to true. This was the dual-profile data-loss
+      // bug behind the user report "closing the app completes onboarding
+      // in both client and merchant" — once client onboarding was
+      // dropped, the next routing pass either re-ran client onboarding
+      // OR (when paired with the createUserDocument inactive-role
+      // 'completed' bug) silently skipped it.
       final userRef = _firestore.collection('users').doc(userId);
+      final existingOnboarding = Map<String, dynamic>.from(
+        (userSnap.data()?['onboarding'] as Map<String, dynamic>?) ?? {},
+      );
+      existingOnboarding['merchant'] = 'completed';
+      existingOnboarding.putIfAbsent('client', () => 'not_started');
+      final existingRoles = Map<String, dynamic>.from(
+        (userSnap.data()?['roles'] as Map<String, dynamic>?) ?? {},
+      );
+      // Only set keys that this operation owns. Preserve any pre-existing
+      // client role — a merchant who already had a client carnet stays
+      // a client too.
+      existingRoles['merchant'] = true;
+      existingRoles['provider'] = true;
+      existingRoles.putIfAbsent('client', () => false);
       final userPayload = <String, dynamic>{
         'merchant_id': merchantId,
-        'onboarding': {
-          'merchant': 'completed',
-        },
-        // Write full roles map (no dotted keys) to avoid schema drift.
-        'roles': {
-          'merchant': true,
-          'client': false,
-          'provider': true,
-        },
+        'onboarding': existingOnboarding,
+        'roles': existingRoles,
         'updated_at': FieldValue.serverTimestamp(),
       };
-      // Keep signup city on the user doc in sync with the commerce (préférences compte).
+      // Keep owner user city + connected cities in sync (Découvrir / préférences).
       final trimmedCity = merchantToCreate.city.trim();
       if (trimmedCity.isNotEmpty && !CityInput.isPlaceholder(trimmedCity)) {
         userPayload['city'] = trimmedCity;
+        userPayload['cities'] = mergedOwnerConnectedCities(
+          existingUserData: userSnap.data(),
+          persistedCity: trimmedCity,
+        );
       }
       batch.set(userRef, userPayload, SetOptions(merge: true));
 

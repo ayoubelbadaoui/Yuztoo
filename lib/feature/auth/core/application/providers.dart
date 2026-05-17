@@ -20,6 +20,7 @@ import 'use_cases/update_last_login_at.dart';
 import 'use_cases/check_user_profile_complete.dart';
 import 'use_cases/consume_force_merchant_next_login.dart';
 import 'use_cases/mark_merchant_onboarding_completed.dart';
+import 'use_cases/reload_current_user_profile.dart';
 import 'use_cases/update_auth_user_profile.dart';
 import 'use_cases/complete_client_profile.dart';
 import 'use_cases/update_client_basic_info.dart';
@@ -71,6 +72,12 @@ final watchAuthStateProvider = Provider<WatchAuthState>((ref) {
   return WatchAuthState(repository);
 });
 
+final reloadCurrentUserProfileProvider =
+    Provider<ReloadCurrentUserProfile>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return ReloadCurrentUserProfile(repository);
+});
+
 /// Exposes raw auth stream results (useful for listeners).
 final authResultStreamProvider = StreamProvider<Result<AuthUser?>>((ref) {
   return ref.watch(watchAuthStateProvider)();
@@ -82,6 +89,7 @@ final authControllerProvider =
   return AuthController(
     signOut: ref.watch(signOutProvider),
     watchAuthState: ref.watch(watchAuthStateProvider),
+    reloadCurrentUserProfile: ref.watch(reloadCurrentUserProfileProvider),
     // Wired with FCM cleanup in `main.dart` [ProviderScope.overrides].
     onClearDevicePushToken: null,
   );

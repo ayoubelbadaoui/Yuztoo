@@ -54,9 +54,18 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
           );
         },
         (downloadUrl) async {
+          // 1. Update Firebase Auth (so any auth-state-driven UI refreshes).
           await ref
               .read(updateAuthUserProfileProvider)
               .call(photoUrl: downloadUrl);
+          // 2. Mirror the URL into Firestore users/{uid}.photoUrl so the
+          //    merchant CRM client list (and any other Firestore reader)
+          //    sees the new photo without waiting for a re-sign-in.
+          await ref.read(updateClientBasicInfoProvider).call(
+                uid: uid,
+                photoUrl: downloadUrl,
+              );
+          await refreshUserProfileCache(ref as Ref, uid: uid);
         },
       );
     } catch (e) {
@@ -173,6 +182,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     bool photoUploading = false,
     VoidCallback? onPhotoTap,
     VoidCallback? onCreateProAccount,
+    String? createOtherRoleLabel,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -209,12 +219,6 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                         isUploading: photoUploading,
                         onPhotoTap: onPhotoTap,
                       ),
-                      // Prominent CTA in addition to the pencil icon in the
-                      // header — earlier feedback flagged the profile as
-                      // "no longer editable", which we traced to the small
-                      // pencil being easy to miss on smaller phones. The
-                      // text button is unambiguous; the pencil stays for
-                      // power-users.
                       const SizedBox(height: 14),
                       GestureDetector(
                         onTap: _startEdit,
@@ -299,7 +303,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                         ),
                         child: Center(
                           child: Text(
-                            'Créer un compte pro',
+                            createOtherRoleLabel ?? 'Créer un compte pro',
                             style: GoogleFonts.outfit(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -343,7 +347,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                 behavior: HitTestBehavior.opaque,
                 onTap: _editing
                     ? _cancelEdit
-                    : () => Navigator.of(context).pop(),
+                    : (widget.onBack ?? () => Navigator.of(context).pop()),
                 child: Container(
                   width: 36,
                   height: 36,
@@ -374,28 +378,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                   ),
                 ),
               ),
-              if (!_editing)
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _startEdit,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border:
-                          Border.all(color: MerchantColors.gold, width: 1.5),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.edit_outlined,
-                        color: MerchantColors.gold,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                )
-              else if (uid != null)
+              if (_editing && uid != null)
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: _saving ? null : () => _save(uid),
@@ -521,9 +504,61 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          _sectionLabel('Ville'),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => _pickCity(context),
+            child: Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0B2540),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _selectedCity != null && _selectedCity!.isNotEmpty
+                          ? _selectedCity!
+                          : 'Sélectionner',
+                      style: GoogleFonts.outfit(
+                        color: _selectedCity != null && _selectedCity!.isNotEmpty
+                            ? MerchantColors.textWhite
+                            : MerchantColors.textGrey,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.location_city_outlined,
+                      color: MerchantColors.gold, size: 18),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _pickCity(BuildContext context) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: MerchantColors.navyCard,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _CityPickerSheet(current: _selectedCity),
+    );
+    if (picked != null && mounted) {
+      _setCity(picked);
+    }
   }
 
   Widget _sectionLabel(String text) => Text(
@@ -1035,8 +1070,11 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
                                       .showSnackBar(
                                     SnackBar(content: Text(f.message)),
                                   ),
-                                  (_) => ref
-                                      .invalidate(connectedCitiesProvider(uid)),
+                                  (_) => unawaited(refreshUserProfileCache(
+                                        ref as Ref,
+                                        uid: uid,
+                                        cityChanged: true,
+                                      )),
                                 );
                               },
                               child: Padding(
@@ -1101,7 +1139,11 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
       (f) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(f.message)),
       ),
-      (_) => ref.invalidate(connectedCitiesProvider(uid)),
+      (_) => unawaited(refreshUserProfileCache(
+            ref as Ref,
+            uid: uid,
+            cityChanged: true,
+          )),
     );
   }
 
@@ -1166,6 +1208,136 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
               ),
               child: const Icon(Icons.close_rounded,
                   color: MerchantColors.bgHeader, size: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Searchable city picker sheet — returns the selected city name via Navigator.pop.
+class _CityPickerSheet extends StatefulWidget {
+  const _CityPickerSheet({this.current});
+  final String? current;
+
+  @override
+  State<_CityPickerSheet> createState() => _CityPickerSheetState();
+}
+
+class _CityPickerSheetState extends State<_CityPickerSheet> {
+  var _filtered = frenchCities;
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (_, scrollController) => Column(
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: MerchantColors.gold.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+            child: Text(
+              'Choisir une ville',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              autofocus: true,
+              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Rechercher une ville...',
+                hintStyle: GoogleFonts.outfit(
+                    color: MerchantColors.textGrey, fontSize: 14),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: MerchantColors.textGrey, size: 20),
+                filled: true,
+                fillColor: MerchantColors.bgHeader,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: (q) => setState(() {
+                _filtered = q.trim().isEmpty
+                    ? frenchCities
+                    : frenchCities
+                        .where((c) =>
+                            c.toLowerCase().contains(q.toLowerCase().trim()))
+                        .toList();
+              }),
+            ),
+          ),
+          Divider(
+            height: 1,
+            color: MerchantColors.gold.withValues(alpha: 0.15),
+          ),
+          Flexible(
+            child: ListView.separated(
+              controller: scrollController,
+              itemCount: _filtered.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                indent: 20,
+                endIndent: 20,
+                color: MerchantColors.gold.withValues(alpha: 0.08),
+              ),
+              itemBuilder: (_, i) {
+                final city = _filtered[i];
+                final isSelected = city == widget.current;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pop(city),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 14),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_on_outlined,
+                            size: 18,
+                            color: MerchantColors.gold.withValues(alpha: 0.7)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            city,
+                            style: GoogleFonts.outfit(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: isSelected
+                                  ? MerchantColors.gold
+                                  : MerchantColors.textWhite,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.check_rounded,
+                              color: MerchantColors.gold, size: 18),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

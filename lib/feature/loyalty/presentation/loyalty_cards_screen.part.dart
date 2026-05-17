@@ -167,26 +167,71 @@ class _GreetingBlock extends StatelessWidget {
 
 // ─── Feed (loading / empty / list) ────────────────────────────────────────────
 
-class _LoyaltyFeed extends StatelessWidget {
+enum _FeedFilter { bonCommande, remise }
+
+bool _entryIsBonCommande(ClientLoyaltyEntry e) {
+  final k = e.config.rewardKind;
+  return k == LoyaltyRewardKind.purchaseVoucher ||
+      k == LoyaltyRewardKind.freeProduct;
+}
+
+bool _entryIsRemise(ClientLoyaltyEntry e) {
+  final k = e.config.rewardKind;
+  return k == LoyaltyRewardKind.discountPercent ||
+      k == LoyaltyRewardKind.loyaltyPoints;
+}
+
+class _LoyaltyFeed extends StatefulWidget {
   const _LoyaltyFeed({required this.feedAsync, this.onStoreTap});
 
   final AsyncValue<List<ClientLoyaltyEntry>> feedAsync;
   final ValueChanged<String>? onStoreTap;
 
   @override
+  State<_LoyaltyFeed> createState() => _LoyaltyFeedState();
+}
+
+class _LoyaltyFeedState extends State<_LoyaltyFeed> {
+  _FeedFilter? _filter; // null = show all
+
+  @override
   Widget build(BuildContext context) {
-    return feedAsync.when(
+    return widget.feedAsync.when(
       loading: () => const _LoadingCards(),
       error: (_, __) => const _EmptyState(
-        message:
-            'Impossible de charger votre fidélité pour le moment.',
+        message: 'Impossible de charger votre fidélité pour le moment.',
       ),
       data: (entries) {
         if (entries.isEmpty) return const _EmptyState();
+
+        final bonCount = entries.where(_entryIsBonCommande).length;
+        final remiseCount = entries.where(_entryIsRemise).length;
+        final showFilters = bonCount > 0 && remiseCount > 0;
+
+        List<ClientLoyaltyEntry> visible = entries;
+        if (_filter == _FeedFilter.bonCommande) {
+          visible = entries.where(_entryIsBonCommande).toList();
+        } else if (_filter == _FeedFilter.remise) {
+          visible = entries.where(_entryIsRemise).toList();
+        }
+
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final entry in entries) ...[
-              _MerchantLoyaltyCard(entry: entry, onStoreTap: onStoreTap),
+            if (showFilters) ...[
+              Row(
+                children: [
+                  _filterPill('Bon de commande', _FeedFilter.bonCommande,
+                      bonCount),
+                  const SizedBox(width: 8),
+                  _filterPill('Remise', _FeedFilter.remise, remiseCount),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+            for (final entry in visible) ...[
+              _MerchantLoyaltyCard(
+                  entry: entry, onStoreTap: widget.onStoreTap),
               const SizedBox(height: 16),
             ],
           ],
@@ -194,67 +239,200 @@ class _LoyaltyFeed extends StatelessWidget {
       },
     );
   }
+
+  Widget _filterPill(String label, _FeedFilter filter, int count) {
+    final active = _filter == filter;
+    return GestureDetector(
+      onTap: () => setState(
+          () => _filter = active ? null : filter),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: active
+              ? MerchantColors.gold
+              : MerchantColors.gold.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: active
+                ? MerchantColors.gold
+                : MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: active
+                    ? MerchantColors.darkOverlay
+                    : MerchantColors.textLightGrey,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: active
+                    ? MerchantColors.darkOverlay.withValues(alpha: 0.2)
+                    : MerchantColors.gold.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$count',
+                style: GoogleFonts.outfit(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color:
+                      active ? MerchantColors.darkOverlay : MerchantColors.gold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-// ─── "Mes avantages" — aggregated bons across followed merchants ──────────────
+// ─── "Mes avantages" — two-tab section: Bon de commande | Remise ─────────────
 
-class _MesAvantagesSection extends ConsumerWidget {
+class _MesAvantagesSection extends ConsumerStatefulWidget {
   const _MesAvantagesSection();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_MesAvantagesSection> createState() =>
+      _MesAvantagesSectionState();
+}
+
+class _MesAvantagesSectionState extends ConsumerState<_MesAvantagesSection> {
+  bool _showBons = true; // true = "Bon de commande", false = "Remise"
+
+  /// A reward belongs to "Remise" when it is a milestone bon whose merchant
+  /// uses a discount-based reward kind. Everything else (welcome bons,
+  /// purchase-voucher / free-product milestone bons) belongs to "Bon de commande".
+  static bool _isRemise(ClientRewardItem r) =>
+      r.kind == ClientRewardKind.milestone &&
+      (r.merchant.loyaltyProgram?.rewardKind ==
+              LoyaltyRewardKind.discountPercent ||
+          r.merchant.loyaltyProgram?.rewardKind ==
+              LoyaltyRewardKind.loyaltyPoints);
+
+  @override
+  Widget build(BuildContext context) {
     final rewardsAsync = ref.watch(availableClientRewardsProvider);
     return rewardsAsync.when(
-      // No skeleton — the section is small and silently hides while loading
-      // so it doesn't push the loyalty feed down on every paint cycle.
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
       data: (rewards) {
         if (rewards.isEmpty) return const SizedBox.shrink();
+
+        final bons = rewards.where((r) => !_isRemise(r)).toList();
+        final remises = rewards.where(_isRemise).toList();
+
+        final active = _showBons ? bons : remises;
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Tab pills — always visible when there are any rewards ────
               Row(
                 children: [
-                  Text(
-                    'Mes avantages',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: MerchantColors.textWhite,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
+                  _tab('Bon de commande', bons.length, _showBons,
+                      () => setState(() => _showBons = true)),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: MerchantColors.gold,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${rewards.length}',
-                      style: GoogleFonts.outfit(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: MerchantColors.darkOverlay,
-                      ),
-                    ),
-                  ),
+                  _tab('Remise', remises.length, !_showBons,
+                      () => setState(() => _showBons = false)),
                 ],
               ),
               const SizedBox(height: 12),
-              for (var i = 0; i < rewards.length; i++) ...[
-                _RewardCard(reward: rewards[i]),
-                if (i < rewards.length - 1) const SizedBox(height: 10),
-              ],
+              if (active.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Aucun bon dans cette catégorie.',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      color: MerchantColors.textLightGrey,
+                    ),
+                  ),
+                )
+              else
+                for (var i = 0; i < active.length; i++) ...[
+                  _RewardCard(reward: active[i]),
+                  if (i < active.length - 1) const SizedBox(height: 10),
+                ],
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _tab(String label, int count, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: active
+              ? MerchantColors.gold
+              : MerchantColors.gold.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: active
+                ? MerchantColors.gold
+                : MerchantColors.gold
+                    .withValues(alpha: MerchantColors.goldBorderAlpha),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: active
+                    ? MerchantColors.darkOverlay
+                    : MerchantColors.textLightGrey,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: active
+                    ? MerchantColors.darkOverlay.withValues(alpha: 0.2)
+                    : MerchantColors.gold.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$count',
+                style: GoogleFonts.outfit(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: active
+                      ? MerchantColors.darkOverlay
+                      : MerchantColors.gold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -991,6 +1169,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
         label: '— passages',
         rewardAvailable: false,
         tier: null,
+        validatedPassages: 0,
         showWelcomeBadge: false,
         welcomeGiftText: '',
       ),
@@ -1000,6 +1179,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
         label: 'Erreur',
         rewardAvailable: false,
         tier: null,
+        validatedPassages: 0,
         showWelcomeBadge: false,
         welcomeGiftText: '',
       ),
@@ -1013,6 +1193,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
           label: entry.progressLabel(progress),
           rewardAvailable: rewardAvailable,
           tier: ClientLoyaltyTier.fromPassages(progress.validatedPassages),
+          validatedPassages: progress.validatedPassages,
           showWelcomeBadge:
               progress.hasFirstVisit && welcomeGift.isNotEmpty,
           welcomeGiftText: welcomeGift,
@@ -1156,9 +1337,11 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
     required String label,
     required bool rewardAvailable,
     required ClientLoyaltyTier? tier,
+    required int validatedPassages,
     required bool showWelcomeBadge,
     String welcomeGiftText = '',
   }) {
+    final gratConfig = entry.merchant.effectiveGratificationConfig;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1244,7 +1427,9 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
                     ),
                   ),
                 ),
-              if (!rewardAvailable && tier != null)
+              if (!rewardAvailable &&
+                  tier != null &&
+                  gratConfig.showTierToClient)
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
@@ -1255,7 +1440,7 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
                         color: _tierColor(tier).withValues(alpha: 0.5)),
                   ),
                   child: Text(
-                    tier.label,
+                    gratConfig.labelForPassages(validatedPassages),
                     style: GoogleFonts.outfit(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,

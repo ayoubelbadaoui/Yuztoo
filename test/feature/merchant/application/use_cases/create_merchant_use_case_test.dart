@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/merchant/application/use_cases/create_merchant_use_case.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
@@ -66,6 +67,7 @@ class _FakeMerchantRepository implements MerchantRepository {
   Future<Result<List<Merchant>>> listMerchants({
     int limit = 20,
     String? cityFilter,
+    List<String>? cityFilters,
     int cityFetchCap = 500,
   }) async {
     if (_createdMerchant == null) {
@@ -141,6 +143,13 @@ class _FakeMerchantRepository implements MerchantRepository {
     );
     return Right<MerchantFailure, Merchant>(_createdMerchant!);
   }
+
+  @override
+  Future<Result<void>> updateGratificationConfig({
+    required String merchantId,
+    required ClientGratificationConfig config,
+  }) async =>
+      const Right<MerchantFailure, void>(null);
 }
 
 void main() {
@@ -357,6 +366,7 @@ class _FailingCreateRepository implements MerchantRepository {
   Future<Result<List<Merchant>>> listMerchants({
     int limit = 20,
     String? cityFilter,
+    List<String>? cityFilters,
     int cityFetchCap = 500,
   }) async {
     return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
@@ -408,5 +418,12 @@ class _FailingCreateRepository implements MerchantRepository {
       UnableToCreateMerchantFailure(),
     );
   }
+
+  @override
+  Future<Result<void>> updateGratificationConfig({
+    required String merchantId,
+    required ClientGratificationConfig config,
+  }) async =>
+      const Left<MerchantFailure, void>(UnableToCreateMerchantFailure());
 }
 

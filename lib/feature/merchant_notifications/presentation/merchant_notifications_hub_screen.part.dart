@@ -43,6 +43,7 @@ extension _HubUi on _MerchantNotificationsHubScreenState {
                         QuickSendSection(
                           merchantId: merchant.id,
                           merchantName: merchant.name,
+                          createdByUid: merchant.ownerUid,
                           onSend: _onQuickSend,
                           history: historyAsync.valueOrNull ?? [],
                           historyLoading: historyAsync.isLoading,

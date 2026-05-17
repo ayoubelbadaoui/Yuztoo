@@ -41,7 +41,7 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
   }
 
   Widget _buildContent(BuildContext context) {
-    final fidelite = _fidelite ?? true;
+    final fidelite = _fidelite ?? false;
     final notifications = _notificationsAuto ?? true;
     final galerie = _galerie ?? true;
     final merchantAsync = ref.watch(currentMerchantForOwnerProvider);
@@ -65,6 +65,14 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
                 value: fidelite,
                 onChanged: _setFidelite,
                 onTap: () => widget.onNavigate?.call('e-fidelite'),
+              ),
+              ServiceToggle(
+                label: 'Gratification client',
+                icon: Icons.workspace_premium_rounded,
+                value: false,
+                onChanged: (_) {},
+                onTap: () => widget.onNavigate?.call('gratification-config'),
+                navOnly: true,
               ),
               ServiceToggle(
                 label: 'Notifications automatique',

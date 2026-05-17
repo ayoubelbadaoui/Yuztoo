@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/cupertino_picker_sheet.dart';
 import '../../../../core/utils/image_crop_utils.dart';
 import '../../domain/entities/promotion.dart';
 import 'client_type_details.dart';
@@ -50,20 +51,11 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
 
   Future<void> _pickDate({required bool isFrom}) async {
     final initial = isFrom ? _dateFrom : _dateTo;
-    final picked = await showDatePicker(
+    final picked = await showYuztooCupertinoDatePicker(
       context: context,
-      initialDate: initial,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
-      builder: (ctx, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: MerchantColors.gold,
-            surface: MerchantColors.navyCard,
-          ),
-        ),
-        child: child!,
-      ),
+      initial: initial,
+      minimumDate: DateTime(2024),
+      maximumDate: DateTime(2030),
     );
     if (picked != null) {
       setState(() => isFrom ? _dateFrom = picked : _dateTo = picked);

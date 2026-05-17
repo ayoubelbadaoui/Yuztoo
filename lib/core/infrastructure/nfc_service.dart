@@ -42,9 +42,10 @@ class NfcService {
   /// Read an NDEF tag and extract a Yuztoo vitrine URL.
   /// Returns the merchant ID on success, or an error message.
   ///
-  /// Default copy uses generic "tag NFC" wording — callers (typically
-  /// the client scanner) override `alertMessage` with the
-  /// phone-to-phone message that fits their context.
+  /// Works on iOS and Android — iOS uses the reader entitlement
+  /// (`com.apple.developer.nfc.readersession.formats = TAG`) configured
+  /// in Runner.entitlements. The "presenting" side is always a passive
+  /// NFC badge, never another phone, because iOS cannot emit NDEF.
   static Future<NfcResult> readVitrineMerchantId({
     String alertMessage = 'Approchez votre téléphone',
   }) async {

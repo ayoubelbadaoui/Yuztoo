@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../domain/entities/client_gratification_config.dart';
 import '../domain/entities/loyalty_program_config.dart';
 import '../domain/entities/merchant.dart';
 import '../domain/merchant_failure.dart';

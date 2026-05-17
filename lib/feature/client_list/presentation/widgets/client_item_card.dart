@@ -4,18 +4,25 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../domain/entities/merchant_client_row.dart';
 
-/// A single client row: initials avatar + name/subtitle + segment badge + arrow.
+/// A single client row: avatar (real photo or initials) + name/subtitle +
+/// segment badge + arrow.
 class ClientItemCard extends StatelessWidget {
   const ClientItemCard({
     super.key,
     required this.name,
     required this.subtitle,
+    this.photoUrl,
     this.segment,
     this.onTap,
   });
 
   final String name;
   final String subtitle;
+
+  /// When non-null/non-empty, the client's real avatar is shown. Falls back
+  /// to a coloured circle of initials when missing or if the network image
+  /// fails to load.
+  final String? photoUrl;
   final ClientSegment? segment;
   final VoidCallback? onTap;
 
@@ -23,6 +30,7 @@ class ClientItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final segColor = _segmentColor(segment);
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
 
     return GestureDetector(
       onTap: onTap,
@@ -31,24 +39,44 @@ class ClientItemCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         child: Row(
           children: [
-            // ── initials avatar ──
+            // ── avatar (real photo if available, else initials) ──
             Container(
               width: 48,
               height: 48,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: segColor.withValues(alpha: 0.12),
-                border: Border.all(color: segColor.withValues(alpha: 0.6), width: 1.5),
+                border: Border.all(
+                    color: segColor.withValues(alpha: 0.6), width: 1.5),
               ),
-              child: Center(
-                child: Text(
-                  initial,
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: segColor,
-                  ),
-                ),
+              child: ClipOval(
+                child: hasPhoto
+                    ? Image.network(
+                        photoUrl!,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Center(
+                          child: Text(
+                            initial,
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: segColor,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          initial,
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: segColor,
+                          ),
+                        ),
+                      ),
               ),
             ),
             const SizedBox(width: 12),

@@ -13,6 +13,10 @@ class CreateUserDocument {
     required String email,
     required String phone,
     required Map<String, bool> roles,
+    String? firstName,
+    String? lastName,
+    String? displayName,
+    String? photoUrl,
   }) {
     if (uid.isEmpty) {
       return Future<Result<Unit>>.value(
@@ -43,6 +47,10 @@ class CreateUserDocument {
       email: email,
       phone: phone,
       roles: roles,
+      firstName: firstName,
+      lastName: lastName,
+      displayName: displayName,
+      photoUrl: photoUrl,
     );
   }
 }

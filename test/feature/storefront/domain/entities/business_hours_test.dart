@@ -49,28 +49,28 @@ void main() {
       expect(normalizeTimeString('08'), '8h');
     });
 
-    // ── Minute snapping ──────────────────────────────────────────────────
-    test('"8:10" (< 15 min) → "8h"  (snap down)', () {
-      expect(normalizeTimeString('8:10'), '8h');
+    // ── Minute snapping (nearest 5-minute boundary, Cupertino wheel) ───
+    test('"8:10" → "8h10"', () {
+      expect(normalizeTimeString('8:10'), '8h10');
     });
 
-    test('"8:14" (boundary < 15) → "8h"', () {
-      expect(normalizeTimeString('8:14'), '8h');
+    test('"8:14" → "8h15"', () {
+      expect(normalizeTimeString('8:14'), '8h15');
     });
 
-    test('"8:15" (= 15, snap to 30) → "8h30"', () {
-      expect(normalizeTimeString('8:15'), '8h30');
+    test('"8:15" → "8h15"', () {
+      expect(normalizeTimeString('8:15'), '8h15');
     });
 
-    test('"8:44" (< 45, snap to 30) → "8h30"', () {
-      expect(normalizeTimeString('8:44'), '8h30');
+    test('"8:44" → "8h45"', () {
+      expect(normalizeTimeString('8:44'), '8h45');
     });
 
-    test('"8:45" (≥ 45, round up to 9h) → "9h"', () {
-      expect(normalizeTimeString('8:45'), '9h');
+    test('"8:45" → "8h45"', () {
+      expect(normalizeTimeString('8:45'), '8h45');
     });
 
-    test('"8:58" (close to 9) → "9h"', () {
+    test('"8:58" (rolls to next hour) → "9h"', () {
       expect(normalizeTimeString('8:58'), '9h');
     });
 
@@ -83,12 +83,12 @@ void main() {
       expect(normalizeTimeString('0h'), '6h');
     });
 
-    test('"24:00" → "23h30" (clamped to max)', () {
-      expect(normalizeTimeString('24:00'), '23h30');
+    test('"24:00" → "23h55" (clamped to picker max)', () {
+      expect(normalizeTimeString('24:00'), '23h55');
     });
 
-    test('"23:45" → "23h30" (round-up clamped)', () {
-      expect(normalizeTimeString('23:45'), '23h30');
+    test('"23:45" → "23h45"', () {
+      expect(normalizeTimeString('23:45'), '23h45');
     });
 
     // ── Pass-through for unknown formats ─────────────────────────────────
@@ -130,6 +130,12 @@ void main() {
       final slot = TimeSlot.fromMap({'start': '08:30', 'end': '12:00'});
       expect(slot.start, '8h30');
       expect(slot.end, '12h');
+    });
+
+    test('fromMap normalizes mis-cased "8H00" and snaps "8:14" → 8h15', () {
+      final slot = TimeSlot.fromMap({'start': '8H00', 'end': '8:14'});
+      expect(slot.start, '8h');
+      expect(slot.end, '8h15');
     });
 
     test('fromMap handles null start/end gracefully', () {

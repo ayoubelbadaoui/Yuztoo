@@ -22,7 +22,7 @@ jest.mock("firebase-admin", () => ({
 }));
 
 const noopFn = jest.fn().mockReturnThis();
-const firestoreDoc = { onCreate: noopFn, onWrite: noopFn };
+const firestoreDoc = { onCreate: noopFn, onWrite: noopFn, onUpdate: noopFn };
 const firestoreRegion = { document: jest.fn().mockReturnValue(firestoreDoc) };
 const pubsubSchedule = {
   timeZone: jest.fn().mockReturnThis(),

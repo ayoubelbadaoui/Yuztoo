@@ -1,16 +1,21 @@
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/failure.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../client_notification/domain/entities/client_notification.dart';
+import '../../../client_notification/domain/repositories/client_notification_repository.dart';
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../../merchant/domain/entities/merchant.dart';
 import '../../domain/entities/client_merchant_loyalty_progress.dart';
 import '../../domain/repositories/client_loyalty_repository.dart';
 
 /// Enregistre un passage boutique selon la config fidélité du commerçant.
+/// When the passage crosses a reward threshold, writes a loyalty notification
+/// to the client's inbox so it surfaces in their Notifications tab.
 class RecordLoyaltyPassage {
-  RecordLoyaltyPassage(this._repository);
+  RecordLoyaltyPassage(this._repository, this._notificationRepository);
 
   final ClientLoyaltyRepository _repository;
+  final ClientNotificationRepository _notificationRepository;
 
   Future<Result<ClientMerchantLoyaltyProgress>> call({
     required String clientUid,
@@ -68,11 +73,23 @@ class RecordLoyaltyPassage {
     }
 
     if (config.triggerType == LoyaltyTriggerType.visitCount) {
-      return _repository.applyPassageDeltas(
+      final result = await _repository.applyPassageDeltas(
         merchantId: merchant.id,
         clientUid: clientUid,
         validatedPassagesDelta: 1,
       );
+      await result.fold(
+        (_) async {},
+        (progress) async {
+          final after = progress.validatedPassages;
+          final threshold = config.visitsRequired;
+          if (threshold > 0 && after >= threshold && (after - 1) < threshold) {
+            await _writeRewardNotification(
+                clientUid: clientUid, merchant: merchant, config: config);
+          }
+        },
+      );
+      return result;
     }
 
     final double spend = purchaseAmountEuros ?? 0;
@@ -84,10 +101,61 @@ class RecordLoyaltyPassage {
       );
     }
 
-    return _repository.applyPassageDeltas(
+    final result = await _repository.applyPassageDeltas(
       merchantId: merchant.id,
       clientUid: clientUid,
       cumulativeSpendEurosDelta: spend,
     );
+    await result.fold(
+      (_) async {},
+      (progress) async {
+        final after = progress.cumulativeSpendEuros;
+        final threshold = config.cumulativeSpendRequiredEuros;
+        final before = after - spend;
+        if (threshold > 0 && after >= threshold && before < threshold) {
+          await _writeRewardNotification(
+              clientUid: clientUid, merchant: merchant, config: config);
+        }
+      },
+    );
+    return result;
+  }
+
+  Future<void> _writeRewardNotification({
+    required String clientUid,
+    required Merchant merchant,
+    required LoyaltyProgramConfig config,
+  }) async {
+    final name = merchant.displayName?.isNotEmpty == true
+        ? merchant.displayName!
+        : merchant.name;
+    final reward = _rewardLabel(config);
+    final notification = ClientNotification(
+      id: '',
+      clientId: clientUid,
+      merchantId: merchant.id,
+      merchantName: name,
+      type: ClientNotificationType.loyalty,
+      title: 'Récompense disponible chez $name 🎁',
+      body: reward,
+      isRead: false,
+      createdAt: DateTime.now(),
+    );
+    await _notificationRepository.create(notification);
+  }
+
+  String _rewardLabel(LoyaltyProgramConfig config) {
+    switch (config.rewardKind) {
+      case LoyaltyRewardKind.purchaseVoucher:
+        if (config.purchaseVoucherUsesPercent) {
+          return 'Bon d\'achat ${config.purchaseVoucherValue.toStringAsFixed(0)} % disponible.';
+        }
+        return 'Bon d\'achat ${config.purchaseVoucherValue.toStringAsFixed(0)} € disponible.';
+      case LoyaltyRewardKind.discountPercent:
+        return 'Remise ${config.discountNextPurchasePercent.toStringAsFixed(0)} % sur votre prochain achat.';
+      case LoyaltyRewardKind.freeProduct:
+      case LoyaltyRewardKind.loyaltyPoints:
+        return 'Votre récompense fidélité est disponible.';
+    }
   }
 }

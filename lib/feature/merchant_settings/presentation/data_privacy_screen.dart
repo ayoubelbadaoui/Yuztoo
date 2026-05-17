@@ -159,7 +159,11 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
     setState(() => _isDeletingAccount = true);
     try {
       await ref.read(deleteCurrentUserProvider).call();
-      if (mounted) widget.onAccountDeleted?.call();
+      // Auth-state change may have already navigated away; only call back
+      // if the route is still active to avoid popping a deactivated context.
+      if (mounted && ModalRoute.of(context)?.isActive == true) {
+        widget.onAccountDeleted?.call();
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _isDeletingAccount = false);
@@ -219,7 +223,11 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
                       const SizedBox(height: 10),
                       _buildExportCard(),
                       const SizedBox(height: 28),
-                      _sectionLabel('Zone dangereuse'),
+                      // User feedback: "Zone dangereuse" reads as a scary
+                      // warning label and scares users away from a totally
+                      // normal "delete account" action. Renamed to a plain
+                      // descriptive header.
+                      _sectionLabel('Suppression du compte'),
                       const SizedBox(height: 10),
                       _buildDeleteCard(),
                     ],
@@ -263,12 +271,15 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                'Confidentialité des données',
-                style: GoogleFonts.outfit(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              Expanded(
+                child: Text(
+                  'Confidentialité des données',
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -353,7 +364,7 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
       (Icons.person_off_outlined, 'Aucune revente',
           'Jamais partagées ou revendues à des tiers.'),
       (Icons.delete_outline, 'Droit à l\'effacement',
-          'Supprimer votre compte depuis "Zone dangereuse" ci-dessous.'),
+          'Supprimer votre compte depuis "Suppression du compte" ci-dessous.'),
     ];
     return Container(
       padding: const EdgeInsets.all(20),

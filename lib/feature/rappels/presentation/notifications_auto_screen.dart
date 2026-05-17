@@ -9,6 +9,7 @@ import '../../client_notification/domain/entities/client_notification.dart';
 import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;
 import '../application/providers.dart' as rappels_providers;
+import '../domain/auto_notification_triggers.dart';
 import '../domain/entities/active_notification.dart';
 import 'widgets/active_notifications_list.dart';
 import 'widgets/audience_section.dart';

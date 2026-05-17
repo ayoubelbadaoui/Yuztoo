@@ -1,4 +1,5 @@
 import '../../../../core/domain/core/result.dart';
+import '../entities/client_gratification_config.dart';
 import '../entities/loyalty_program_config.dart';
 import '../entities/merchant.dart';
 
@@ -46,14 +47,21 @@ abstract class MerchantRepository {
   /// List merchants for client home / discovery (e.g. "Mon carnet").
   ///
   /// [limit] - Max number of merchants to return (default 20)
-  /// [cityFilter] - When non-empty, only merchants in this city (case-insensitive),
-  ///   scanned from up to [cityFetchCap] most recently updated documents so
-  ///   commerces that just set their city still appear for matching clients.
+  /// [cityFilter] - Single-city convenience filter (case-insensitive). Kept
+  ///   for backward compatibility with callers that only care about one city.
+  /// [cityFilters] - Multi-city OR-filter (case-insensitive). When non-empty,
+  ///   takes precedence over [cityFilter] and returns merchants whose city
+  ///   matches ANY entry. Used by Découvrir so a client with multiple
+  ///   "connected cities" sees merchants from all of them.
+  /// [cityFetchCap] - When any city filter is active, scans up to this many
+  ///   recently-updated documents so commerces that just set their city still
+  ///   appear for matching clients.
   ///
   /// Returns Result<List<Merchant>> - List of merchants, ordered by updated_at descending
   Future<Result<List<Merchant>>> listMerchants({
     int limit = 20,
     String? cityFilter,
+    List<String>? cityFilters,
     int cityFetchCap = 500,
   });
 
@@ -127,6 +135,12 @@ abstract class MerchantRepository {
     bool? loyaltyEnabledStandalone,
     String? merchantType,
     bool clearCityField = false,
+  });
+
+  /// Persist the merchant's client gratification configuration.
+  Future<Result<void>> updateGratificationConfig({
+    required String merchantId,
+    required ClientGratificationConfig config,
   });
 }
 

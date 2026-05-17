@@ -15,3 +15,5 @@ export '../../auth/core/application/state/auth_state.dart'
         Authenticated;
 
 export '../../storefront/application/providers.dart' show storefrontProvider;
+
+export 'refresh_user_profile_cache.dart' show refreshUserProfileCache;

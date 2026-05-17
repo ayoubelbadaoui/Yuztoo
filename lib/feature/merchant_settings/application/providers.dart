@@ -6,7 +6,8 @@ import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import 'use_cases/update_service_settings.dart';
 
 export '../../auth/core/application/providers.dart' show authControllerProvider;
-export '../../merchant/application/providers.dart' show currentMerchantForOwnerProvider;
+export '../../merchant/application/providers.dart'
+    show currentMerchantForOwnerProvider, updateGratificationConfigProvider;
 
 final updateServiceSettingsProvider = Provider<UpdateServiceSettings>((ref) {
   final repo = ref.watch(merchantRepositoryProvider);

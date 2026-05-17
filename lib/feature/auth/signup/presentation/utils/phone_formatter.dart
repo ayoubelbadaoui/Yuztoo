@@ -31,106 +31,58 @@ class PhoneFormatter {
     return '$countryCode$digits';
   }
 
-  /// Format phone number for display (e.g., +33 6 12 34 56 78)
+  /// Format phone number for display (e.g., +33 6 12 34 56 78).
+  ///
+  /// Never throws — partial or unknown E.164 values fall back to the raw input.
   static String formatPhoneForDisplay(String phoneNumber) {
-    // Remove all non-digits except +
+    try {
+      return _formatPhoneForDisplaySafe(phoneNumber);
+    } catch (_) {
+      return phoneNumber;
+    }
+  }
+
+  static String _formatPhoneForDisplaySafe(String phoneNumber) {
     final cleaned = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
-    
-    if (!cleaned.startsWith('+')) {
-      return phoneNumber; // Return as-is if not in international format
+    if (!cleaned.startsWith('+') || cleaned.length < 2) {
+      return phoneNumber;
     }
 
-    // Extract country code and number
-    final parts = cleaned.substring(1).split('');
-    if (parts.isEmpty) return phoneNumber;
+    final extracted = extractPhoneData(cleaned);
+    if (extracted == null) {
+      return phoneNumber;
+    }
 
-    // Common country code lengths
-    String countryCode = '';
-    String number = '';
-    
-    // Try to detect country code (1-3 digits)
-    if (parts.length >= 3 && parts[0] == '3' && parts[1] == '3') {
-      // France +33
-      countryCode = '+33';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 2 && parts[0] == '1') {
-      // US/Canada +1
-      countryCode = '+1';
-      number = parts.skip(1).join('');
-    } else if (parts.length >= 2 && parts[0] == '4' && parts[1] == '4') {
-      // UK +44
-      countryCode = '+44';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 2 && parts[0] == '3' && parts[1] == '4') {
-      // Spain +34
-      countryCode = '+34';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 2 && parts[0] == '4' && parts[1] == '9') {
-      // Germany +49
-      countryCode = '+49';
-      number = parts.skip(2).join('');
-    } else if (parts.length >= 3 && parts[0] == '3' && parts[1] == '5' && parts[2] == '1') {
-      // Portugal +351
-      countryCode = '+351';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '3' && parts[1] == '5' && parts[2] == '8') {
-      // Finland +358
-      countryCode = '+358';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '4' && parts[1] == '2' && parts[2] == '0') {
-      // Czech +420
-      countryCode = '+420';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '2') {
-      // Morocco +212 - format: +212 6 50 01 46 83
-      countryCode = '+212';
-      number = parts.skip(3).join('');
-      // Format Morocco numbers: single digit + groups of 2
-      if (number.isNotEmpty) {
-        String formattedNumber = number[0]; // First digit
-        // Group remaining digits in pairs
-        for (int i = 1; i < number.length; i += 2) {
-          formattedNumber += ' '; // Add space before each pair
-          if (i + 1 < number.length) {
-            formattedNumber += number[i] + number[i + 1]; // Add pair
-          } else {
-            formattedNumber += number[i]; // Last single digit if odd
-          }
+    final countryCode = extracted['countryCode']!;
+    var number = extracted['localNumber'] ?? '';
+    if (number.isEmpty) {
+      return countryCode;
+    }
+
+    // Morocco: first digit alone, then pairs (e.g. +212 6 50 01 46 83).
+    if (countryCode == '+212') {
+      final first = number[0];
+      final rest = number.substring(1);
+      final buffer = StringBuffer('$countryCode $first');
+      for (var i = 0; i < rest.length; i += 2) {
+        buffer.write(' ');
+        if (i + 1 < rest.length) {
+          buffer.write(rest.substring(i, i + 2));
+        } else {
+          buffer.write(rest[i]);
         }
-        return '$countryCode $formattedNumber';
       }
-    } else if (parts.length >= 3 && parts[0] == '2' && parts[1] == '1' && parts[2] == '3') {
-      // Algeria +213
-      countryCode = '+213';
-      number = parts.skip(3).join('');
-    } else if (parts.length >= 2 && parts[0] == '2' && parts[1] == '1' && parts[2] == '6') {
-      // Tunisia +216
-      countryCode = '+216';
-      number = parts.skip(3).join('');
-    } else {
-      // Default: assume first 1-3 digits are country code
-      if (parts.length >= 3) {
-        countryCode = '+${parts[0]}${parts[1]}${parts[2]}';
-        number = parts.skip(3).join('');
-      } else if (parts.length >= 2) {
-        countryCode = '+${parts[0]}${parts[1]}';
-        number = parts.skip(2).join('');
-      } else {
-        countryCode = '+${parts[0]}';
-        number = parts.skip(1).join('');
-      }
+      return buffer.toString();
     }
 
-    // Format the number part with spaces (group by 2 digits)
-    String formattedNumber = '';
-    for (int i = 0; i < number.length; i++) {
-      if (i > 0 && i % 2 == 0) {
-        formattedNumber += ' ';
+    final groups = <String>[];
+    for (var i = 0; i < number.length; i += 2) {
+      final end = (i + 2).clamp(0, number.length);
+      if (i < end) {
+        groups.add(number.substring(i, end));
       }
-      formattedNumber += number[i];
     }
-
-    return '$countryCode $formattedNumber'.trim();
+    return '$countryCode ${groups.join(' ')}'.trim();
   }
 
   /// Validate E.164 phone number format

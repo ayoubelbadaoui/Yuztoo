@@ -17,9 +17,19 @@ part 'client_profile_screen.part.dart';
 
 /// Client profile / settings – same colors and minimalist layout as merchant settings.
 class ClientProfileScreen extends ConsumerStatefulWidget {
-  const ClientProfileScreen({super.key, this.onCreateProAccount});
+  const ClientProfileScreen({
+    super.key,
+    this.onCreateProAccount,
+    this.isDualProfile = false,
+    this.onNavigate,
+  });
 
   final VoidCallback? onCreateProAccount;
+  /// True when the user has both client and merchant roles.
+  final bool isDualProfile;
+  /// Called with a route name when the user wants to navigate (e.g.
+  /// `'storefront-edit-profile'` to edit merchant storefront).
+  final void Function(String route)? onNavigate;
 
   static String get path => '/client-profile';
 

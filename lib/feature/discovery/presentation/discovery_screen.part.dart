@@ -8,7 +8,6 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
       child: SafeArea(
         bottom: false,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           decoration: BoxDecoration(
             color: MerchantColors.bgHeader,
             border: Border(
@@ -23,58 +22,67 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Découvrir',
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: MerchantColors.textWhite,
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Découvrir',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: MerchantColors.textWhite,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: widget.onNotifications,
-                    icon: const Icon(
-                      Icons.notifications_outlined,
-                      color: MerchantColors.gold,
-                      size: 24,
+                    IconButton(
+                      onPressed: widget.onNotifications,
+                      icon: const Icon(
+                        Icons.notifications_outlined,
+                        color: MerchantColors.gold,
+                        size: 24,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              if (widget.isDualProfile) ...[
-                const SizedBox(height: 8),
-                Row(
+              // Tab chips — always visible
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
                   children: [
                     _typeChip(
-                      label: 'Particuliers',
-                      value: 'b2c',
+                      label: 'Proche de moi',
+                      icon: Icons.location_on_rounded,
+                      value: 'proche',
                       current: typeFilter,
                       onTap: () {
                         ref
                             .read(discoveryMerchantTypeFilterProvider.notifier)
-                            .state = 'b2c';
-                        ref.invalidate(discoveryMerchantsProvider);
+                            .state = 'proche';
+                        ref.invalidate(discoveryCityMerchantsProvider);
                       },
                     ),
                     const SizedBox(width: 8),
                     _typeChip(
-                      label: 'Professionnels',
-                      value: 'b2b',
+                      label: 'Recommandés',
+                      icon: Icons.star_rounded,
+                      value: 'recommandes',
                       current: typeFilter,
                       onTap: () {
                         ref
                             .read(discoveryMerchantTypeFilterProvider.notifier)
-                            .state = 'b2b';
-                        ref.invalidate(discoveryMerchantsProvider);
+                            .state = 'recommandes';
+                        ref.invalidate(discoveryRecommendedMerchantsProvider);
+                        ref.invalidate(discoveryFollowedMerchantsProvider);
                       },
                     ),
                   ],
                 ),
-              ],
+              ),
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -84,6 +92,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
 
   Widget _typeChip({
     required String label,
+    required IconData icon,
     required String value,
     required String current,
     required VoidCallback onTap,
@@ -93,8 +102,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected
               ? MerchantColors.gold
@@ -106,39 +114,190 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                 : MerchantColors.gold.withValues(alpha: 0.3),
           ),
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? MerchantColors.bgHeader : MerchantColors.textGrey,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: isSelected
+                  ? MerchantColors.bgHeader
+                  : MerchantColors.textGrey,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? MerchantColors.bgHeader
+                    : MerchantColors.textGrey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onRefresh() async {
+    ref.invalidate(discoveryCityMerchantsProvider);
+    ref.invalidate(discoveryRecommendedMerchantsProvider);
+    ref.invalidate(discoveryFollowedMerchantsProvider);
+    ref.invalidate(discoveryMerchantsProvider);
+    await ref.read(discoveryMerchantsProvider.future);
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _onSearchQueryChanged,
+        style: GoogleFonts.outfit(fontSize: 14, color: MerchantColors.textWhite),
+        cursorColor: MerchantColors.gold,
+        decoration: InputDecoration(
+          hintText: 'Rechercher un commerce…',
+          hintStyle: GoogleFonts.outfit(
+              fontSize: 14, color: MerchantColors.textGrey),
+          prefixIcon: const Icon(Icons.search_rounded,
+              color: MerchantColors.gold, size: 20),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? GestureDetector(
+                  onTap: () {
+                    _searchController.clear();
+                    _onSearchQueryChanged('');
+                  },
+                  child: const Icon(Icons.close_rounded,
+                      color: MerchantColors.textGrey, size: 18),
+                )
+              : null,
+          filled: true,
+          fillColor: MerchantColors.navyCard,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+                color: MerchantColors.gold.withValues(alpha: 0.18)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide:
+                const BorderSide(color: MerchantColors.gold, width: 1.1),
           ),
         ),
       ),
     );
   }
 
-  List<Merchant> _filterMerchants(List<Merchant> merchants) {
-    if (_searchQuery.trim().isEmpty) return merchants;
-    final q = _searchQuery.trim().toLowerCase();
-    return merchants.where((m) {
-      final name = (m.displayName ?? m.name).toLowerCase();
-      final categories = m.categories?.join(' ').toLowerCase() ?? '';
-      return name.contains(q) || categories.contains(q);
-    }).toList();
+  // ── Live search results ─────────────────────────────────────────────────
+
+  Widget _buildSearchResults(BuildContext context, Set<String> followedIds) {
+    return Column(
+      children: [
+        _buildSearchBar(),
+        const SizedBox(height: 12),
+        Expanded(child: _buildSearchBody(followedIds)),
+      ],
+    );
   }
 
-  Future<void> _onRefresh() async {
-    ref.invalidate(discoveryMerchantsProvider);
-    await ref.read(discoveryMerchantsProvider.future);
+  Widget _buildSearchBody(Set<String> followedIds) {
+    if (_searchLoading) {
+      return const Center(
+        child: SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(
+              color: MerchantColors.gold, strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MerchantColors.gold.withValues(alpha: 0.08),
+                ),
+                child: const Icon(Icons.search_off_rounded,
+                    color: MerchantColors.gold, size: 26),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Aucun commerce trouvé',
+                style: GoogleFonts.outfit(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Essayez un autre nom ou vérifiez l\'orthographe.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: MerchantColors.textGrey,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+      itemCount: _searchResults.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        final m = _searchResults[i];
+        final id = m['id'] as String;
+        final isFollowed = followedIds.contains(id);
+        return _SearchResultCard(
+          merchant: m,
+          isFollowed: isFollowed,
+          onTap: () => widget.onStoreSelect(id),
+        );
+      },
+    );
   }
+
+  // ── Tab content ─────────────────────────────────────────────────────────
 
   Widget _buildContent(
     BuildContext context,
     List<Merchant> merchants,
     Set<String> viewedIds,
+    Set<String> followedIds,
   ) {
-    final filtered = _filterMerchants(merchants);
+    final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
+
+    if (merchants.isEmpty) {
+      return Column(
+        children: [
+          _buildSearchBar(),
+          Expanded(
+              child: _buildEmptyState(context, typeFilter, followedIds)),
+        ],
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
@@ -152,10 +311,9 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildDescription(context),
-            _buildPromoBanner(context),
-            _buildSearchSection(context),
-            _buildBusinessGrid(context, filtered, viewedIds),
+            _buildSearchBar(),
+            _buildSectionLabel(context, typeFilter),
+            _buildBusinessGrid(context, merchants, viewedIds, followedIds),
             _buildInviteButton(context),
             const SizedBox(height: 24),
           ],
@@ -164,127 +322,242 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     );
   }
 
-  Widget _buildDescription(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: MerchantColors.gold
-                .withValues(alpha: MerchantColors.goldBorderAlpha),
-            width: 1,
-          ),
-        ),
-      ),
+  Widget _buildSectionLabel(BuildContext context, String typeFilter) {
+    final label = typeFilter == 'recommandes'
+        ? 'Recommandés par les commerces que vous suivez'
+        : 'Dans votre région';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 10),
       child: Text(
-        'Des commerces recommandés par ceux que tu fréquentes déjà.',
-        textAlign: TextAlign.center,
+        label,
         style: GoogleFonts.outfit(
-          fontSize: 13,
-          height: 1.5,
-          color: MerchantColors.textLightGrey,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: MerchantColors.textGrey,
+          letterSpacing: 0.3,
         ),
       ),
     );
   }
 
-  Widget _buildPromoBanner(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      child: Container(
-        height: 130,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0B2540), Color(0xFF0E2A44)],
-          ),
-          border: Border.all(
-            color: MerchantColors.gold.withValues(alpha: 0.3),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+  Widget _buildRecommandesEmptyState(
+    BuildContext context,
+    Set<String> followedIds,
+  ) {
+    final hasFollowed = followedIds.isNotEmpty;
+    final followedMerchantsAsync =
+        ref.watch(discoveryFollowedMerchantsProvider);
+
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: MerchantColors.gold,
+      backgroundColor: MerchantColors.bgHeader,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(context).padding.bottom + 80,
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: MerchantColors.gold.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.25),
+                ),
+              ),
+              child: const Icon(
+                Icons.star_outline_rounded,
+                color: MerchantColors.gold,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              hasFollowed
+                  ? 'Pas encore de recommandations'
+                  : 'Suivez des commerces',
+              style: GoogleFonts.outfit(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              hasFollowed
+                  ? 'Ici apparaissent les partenaires recommandés par les commerces que vous suivez — pas vos commerces suivis eux-mêmes.'
+                  : 'Les commerces que vous suivez recommandent ici leurs partenaires de confiance.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: MerchantColors.textGrey,
+                height: 1.45,
+              ),
+            ),
+            if (hasFollowed) ...[
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Vos commerces suivis',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantColors.textGrey,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              followedMerchantsAsync.when(
+                data: (merchants) {
+                  if (merchants.isEmpty) {
+                    return Text(
+                      'Retrouvez-les dans l\'onglet Proche de moi.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: MerchantColors.textGrey,
+                      ),
+                    );
+                  }
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.35,
+                    ),
+                    itemCount: merchants.length,
+                    itemBuilder: (context, index) {
+                      final m = merchants[index];
+                      return _BusinessGridCard(
+                        merchant: m,
+                        hasViewed: false,
+                        isFollowing: true,
+                        onTap: () => widget.onStoreSelect(m.id),
+                        placeholderBuilder: () => _placeholderImage(null),
+                      );
+                    },
+                  );
+                },
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: MerchantColors.gold,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ),
+                ),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+            ],
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () {
+                ref.read(discoveryMerchantTypeFilterProvider.notifier).state =
+                    'proche';
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: MerchantColors.gold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.location_on_rounded,
+                      color: MerchantColors.gold,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Voir Proche de moi',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: MerchantColors.gold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
-        child: Stack(
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(
+    BuildContext context,
+    String typeFilter,
+    Set<String> followedIds,
+  ) {
+    if (typeFilter == 'recommandes') {
+      return _buildRecommandesEmptyState(context, followedIds);
+    }
+
+    // proche empty state
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Decorative circle
-            Positioned(
-              right: -20,
-              top: -20,
-              child: Container(
-                width: 130,
-                height: 130,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: MerchantColors.gold.withValues(alpha: 0.06),
-                ),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: MerchantColors.gold.withValues(alpha: 0.08),
+                border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.25)),
               ),
+              child: const Icon(Icons.storefront_outlined,
+                  color: MerchantColors.gold, size: 30),
             ),
-            Positioned(
-              right: 20,
-              bottom: -30,
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: MerchantColors.gold.withValues(alpha: 0.04),
-                ),
+            const SizedBox(height: 16),
+            Text(
+              'Aucun commerce dans votre région',
+              style: GoogleFonts.outfit(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
+              textAlign: TextAlign.center,
             ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: MerchantColors.gold.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: MerchantColors.gold.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Text(
-                      'NOUVEAUTÉS',
-                      style: GoogleFonts.outfit(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        color: MerchantColors.gold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Découvrez les commerces\nde votre quartier',
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: MerchantColors.textWhite,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Recommandés par votre réseau',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: MerchantColors.textGrey,
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 8),
+            Text(
+              'Utilisez la recherche pour trouver un commerce par nom.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: MerchantColors.textGrey,
+                height: 1.45,
               ),
             ),
           ],
@@ -308,97 +581,41 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     );
   }
 
-  Widget _buildSearchSection(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: TextField(
-        controller: _searchController,
-        onChanged: _onSearchQueryChanged,
-        style: GoogleFonts.outfit(
-          fontSize: 13,
-          color: MerchantColors.textWhite,
-        ),
-        cursorColor: MerchantColors.gold,
-        decoration: InputDecoration(
-          hintText: AppLocalizations.of(context)!.searchStore,
-          hintStyle: GoogleFonts.outfit(
-            fontSize: 13,
-            color: MerchantColors.textGrey,
-          ),
-          prefixIcon: const Icon(
-            Icons.search_rounded,
-            color: MerchantColors.gold,
-            size: 20,
-          ),
-          filled: true,
-          fillColor: MerchantColors.bgHeader,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-                color: MerchantColors.gold.withValues(alpha: 0.2)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-                color: MerchantColors.gold.withValues(alpha: 0.2)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: MerchantColors.gold),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildBusinessGrid(
     BuildContext context,
     List<Merchant> merchants,
     Set<String> viewedIds,
+    Set<String> followedIds,
   ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: merchants.isEmpty
-          ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: Text(
-                  'Aucun commerce pour le moment',
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: MerchantColors.textLightGrey,
-                  ),
-                ),
-              ),
-            )
-          : GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.35,
-              ),
-              itemCount: merchants.length,
-              itemBuilder: (context, index) {
-                final m = merchants[index];
-                return _BusinessGridCard(
-                  merchant: m,
-                  hasViewed: viewedIds.contains(m.id),
-                  onTap: () => widget.onStoreSelect(m.id),
-                  placeholderBuilder: () => _placeholderImage(null),
-                );
-              },
-            ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.35,
+        ),
+        itemCount: merchants.length,
+        itemBuilder: (context, index) {
+          final m = merchants[index];
+          return _BusinessGridCard(
+            merchant: m,
+            hasViewed: viewedIds.contains(m.id),
+            isFollowing: followedIds.contains(m.id),
+            onTap: () => widget.onStoreSelect(m.id),
+            placeholderBuilder: () => _placeholderImage(null),
+          );
+        },
+      ),
     );
   }
 
   Widget _buildInviteButton(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
       child: SizedBox(
         width: double.infinity,
         child: GestureDetector(
@@ -455,16 +672,168 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
   }
 }
 
+// ── Search result card ───────────────────────────────────────────────────────
+
+class _SearchResultCard extends StatelessWidget {
+  const _SearchResultCard({
+    required this.merchant,
+    required this.isFollowed,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic> merchant;
+  final bool isFollowed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = merchant['name'] as String? ?? '';
+    final city = merchant['city'] as String? ?? '';
+    final logoUrl = merchant['logoUrl'] as String?;
+    final type = merchant['merchantType'] as String?;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: MerchantColors.gold
+                .withValues(alpha: MerchantColors.goldBorderAlpha),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Logo or placeholder
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 44,
+                height: 44,
+                color: MerchantColors.gold.withValues(alpha: 0.1),
+                child: logoUrl != null && logoUrl.isNotEmpty
+                    ? Image.network(
+                        logoUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                            Icons.store_rounded,
+                            color: MerchantColors.gold,
+                            size: 20),
+                      )
+                    : const Icon(Icons.store_rounded,
+                        color: MerchantColors.gold, size: 20),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (type == 'b2b' || type == 'b2c') ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color:
+                                MerchantColors.gold.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: MerchantColors.gold
+                                  .withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Text(
+                            type == 'b2b' ? 'B2B' : 'B2C',
+                            style: GoogleFonts.outfit(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: MerchantColors.gold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (city.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_rounded,
+                            size: 10, color: MerchantColors.textGrey),
+                        const SizedBox(width: 3),
+                        Text(
+                          city,
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: MerchantColors.textGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (isFollowed)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: MerchantColors.gold.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Suivi',
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: MerchantColors.gold,
+                  ),
+                ),
+              )
+            else
+              const Icon(Icons.chevron_right_rounded,
+                  color: MerchantColors.textGrey, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Business grid card ───────────────────────────────────────────────────────
+
 class _BusinessGridCard extends StatelessWidget {
   const _BusinessGridCard({
     required this.merchant,
     required this.hasViewed,
+    required this.isFollowing,
     required this.onTap,
     required this.placeholderBuilder,
   });
 
   final Merchant merchant;
   final bool hasViewed;
+  final bool isFollowing;
   final VoidCallback onTap;
   final Widget Function() placeholderBuilder;
 
@@ -474,6 +843,7 @@ class _BusinessGridCard extends StatelessWidget {
     final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
     final category =
         (merchant.categories?.isNotEmpty == true) ? merchant.categories!.first : null;
+    final isInactive = merchant.status != 'active';
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
@@ -503,25 +873,72 @@ class _BusinessGridCard extends StatelessWidget {
                 ),
               ),
             ),
-            // "Viewed" star badge
-            if (hasViewed)
+            // Followed / viewed / offline badges (top-right)
+            if (isFollowing || hasViewed || isInactive)
               Positioned(
                 top: 8,
                 right: 8,
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.black.withValues(alpha: 0.45),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.star_rounded,
-                      size: 14,
-                      color: MerchantColors.gold,
-                    ),
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isInactive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: MerchantColors.textGrey.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          'Hors ligne',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: MerchantColors.textGrey,
+                          ),
+                        ),
+                      ),
+                    if (isInactive && isFollowing) const SizedBox(width: 4),
+                    if (isFollowing)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: MerchantColors.gold,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Suivi',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: MerchantColors.bgHeader,
+                          ),
+                        ),
+                      ),
+                    if (isFollowing && hasViewed) const SizedBox(width: 4),
+                    if (hasViewed)
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withValues(alpha: 0.45),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.star_rounded,
+                            size: 14,
+                            color: MerchantColors.gold,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             // Category pill (top-left)

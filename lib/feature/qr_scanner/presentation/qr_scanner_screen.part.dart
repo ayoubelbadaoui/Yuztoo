@@ -27,6 +27,8 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
             ] else
               _buildNfcOverlay(context),
             _buildOverlay(context),
+            if (kShowQrScanSimulator)
+              _buildDebugSimulateOverlay(context),
           ],
         ),
       ),
@@ -69,14 +71,13 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
             ),
             const SizedBox(height: 24),
             Text(
-              // Phone-to-phone NFC: the merchant holds their phone in
-              // "show" mode, the client taps theirs against it. Same
-              // gesture as scanning a QR code in the merchant's hand,
-              // just over NFC instead of camera. Plaque-tap copy is
-              // gone because the plaque-programming UI is hidden
-              // (see _kEnableNfcPlaquePrograming in merchant_qr_screen).
+              // The client taps their phone against the Yuztoo NFC badge
+              // displayed at the merchant's counter. iPhone clients work
+              // out-of-the-box via the iOS reader entitlement; iPhone-to-
+              // iPhone NFC is not possible (Apple platform restriction),
+              // so the second "device" is always the passive badge.
               _nfcScanning
-                  ? 'Connectez les deux téléphones\npar NFC'
+                  ? 'Approchez votre téléphone\ndu badge Yuztoo'
                   : 'Mode NFC',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
@@ -89,7 +90,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
             const SizedBox(height: 8),
             Text(
               _nfcScanning
-                  ? 'Approchez votre téléphone de celui du commerçant'
+                  ? 'Touchez le badge Yuztoo affiché à la caisse'
                   : 'Appuyez sur le bouton NFC pour démarrer',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
@@ -231,7 +232,11 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
             bottom: false,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
                 children: [
                   GestureDetector(
                     onTap: widget.onBack,
@@ -309,6 +314,12 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
                   const SizedBox(width: 4),
                 ],
               ),
+                  if (kShowQrScanSimulator) ...[
+                    const SizedBox(height: 10),
+                    _buildHeaderSimulateButton(),
+                  ],
+                ],
+              ),
             ),
           ),
         ),
@@ -376,6 +387,98 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
         else
           const Expanded(child: SizedBox()),
       ],
+    );
+  }
+
+  /// Full-width debug button directly under the scanner header (always visible on iOS).
+  Widget _buildHeaderSimulateButton() {
+    return GestureDetector(
+      onTap: _openDebugSimulateSheet,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade900.withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.shade400, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.bug_report_outlined,
+                color: Colors.orange.shade100, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              'DEBUG — Simuler scan / passage',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.orange.shade50,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Pinned above the camera stack (backup if header is scrolled/clipped).
+  Widget _buildDebugSimulateOverlay(BuildContext context) {
+    final padding = MediaQuery.paddingOf(context);
+    return Positioned(
+      left: 16,
+      right: 16,
+      bottom: padding.bottom + 12,
+      child: Material(
+        color: Colors.transparent,
+        child: GestureDetector(
+          onTap: _openDebugSimulateSheet,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade900.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade400, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.bug_report_outlined,
+                    color: Colors.orange.shade100, size: 20),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    'DEBUG — Simuler scan / passage',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.orange.shade50,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

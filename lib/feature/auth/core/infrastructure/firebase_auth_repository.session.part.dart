@@ -128,4 +128,41 @@ mixin _FirebaseAuthRepositorySession on _FirebaseAuthRepositoryBase {
       }
     }
   }
+
+  @override
+  Future<Result<AuthUser?>> reloadCurrentUserProfile() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        return const Right<AuthFailure, AuthUser?>(null);
+      }
+      try {
+        await user.reload();
+      } catch (_) {
+        // Non-fatal — still refetch Firestore below.
+      }
+      final fresh = _auth.currentUser ?? user;
+
+      DocumentSnapshot<Map<String, dynamic>>? profileDoc;
+      try {
+        profileDoc = await _firestore
+            .collection('users')
+            .doc(fresh.uid)
+            .get()
+            .timeout(const Duration(seconds: 5));
+      } on TimeoutException {
+        profileDoc = null;
+      } catch (_) {
+        profileDoc = null;
+      }
+
+      return await _profileToAuthResult(fresh, profileDoc);
+    } on firebase.FirebaseAuthException catch (e, st) {
+      return Left<AuthFailure, AuthUser?>(_mapAuthException(e, st));
+    } catch (e, st) {
+      return Left<AuthFailure, AuthUser?>(
+        AuthUnexpectedFailure(cause: e, stackTrace: st),
+      );
+    }
+  }
 }

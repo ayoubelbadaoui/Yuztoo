@@ -48,11 +48,27 @@ class FirestoreMerchantCrmRepository implements IMerchantCrmRepository {
         }
       } catch (e) {
         LoggerService.logError('CRM: fetch loyalty_clients batch', error: e);
-        // Non-fatal — proceed with empty loyalty map; segment falls back to
-        // followedAt-based inactif check in MerchantClientRow.segment.
       }
 
-      // ── N reads: user profiles (display name + city) ────────────────────
+      // ── 1 read: merchant-side per-client overrides (manual segment etc.) ─
+      // Stored at merchants/{merchantId}/clients/{clientUid} so the merchant
+      // can write without needing access to the client's own user doc.
+      final Map<String, Map<String, dynamic>> overridesMap =
+          <String, Map<String, dynamic>>{};
+      try {
+        final overridesSnap = await _firestore
+            .collection('merchants')
+            .doc(merchantId)
+            .collection('clients')
+            .get();
+        for (final doc in overridesSnap.docs) {
+          overridesMap[doc.id] = doc.data();
+        }
+      } catch (e) {
+        LoggerService.logError('CRM: fetch client overrides', error: e);
+      }
+
+      // ── N reads: user profiles (display name + photo + city) ────────────
       final futures = snap.docs.map(
         (QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
           final clientUid = doc.reference.parent.parent?.id ?? '';
@@ -62,21 +78,37 @@ class FirestoreMerchantCrmRepository implements IMerchantCrmRepository {
           final followedAt = ts is Timestamp ? ts.toDate() : null;
           final heartLevel = (doc.data()['heart_level'] as int?) ?? 1;
 
-          // Loyalty data (may be absent for followers with no visits).
           final loyalty = loyaltyMap[clientUid];
           final validatedPassages =
               (loyalty?['validated_passages'] as num?)?.toInt() ?? 0;
+          // Prefer `last_passage_at` (set only on a real passage event).
+          // `updated_at` also bumps on CRM edits and would understate
+          // `daysSinceLastVisit`. Legacy docs that pre-date the cooldown
+          // anchor still fall back to `updated_at`. Mirrors the same fix
+          // in `FirestoreClientLoyaltyRepository.getClientSegments`, so
+          // the CRM list and the notification-targeting view stay in sync.
+          final lastPassageTs = loyalty?['last_passage_at'];
           final updatedAtTs = loyalty?['updated_at'];
-          final lastVisitAt =
-              updatedAtTs is Timestamp ? updatedAtTs.toDate() : null;
+          final DateTime? lastVisitAt = lastPassageTs is Timestamp
+              ? lastPassageTs.toDate()
+              : (updatedAtTs is Timestamp ? updatedAtTs.toDate() : null);
 
           String? displayName;
+          String? firstName;
+          String? lastName;
+          String? photoUrl;
           String? city;
           try {
             final userDoc =
                 await _firestore.collection('users').doc(clientUid).get();
             final data = userDoc.data();
             displayName = data?['displayName'] as String?;
+            firstName = data?['first_name'] as String?;
+            lastName = data?['last_name'] as String?;
+            // Read both casings — Firebase Auth -> Firestore mirror uses
+            // `photoUrl` (camelCase) but some legacy docs use `photo_url`.
+            photoUrl = (data?['photoUrl'] as String?) ??
+                (data?['photo_url'] as String?);
             city = data?['city'] as String?;
           } catch (e) {
             LoggerService.logError(
@@ -85,14 +117,23 @@ class FirestoreMerchantCrmRepository implements IMerchantCrmRepository {
             );
           }
 
+          final override = overridesMap[clientUid];
+          final manualSegmentStr =
+              override?['manual_segment'] as String?;
+          final manualSegment = _segmentFromString(manualSegmentStr);
+
           return MerchantClientRow(
             clientUid: clientUid,
             displayName: displayName,
+            firstName: firstName,
+            lastName: lastName,
+            photoUrl: photoUrl,
             city: city,
             followedAt: followedAt,
             heartLevel: heartLevel.clamp(1, 3),
             validatedPassages: validatedPassages,
             lastVisitAt: lastVisitAt,
+            manualSegment: manualSegment,
           );
         },
       );
@@ -100,5 +141,49 @@ class FirestoreMerchantCrmRepository implements IMerchantCrmRepository {
       final results = await Future.wait(futures);
       return results.whereType<MerchantClientRow>().toList();
     });
+  }
+
+  @override
+  Future<void> setClientManualSegment({
+    required String merchantId,
+    required String clientUid,
+    required ClientSegment? segment,
+  }) async {
+    if (merchantId.isEmpty || clientUid.isEmpty) return;
+    final ref = _firestore
+        .collection('merchants')
+        .doc(merchantId)
+        .collection('clients')
+        .doc(clientUid);
+
+    if (segment == null) {
+      // Clearing the override — write `null` (rather than deleting the doc)
+      // keeps any other future per-client merchant-side fields intact.
+      await ref.set(
+        <String, dynamic>{
+          'manual_segment': FieldValue.delete(),
+          'updated_at': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } else {
+      await ref.set(
+        <String, dynamic>{
+          'manual_segment': segment.name,
+          'updated_at': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
+  }
+
+  /// Reverse of [ClientSegment.name] — `null` and unknown values return null
+  /// so we cleanly fall back to the auto-computed segment.
+  static ClientSegment? _segmentFromString(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    for (final s in ClientSegment.values) {
+      if (s.name == raw) return s;
+    }
+    return null;
   }
 }

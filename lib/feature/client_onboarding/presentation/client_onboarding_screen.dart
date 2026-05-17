@@ -9,10 +9,14 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/presentation/responsive_scroll_body.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/cupertino_dob_picker.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/utils/cities.dart';
 import '../../../core/utils/image_crop_utils.dart';
+import '../../../core/utils/oauth_profile_photo.dart';
+import '../../auth/core/application/oauth_identity_helpers.dart';
 import '../../auth/core/application/providers.dart';
+import '../../profile/application/providers.dart' show refreshUserProfileCache;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/core/infrastructure/user_repository_provider.dart';
 import '../../merchant_onboarding/application/widgets.dart';
@@ -50,13 +54,45 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
   DateTime? _selectedDob;
   String? _selectedCity;
   String? _localImagePath;
+  /// Profile photo URL from Google (Firebase Auth `photoURL`). Apple does not
+  /// provide a photo — the user takes or picks one on the photo step.
+  String? _oauthPhotoUrl;
   bool _isSaving = false;
+
+  bool get _hasPhotoPreview =>
+      (_localImagePath != null && _localImagePath!.trim().isNotEmpty) ||
+      isUsableOAuthProfilePhotoUrl(_oauthPhotoUrl);
 
   @override
   void initState() {
     super.initState();
     _firstNameController.addListener(_onNameChanged);
     _lastNameController.addListener(_onNameChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _seedFromAuthUser());
+  }
+
+  void _seedFromAuthUser() {
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) return;
+    final user = authState.user;
+    final url = user.photoUrl?.trim();
+    final names = splitOAuthDisplayName(user.displayName);
+    setState(() {
+      if (isUsableOAuthProfilePhotoUrl(url)) {
+        _oauthPhotoUrl = url;
+      }
+      if (_firstNameController.text.trim().isEmpty &&
+          names.firstName != null &&
+          names.firstName!.isNotEmpty) {
+        _firstNameController.text = names.firstName!;
+      }
+      if (_lastNameController.text.trim().isEmpty &&
+          names.lastName != null &&
+          names.lastName!.isNotEmpty) {
+        _lastNameController.text = names.lastName!;
+      }
+      _onNameChanged();
+    });
   }
 
   void _onNameChanged() {
@@ -101,26 +137,12 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
 
   Future<void> _pickDob() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final initial = _selectedDob ?? DateTime(now.year - 25, now.month, now.day);
+    final picked = await showCupertinoDobPicker(
       context: context,
-      initialDate: _selectedDob ?? DateTime(now.year - 25),
-      firstDate: DateTime(1920),
-      lastDate: DateTime(now.year - 13, now.month, now.day),
-      locale: const Locale('fr'),
-        builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFFD4AF37),
-            onPrimary: Color(0xFF0E2A44),
-            surface: Color(0xFF0E2A44),
-            onSurface: Colors.white,
-          ),
-          dialogTheme: const DialogThemeData(
-            backgroundColor: Color(0xFF0B1F33),
-          ),
-        ),
-        child: child!,
-      ),
+      initial: initial,
+      minimum: DateTime(1920),
+      maximum: DateTime(now.year - 13, now.month, now.day),
     );
     if (picked != null && mounted) {
       setState(() => _selectedDob = picked);
@@ -128,14 +150,83 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
   }
 
   Future<void> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: MerchantColors.bgMain,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Choisir une photo',
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.textWhite,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined,
+                    color: MerchantColors.gold),
+                title: Text(
+                  'Prendre une photo',
+                  style: GoogleFonts.outfit(color: MerchantColors.textWhite),
+                ),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined,
+                    color: MerchantColors.gold),
+                title: Text(
+                  'Choisir depuis la galerie',
+                  style: GoogleFonts.outfit(color: MerchantColors.textWhite),
+                ),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
     final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
       maxWidth: 800,
       imageQuality: 85,
     );
     if (picked == null || !mounted) return;
     final cropped = await cropImage(picked.path, ratioX: 1, ratioY: 1);
     if (mounted) setState(() => _localImagePath = cropped ?? picked.path);
+  }
+
+  Future<String?> _uploadProfilePhoto(String uid) async {
+    final localPath = _localImagePath?.trim();
+    if (localPath != null && localPath.isNotEmpty) {
+      final upload = await ref
+          .read(storage_providers.uploadClientAvatarProvider)
+          .call(filePath: localPath, uid: uid);
+      return upload.fold((_) => null, (u) => u);
+    }
+
+    final oauthUrl = _oauthPhotoUrl?.trim();
+    if (!isUsableOAuthProfilePhotoUrl(oauthUrl)) return null;
+
+    final downloaded = await downloadOAuthProfilePhotoToTempFile(oauthUrl!);
+    if (downloaded != null) {
+      final upload = await ref
+          .read(storage_providers.uploadClientAvatarProvider)
+          .call(filePath: downloaded, uid: uid);
+      final url = upload.fold((_) => null, (u) => u);
+      if (url != null) return url;
+    }
+    // Fallback: keep provider URL in Firestore if download/upload fails.
+    return oauthUrl;
   }
 
   Future<void> _finish({required bool skipPhoto}) async {
@@ -153,13 +244,8 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
     setState(() => _isSaving = true);
 
     String? photoUrl;
-    final path = _localImagePath?.trim();
-    if (!skipPhoto && path != null && path.isNotEmpty) {
-      final upload = await ref.read(storage_providers.uploadClientAvatarProvider).call(
-            filePath: path,
-            uid: uid,
-          );
-      photoUrl = upload.fold((_) => null, (u) => u);
+    if (!skipPhoto && _hasPhotoPreview) {
+      photoUrl = await _uploadProfilePhoto(uid);
       if (photoUrl == null && mounted) {
         showErrorSnackbar(
           context,
@@ -197,7 +283,10 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
             await u?.updatePhotoURL(photoUrl);
           }
         } catch (_) {}
-        await ref.read(authControllerProvider.notifier).refreshAuthState();
+        final auth = ref.read(authControllerProvider);
+        if (auth is Authenticated) {
+          await refreshUserProfileCache(ref as Ref, uid: auth.user.id);
+        }
         if (!mounted) return;
         setState(() => _isSaving = false);
         widget.onComplete();

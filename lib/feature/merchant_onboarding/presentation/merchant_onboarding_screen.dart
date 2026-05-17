@@ -96,6 +96,15 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
     final container = ProviderScope.containerOf(context, listen: false);
     container.read(selectedMerchantCategoryTitleProvider.notifier).state =
         selected.title;
+    container.read(selectedMerchantCategoryIdProvider.notifier).state =
+        selected.id;
+    // Reset any previously-chosen subcategory: if the merchant changes
+    // category, the old subcategory pick belongs to a different list and
+    // must not silently leak through (e.g. picking "Boulangerie" then
+    // switching to "Beauté & Bien-être" would otherwise keep "Boulangerie"
+    // as the subcategory).
+    container.read(selectedMerchantSubcategoryTitleProvider.notifier).state =
+        null;
     widget.onNext();
   }
 

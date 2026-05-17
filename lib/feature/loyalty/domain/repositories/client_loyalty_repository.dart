@@ -71,5 +71,8 @@ abstract class ClientLoyaltyRepository {
   ///
   /// Followers NOT in the loyalty_clients subcollection default to `'nouveau'`
   /// in send_merchant_notification (no loyalty doc = no visits yet).
+  ///
+  /// When the merchant sets `merchants/{merchantId}/clients/{uid}.manual_segment`,
+  /// that value overrides the passage-based segment for ciblage.
   Future<Map<String, String>> getClientSegments(String merchantId);
 }

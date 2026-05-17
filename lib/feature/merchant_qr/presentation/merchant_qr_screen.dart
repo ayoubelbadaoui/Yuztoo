@@ -16,17 +16,12 @@ import '../../../core/config/vitrine_qr_config.dart';
 import '../../../core/infrastructure/nfc_service.dart';
 import '../../merchant/application/providers.dart';
 
-/// Feature flag — NFC plaque programming UI is currently hidden. The
-/// future model is phone-to-phone NFC (handled on the client scanner
-/// side); merchant-side plaque writing is preserved here so it can be
-/// re-enabled with a single flag flip when / if hardware plaques come
-/// back into scope.
-///
-/// Read by the build() of MerchantQRCodeScreen — the analyzer does NOT
-/// flag a flag-gated branch as dead code as long as the constant is
-/// declared at file scope (same convention as the existing
-/// `_kRappelsDummy` flag in rappels_screen.dart).
-const bool _kEnableNfcPlaquePrograming = false;
+/// NFC plaque programming is Android-only — Apple does not allow third-party
+/// apps to write NDEF records to NFC tags from iOS. Reading already works on
+/// both platforms (iOS reader entitlement is in place), so clients on any
+/// device can tap a badge programmed by an Android merchant or shipped
+/// pre-programmed by Yuztoo.
+final bool _kEnableNfcPlaquePrograming = Platform.isAndroid;
 
 /// Merchant QR Code screen — real QR backed by the merchant's Firestore ID.
 /// Merchants scan this to let clients follow their store.
@@ -450,7 +445,7 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
                 if (_kEnableNfcPlaquePrograming)
                   _tip('Programmez un badge NFC pour un accès sans scan')
                 else
-                  _tip('Connectez deux téléphones par NFC pour valider un passage'),
+                  _tip('Demandez votre badge NFC Yuztoo à apposer à la caisse'),
               ],
             ),
           ),

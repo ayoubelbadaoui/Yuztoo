@@ -7,6 +7,15 @@ class UpdateLastLoginAt {
 
   final UserRepository _repository;
 
-  Future<Result<Unit>> call(String uid) => _repository.updateLastLoginAt(uid);
+  Future<Result<Unit>> call(
+    String uid, {
+    String? displayName,
+    String? photoUrl,
+  }) =>
+      _repository.updateLastLoginAt(
+        uid,
+        displayName: displayName,
+        photoUrl: photoUrl,
+      );
 }
 

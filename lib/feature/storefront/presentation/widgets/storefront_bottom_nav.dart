@@ -43,7 +43,7 @@ class StorefrontBottomNav extends StatelessWidget {
             ),
             _NavItem(
               icon: Icons.notifications_outlined,
-              label: 'Rappels',
+              label: 'Notifications',
               onTap: () => onTabSelected?.call('rappels'),
             ),
             _NavItem(

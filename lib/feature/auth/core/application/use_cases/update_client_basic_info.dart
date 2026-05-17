@@ -14,6 +14,7 @@ class UpdateClientBasicInfo {
     String? lastName,
     DateTime? dateOfBirth,
     String? ownerEmail,
+    String? photoUrl,
   }) =>
       _repository.updateClientBasicInfo(
         uid: uid,
@@ -21,5 +22,6 @@ class UpdateClientBasicInfo {
         lastName: lastName,
         dateOfBirth: dateOfBirth,
         ownerEmail: ownerEmail,
+        photoUrl: photoUrl,
       );
 }

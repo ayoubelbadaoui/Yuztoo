@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +21,8 @@ import '../../signup/application/providers.dart' as signup_providers;
 import '../../signup/domain/signup_roles_map.dart';
 import '../../signup/presentation/constants/signup_constants.dart';
 import '../../signup/presentation/utils/phone_formatter.dart';
+import '../../core/application/oauth_identity_helpers.dart';
+import '../../core/domain/entities/auth_user.dart';
 
 part 'login_screen.part.dart';
 
@@ -217,19 +221,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
-    // Block the shell from auto-routing (and auto-signing-out) while we handle
-    // the OAuth flow. A brand-new Google user has no Firestore doc yet, so
-    // without this guard the shell races to sign them out before _handleOAuthSuccess
-    // can collect their phone number and create the document.
     ref.read(auth_providers.oauthFirestoreProfilePendingProvider.notifier).state =
         true;
     setState(() => _isSocialLoading = true);
-    final result = await ref.read(signInWithGoogleProvider).call();
-    if (!mounted) return;
-    setState(() => _isSocialLoading = false);
-    result.fold(
-      (failure) {
-        // Auth failed or user cancelled — unblock the shell immediately.
+    try {
+      final result = await ref.read(signInWithGoogleProvider).call();
+      if (!mounted) return;
+      final failure = result.leftOrNull;
+      if (failure != null) {
         ref
             .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
             .state = false;
@@ -238,21 +237,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           AuthErrorMapper.getFrenchMessage(failure) ??
               'Une erreur s\'est produite. Veuillez réessayer.',
         );
-      },
-      (authUser) => _handleOAuthSuccess(authUser),
-    );
+        return;
+      }
+      // Turn off the spinner before showing the phone dialog so the dialog
+      // has a clean backdrop. _handleOAuthSuccess re-enables it during doc creation.
+      setState(() => _isSocialLoading = false);
+      await _handleOAuthSuccess(result.rightOrNull);
+    } catch (_) {
+      if (mounted) {
+        ref
+            .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+            .state = false;
+      }
+    } finally {
+      if (mounted) setState(() => _isSocialLoading = false);
+    }
   }
 
   Future<void> _signInWithApple() async {
-    // Same shell-guard pattern as _signInWithGoogle.
     ref.read(auth_providers.oauthFirestoreProfilePendingProvider.notifier).state =
         true;
     setState(() => _isSocialLoading = true);
-    final result = await ref.read(signInWithAppleProvider).call();
-    if (!mounted) return;
-    setState(() => _isSocialLoading = false);
-    result.fold(
-      (failure) {
+    try {
+      final result = await ref.read(signInWithAppleProvider).call();
+      if (!mounted) return;
+      final failure = result.leftOrNull;
+      if (failure != null) {
         ref
             .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
             .state = false;
@@ -261,9 +271,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           AuthErrorMapper.getFrenchMessage(failure) ??
               'Une erreur s\'est produite. Veuillez réessayer.',
         );
-      },
-      (authUser) => _handleOAuthSuccess(authUser),
-    );
+        return;
+      }
+      setState(() => _isSocialLoading = false);
+      await _handleOAuthSuccess(result.rightOrNull);
+    } catch (_) {
+      if (mounted) {
+        ref
+            .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+            .state = false;
+      }
+    } finally {
+      if (mounted) setState(() => _isSocialLoading = false);
+    }
   }
 
   /// Called after a successful Google or Apple sign-in.
@@ -276,7 +296,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   ///
   /// Every early-return path MUST clear [oauthFirestoreProfilePendingProvider]
   /// so the shell never stays stuck in a "blocked" state.
-  Future<void> _handleOAuthSuccess(dynamic authUser) async {
+  Future<void> _handleOAuthSuccess(AuthUser? authUser) async {
     if (authUser == null) {
       ref
           .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
@@ -304,7 +324,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     // ── New user ── collect phone → create Firestore doc → onboard ─────────
-    final email = (authUser.email as String?)?.trim();
+    final email = authUser.email?.trim();
     if (email == null || email.isEmpty) {
       ref
           .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
@@ -351,12 +371,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     // Create Firestore user document with the role from this screen.
     setState(() => _isSocialLoading = true);
+    final oauthIdentity = oauthIdentityForCreateUserDocument(authUser);
     final createResult =
         await ref.read(signup_providers.createUserDocumentProvider).call(
               uid: authUser.id,
               email: email,
               phone: phoneE164,
               roles: signupRolesMap(widget.role),
+              firstName: oauthIdentity.firstName,
+              lastName: oauthIdentity.lastName,
+              displayName: oauthIdentity.displayName,
+              photoUrl: oauthIdentity.photoUrl,
             );
     if (!mounted) return;
     setState(() => _isSocialLoading = false);
@@ -376,10 +401,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
-    // Unblock the shell and trigger routing to the correct onboarding screen.
     ref
         .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
         .state = false;
+    try {
+      await ref.read(auth_providers.updateLastLoginAtProvider).call(
+            authUser.id,
+            displayName: authUser.displayName,
+            photoUrl: oauthIdentity.photoUrl,
+          );
+    } catch (_) {}
+    try {
+      final pu = oauthIdentity.photoUrl;
+      if (pu != null && pu.isNotEmpty) {
+        await firebase_auth.FirebaseAuth.instance.currentUser
+            ?.updatePhotoURL(pu);
+      }
+    } catch (_) {}
     await ref
         .read(auth_providers.authControllerProvider.notifier)
         .refreshAuthState();

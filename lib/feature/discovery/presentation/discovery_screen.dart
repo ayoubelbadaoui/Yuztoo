@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,9 +8,9 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../client_home/application/providers.dart' as client_home_providers;
 import '../../../core/shared/constants/merchant_colors.dart';
-import '../../../l10n/app_localizations.dart';
 import '../application/providers.dart';
 import '../../merchant/domain/entities/merchant.dart';
+import '../../merchant_partners/application/providers.dart' as partners_providers;
 
 part 'discovery_screen.part.dart';
 
@@ -39,15 +41,59 @@ class DiscoveryScreen extends ConsumerStatefulWidget {
 class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _searchLoading = false;
+  Timer? _searchDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fresh catalog when opening Découvrir (new merchants / city updates).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.invalidate(discoveryCityMerchantsProvider);
+      ref.invalidate(discoveryRecommendedMerchantsProvider);
+      ref.invalidate(discoveryFollowedMerchantsProvider);
+      ref.invalidate(discoveryMerchantsProvider);
+    });
+  }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   void _onSearchQueryChanged(String v) {
+    _searchDebounce?.cancel();
     setState(() => _searchQuery = v);
+    if (v.trim().length >= 2) {
+      setState(() => _searchLoading = true);
+      _searchDebounce = Timer(
+        const Duration(milliseconds: 350),
+        () => _performSearch(v.trim()),
+      );
+    } else {
+      setState(() { _searchResults = []; _searchLoading = false; });
+    }
+  }
+
+  Future<void> _performSearch(String q) async {
+    try {
+      final results = await partners_providers.searchMerchantsProvider(q);
+      if (mounted && _searchQuery.trim() == q) {
+        setState(() => _searchResults = results);
+      }
+    } catch (_) {
+      if (mounted && _searchQuery.trim() == q) {
+        setState(() => _searchResults = []);
+      }
+    } finally {
+      if (mounted && _searchQuery.trim() == q) {
+        setState(() => _searchLoading = false);
+      }
+    }
   }
 
   @override
@@ -55,6 +101,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final merchantsAsync = ref.watch(discoveryMerchantsProvider);
     final viewedIdsAsync =
         ref.watch(client_home_providers.viewedMerchantIdsForCurrentUserProvider);
+    final followedIdsAsync =
+        ref.watch(client_home_providers.followedMerchantIdsForCurrentUserProvider);
+    final isSearching = _searchQuery.trim().length >= 2;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -69,21 +119,36 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: merchantsAsync.when(
-                data: (merchants) =>
-                    _buildContent(context, merchants, viewedIdsAsync.valueOrNull ?? const <String>{}),
-                loading: () => const Center(
-                  child: SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: CircularProgressIndicator(
-                      color: MerchantColors.gold,
-                      strokeWidth: 2,
+              child: isSearching
+                  ? _buildSearchResults(
+                      context,
+                      followedIdsAsync.valueOrNull?.toSet() ?? const <String>{},
+                    )
+                  : merchantsAsync.when(
+                      data: (merchants) => _buildContent(
+                        context,
+                        merchants,
+                        viewedIdsAsync.valueOrNull ?? const <String>{},
+                        followedIdsAsync.valueOrNull?.toSet() ??
+                            const <String>{},
+                      ),
+                      loading: () => const Center(
+                        child: SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: CircularProgressIndicator(
+                            color: MerchantColors.gold,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                      error: (_, __) => _buildContent(
+                        context,
+                        [],
+                        const <String>{},
+                        const <String>{},
+                      ),
                     ),
-                  ),
-                ),
-                error: (_, __) => _buildContent(context, [], const <String>{}),
-              ),
             ),
           ],
         ),

@@ -90,28 +90,34 @@ void main() {
       expect(row.displayLabel, 'Sophie Martin');
     });
 
-    test('empty displayName falls back to last 8 chars of clientUid', () {
+    test('empty displayName falls back to Client', () {
       const row = MerchantClientRow(
         clientUid: 'uid_1234abcd',
         displayName: '',
       );
-      expect(row.displayLabel, '…1234abcd');
+      expect(row.displayLabel, 'Client');
     });
 
-    test('null displayName falls back to last 8 chars of clientUid', () {
+    test('null displayName falls back to Client', () {
       const row = MerchantClientRow(clientUid: 'uid_1234abcd');
-      expect(row.displayLabel, '…1234abcd');
+      expect(row.displayLabel, 'Client');
     });
 
-    test('short clientUid (≤8 chars) shows entire uid', () {
-      const row = MerchantClientRow(clientUid: 'short');
-      // length 5 ≤ 8 → substring(0) = 'short'
-      expect(row.displayLabel, '…short');
+    test('firstName + lastName when displayName empty', () {
+      const row = MerchantClientRow(
+        clientUid: 'u1',
+        firstName: 'Sophie',
+        lastName: 'Martin',
+      );
+      expect(row.displayLabel, 'Sophie Martin');
     });
 
-    test('clientUid exactly 8 chars', () {
-      const row = MerchantClientRow(clientUid: '12345678');
-      expect(row.displayLabel, '…12345678');
+    test('firstName only when displayName empty', () {
+      const row = MerchantClientRow(
+        clientUid: 'u1',
+        firstName: 'Sophie',
+      );
+      expect(row.displayLabel, 'Sophie');
     });
   });
 

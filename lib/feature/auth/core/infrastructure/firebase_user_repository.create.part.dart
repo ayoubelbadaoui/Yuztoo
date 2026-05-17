@@ -7,6 +7,10 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
     required String phone,
     required Map<String, bool> roles,
     String city = '',
+    String? firstName,
+    String? lastName,
+    String? displayName,
+    String? photoUrl,
   }) async {
     // City is now optional at signup — merchants set it during onboarding.
     final persistedCity = city.trim().isEmpty ? null : CityInput.forFirestore(city);
@@ -23,6 +27,11 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
           'Vous avez déjà un compte avec ce numéro — nous ne créons pas deux comptes pour le même numéro. Connectez-vous.',
     );
 
+    final fn = firstName?.trim() ?? '';
+    final ln = lastName?.trim() ?? '';
+    final dn = displayName?.trim() ?? '';
+    final pu = photoUrl?.trim() ?? '';
+
     Map<String, dynamic> userPayload() => {
           'uid': uid,
           'email': email,
@@ -30,10 +39,23 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
           'roles': roles,
           'primary_role': roles['merchant'] == true ? 'merchant' : 'client',
           if (persistedCity != null) 'city': persistedCity,
+          if (fn.isNotEmpty) 'firstName': fn,
+          if (ln.isNotEmpty) 'lastName': ln,
+          if (dn.isNotEmpty) 'displayName': dn,
+          if (pu.isNotEmpty) 'photoUrl': pu,
           'merchant_id': null,
+          // BOTH flags start as 'not_started' for new signups. Pre-setting
+          // the inactive role's flag to 'completed' was the auto-complete
+          // bug: a client who signs up and later taps "créer un compte
+          // pro" would have isMerchantOnboardingCompleted return true (from
+          // this stale 'completed' marker) and be skipped past merchant
+          // onboarding into an empty storefront with no merchant doc. The
+          // correct semantics is "haven't done it yet" for any role the
+          // user has not actually onboarded through, regardless of whether
+          // they currently hold that role.
           'onboarding': {
-            'merchant': roles['merchant'] == true ? 'not_started' : 'completed',
-            'client': roles['client'] == true ? 'not_started' : 'completed',
+            'merchant': 'not_started',
+            'client': 'not_started',
           },
           'status': 'active',
           'created_at': FieldValue.serverTimestamp(),

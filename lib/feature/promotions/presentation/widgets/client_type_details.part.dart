@@ -85,14 +85,6 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
             }).toList(),
           ),
           const SizedBox(height: 14),
-          _filterRow('Clients actifs depuis', '15/01/2025'),
-          const SizedBox(height: 6),
-          _filterRow('Clients inactifs depuis', '15/01/2024'),
-          const SizedBox(height: 6),
-          _filterRow('Clients connectés depuis', '01/01/2025'),
-          const SizedBox(height: 6),
-          _filterRow('Top X clients du mois', 'Top 10'),
-          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -206,34 +198,6 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _filterRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Flexible(
-          child: Text(label,
-              style: GoogleFonts.outfit(fontSize: 11, color: Colors.white)),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: MerchantColors.cream.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Text(
-            value,
-            style: GoogleFonts.outfit(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
     );
   }
 

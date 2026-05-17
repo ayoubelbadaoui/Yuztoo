@@ -8,6 +8,7 @@ import 'package:flutter_yuztoo/feature/auth/core/domain/entities/auth_user.dart'
 import 'package:flutter_yuztoo/feature/auth/core/domain/repositories/auth_repository.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/email_address.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/password.dart';
+import 'package:flutter_yuztoo/feature/auth/core/domain/entities/client_profile_readiness.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/entities/user_profile_basics.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/repositories/user_repository.dart';
 import 'package:flutter_yuztoo/feature/auth/core/application/providers.dart'
@@ -134,6 +135,11 @@ class _FakeAuthRepository implements AuthRepository {
   Stream<Result<AuthUser?>> watchAuthState() {
     return Stream.value(const Right<AuthFailure, AuthUser?>(null));
   }
+
+  @override
+  Future<Result<AuthUser?>> reloadCurrentUserProfile() async {
+    return const Right<AuthFailure, AuthUser?>(null);
+  }
 }
 
 class _FakeUserRepository implements UserRepository {
@@ -164,6 +170,10 @@ class _FakeUserRepository implements UserRepository {
     required String phone,
     required Map<String, bool> roles,
     String city = '',
+    String? firstName,
+    String? lastName,
+    String? displayName,
+    String? photoUrl,
   }) =>
       throw UnimplementedError();
 
@@ -191,6 +201,10 @@ class _FakeUserRepository implements UserRepository {
       throw UnimplementedError();
 
   @override
+  Future<Result<ClientProfileReadiness>> getClientProfileReadiness(String uid) =>
+      throw UnimplementedError();
+
+  @override
   Future<Result<Unit>> completeClientProfile({
     required String uid,
     required String displayName,
@@ -209,6 +223,7 @@ class _FakeUserRepository implements UserRepository {
     String? lastName,
     DateTime? dateOfBirth,
     String? ownerEmail,
+    String? photoUrl,
   }) =>
       throw UnimplementedError();
 
@@ -239,7 +254,11 @@ class _FakeUserRepository implements UserRepository {
       throw UnimplementedError();
 
   @override
-  Future<Result<Unit>> updateLastLoginAt(String uid) =>
+  Future<Result<Unit>> updateLastLoginAt(
+    String uid, {
+    String? displayName,
+    String? photoUrl,
+  }) =>
       throw UnimplementedError();
 
   @override

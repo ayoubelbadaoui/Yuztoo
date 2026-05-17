@@ -14,6 +14,12 @@ export '../../auth/core/application/state/auth_state.dart'
 /// ask the user twice.
 final selectedMerchantCategoryTitleProvider = StateProvider<String?>((ref) => null);
 
+/// Selected merchant category id (e.g. `restaurant`, `retail`). Stable across
+/// title localization and used by [MerchantSubcategoryCatalog] to look up the
+/// correct subcategory list. Both this and [selectedMerchantCategoryTitleProvider]
+/// are set together when the category step completes.
+final selectedMerchantCategoryIdProvider = StateProvider<String?>((ref) => null);
+
 /// Selected merchant subcategory title (optional).
 final selectedMerchantSubcategoryTitleProvider =
     StateProvider<String?>((ref) => null);

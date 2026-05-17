@@ -233,6 +233,18 @@ class StorefrontProfileEditNotifier
           // Logo uploaded and URL saved
           // Clear any previous error
           state = state.copyWith(errorMessage: null);
+          final auth = ref.read(auth_providers.authControllerProvider);
+          if (auth is Authenticated) {
+            unawaited(refreshUserProfileCache(
+              ref,
+              uid: auth.user.id,
+              isMerchant: true,
+              cityChanged: city != null,
+            ));
+          } else {
+            invalidateDiscoveryCatalog(ref);
+            ref.invalidate(merchant_providers.storefrontProvider);
+          }
         },
       );
 

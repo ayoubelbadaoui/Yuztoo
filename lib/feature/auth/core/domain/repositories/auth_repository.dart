@@ -65,4 +65,11 @@ abstract class AuthRepository {
   List<String> getLinkedProviders();
 
   Stream<Result<AuthUser?>> watchAuthState();
+
+  /// Reloads Firebase Auth + `/users/{uid}` and returns a fresh [AuthUser].
+  ///
+  /// Use after profile edits: [watchAuthState] only listens to
+  /// [FirebaseAuth.userChanges], which does not emit when Firestore or
+  /// [updateUserProfile] change display fields.
+  Future<Result<AuthUser?>> reloadCurrentUserProfile();
 }

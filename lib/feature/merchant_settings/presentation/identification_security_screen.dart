@@ -239,7 +239,9 @@ class _IdentificationSecurityScreenState
                             connectedProviders, email, phoneNumber),
                       ],
                       const SizedBox(height: 28),
-                      _sectionLabel('Zone dangereuse'),
+                      // See data_privacy_screen.dart for the rationale —
+                      // "Zone dangereuse" read as a scary warning. Renamed.
+                      _sectionLabel('Suppression du compte'),
                       const SizedBox(height: 10),
                       _buildDeleteCard(),
                     ],

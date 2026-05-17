@@ -1,19 +1,27 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/city_input.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../client_home/application/providers.dart'
+    show followedMerchantIdsForCurrentUserProvider;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 
-/// B2C/B2B filter toggle for discovery screen.
-/// 'b2c' = consumer merchants (default), 'b2b' = service providers.
-final discoveryMerchantTypeFilterProvider = StateProvider<String>((ref) => 'b2c');
+/// 'proche' = same-city merchants (default), 'recommandes' = partner businesses
+/// of merchants the client follows.
+final discoveryMerchantTypeFilterProvider =
+    StateProvider<String>((ref) => 'proche');
 
-/// Merchants list for Découvrir (Recommandations). Loads real data from Firestore.
-final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
+List<Merchant> _activeOnly(List<Merchant> merchants) =>
+    merchants.where((m) => m.status == 'active').toList();
+
+/// City / global catalogue slice for Découvrir — expensive Firestore scan.
+/// Cached separately so follow/unfollow only refreshes [discoveryMerchantsProvider].
+final discoveryCityMerchantsProvider =
+    FutureProvider<List<Merchant>>((ref) async {
   final userId = ref.watch(auth_providers.currentUserIdProvider);
   final repo = ref.watch(merchantRepositoryProvider);
-  final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
 
   List<Merchant> merchants;
 
@@ -21,47 +29,155 @@ final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
     final result = await repo.listMerchants(limit: 50);
     merchants = result.fold((failure) => <Merchant>[], (list) => list);
   } else {
-    final cityResult = await ref.read(auth_providers.getUserCityProvider).call(userId);
-    String? userCity = cityResult.fold((_) => null, (c) => c?.trim());
+    final connectedCities = await ref.watch(
+      auth_providers.connectedCitiesProvider(userId).future,
+    );
+    final cities = <String>{
+      ...connectedCities
+          .map((c) => c.trim())
+          .where((c) => c.isNotEmpty && !CityInput.isPlaceholder(c)),
+    };
 
-    // Fallback for dual-profile users who registered as a merchant first:
-    // their users/{id}.city may be empty while merchants/{id}.city is set.
-    // Without this, discovery falls back to a global unfiltered list instead
-    // of showing local merchants in the same city as their shop.
-    if (userCity == null || userCity.isEmpty) {
+    if (cities.isEmpty) {
       final merchantResult = await repo.getMerchantById(userId);
-      final merchantCity = merchantResult
-          .fold((_) => null, (m) => m?.city.trim());
+      final merchantCity =
+          merchantResult.fold((_) => null, (m) => m?.city.trim());
       if (merchantCity != null &&
           merchantCity.isNotEmpty &&
           !CityInput.isPlaceholder(merchantCity)) {
-        userCity = merchantCity;
+        cities.add(merchantCity);
       }
     }
 
-    if (userCity == null || userCity.isEmpty) {
+    if (cities.isEmpty) {
       final result = await repo.listMerchants(limit: 50);
       merchants = result.fold((failure) => <Merchant>[], (list) => list);
     } else {
       final result = await repo.listMerchants(
         limit: 50,
-        cityFilter: userCity,
-        cityFetchCap: 600,
+        cityFilters: cities.toList(),
+        cityFetchCap: 200,
       );
       merchants = result.fold((failure) => <Merchant>[], (list) => list);
     }
   }
 
-  // Final guard: never show inactive merchants in discovery regardless of
-  // what the repository returned (e.g. during Firestore index build lag).
-  merchants = merchants.where((m) => m.status == 'active').toList();
+  return _activeOnly(merchants);
+});
 
-  // Filter by merchant type (only when filter is not 'all').
-  if (typeFilter != 'all') {
-    merchants = merchants
-        .where((m) => m.merchantType == typeFilter)
-        .toList();
+/// Merchants the current user follows (for Découvrir empty states / previews).
+/// Includes inactive merchants so a followed vitrine still appears after follow.
+final discoveryFollowedMerchantsProvider =
+    FutureProvider<List<Merchant>>((ref) async {
+  final userId = ref.watch(auth_providers.currentUserIdProvider);
+  if (userId == null) return [];
+
+  final followedIds =
+      await ref.watch(followedMerchantIdsForCurrentUserProvider.future);
+  final ids = followedIds.where((id) => id != userId).toList();
+  if (ids.isEmpty) return [];
+
+  final repo = ref.watch(merchantRepositoryProvider);
+  final result = await repo.getMerchantsByIds(ids);
+  return result.fold((_) => <Merchant>[], (list) => list);
+});
+
+/// Partner-based recommendations: merchants listed as accepted partners by
+/// businesses the client follows (merchants/{id}/partners).
+final discoveryRecommendedMerchantsProvider =
+    FutureProvider<List<Merchant>>((ref) async {
+  final userId = ref.watch(auth_providers.currentUserIdProvider);
+  if (userId == null) return [];
+
+  final followedIds =
+      await ref.watch(followedMerchantIdsForCurrentUserProvider.future);
+  if (followedIds.isEmpty) return [];
+
+  final repo = ref.watch(merchantRepositoryProvider);
+  final firestore = FirebaseFirestore.instance;
+  final partnerIds = <String>{};
+
+  await Future.wait(followedIds.map((merchantId) async {
+    final snap = await firestore
+        .collection('merchants')
+        .doc(merchantId)
+        .collection('partners')
+        .get();
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      if (data['is_pending'] == true) continue;
+      final pid = data['partner_merchant_id'] as String?;
+      if (pid != null && pid.isNotEmpty && pid != userId) {
+        partnerIds.add(pid);
+      }
+    }
+  }));
+
+  if (partnerIds.isEmpty) return [];
+
+  final result = await repo.getMerchantsByIds(partnerIds.toList());
+  return result.fold((_) => <Merchant>[], (list) => _activeOnly(list));
+});
+
+/// Merchants list for Découvrir.
+/// 'proche' tab → city merchants (with followed + own store injected).
+/// 'recommandes' tab → partner businesses of followed merchants.
+final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
+  final userId = ref.watch(auth_providers.currentUserIdProvider);
+  final repo = ref.watch(merchantRepositoryProvider);
+  final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
+
+  if (typeFilter == 'recommandes') {
+    return ref.watch(discoveryRecommendedMerchantsProvider.future);
   }
 
-  return merchants;
+  // 'proche' — city merchants + followed + own store
+  var merchants = await ref.watch(discoveryCityMerchantsProvider.future);
+
+  if (userId != null) {
+    final followedIds =
+        await ref.watch(followedMerchantIdsForCurrentUserProvider.future);
+
+    final existingIds = merchants.map((m) => m.id).toSet();
+    final missingFollowed = followedIds
+        .where((id) => id != userId && !existingIds.contains(id))
+        .toList();
+
+    if (missingFollowed.isNotEmpty) {
+      final extra = await repo.getMerchantsByIds(missingFollowed);
+      // Keep followed vitrines visible even when status is not yet 'active'.
+      final injected = extra.fold((_) => <Merchant>[], (list) => list);
+      if (injected.isNotEmpty) {
+        merchants = [...injected, ...merchants];
+      }
+    }
+
+    if (followedIds.isNotEmpty) {
+      final followedSet = followedIds.toSet();
+      final followed =
+          merchants.where((m) => followedSet.contains(m.id)).toList();
+      final rest =
+          merchants.where((m) => !followedSet.contains(m.id)).toList();
+      merchants = [...followed, ...rest];
+    }
+
+    if (!merchants.any((m) => m.id == userId)) {
+      final ownResult = await repo.getMerchantById(userId);
+      final own = ownResult.fold((_) => null, (m) => m);
+      if (own != null) {
+        merchants = <Merchant>[own, ...merchants];
+      }
+    }
+  }
+
+  final seen = <String>{};
+  return merchants.where((m) => seen.add(m.id)).toList();
 });
+
+/// Refreshes Découvrir catalog providers (call after merchant city / vitrine save).
+void invalidateDiscoveryCatalog(Ref ref) {
+  ref.invalidate(discoveryCityMerchantsProvider);
+  ref.invalidate(discoveryRecommendedMerchantsProvider);
+  ref.invalidate(discoveryFollowedMerchantsProvider);
+  ref.invalidate(discoveryMerchantsProvider);
+}

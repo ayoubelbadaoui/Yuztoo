@@ -15,6 +15,7 @@ import '../../../../core/shared/widgets/snackbar.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../../../types.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../core/application/oauth_identity_helpers.dart';
 import '../../../../core/presentation/responsive_scroll_body.dart';
 import '../../core/domain/entities/auth_user.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';

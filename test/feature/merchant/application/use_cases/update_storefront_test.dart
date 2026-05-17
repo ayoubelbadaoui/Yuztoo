@@ -5,6 +5,7 @@ import 'package:flutter_yuztoo/feature/merchant/application/use_cases/update_sto
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
 import 'package:flutter_yuztoo/feature/storage/application/use_cases/upload_banner.dart';
 import 'package:flutter_yuztoo/feature/storage/application/use_cases/upload_logo.dart';
@@ -57,6 +58,7 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
   Future<Result<List<Merchant>>> listMerchants({
     int limit = 20,
     String? cityFilter,
+    List<String>? cityFilters,
     int cityFetchCap = 500,
   }) async =>
       const Right([]);
@@ -121,6 +123,13 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
     );
     return Right(updated);
   }
+
+  @override
+  Future<Result<void>> updateGratificationConfig({
+    required String merchantId,
+    required ClientGratificationConfig config,
+  }) async =>
+      const Right<MerchantFailure, void>(null);
 }
 
 void main() {
