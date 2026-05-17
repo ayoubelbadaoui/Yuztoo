@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +12,7 @@ import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../merchant_onboarding/application/onboarding_flow_provider.dart';
 import '../../merchant_onboarding/application/screens.dart';
 import '../../merchant_onboarding/application/widgets.dart';
+import '../../profile/application/providers.dart' show refreshUserProfileCache;
 
 part 'merchant_profile_form_screen.part.dart';
 
