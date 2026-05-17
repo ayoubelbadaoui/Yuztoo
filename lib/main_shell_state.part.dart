@@ -81,9 +81,16 @@ class _RootShellState extends ConsumerState<_RootShell>
     _isNavigatingToHome = false;
 
     // Listen immediately so we don't miss a fast first auth emission.
+    //
+    // We pass `previous` through to the handler so it can distinguish a
+    // genuine sign-in from a same-user profile refresh — the latter must
+    // NOT re-trigger the splash-and-route flow, otherwise every
+    // `refreshUserProfileCache` call (which is fired after onboarding
+    // completion + profile edits) dumps the user back on splash for the
+    // duration of role-lookup retries.
     _authStateSub = ref.listenManual<AuthState>(
       authControllerProvider,
-      (previous, next) => _handleAuthStateChange(next),
+      (previous, next) => _handleAuthStateChange(next, previous: previous),
       fireImmediately: true,
     );
 
@@ -354,8 +361,29 @@ class _RootShellState extends ConsumerState<_RootShell>
   }
 
   /// Handle auth state changes and update navigation
-  void _handleAuthStateChange(AuthState authState) {
+  void _handleAuthStateChange(AuthState authState, {AuthState? previous}) {
     if (!mounted) return;
+
+    // Same-user profile refresh short-circuit. `reloadProfile()` re-emits
+    // an `Authenticated` state with updated user fields after profile edits
+    // or onboarding completion. Without this guard every such refresh
+    // pushed the shell back to splash + ran the full role-lookup retry
+    // chain (up to 15–30s with timeouts), so users saw "still loading"
+    // after finishing onboarding and had to force-quit the app.
+    //
+    // Conditions for the short-circuit:
+    //   - same user uid (no actual sign-in/out happened),
+    //   - we already routed past splash (real screen visible),
+    //   - we are NOT mid-navigation (don't interrupt a still-running
+    //     _handleAuthenticatedUser).
+    if (authState is Authenticated &&
+        previous is Authenticated &&
+        previous.user.id == authState.user.id &&
+        _authScreen != null &&
+        _authScreen != ScreenId.splash &&
+        !_isNavigatingToHome) {
+      return;
+    }
 
     if (authState is AuthInitial) {
       // Initial state - show splash while auth stream initializes
@@ -486,13 +514,19 @@ class _RootShellState extends ConsumerState<_RootShell>
       final getUserRole = ref.read(getUserRoleProvider);
       UserRole? role;
 
-      // Retry a few times to absorb eventual consistency right after signup/profile writes.
+      // Retry a few times to absorb eventual consistency right after
+      // signup/profile writes. Per-attempt timeout shortened from 5s →
+      // 2s — Firestore single-doc reads typically resolve in <300ms; a
+      // 5s ceiling per attempt × 3 attempts = 15s of splash time that
+      // users perceived as "the app is frozen after signup". The 2s
+      // ceiling still tolerates a slow-but-working network while
+      // cutting worst-case splash time to ~6s.
       for (int attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) {
           await Future.delayed(Duration(milliseconds: 200 * attempt));
         }
         final roleResult =
-            await getUserRole.call(user.id).timeout(const Duration(seconds: 5));
+            await getUserRole.call(user.id).timeout(const Duration(seconds: 2));
         role = roleResult.fold((_) => null, (r) => r);
         if (role != null) break;
       }
@@ -509,7 +543,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           final basicsResult = await ref
               .read(getUserProfileBasicsProvider)
               .call(user.id)
-              .timeout(const Duration(seconds: 5));
+              .timeout(const Duration(seconds: 2));
           hasFirestoreProfile =
               basicsResult.fold((_) => false, (b) => b != null);
           if (hasFirestoreProfile) break;
