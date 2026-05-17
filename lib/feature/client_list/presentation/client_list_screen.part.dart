@@ -1,6 +1,30 @@
 part of 'client_list_screen.dart';
 
 extension _ClientListScreenUi on _ClientListScreenState {
+  Widget _buildValidateFab(BuildContext context) {
+    final merchant =
+        ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
+    return FloatingActionButton.extended(
+      onPressed: merchant == null
+          ? null
+          : () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => MerchantBleScanScreen(merchant: merchant),
+                  fullscreenDialog: true,
+                ),
+              ),
+      backgroundColor: MerchantColors.gold,
+      icon: const Icon(Icons.nfc_rounded, color: MerchantColors.bgMain),
+      label: Text(
+        'Valider un passage',
+        style: GoogleFonts.outfit(
+          fontWeight: FontWeight.w700,
+          color: MerchantColors.bgMain,
+        ),
+      ),
+    );
+  }
+
   Widget _buildScaffold(
     BuildContext context,
     AsyncValue<List<MerchantClientRow>> clientsAsync,
@@ -22,6 +46,8 @@ extension _ClientListScreenUi on _ClientListScreenState {
         },
         child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
+          floatingActionButton:
+              isApercu ? null : _buildValidateFab(context),
           body: GestureDetector(
             onTap: () => FocusScope.of(context).unfocus(),
             behavior: HitTestBehavior.translucent,
@@ -700,6 +726,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
             child: ClientItemCard(
               name: client.displayLabel,
               subtitle: _subtitleFor(client),
+              photoUrl: client.photoUrl,
               segment: client.segment,
               onTap: () => _showClientDetail(context, client, merchantId),
             ),
@@ -1237,7 +1264,7 @@ class _InsetDividerWrapper extends StatelessWidget {
 
 // ── Client detail bottom sheet ────────────────────────────────────────────────
 
-class _ClientDetailSheet extends ConsumerWidget {
+class _ClientDetailSheet extends ConsumerStatefulWidget {
   const _ClientDetailSheet({
     required this.client,
     required this.merchantId,
@@ -1247,19 +1274,54 @@ class _ClientDetailSheet extends ConsumerWidget {
   final String merchantId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ClientDetailSheet> createState() =>
+      _ClientDetailSheetState();
+}
+
+class _ClientDetailSheetState extends ConsumerState<_ClientDetailSheet> {
+  // Local "draft" of the tag the merchant has selected via chips but not yet
+  // saved. `_initialised` distinguishes "no override at all" from "merchant
+  // picked Auto" — both are stored as null but only the latter is a deliberate
+  // user action that triggers the Save button to enable.
+  ClientSegment? _draftSegment;
+  bool _initialised = false;
+  bool _saving = false;
+
+  @override
+  Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    final seg = client.segment;
-    final segColor = _segColor(seg);
-    final initial = client.displayLabel.isNotEmpty
-        ? client.displayLabel[0].toUpperCase()
-        : '?';
+
+    // Re-read the row from the live list so name/photo changes appear without
+    // dismissing the sheet. Falls back to the snapshot passed in if the row
+    // isn't in the list yet (race during initial open).
+    final liveClient = ref
+            .watch(
+                crm_providers.merchantClientsProvider(widget.merchantId))
+            .valueOrNull
+            ?.firstWhere(
+              (c) => c.clientUid == widget.client.clientUid,
+              orElse: () => widget.client,
+            ) ??
+        widget.client;
+
+    if (!_initialised) {
+      _draftSegment = liveClient.manualSegment;
+      _initialised = true;
+    }
+    // Effective segment for the badge: use the draft if the merchant has
+    // changed it, otherwise the persisted manualSegment (which segment getter
+    // already reflects). Auto-segment still applies when both are null.
+    final effective = _draftSegment ?? liveClient.autoSegment;
+    final segColor = _segColor(effective);
+    final hasPhoto =
+        liveClient.photoUrl != null && liveClient.photoUrl!.isNotEmpty;
+    final dirty = _draftSegment != liveClient.manualSegment;
 
     // Real loyalty progress from Firestore
     final progressAsync = ref.watch(
       merchantClientLoyaltyProgressProvider((
-        merchantId: merchantId,
-        clientUid: client.clientUid,
+        merchantId: widget.merchantId,
+        clientUid: liveClient.clientUid,
       )),
     );
 
@@ -1283,7 +1345,8 @@ class _ClientDetailSheet extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          // Avatar + name + segment
+          // Avatar — real photo if available, else generic person icon over
+          // a coloured circle.
           Container(
             width: 72,
             height: 72,
@@ -1292,21 +1355,30 @@ class _ClientDetailSheet extends ConsumerWidget {
               color: segColor.withValues(alpha: 0.15),
               border: Border.all(color: segColor, width: 2.5),
             ),
-            child: Center(
-              child: Text(
-                initial,
-                style: GoogleFonts.outfit(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: segColor,
-                ),
-              ),
+            child: ClipOval(
+              child: hasPhoto
+                  ? Image.network(
+                      liveClient.photoUrl!,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Icon(
+                        Icons.person_rounded,
+                        color: segColor,
+                        size: 38,
+                      ),
+                    )
+                  : Icon(
+                      Icons.person_rounded,
+                      color: segColor,
+                      size: 38,
+                    ),
             ),
           ),
           const SizedBox(height: 12),
 
           Text(
-            client.displayLabel,
+            liveClient.displayLabel,
             style: GoogleFonts.outfit(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -1324,7 +1396,7 @@ class _ClientDetailSheet extends ConsumerWidget {
               border: Border.all(color: segColor.withValues(alpha: 0.5)),
             ),
             child: Text(
-              seg.label,
+              effective.label,
               style: GoogleFonts.outfit(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1333,7 +1405,7 @@ class _ClientDetailSheet extends ConsumerWidget {
             ),
           ),
 
-          if (client.city?.isNotEmpty == true) ...[
+          if (liveClient.city?.isNotEmpty == true) ...[
             const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1342,7 +1414,7 @@ class _ClientDetailSheet extends ConsumerWidget {
                     color: MerchantColors.textGrey, size: 14),
                 const SizedBox(width: 4),
                 Text(
-                  client.city!,
+                  liveClient.city!,
                   style: GoogleFonts.outfit(
                     fontSize: 13,
                     color: MerchantColors.textGrey,
@@ -1352,10 +1424,10 @@ class _ClientDetailSheet extends ConsumerWidget {
             ),
           ],
 
-          if (client.followedAt != null) ...[
+          if (liveClient.followedAt != null) ...[
             const SizedBox(height: 4),
             Text(
-              'Client depuis ${_formatDate(client.followedAt!)}',
+              'Client depuis ${_formatDate(liveClient.followedAt!)}',
               style: GoogleFonts.outfit(
                 fontSize: 12,
                 color: MerchantColors.textGrey,
@@ -1363,26 +1435,137 @@ class _ClientDetailSheet extends ConsumerWidget {
             ),
           ],
 
-          const SizedBox(height: 24),
-          const Divider(color: Color(0x1AFFFFFF), height: 1),
           const SizedBox(height: 20),
+          const Divider(color: Color(0x1AFFFFFF), height: 1),
+          const SizedBox(height: 16),
+
+          // ── Manual tag selector ────────────────────────────────────────
+          // The merchant picks a status here. Selection only updates LOCAL
+          // state; the write happens when they tap the Save button below.
+          // This avoids the previous UX where every chip tap triggered a
+          // round-trip Firestore write that froze the sheet for ~1s.
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Statut',
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: MerchantColors.textGrey,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _ManualSegmentRow(
+            selected: _draftSegment,
+            autoSegment: liveClient.autoSegment,
+            onSelect: (s) => setState(() => _draftSegment = s),
+          ),
+          const SizedBox(height: 14),
+          // Save button — disabled when the draft matches the persisted value
+          // so the merchant can't double-write the same tag.
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: (!dirty || _saving)
+                  ? null
+                  : () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final navigator = Navigator.of(context);
+                      setState(() => _saving = true);
+                      try {
+                        await ref
+                            .read(crm_providers
+                                .setClientManualSegmentProvider)
+                            .call(
+                              merchantId: widget.merchantId,
+                              clientUid: liveClient.clientUid,
+                              segment: _draftSegment,
+                            );
+                        if (!mounted) return;
+                        ref.invalidate(crm_providers
+                            .merchantClientsProvider(widget.merchantId));
+                        navigator.pop();
+                        messenger.showSnackBar(
+                          SnackBar(
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: MerchantColors.navyCard,
+                            behavior: SnackBarBehavior.floating,
+                            content: Text(
+                              'Le statut est mis à jour',
+                              style: GoogleFonts.outfit(
+                                color: MerchantColors.gold,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        );
+                      } catch (e) {
+                        if (mounted) {
+                          setState(() => _saving = false);
+                          messenger.showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              content: Text(
+                                'Impossible d\'enregistrer le statut',
+                                style: GoogleFonts.outfit(),
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: MerchantColors.gold,
+                foregroundColor: MerchantColors.bgHeader,
+                disabledBackgroundColor:
+                    MerchantColors.gold.withValues(alpha: 0.25),
+                disabledForegroundColor:
+                    MerchantColors.bgHeader.withValues(alpha: 0.5),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: MerchantColors.bgHeader,
+                      ),
+                    )
+                  : Text(
+                      'Enregistrer',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Divider(color: Color(0x1AFFFFFF), height: 1),
+          const SizedBox(height: 16),
 
           // Real stats from Firestore loyalty_clients
           progressAsync.when(
             loading: () => _buildStatsRow(
               validated: '—',
               pending: '—',
-              days: _daysSince(client.followedAt),
+              days: _daysSince(liveClient.followedAt),
             ),
             error: (_, __) => _buildStatsRow(
               validated: '0',
               pending: '0',
-              days: _daysSince(client.followedAt),
+              days: _daysSince(liveClient.followedAt),
             ),
             data: (progress) => _buildStatsRow(
               validated: '${progress.validatedPassages}',
               pending: '${progress.pendingPassages}',
-              days: _daysSince(client.followedAt),
+              days: _daysSince(liveClient.followedAt),
             ),
           ),
 
@@ -1458,5 +1641,118 @@ class _ClientDetailSheet extends ConsumerWidget {
       'jul', 'aoû', 'sep', 'oct', 'nov', 'déc',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+}
+
+/// Horizontal row of chips letting the merchant select a manual segment
+/// label. This is **pure UI** — it only reports the selection back via
+/// [onSelect]. The actual Firestore write happens when the parent's "Save"
+/// button is tapped. The first chip ("Auto") clears any override.
+class _ManualSegmentRow extends StatelessWidget {
+  const _ManualSegmentRow({
+    required this.selected,
+    required this.autoSegment,
+    required this.onSelect,
+  });
+
+  /// Currently-selected segment in the parent's draft state. Null means the
+  /// "Auto" chip is active.
+  final ClientSegment? selected;
+  final ClientSegment autoSegment;
+  final ValueChanged<ClientSegment?> onSelect;
+
+  static const List<ClientSegment> _selectable = <ClientSegment>[
+    ClientSegment.nouveau,
+    ClientSegment.habitue,
+    ClientSegment.vip,
+    ClientSegment.inactif,
+  ];
+
+  Color _colorFor(ClientSegment s) {
+    switch (s) {
+      case ClientSegment.vip:
+        return const Color(0xFFFFD700);
+      case ClientSegment.habitue:
+        return const Color(0xFF4CAF50);
+      case ClientSegment.nouveau:
+        return const Color(0xFF64B5F6);
+      case ClientSegment.abonne:
+        return MerchantColors.gold;
+      case ClientSegment.inactif:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _Chip(
+            label: 'Auto · ${autoSegment.label}',
+            color: MerchantColors.gold,
+            selected: selected == null,
+            onTap: selected == null ? null : () => onSelect(null),
+          ),
+          const SizedBox(width: 8),
+          for (final s in _selectable) ...[
+            _Chip(
+              label: s.label,
+              color: _colorFor(s),
+              selected: selected == s,
+              onTap: selected == s ? null : () => onSelect(s),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withValues(alpha: 0.22)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? color
+                : Colors.white.withValues(alpha: 0.12),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? color : MerchantColors.textGrey,
+          ),
+        ),
+      ),
+    );
   }
 }

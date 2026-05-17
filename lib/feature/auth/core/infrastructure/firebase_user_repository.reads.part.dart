@@ -530,6 +530,103 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
     }
   }
 
+  Future<Result<ClientProfileReadiness>> getClientProfileReadiness(
+      String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) {
+        return Right<AuthFailure, ClientProfileReadiness>(
+          ClientProfileReadiness(
+            hasClientRole: false,
+            onboardingCompleted: false,
+            missingForClientHome: computeMissingClientProfileFields(
+              firstName: null,
+              lastName: null,
+              dateOfBirth: null,
+              city: null,
+              photoUrl: null,
+            ),
+          ),
+        );
+      }
+
+      final data = doc.data();
+      if (data == null) {
+        return const Right<AuthFailure, ClientProfileReadiness>(
+          ClientProfileReadiness(
+            hasClientRole: false,
+            onboardingCompleted: false,
+            missingForClientHome: [
+              ClientProfileMissingField.firstName,
+              ClientProfileMissingField.lastName,
+              ClientProfileMissingField.dateOfBirth,
+              ClientProfileMissingField.city,
+              ClientProfileMissingField.photo,
+            ],
+          ),
+        );
+      }
+
+      final roles = data['roles'] as Map<String, dynamic>?;
+      final hasClientRole = roles?['client'] == true;
+
+      final onboarding = data['onboarding'] as Map<String, dynamic>?;
+      final clientRaw =
+          (onboarding?['client'] as String?)?.trim().toLowerCase();
+      final onboardingCompleted = onboarding == null
+          ? hasClientRole
+          : (clientRaw == 'completed');
+
+      final firstName = (data['first_name'] as String?)?.trim();
+      final lastName = (data['last_name'] as String?)?.trim();
+      final dobRaw = data['date_of_birth'] as String?;
+      DateTime? dateOfBirth;
+      if (dobRaw != null && dobRaw.isNotEmpty) {
+        dateOfBirth = DateTime.tryParse(dobRaw);
+      }
+      final rawCity = (data['city'] as String?)?.trim() ?? '';
+      final city = CityInput.isPlaceholder(rawCity) ? '' : rawCity;
+      final photoUrl = (data['photoUrl'] as String?)?.trim();
+      final displayName = (data['displayName'] as String?)?.trim();
+
+      final missing = computeMissingClientProfileFields(
+        firstName: firstName,
+        lastName: lastName,
+        dateOfBirth: dateOfBirth,
+        city: city.isEmpty ? null : city,
+        photoUrl: photoUrl,
+      );
+
+      return Right<AuthFailure, ClientProfileReadiness>(
+        ClientProfileReadiness(
+          hasClientRole: hasClientRole,
+          onboardingCompleted: onboardingCompleted,
+          missingForClientHome: missing,
+          firstName: firstName?.isNotEmpty == true ? firstName : null,
+          lastName: lastName?.isNotEmpty == true ? lastName : null,
+          dateOfBirth: dateOfBirth,
+          city: city.isEmpty ? null : city,
+          photoUrl: photoUrl?.isNotEmpty == true ? photoUrl : null,
+          displayName: displayName?.isNotEmpty == true ? displayName : null,
+        ),
+      );
+    } catch (e, st) {
+      LoggerService.logError(
+        'Error reading client profile readiness',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
+      return Left<AuthFailure, ClientProfileReadiness>(
+        AuthUnexpectedFailure(
+          message: 'Impossible de vérifier le profil client',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
   Future<Result<Unit>> completeClientProfile({
     required String uid,
     required String displayName,
@@ -577,11 +674,23 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
 
       final freshSnap = snap.exists ? snap : await userRef.get();
       final data = freshSnap.data();
+      // Build the merged onboarding map by reading the latest value and only
+      // overwriting `client`. Two bugs the previous code hit:
+      //   1. `putIfAbsent('merchant', () => 'completed')` would silently mark
+      //      merchant onboarding as DONE for a brand-new dual-profile upgrade
+      //      where the merchant key happened to be missing — the user got
+      //      skipped past merchant onboarding even though they never went
+      //      through it. The "default if missing" must be 'not_started',
+      //      not 'completed'.
+      //   2. Writing the merged map back as a nested literal worked here only
+      //      because we read it first, but any other writer that does
+      //      `update({'onboarding': {...}})` would have replaced the whole
+      //      nested map silently.
       final mergedOnboarding = Map<String, dynamic>.from(
         (data?['onboarding'] as Map<String, dynamic>?) ?? {},
       );
       mergedOnboarding['client'] = 'completed';
-      mergedOnboarding.putIfAbsent('merchant', () => 'completed');
+      mergedOnboarding.putIfAbsent('merchant', () => 'not_started');
 
       final update = <String, dynamic>{
         'displayName': trimmed,
@@ -608,6 +717,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
             '${dateOfBirth.day.toString().padLeft(2, '0')}';
       }
 
+      if (data != null) mergeUserPatchForFirestoreRules(data, update);
       await userRef.update(update);
       LoggerService.logInfo(
         'Client profile onboarding completed',
@@ -644,6 +754,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
     String? lastName,
     DateTime? dateOfBirth,
     String? ownerEmail,
+    String? photoUrl,
   }) async {
     try {
       final userRef = _firestore.collection('users').doc(uid);
@@ -688,6 +799,14 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       final oe = ownerEmail?.trim() ?? '';
       if (oe.isNotEmpty) {
         update['owner_email'] = oe.toLowerCase();
+      }
+
+      // Mirror the avatar URL from Firebase Auth into Firestore so anything
+      // that reads users/{uid}.photoUrl (e.g. the merchant CRM client list)
+      // sees the latest picture without waiting for an Auth-state roundtrip.
+      final pu = photoUrl?.trim() ?? '';
+      if (pu.isNotEmpty) {
+        update['photoUrl'] = pu;
       }
 
       // Ensure the merged document satisfies onboardingShapeValid(),

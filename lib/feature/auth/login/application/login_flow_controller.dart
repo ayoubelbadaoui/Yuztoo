@@ -42,11 +42,16 @@ class LoginFlowController extends StateNotifier<LoginFlowState> {
           // Continue login even if patching fails
         }
 
-        // Update last_login_at timestamp (non-blocking - don't fail login if this fails)
+        // Update last_login_at timestamp AND mirror Firebase Auth's display
+        // name + photo URL into Firestore so the merchant CRM picks them up
+        // immediately. Non-blocking — don't fail login if this fails.
         try {
           final updateLastLoginUseCase = ref.read(auth_core.updateLastLoginAtProvider);
-          await updateLastLoginUseCase.call(authUser.id);
-          // Ignore errors - last_login_at update is non-critical
+          await updateLastLoginUseCase.call(
+            authUser.id,
+            displayName: authUser.displayName,
+            photoUrl: authUser.photoUrl,
+          );
         } catch (_) {
           // Continue login even if last_login_at update fails
         }

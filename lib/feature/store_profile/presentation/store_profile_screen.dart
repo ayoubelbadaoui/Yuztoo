@@ -7,7 +7,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/application/precache_network_images.dart';
-import '../../loyalty/domain/entities/client_merchant_loyalty_progress.dart';
 import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant_partners/application/providers.dart' as partners_providers;
 import '../../merchant/domain/entities/merchant.dart';
@@ -198,10 +197,16 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   int _heartSaveToken = 0;
   String? _lastViewedKey;
 
-  /// Tracks whether this screen instance has already consumed the
-  /// "auto-open passage sheet on scan" flag. Prevents re-firing on rebuild
-  /// (e.g. when isFollowing flips after the auto-follow side effect).
-  bool _scanAutoPassageHandled = false;
+  /// Prevents re-firing the QR/NFC arrival funnel on rebuild within one visit.
+  bool _scanArrivalHandled = false;
+
+  /// Prevents re-opening the promotion detail sheet on rebuild after a
+  /// notification-tap deep-link is consumed.
+  bool _promotionDeepLinkHandled = false;
+
+  /// Avoids showing the welcome-gift modal twice (follow-then-passage).
+  String? _welcomeShownForMerchantId;
+
 
   @override
   Widget build(BuildContext context) {
@@ -309,6 +314,11 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     ref.invalidate(followedMerchantIdsForCurrentUserProvider);
     ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
     ref.invalidate(clientHomeFeedProvider);
+    // ensureFollowedAndSetHeartLevel also creates a follow when the user
+    // hadn't followed yet — refresh the storefront's "X abonnés" pill so
+    // the count reflects the new follower immediately.
+    ref.invalidate(
+        followersCountByMerchantIdsProvider(<String>[merchantId]));
     // Keep UI instant and quiet; no success snackbar on every tap.
   }
 

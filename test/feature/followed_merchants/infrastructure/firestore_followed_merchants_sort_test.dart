@@ -88,5 +88,42 @@ void main() {
       final result = await repo.updateSortOrder(userId, {});
       expect(result.isRight, isTrue);
     });
+
+    test('merge-set creates sort_index when followed doc was missing', () async {
+      final result = await repo.updateSortOrder(userId, {'m_new': 0});
+      expect(result.isRight, isTrue);
+
+      final doc = await firestore
+          .collection('users')
+          .doc(userId)
+          .collection('followed_merchants')
+          .doc('m_new')
+          .get();
+      expect(doc.exists, isTrue);
+      expect(doc.data()?['sort_index'], 0);
+      expect(doc.data()?['merchant_id'], 'm_new');
+    });
+
+    test('merge-set preserves existing heart_level on doc', () async {
+      await seedFollowed('m_keep', sortIndex: 2);
+      await firestore
+          .collection('users')
+          .doc(userId)
+          .collection('followed_merchants')
+          .doc('m_keep')
+          .update({'heart_level': 2});
+
+      final result = await repo.updateSortOrder(userId, {'m_keep': 0});
+      expect(result.isRight, isTrue);
+
+      final doc = await firestore
+          .collection('users')
+          .doc(userId)
+          .collection('followed_merchants')
+          .doc('m_keep')
+          .get();
+      expect(doc.data()?['sort_index'], 0);
+      expect(doc.data()?['heart_level'], 2);
+    });
   });
 }

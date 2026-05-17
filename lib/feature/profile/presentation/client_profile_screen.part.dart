@@ -66,6 +66,26 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                         ),
                       ],
                     ),
+                    if (widget.isDualProfile) ...[
+                      _buildSection(
+                        sectionLabel: 'Mon commerce',
+                        items: [
+                          _NavItem(
+                            icon: Icons.storefront_outlined,
+                            label: 'Modifier mon profil commerçant',
+                            onTap: () =>
+                                widget.onNavigate?.call('pro-profile'),
+                          ),
+                          _NavItem(
+                            icon: Icons.people_outline,
+                            label: 'Tableau de bord commerçant',
+                            onTap: () =>
+                                widget.onNavigate?.call('switch-to-merchant'),
+                            isLast: true,
+                          ),
+                        ],
+                      ),
+                    ],
                     _buildSection(
                       sectionLabel: l10n.support,
                       items: [

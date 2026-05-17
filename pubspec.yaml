@@ -1,7 +1,7 @@
 name: flutter_yuztoo
 description: Flutter UI recreation of the High-Fidelity Yuztoo design.
 publish_to: "none"
-version: 1.0.0+7
+version: 1.0.0+12
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -46,9 +46,12 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_nfc_kit: ^3.6.2
   ndef: ^0.4.0
+  flutter_blue_plus: ^1.36.8
+  ble_peripheral: ^2.4.0
   universal_platform: ^1.1.0
   image_cropper: ^12.2.1
   firebase_crashlytics: ^5.2.0
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

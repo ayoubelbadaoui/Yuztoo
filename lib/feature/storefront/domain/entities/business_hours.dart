@@ -5,12 +5,12 @@
 // ---------------------------------------------------------------------------
 
 /// Converts any stored time string into the canonical `TimeSlotPicker` format:
-/// `'Nh'` or `'Nh30'` where N is the hour without a leading zero.
+/// `'Nh'` when minutes are zero, otherwise `'NhMM'` with two-digit minutes.
 ///
 /// Handles the most common legacy and mis-typed formats:
 ///   '08:00' → '8h'     '08h00' → '8h'    '8H30' → '8h30'
-///   '08:30' → '8h30'   '8h00'  → '8h'    '8'    → '8h'
-///   '8:58'  → '9h'     (minutes snapped to nearest 0 or 30)
+///   '08:15' → '8h15'   '8h05'  → '8h05'  '8'    → '8h'
+///   '8:58'  → '9h'     (minutes snapped to nearest 5-minute boundary)
 ///
 /// Unknown formats (e.g. 'Fermé', '12:00 PM') are returned **unchanged** so
 /// they remain visible rather than silently replaced with a wrong value.
@@ -21,7 +21,7 @@ String normalizeTimeString(String raw) {
   int? h;
   int? m;
 
-  // Pattern 1: 'Nh' or 'Nh30' or 'Nhm' (h separator, optional minutes)
+  // Pattern 1: 'Nh' or 'NhMM' or 'Nhm' (h separator, optional minutes)
   final hPat = RegExp(r'^(\d{1,2})h(\d{0,2})$').firstMatch(s);
   if (hPat != null) {
     h = int.parse(hPat.group(1)!);
@@ -45,26 +45,23 @@ String normalizeTimeString(String raw) {
 
   if (h == null || m == null) return raw; // unknown format → pass through
 
-  // Snap minutes to the nearest 0 or 30-minute boundary.
-  final int snappedH;
-  final int snappedM;
-  if (m < 15) {
-    snappedH = h;
+  // Snap minutes to the nearest 5-minute boundary (handles roll-over to next
+  // hour for 58→60 etc.). The Cupertino wheel uses 5-minute intervals so any
+  // value the user can pick is already aligned; this just sanitises legacy data.
+  int snappedH = h;
+  int snappedM = ((m + 2) ~/ 5) * 5;
+  if (snappedM >= 60) {
     snappedM = 0;
-  } else if (m < 45) {
-    snappedH = h;
-    snappedM = 30;
-  } else {
-    // Round up to the next hour.
-    snappedH = h + 1;
-    snappedM = 0;
+    snappedH += 1;
   }
 
-  // Clamp to the picker's supported range (6h – 23h30).
+  // Clamp to the picker's supported range (6h – 23h55).
   if (snappedH < 6) return '6h';
-  if (snappedH > 23 || (snappedH == 23 && snappedM > 30)) return '23h30';
+  if (snappedH > 23) return '23h55';
 
-  return snappedM == 0 ? '${snappedH}h' : '${snappedH}h30';
+  return snappedM == 0
+      ? '${snappedH}h'
+      : '${snappedH}h${snappedM.toString().padLeft(2, '0')}';
 }
 
 /// Ensures a stored day name is title-cased French, e.g. 'lundi' → 'Lundi'.

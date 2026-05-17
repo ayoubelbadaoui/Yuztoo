@@ -14,21 +14,37 @@ class RoleCacheService {
   static const _keyPendingSignupCityUid = 'auth.pending_signup_city_uid';
   static const _keyPendingSignupCity = 'auth.pending_signup_city';
 
-  Future<void> saveLastSelectedRole(UserRole role) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyLastSelectedRole, role.name);
-  }
+  static String _roleKeyForUser(String userId) =>
+      'auth.last_selected_role.$userId';
 
-  Future<UserRole?> readLastSelectedRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_keyLastSelectedRole);
+  static UserRole? _parseRole(String? raw) {
     if (raw == null || raw.isEmpty) return null;
-
     return switch (raw) {
       'merchant' => UserRole.merchant,
       'client' => UserRole.client,
       _ => null,
     };
+  }
+
+  /// Persists the last client vs merchant shell the user was in.
+  ///
+  /// When [userId] is set, storage is scoped per account so another login
+  /// on the same device does not inherit the previous user's session.
+  Future<void> saveLastSelectedRole(UserRole role, {String? userId}) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (userId != null && userId.isNotEmpty) {
+      await prefs.setString(_roleKeyForUser(userId), role.name);
+    }
+    await prefs.setString(_keyLastSelectedRole, role.name);
+  }
+
+  Future<UserRole?> readLastSelectedRole({String? userId}) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (userId != null && userId.isNotEmpty) {
+      final perUser = _parseRole(prefs.getString(_roleKeyForUser(userId)));
+      if (perUser != null) return perUser;
+    }
+    return _parseRole(prefs.getString(_keyLastSelectedRole));
   }
 
   Future<void> clear() async {

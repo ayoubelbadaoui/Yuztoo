@@ -20,46 +20,40 @@ final merchantPartnersProvider =
   },
 );
 
-/// Searches merchants by name prefix (case-insensitive start-of-string match).
-/// Returns a plain list of maps with keys:
-///   id, name, city, logoUrl, merchantType ('b2b'|'b2c'|null).
+/// Searches merchants by name (substring, case-insensitive).
 ///
-/// When [merchantType] is non-null, the result set is post-filtered so
-/// only matching businesses come back. Done client-side rather than via
-/// a Firestore composite index so the existing name-prefix index keeps
-/// covering the search; we already cap the query at 40 docs (`limit`)
-/// so the cost is trivial. Pre-filter docs with no `merchant_type` are
-/// considered B2C by default (the merchantType default in the entity).
+/// Fetches up to 200 merchants and filters client-side so that names like
+/// "La Boulangerie" are found when the user types "boulangerie". Firestore
+/// caches results locally so subsequent calls after the first load are fast.
+///
+/// [merchantType] post-filters to 'b2b' or 'b2c' when non-null.
 Future<List<Map<String, dynamic>>> searchMerchantsProvider(
   String query, {
   String? merchantType,
 }) async {
-  if (query.isEmpty) return [];
-  final q = query.toLowerCase();
-  final snap = await FirebaseFirestore.instance
-      .collection('merchants')
-      .orderBy('name_lowercase')
-      .startAt([q])
-      .endAt(['$q\uf8ff'])
-      // Read more than 20 so a 100% B2C-only filter still has results
-      // even when a few B2B entries lead the prefix range.
-      .limit(40)
-      .get();
-  final results = snap.docs.map((doc) {
+  if (query.trim().isEmpty) return [];
+  final qLower = query.trim().toLowerCase();
+  final fs = FirebaseFirestore.instance;
+
+  final snap = await fs.collection('merchants').limit(200).get();
+
+  final results = <Map<String, dynamic>>[];
+  for (final doc in snap.docs) {
     final data = doc.data();
+    final name = (data['name'] as String? ?? '').toLowerCase();
+    final display = (data['display_name'] as String? ?? '').toLowerCase();
+    if (!name.contains(qLower) && !display.contains(qLower)) continue;
     final rawType = data['merchant_type'] as String?;
-    final type = (rawType == 'b2b' || rawType == 'b2c') ? rawType : 'b2c';
-    return {
+    results.add({
       'id': doc.id,
       'name': data['name'] as String? ?? '',
       'city': data['city'] as String? ?? '',
       'logoUrl': data['logo_url'] as String?,
-      'merchantType': type,
-    };
-  });
-  if (merchantType == null) {
-    return results.take(20).toList();
+      'merchantType': (rawType == 'b2b' || rawType == 'b2c') ? rawType : 'b2c',
+    });
   }
+
+  if (merchantType == null) return results.take(20).toList();
   return results
       .where((m) => m['merchantType'] == merchantType)
       .take(20)

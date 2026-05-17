@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../domain/auth_failure.dart';
+import '../application/client_profile_readiness_logic.dart';
+import '../domain/entities/client_profile_readiness.dart';
 import '../domain/entities/user_profile_basics.dart';
 import '../domain/repositories/user_repository.dart';
 import '../../../../../core/domain/core/either.dart';

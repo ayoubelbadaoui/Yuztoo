@@ -3,7 +3,31 @@ part of 'phone_number_formatter.dart';
 /// Format phone number for display in the input field (country-specific grouping).
 String _formatPhoneForInput(String countryCode, String digits) {
   switch (countryCode) {
-    case '+33': // France: X XX XX XX XX
+    case '+33': // France: X XX XX XX XX (E.164 form) or 0X XX XX XX XX (national)
+      // French numbers are routinely typed with the national trunk prefix
+      // "0" by users (e.g. 06 12 34 56 78). The previous 9-digit template
+      // silently dropped the 10th digit, leaving the user unable to enter
+      // a number they were typing exactly as written on a business card.
+      // PhoneFormatter.formatPhoneNumber strips the leading 0 when building
+      // E.164 at submit time, so accepting both forms here is purely a
+      // display courtesy: 9-digit input keeps the existing "X XX XX XX XX"
+      // grouping; 10-digit input with leading 0 uses "0X XX XX XX XX".
+      if (digits.startsWith('0')) {
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 4) {
+          return '${digits.substring(0, 2)} ${digits.substring(2)}';
+        }
+        if (digits.length <= 6) {
+          return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
+        }
+        if (digits.length <= 8) {
+          return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6)}';
+        }
+        if (digits.length <= 10) {
+          return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6, 8)} ${digits.substring(8)}';
+        }
+        return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4, 6)} ${digits.substring(6, 8)} ${digits.substring(8, 10)}';
+      }
       if (digits.length <= 1) return digits;
       if (digits.length <= 3) {
         return '${digits.substring(0, 1)} ${digits.substring(1)}';
@@ -212,7 +236,17 @@ String _formatPhoneForInput(String countryCode, String digits) {
       }
       return '${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6, 9)}';
 
-    case '+212': // Morocco: XXXX-XXXXX
+    case '+212': // Morocco: XXXX-XXXXX (E.164) or 0XXX-XXXXX (national, 10 digits)
+      // Same rationale as +33: accept a leading "0" so users can type the
+      // number as they would dial domestically. The submit-time formatter
+      // strips it for E.164.
+      if (digits.startsWith('0')) {
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 10) {
+          return '${digits.substring(0, 4)}-${digits.substring(4)}';
+        }
+        return '${digits.substring(0, 4)}-${digits.substring(4, 10)}';
+      }
       if (digits.length <= 4) return digits;
       if (digits.length <= 9) {
         return '${digits.substring(0, 4)}-${digits.substring(4)}';

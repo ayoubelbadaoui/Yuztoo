@@ -10,6 +10,8 @@ class ServiceToggle {
   final bool value;
   final ValueChanged<bool> onChanged;
   final VoidCallback? onTap;
+  /// When true, the toggle thumb is hidden and the row acts as a pure nav link.
+  final bool navOnly;
 
   const ServiceToggle({
     this.icon,
@@ -17,6 +19,7 @@ class ServiceToggle {
     required this.value,
     required this.onChanged,
     this.onTap,
+    this.navOnly = false,
   });
 }
 
@@ -88,35 +91,39 @@ class SettingsServicesSection extends StatelessWidget {
                 ),
               ),
             ),
-            GestureDetector(
-              onTap: () => service.onChanged(!service.value),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 48,
-                height: 28,
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: service.value
-                      ? MerchantColors.gold
-                      : const Color(0xFF444444),
-                ),
-                child: AnimatedAlign(
+            if (service.navOnly)
+              const Icon(Icons.chevron_right_rounded,
+                  color: MerchantColors.textGrey, size: 20)
+            else
+              GestureDetector(
+                onTap: () => service.onChanged(!service.value),
+                child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
-                  alignment: service.value
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
+                  width: 48,
+                  height: 28,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: service.value
+                        ? MerchantColors.gold
+                        : const Color(0xFF444444),
+                  ),
+                  child: AnimatedAlign(
+                    duration: const Duration(milliseconds: 300),
+                    alignment: service.value
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),

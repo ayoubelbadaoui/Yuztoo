@@ -1,29 +1,5 @@
 part of 'notifications_auto_screen.dart';
 
-// ── DUMMY: remove the 15 lines below before shipping ─────────────────────────
-const _kNotifDummy = false;
-const _kDummyNotifications = [
-  ActiveNotification(
-    id: 'dummy_1',
-    merchantId: '',
-    text: 'Bonjour ! Merci pour votre visite, revenez bientôt 👋',
-    trigger: '1er passage fidélité',
-    audience: 'Tous mes clients',
-    isEnabled: true,
-    targetSegments: [],
-  ),
-  ActiveNotification(
-    id: 'dummy_2',
-    merchantId: '',
-    text: 'Vous êtes à 1 passage de votre récompense ! 🎁',
-    trigger: 'Avant-dernier passage',
-    audience: 'Certains clients',
-    isEnabled: false,
-    targetSegments: ['Clients fidèles'],
-  ),
-];
-// ─────────────────────────────────────────────────────────────────────────────
-
 extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
   Widget _buildNotificationsAutoRoot(
     String? merchantId,
@@ -75,18 +51,15 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
                         _buildActionButton(merchantId),
                         notificationsAsync.when(
                           data: (notifications) {
-                            final display = (_kNotifDummy && notifications.isEmpty)
-                                ? _kDummyNotifications
-                                : notifications;
                             return ActiveNotificationsList(
-                              notifications: display,
+                              notifications: notifications,
                               onToggle: (i, v) => _onToggle(
-                                  merchantId ?? '', display[i], v),
-                              onEdit: (i) => _edit(display, i),
+                                  merchantId ?? '', notifications[i], v),
+                              onEdit: (i) => _edit(notifications, i),
                               onDelete: (i) =>
-                                  _delete(merchantId ?? '', display, i),
+                                  _delete(merchantId ?? '', notifications, i),
                               onTest: (i) =>
-                                  _onTest(merchantId ?? '', display[i]),
+                                  _onTest(merchantId ?? '', notifications[i]),
                             );
                           },
                           loading: () => const Padding(
@@ -293,6 +266,19 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
     }
 
     final triggerLabel = triggerLabels[_selectedTrigger];
+    if (!AutoNotificationTriggers.isWiredInCloud(triggerLabel)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Ce déclencheur sera disponible prochainement. '
+            'Choisissez un autre événement pour l’instant.',
+            style: GoogleFonts.outfit(),
+          ),
+          backgroundColor: Colors.orange[800],
+        ),
+      );
+      return;
+    }
     final audienceLabel =
         _clientSelection == 0 ? 'Tous mes clients' : 'Certains clients';
     final text = _textCtrl.text.trim();

@@ -6,8 +6,12 @@ import '../../auth/core/application/state/auth_state.dart';
 import '../infrastructure/merchant_repository_provider.dart';
 import '../infrastructure/merchant_profile_cache_service.dart';
 import '../domain/entities/merchant.dart';
+import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
+import '../../loyalty/infrastructure/client_loyalty_repository_provider.dart';
 import 'use_cases/create_merchant_use_case.dart';
 import 'use_cases/complete_merchant_onboarding.dart';
+import 'use_cases/merchant_record_client_passage.dart';
+import 'use_cases/update_gratification_config.dart';
 import 'use_cases/update_storefront.dart';
 import 'use_cases/update_rappels_settings.dart';
 import '../../storage/application/providers.dart' as storage_providers;
@@ -53,6 +57,23 @@ final updateRappelsSettingsProvider = Provider<UpdateRappelsSettings>((ref) {
   return UpdateRappelsSettings(repository);
 });
 
+/// Provider for MerchantRecordClientPassage use case.
+/// Called from the merchant BLE/QR scan screen when validating a client's passage.
+final merchantRecordClientPassageProvider =
+    Provider<MerchantRecordClientPassage>((ref) {
+  return MerchantRecordClientPassage(
+    ref.watch(clientLoyaltyRepositoryProvider),
+    ref.watch(clientNotificationRepositoryProvider),
+  );
+});
+
+/// Provider for UpdateGratificationConfig use case.
+final updateGratificationConfigProvider =
+    Provider<UpdateGratificationConfig>((ref) {
+  final repository = ref.watch(merchantRepositoryProvider);
+  return UpdateGratificationConfig(repository);
+});
+
 /// Provider for MerchantProfileCacheService (demo mode - local storage).
 final merchantProfileCacheServiceProvider =
     Provider<MerchantProfileCacheService>((ref) {
@@ -80,4 +101,23 @@ final currentMerchantForOwnerProvider =
 
   final result = await merchantRepo.getMerchantById(merchantId);
   return result.fold((_) => null, (m) => m);
+});
+
+/// Whether the signed-in user owns a merchant (pro) profile — used for the
+/// client-home "switch to merchant" affordance even when `roles.merchant` is
+/// missing from a stale auth snapshot.
+final hasLinkedMerchantAccountProvider =
+    FutureProvider.autoDispose<bool>((ref) async {
+  final authState = ref.watch(auth_providers.authStateProvider);
+  if (authState is! Authenticated) return false;
+
+  final user = authState.user;
+  if (user.roles?['merchant'] == true) return true;
+
+  final merchant = await ref.watch(currentMerchantForOwnerProvider.future);
+  if (merchant != null) return true;
+
+  final merchantRepo = ref.watch(merchantRepositoryProvider);
+  final legacy = await merchantRepo.getMerchantById(user.id);
+  return legacy.fold((_) => false, (m) => m != null);
 });

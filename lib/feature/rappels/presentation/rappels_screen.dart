@@ -28,12 +28,6 @@ import 'widgets/rappels_toggles_section.dart';
 
 part 'rappels_screen.part.dart';
 
-// ── DUMMY DATA — delete these 3 lines when shipping ──────────────────────────
-const _kRappelsDummy = false;
-const _kDummyConnected = 0;
-const _kDummyValidatedPassages = 0;
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// Rappels screen – "Vos rappels" merchant page.
 /// Toggles are loaded from and saved to Firestore.
 class RappelsScreen extends ConsumerStatefulWidget {

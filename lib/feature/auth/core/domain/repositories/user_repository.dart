@@ -1,5 +1,6 @@
 import '../../../../../core/domain/core/result.dart';
 import '../../../../../types.dart';
+import '../entities/client_profile_readiness.dart';
 import '../entities/user_profile_basics.dart';
 
 /// Repository interface for user profile operations in Firestore
@@ -40,6 +41,10 @@ abstract class UserRepository {
     required String phone,
     required Map<String, bool> roles,
     String city = '',
+    String? firstName,
+    String? lastName,
+    String? displayName,
+    String? photoUrl,
   });
 
   /// Get user role from Firestore
@@ -83,6 +88,9 @@ abstract class UserRepository {
   /// Returns `null` if the user is not a client. For legacy docs without
   /// `onboarding.client`, returns `true` so existing users are not gated.
   Future<Result<bool?>> isClientOnboardingCompleted(String uid);
+
+  /// Profile snapshot for merchant → client switch (roles, onboarding, gaps).
+  Future<Result<ClientProfileReadiness>> getClientProfileReadiness(String uid);
 
   /// Saves display name, split name, DOB, optional photo URL, and marks `onboarding.client` completed.
   Future<Result<Unit>> completeClientProfile({
@@ -131,14 +139,24 @@ abstract class UserRepository {
   /// Returns Result<Unit> on success, Result with failure on error
   Future<Result<Unit>> patchUserDocument(String uid);
 
-  /// Update last_login_at timestamp on successful sign-in
+  /// Update last_login_at timestamp on successful sign-in.
   ///
   /// Uses server timestamp to ensure consistency and handle concurrent logins.
+  /// Also mirrors Firebase Auth's [displayName] and [photoUrl] into the
+  /// Firestore user doc when supplied — this is how the merchant CRM sees
+  /// updated photos / names without needing the client to re-edit them. Empty
+  /// strings are ignored so we don't overwrite a Firestore value with nothing.
   ///
   /// [uid] - User's unique identifier
+  /// [displayName] - Firebase Auth's current displayName (optional)
+  /// [photoUrl] - Firebase Auth's current photoURL (optional)
   ///
   /// Returns Result<Unit> on success, Result with failure on error
-  Future<Result<Unit>> updateLastLoginAt(String uid);
+  Future<Result<Unit>> updateLastLoginAt(
+    String uid, {
+    String? displayName,
+    String? photoUrl,
+  });
 
   /// Consumes one-time merchant-first-login marker from Firestore.
   ///
@@ -187,5 +205,6 @@ abstract class UserRepository {
     String? lastName,
     DateTime? dateOfBirth,
     String? ownerEmail,
+    String? photoUrl,
   });
 }

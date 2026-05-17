@@ -10,6 +10,7 @@ import '../application/providers.dart';
 import '../domain/carnet_merchant_order.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
+import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../promotions/domain/entities/promotion.dart';
 
@@ -38,6 +39,10 @@ class ClientHomeScreen extends ConsumerWidget {
     final feedAsync = ref.watch(clientHomeFeedProvider);
     final heartLevelsAsync =
         ref.watch(followedMerchantHeartLevelsForCurrentUserProvider);
+    final hasProAccount = ref
+            .watch(merchant_providers.hasLinkedMerchantAccountProvider)
+            .valueOrNull ??
+        isDualProfile;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -50,7 +55,7 @@ class ClientHomeScreen extends ConsumerWidget {
         backgroundColor: MerchantColors.bgMain,
         body: Column(
           children: [
-            _buildHeader(context),
+            _buildHeader(context, showMerchantSwitch: hasProAccount),
             Expanded(
               child: RefreshIndicator(
                 color: MerchantColors.gold,

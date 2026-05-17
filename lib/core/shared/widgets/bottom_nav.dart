@@ -11,18 +11,14 @@ class YBottomNav extends StatelessWidget {
     required this.activeTab,
     required this.onTabChange,
     this.notificationBadgeCount = 0,
-    this.merchantClientCount = 0,
   });
 
   final UserRole role;
   final String activeTab;
   final ValueChanged<String> onTabChange;
 
-  /// Number shown on the notifications tab badge. 0 = hidden.
+  /// Number shown on the notifications tab badge (client role only). 0 = hidden.
   final int notificationBadgeCount;
-
-  /// Live client count shown on the "Vos clients" tab badge. 0 = hidden.
-  final int merchantClientCount;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +41,6 @@ class YBottomNav extends StatelessWidget {
               id: 'communaute',
               label: l10n.navYourClients,
               icon: Icons.people_outline,
-              badgeCount: merchantClientCount,
             ),
             _TabItem(id: 'rappels', label: l10n.navRappels, icon: Icons.campaign_rounded),
             _TabItem(id: 'storefront', label: l10n.navStorefront, icon: Icons.storefront),

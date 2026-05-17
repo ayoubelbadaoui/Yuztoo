@@ -53,7 +53,7 @@ class FirestoreMerchantPartnerRepository implements IMerchantPartnerRepository {
       partnerCity: partnerCity,
       partnerMerchantType: cleanType,
       addedAt: DateTime.now(),
-      isPending: true,
+      isPending: false,
     );
     return _col(merchantId).add(dto.toFirestore());
   }

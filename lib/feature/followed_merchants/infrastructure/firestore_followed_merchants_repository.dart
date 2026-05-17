@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/domain/core/either.dart';
@@ -35,15 +37,9 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
         'heart_level': 1,
         'merchant_id': merchantId,
       });
-      // Notify the merchant of the new follower (pending_clients subcollection).
-      await _pendingClientRepo.writePendingClient(merchantId, userId);
-      // Increment the monthly "clients connectés" counter on the merchant doc.
-      await _incrementMerchantMonthlyCounter(
-        merchantId: merchantId,
-        counterField: 'rappels_monthly_connected_clients',
-        ymField: 'rappels_monthly_connected_ym',
-      );
       LoggerService.logInfo('Followed merchant added', context: {'userId': userId, 'merchantId': merchantId});
+      // Side effects must not block the client UI (Découvrir / carnet refresh).
+      unawaited(_runFollowSideEffects(merchantId: merchantId, userId: userId));
       return const Right<AppFailure, Unit>(unit);
     } on FirebaseException catch (e, st) {
       LoggerService.logError('Firebase error adding followed merchant', error: e, stackTrace: st);
@@ -54,6 +50,27 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
       LoggerService.logError('Error adding followed merchant', error: e, stackTrace: st);
       return Left<AppFailure, Unit>(
         UnexpectedFailure(message: 'Erreur lors du suivi du commerce', cause: e, stackTrace: st),
+      );
+    }
+  }
+
+  Future<void> _runFollowSideEffects({
+    required String merchantId,
+    required String userId,
+  }) async {
+    try {
+      await _pendingClientRepo.writePendingClient(merchantId, userId);
+      await _incrementMerchantMonthlyCounter(
+        merchantId: merchantId,
+        counterField: 'rappels_monthly_connected_clients',
+        ymField: 'rappels_monthly_connected_ym',
+      );
+    } catch (e, st) {
+      LoggerService.logError(
+        'Follow side effects failed (non-blocking)',
+        error: e,
+        stackTrace: st,
+        context: {'userId': userId, 'merchantId': merchantId},
       );
     }
   }
@@ -380,9 +397,15 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
     try {
       final batch = _firestore.batch();
       sortIndexes.forEach((merchantId, index) {
-        batch.update(
+        // Merge so reorder succeeds even if the followed doc is missing
+        // fields or was created on another device (update() would fail).
+        batch.set(
           _followedRef(userId).doc(merchantId),
-          {'sort_index': index},
+          {
+            'sort_index': index,
+            'merchant_id': merchantId,
+          },
+          SetOptions(merge: true),
         );
       });
       await batch.commit();

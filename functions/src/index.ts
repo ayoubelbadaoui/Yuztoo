@@ -1,5 +1,14 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import {
+  AUTO_NOTIFICATION_TRIGGERS,
+  autoNotificationSegmentMatches,
+  filterEnabledNotificationsForTrigger,
+  isMerchantAutoNotificationsEnabled,
+  shouldSendBirthdayThisYear,
+  shouldSendConnectionAnniversary,
+  shouldSendInactiveReturn,
+} from "./auto_notification_core";
 
 admin.initializeApp();
 
@@ -23,7 +32,8 @@ async function processInChunks<T>(
 }
 
 /**
- * Fetch all enabled auto_notifications for a merchant matching a given trigger.
+ * Fetch enabled auto_notifications for a merchant matching a trigger (canonical
+ * or legacy alias). Single-field query — no composite index on (is_enabled, trigger).
  */
 async function getEnabledNotifications(
   merchantId: string,
@@ -34,9 +44,8 @@ async function getEnabledNotifications(
     .doc(merchantId)
     .collection("auto_notifications")
     .where("is_enabled", "==", true)
-    .where("trigger", "==", trigger)
     .get();
-  return snap.docs;
+  return filterEnabledNotificationsForTrigger(snap.docs, trigger);
 }
 
 /**
@@ -234,12 +243,33 @@ export function computeSegment(
   return "nouveau";
 }
 
+/** Loyalty doc snapshot → segment (for onWrite before/after). */
+function computeSegmentFromLoyaltyData(
+  data: Record<string, unknown>
+): string {
+  const validatedPassages =
+    typeof data.validated_passages === "number" ? data.validated_passages : 0;
+  const updatedAt = data.updated_at as
+    | FirebaseFirestore.Timestamp
+    | undefined;
+  const daysSinceLastVisit = updatedAt
+    ? (Date.now() - updatedAt.toDate().getTime()) / (1000 * 60 * 60 * 24)
+    : 999;
+  return computeSegment(validatedPassages, daysSinceLastVisit);
+}
+
+const KNOWN_CLIENT_SEGMENTS = new Set([
+  "vip",
+  "habitue",
+  "nouveau",
+  "inactif",
+  "abonne",
+]);
+
 /**
- * Returns the passage-based segment key for a client at a specific merchant.
- * Reads `merchants/{merchantId}/loyalty_clients/{clientId}`.
- * Falls back to 'nouveau' when the document is missing (no visits recorded yet).
+ * Passage-based segment from `loyalty_clients` only (no manual override).
  */
-async function getClientSegment(
+async function getClientSegmentFromLoyalty(
   clientId: string,
   merchantId: string
 ): Promise<string> {
@@ -255,19 +285,79 @@ async function getClientSegment(
     const validatedPassages: number =
       typeof data.validated_passages === "number" ? data.validated_passages : 0;
     const updatedAt: FirebaseFirestore.Timestamp | undefined = data.updated_at;
-    // No updated_at = client has never visited → treat as very stale (999 days).
     const daysSinceLastVisit = updatedAt
       ? (Date.now() - updatedAt.toDate().getTime()) / (1000 * 60 * 60 * 24)
       : 999;
     return computeSegment(validatedPassages, daysSinceLastVisit);
   } catch (e) {
-    functions.logger.warn("getClientSegment error", {
+    functions.logger.warn("getClientSegmentFromLoyalty error", {
       clientId,
       merchantId,
       error: e,
     });
     return "nouveau";
   }
+}
+
+/**
+ * Effective CRM segment for ciblage: `manual_segment` on
+ * `merchants/{merchantId}/clients/{clientId}` wins over loyalty auto-compute.
+ */
+async function getClientSegment(
+  clientId: string,
+  merchantId: string
+): Promise<string> {
+  try {
+    const overrideSnap = await db
+      .collection("merchants")
+      .doc(merchantId)
+      .collection("clients")
+      .doc(clientId)
+      .get();
+    const manual = overrideSnap.data()?.manual_segment;
+    if (typeof manual === "string") {
+      const trimmed = manual.trim();
+      if (trimmed.length > 0 && KNOWN_CLIENT_SEGMENTS.has(trimmed)) {
+        return trimmed;
+      }
+    }
+  } catch (e) {
+    functions.logger.warn("getClientSegment manual_segment read failed", {
+      clientId,
+      merchantId,
+      error: e,
+    });
+  }
+  return getClientSegmentFromLoyalty(clientId, merchantId);
+}
+
+/** Batch-load manual_segment overrides for promotion fan-out. */
+async function loadManualSegmentOverrides(
+  merchantId: string
+): Promise<Record<string, string>> {
+  const map: Record<string, string> = {};
+  try {
+    const snap = await db
+      .collection("merchants")
+      .doc(merchantId)
+      .collection("clients")
+      .get();
+    for (const doc of snap.docs) {
+      const manual = doc.data()?.manual_segment;
+      if (typeof manual === "string") {
+        const trimmed = manual.trim();
+        if (trimmed.length > 0 && KNOWN_CLIENT_SEGMENTS.has(trimmed)) {
+          map[doc.id] = trimmed;
+        }
+      }
+    }
+  } catch (e) {
+    functions.logger.warn("loadManualSegmentOverrides failed", {
+      merchantId,
+      error: e,
+    });
+  }
+  return map;
 }
 
 /**
@@ -328,11 +418,8 @@ async function shouldSendToClient(
 
   if (audience !== "Certains clients" || rawSegments.length === 0) return true;
 
-  // Normalise legacy "abonne" → "nouveau" for backward compat.
-  const segments = rawSegments.map((s) => (s === "abonne" ? "nouveau" : s));
-
   const clientSegment = await getClientSegment(clientId, merchantId);
-  return segments.includes(clientSegment);
+  return autoNotificationSegmentMatches(clientSegment, rawSegments);
 }
 
 /**
@@ -391,6 +478,16 @@ async function dispatchTrigger(
   trigger: string,
   targetClientId?: string
 ): Promise<void> {
+  const merchantSnap = await db.collection("merchants").doc(merchantId).get();
+  if (!merchantSnap.exists) return;
+  if (!isMerchantAutoNotificationsEnabled(merchantSnap.data())) {
+    functions.logger.info("dispatchTrigger skipped — auto-notifs disabled", {
+      merchantId,
+      trigger,
+    });
+    return;
+  }
+
   const notifDocs = await getEnabledNotifications(merchantId, trigger);
   if (notifDocs.length === 0) return;
 
@@ -555,7 +652,11 @@ export const onFollowedMerchantCreated = functions
   .onCreate(async (snap, context) => {
     const { clientId, merchantId } = context.params;
     functions.logger.info("New follow", { clientId, merchantId });
-    await dispatchTrigger(merchantId, "Nouveau client connecté", clientId);
+    await dispatchTrigger(
+      merchantId,
+      AUTO_NOTIFICATION_TRIGGERS.newFollower,
+      clientId
+    );
     return null;
   });
 
@@ -617,6 +718,18 @@ export const onLoyaltyProgressUpdated = functions
     const beforeValidated: number = before.validated_passages ?? 0;
     const afterValidated: number = after.validated_passages ?? 0;
 
+    if (change.before.exists) {
+      const segmentBefore = computeSegmentFromLoyaltyData(before);
+      const segmentAfter = computeSegmentFromLoyaltyData(after);
+      if (segmentBefore !== segmentAfter) {
+        await dispatchTrigger(
+          merchantId,
+          AUTO_NOTIFICATION_TRIGGERS.segmentChange,
+          clientId
+        );
+      }
+    }
+
     // ── Welcome bon issuance (first visit only) ──────────────────────────────
     // Tied to the same `!change.before.exists` predicate the auto-follow
     // branch uses — this is the canonical "first visit" boundary.
@@ -649,7 +762,7 @@ export const onLoyaltyProgressUpdated = functions
     if (afterValidated > beforeValidated) {
       await dispatchTrigger(
         merchantId,
-        "Passage fidélité validé",
+        AUTO_NOTIFICATION_TRIGGERS.passageValidated,
         clientId
       );
 
@@ -667,7 +780,7 @@ export const onLoyaltyProgressUpdated = functions
         // Reward unlocked.
         await dispatchTrigger(
           merchantId,
-          "Récompense disponible",
+          AUTO_NOTIFICATION_TRIGGERS.rewardAvailable,
           clientId
         );
         // Persist a milestone bon doc so the scheduled expiration scan
@@ -678,7 +791,7 @@ export const onLoyaltyProgressUpdated = functions
         // One step away from reward.
         await dispatchTrigger(
           merchantId,
-          "Récompense proche",
+          AUTO_NOTIFICATION_TRIGGERS.rewardNear,
           clientId
         );
       }
@@ -750,7 +863,7 @@ export const onPromotionCreated = functions
           .collection("loyalty_clients")
           .get();
 
-        // Build segment map: clientId → segment.
+        // Build segment map: clientId → segment (loyalty + manual overrides).
         const segmentMap: Record<string, string> = {};
         for (const doc of loyaltySnap.docs) {
           const d = doc.data() ?? {};
@@ -761,6 +874,10 @@ export const onPromotionCreated = functions
             ? (Date.now() - updatedAt.toDate().getTime()) / (1000 * 60 * 60 * 24)
             : 999;
           segmentMap[doc.id] = computeSegment(validated, days);
+        }
+        const manualOverrides = await loadManualSegmentOverrides(merchantId);
+        for (const [clientId, seg] of Object.entries(manualOverrides)) {
+          segmentMap[clientId] = seg;
         }
 
         targetIds = followerIds.filter((clientId) => {
@@ -960,13 +1077,27 @@ export const dailyScheduledTriggers = functions
       MERCHANT_CONCURRENCY,
       async (merchantDoc) => {
         const merchantId = merchantDoc.id;
+        const merchantData = merchantDoc.data() ?? {};
+
+        if (!isMerchantAutoNotificationsEnabled(merchantData)) {
+          return;
+        }
 
         // Fetch all 3 trigger types in parallel (was 3 sequential awaits).
         const [birthdayNotifs, anniversaryNotifs, inactiveNotifs] =
           await Promise.all([
-            getEnabledNotifications(merchantId, "Date anniversaire client"),
-            getEnabledNotifications(merchantId, "Anniversaire de connexion"),
-            getEnabledNotifications(merchantId, "Retour d'un client inactif"),
+            getEnabledNotifications(
+              merchantId,
+              AUTO_NOTIFICATION_TRIGGERS.birthday
+            ),
+            getEnabledNotifications(
+              merchantId,
+              AUTO_NOTIFICATION_TRIGGERS.connectionAnniversary
+            ),
+            getEnabledNotifications(
+              merchantId,
+              AUTO_NOTIFICATION_TRIGGERS.inactiveReturn
+            ),
           ]);
 
         if (
@@ -992,11 +1123,29 @@ export const dailyScheduledTriggers = functions
                 .get();
               const userData = userSnap.data() ?? {};
 
-              // Birthday trigger.
-              if (birthdayNotifs.length > 0 && userData.date_of_birth) {
-                const dob: string = userData.date_of_birth; // "MM-DD" or "YYYY-MM-DD"
-                const dobMD = dob.length >= 5 ? dob.slice(dob.length - 5) : dob;
-                if (dobMD === todayMD) {
+              const followRef = db
+                .collection("users")
+                .doc(clientId)
+                .collection("followed_merchants")
+                .doc(merchantId);
+              const followedMerchantSnap = await followRef.get();
+              const followData = followedMerchantSnap.data() ?? {};
+
+              // Birthday trigger — once per calendar year per client/merchant.
+              if (birthdayNotifs.length > 0) {
+                const dob = userData.date_of_birth as string | undefined;
+                const lastBirthdayYear = followData.last_birthday_auto_year as
+                  | number
+                  | undefined;
+                if (
+                  shouldSendBirthdayThisYear(
+                    dob,
+                    todayMD,
+                    now,
+                    lastBirthdayYear
+                  )
+                ) {
+                  let sentBirthday = false;
                   for (const notifDoc of birthdayNotifs) {
                     const allowed = await shouldSendToClient(
                       notifDoc,
@@ -1011,70 +1160,99 @@ export const dailyScheduledTriggers = functions
                     ).catch((e) =>
                       functions.logger.warn("Birthday notif error", { e })
                     );
+                    sentBirthday = true;
+                  }
+                  if (sentBirthday) {
+                    await followRef.set(
+                      { last_birthday_auto_year: now.getFullYear() },
+                      { merge: true }
+                    );
                   }
                 }
               }
 
-              // Anniversary of first connection.
-              if (anniversaryNotifs.length > 0) {
-                const followedMerchantSnap = await db
-                  .collection("users")
-                  .doc(clientId)
-                  .collection("followed_merchants")
-                  .doc(merchantId)
-                  .get();
-                if (followedMerchantSnap.exists) {
-                  const followedAt: FirebaseFirestore.Timestamp | undefined =
-                    followedMerchantSnap.data()?.followed_at;
-                  if (followedAt) {
-                    const followDate = followedAt.toDate();
-                    const followMD = `${String(
-                      followDate.getMonth() + 1
-                    ).padStart(2, "0")}-${String(followDate.getDate()).padStart(
-                      2,
-                      "0"
-                    )}`;
-                    // Only trigger after the first year.
-                    if (
-                      followMD === todayMD &&
-                      now.getFullYear() > followDate.getFullYear()
-                    ) {
-                      for (const notifDoc of anniversaryNotifs) {
-                        const allowed = await shouldSendToClient(
-                          notifDoc,
-                          clientId,
-                          merchantId
-                        );
-                        if (!allowed) continue;
-                        await fireAutoNotification(
-                          notifDoc,
-                          merchantId,
-                          clientId
-                        ).catch((e) =>
-                          functions.logger.warn("Anniversary notif error", { e })
-                        );
-                      }
+              // Anniversary of first connection — once per calendar year.
+              if (anniversaryNotifs.length > 0 && followedMerchantSnap.exists) {
+                const followedAt: FirebaseFirestore.Timestamp | undefined =
+                  followData.followed_at;
+                if (followedAt) {
+                  const followDate = followedAt.toDate();
+                  const followMD = `${String(followDate.getMonth() + 1).padStart(
+                    2,
+                    "0"
+                  )}-${String(followDate.getDate()).padStart(2, "0")}`;
+                  const lastAnniversaryYear =
+                    followData.last_connection_anniversary_year as
+                      | number
+                      | undefined;
+                  if (
+                    shouldSendConnectionAnniversary(
+                      followMD,
+                      todayMD,
+                      followDate.getFullYear(),
+                      now.getFullYear(),
+                      lastAnniversaryYear
+                    )
+                  ) {
+                    let sentAnniversary = false;
+                    for (const notifDoc of anniversaryNotifs) {
+                      const allowed = await shouldSendToClient(
+                        notifDoc,
+                        clientId,
+                        merchantId
+                      );
+                      if (!allowed) continue;
+                      await fireAutoNotification(
+                        notifDoc,
+                        merchantId,
+                        clientId
+                      ).catch((e) =>
+                        functions.logger.warn("Anniversary notif error", {
+                          e,
+                        })
+                      );
+                      sentAnniversary = true;
+                    }
+                    if (sentAnniversary) {
+                      await followRef.set(
+                        {
+                          last_connection_anniversary_year: now.getFullYear(),
+                        },
+                        { merge: true }
+                      );
                     }
                   }
                 }
               }
 
-              // Inactive client — no visit in last 60 days.
+              // Inactive client — ≥60 days without visit, max once per 30 days.
               if (inactiveNotifs.length > 0) {
-                const loyaltySnap = await db
+                const loyaltyRef = db
                   .collection("merchants")
                   .doc(merchantId)
                   .collection("loyalty_clients")
-                  .doc(clientId)
-                  .get();
+                  .doc(clientId);
+                const loyaltySnap = await loyaltyRef.get();
                 if (loyaltySnap.exists) {
+                  const loyaltyData = loyaltySnap.data() ?? {};
                   const updatedAt: FirebaseFirestore.Timestamp | undefined =
-                    loyaltySnap.data()?.updated_at;
+                    loyaltyData.updated_at;
                   if (updatedAt) {
                     const daysSinceVisit =
                       (now.getTime() - updatedAt.toDate().getTime()) /
                       (1000 * 60 * 60 * 24);
-                    if (daysSinceVisit >= 60) {
+                    const lastInactiveAt = loyaltyData.last_inactive_auto_at as
+                      | FirebaseFirestore.Timestamp
+                      | undefined;
+                    const lastInactiveMs = lastInactiveAt?.toMillis();
+                    if (
+                      shouldSendInactiveReturn(
+                        daysSinceVisit,
+                        lastInactiveMs,
+                        now.getTime()
+                      )
+                    ) {
+                      let sentInactive = false;
                       for (const notifDoc of inactiveNotifs) {
                         const allowed = await shouldSendToClient(
                           notifDoc,
@@ -1088,6 +1266,16 @@ export const dailyScheduledTriggers = functions
                           clientId
                         ).catch((e) =>
                           functions.logger.warn("Inactive notif error", { e })
+                        );
+                        sentInactive = true;
+                      }
+                      if (sentInactive) {
+                        await loyaltyRef.set(
+                          {
+                            last_inactive_auto_at:
+                              admin.firestore.FieldValue.serverTimestamp(),
+                          },
+                          { merge: true }
                         );
                       }
                     }
@@ -1107,6 +1295,48 @@ export const dailyScheduledTriggers = functions
       }
     );
 
+    return null;
+  });
+
+// ─── 5b. New merchant partner ─────────────────────────────────────────────────
+
+/**
+ * Fires when a merchant adds a recommended partner on their vitrine.
+ * Trigger: "Nouveau partenaire" → all eligible followers.
+ */
+export const onMerchantPartnerCreated = functions
+  .region("europe-west1")
+  .firestore.document("merchants/{merchantId}/partners/{partnerId}")
+  .onCreate(async (_snap, context) => {
+    const { merchantId } = context.params;
+    await dispatchTrigger(merchantId, AUTO_NOTIFICATION_TRIGGERS.newPartner);
+    return null;
+  });
+
+// ─── 5c. Exceptional closure flag on merchant hours ─────────────────────────
+
+/**
+ * When a merchant toggles `hasExceptionalClosure` on their hours map,
+ * notify followers once.
+ */
+export const onMerchantHoursUpdated = functions
+  .region("europe-west1")
+  .firestore.document("merchants/{merchantId}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data() ?? {};
+    const after = change.after.data() ?? {};
+    if (!isMerchantAutoNotificationsEnabled(after)) return null;
+
+    const beforeHours = before.hours as Record<string, unknown> | undefined;
+    const afterHours = after.hours as Record<string, unknown> | undefined;
+    const wasClosed = beforeHours?.hasExceptionalClosure === true;
+    const isClosed = afterHours?.hasExceptionalClosure === true;
+    if (!wasClosed && isClosed) {
+      await dispatchTrigger(
+        context.params.merchantId,
+        AUTO_NOTIFICATION_TRIGGERS.exceptionalClosure
+      );
+    }
     return null;
   });
 
@@ -1394,8 +1624,10 @@ export const processScheduledNotifications = functions
           const filtered: string[] = [];
           await processInChunks(targetIds, 32, async (clientId) => {
             try {
-              const seg = await getClientSegment(merchantId, clientId);
-              if (segments.includes(seg)) filtered.push(clientId);
+              const seg = await getClientSegment(clientId, merchantId);
+              if (autoNotificationSegmentMatches(seg, segments)) {
+                filtered.push(clientId);
+              }
             } catch {
               // Fail-open: a single client lookup error must not
               // exclude the merchant from delivering to others.

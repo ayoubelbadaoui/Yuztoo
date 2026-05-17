@@ -17,6 +17,7 @@ class MerchantOnboardingData {
     this.websiteUrl,
     this.categoryId,
     this.categoryTitle,
+    this.subcategoryTitle,
     this.description,
     this.hoursJson,
     this.merchantType,
@@ -44,6 +45,7 @@ class MerchantOnboardingData {
   final String? websiteUrl;
   final String? categoryId;
   final String? categoryTitle;
+  final String? subcategoryTitle;
   final String? description;
   final Map<String, dynamic>? hoursJson;
 
@@ -68,6 +70,7 @@ class MerchantOnboardingData {
     String? websiteUrl,
     String? categoryId,
     String? categoryTitle,
+    String? subcategoryTitle,
     String? description,
     Map<String, dynamic>? hoursJson,
     String? merchantType,
@@ -86,6 +89,7 @@ class MerchantOnboardingData {
       websiteUrl: websiteUrl ?? this.websiteUrl,
       categoryId: categoryId ?? this.categoryId,
       categoryTitle: categoryTitle ?? this.categoryTitle,
+      subcategoryTitle: subcategoryTitle ?? this.subcategoryTitle,
       description: description ?? this.description,
       hoursJson: hoursJson ?? this.hoursJson,
       merchantType: merchantType ?? this.merchantType,
@@ -137,6 +141,9 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
 
   void setCategory(String id, String title) =>
       state = state.copyWith(categoryId: id, categoryTitle: title);
+
+  void setSubcategoryTitle(String title) =>
+      state = state.copyWith(subcategoryTitle: title);
 
   void setDescription(String? value) =>
       state = state.copyWith(description: value?.trim().isEmpty == true ? null : value?.trim());

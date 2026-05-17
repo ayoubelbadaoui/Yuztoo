@@ -5,6 +5,7 @@ import 'package:flutter_yuztoo/feature/merchant/application/use_cases/complete_m
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
 
 class _FakeMerchantRepository implements MerchantRepository {
@@ -60,6 +61,7 @@ class _FakeMerchantRepository implements MerchantRepository {
   Future<Result<List<Merchant>>> listMerchants({
     int limit = 20,
     String? cityFilter,
+    List<String>? cityFilters,
     int cityFetchCap = 500,
   }) async {
     if (_createdMerchant == null) {
@@ -136,6 +138,13 @@ class _FakeMerchantRepository implements MerchantRepository {
     );
     return Right<MerchantFailure, Merchant>(_createdMerchant!);
   }
+
+  @override
+  Future<Result<void>> updateGratificationConfig({
+    required String merchantId,
+    required ClientGratificationConfig config,
+  }) async =>
+      const Right<MerchantFailure, void>(null);
 }
 
 void main() {

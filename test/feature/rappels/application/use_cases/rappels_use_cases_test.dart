@@ -519,6 +519,31 @@ void main() {
       expect(clientNotifRepo.createCallCount, 0);
     });
 
+    test('Certains clients + segments uses manual VIP from segment map', () async {
+      followedRepo = _FakeFollowedRepo(followerIds: ['c1', 'c2']);
+      loyaltyRepo = _FakeLoyaltyRepoForSend(segmentMap: {
+        'c1': 'nouveau',
+        'c2': 'vip',
+      });
+      useCase = SendMerchantNotification(
+        followedRepo: followedRepo,
+        notificationRepo: clientNotifRepo,
+        sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
+      );
+      final result = await useCase.call(
+        merchantId: 'm1',
+        merchantName: 'Boutique',
+        text: 'VIP only',
+        audience: 'Certains clients',
+        segments: ['vip'],
+        callerUid: 'caller_m1',
+      );
+      expect(result.fold((_) => -1, (n) => n), 1);
+      expect(clientNotifRepo.createCallCount, 1);
+    });
+
     test('Certains clients + segments filters by loyalty map', () async {
       followedRepo = _FakeFollowedRepo(followerIds: ['c1', 'c2', 'c3']);
       loyaltyRepo = _FakeLoyaltyRepoForSend(segmentMap: {

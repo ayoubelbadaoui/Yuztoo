@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/cupertino_picker_sheet.dart';
 import '../../domain/entities/scheduled_notification.dart';
 import '../../domain/entities/sent_notification.dart';
 import '../../infrastructure/scheduled_notification_repository_provider.dart';
@@ -10,6 +11,32 @@ import 'notification_templates_widgets.dart';
 import 'rappels_section_header.dart';
 
 part 'quick_send_section.part.dart';
+
+const _scheduleMinuteInterval = 5;
+
+/// [CupertinoDatePicker] with [minuteInterval] requires
+/// `initialDateTime.minute % interval == 0` or the picker asserts (red screen).
+DateTime alignDateTimeToMinuteInterval(DateTime value, int intervalMinutes) {
+  if (intervalMinutes <= 1) {
+    return DateTime(
+      value.year,
+      value.month,
+      value.day,
+      value.hour,
+      value.minute,
+    );
+  }
+  final base = DateTime(
+    value.year,
+    value.month,
+    value.day,
+    value.hour,
+    value.minute,
+  );
+  final remainder = base.minute % intervalMinutes;
+  if (remainder == 0) return base;
+  return base.add(Duration(minutes: intervalMinutes - remainder));
+}
 
 /// Compose + quick-send section rendered inside the Rappels screen.
 /// Lets the merchant type a message, pick an audience, and blast it to all
@@ -19,6 +46,7 @@ class QuickSendSection extends ConsumerStatefulWidget {
     super.key,
     required this.merchantId,
     required this.merchantName,
+    required this.createdByUid,
     required this.onSend,
     this.history = const [],
     this.historyLoading = false,
@@ -28,6 +56,9 @@ class QuickSendSection extends ConsumerStatefulWidget {
 
   final String merchantId;
   final String merchantName;
+
+  /// Firebase Auth uid of the merchant owner (`created_by_uid` in Firestore rules).
+  final String createdByUid;
 
   /// Called with (text, audience, segments) when the send button is pressed.
   final Future<void> Function(
@@ -141,57 +172,35 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
     );
   }
 
-  // Opens a date+time picker tuple. Returns the chosen DateTime in
-  // local time, or null on cancel. Floors at "now + 5 minutes" so the
-  // server-side "earliest" check can't reject what the merchant
-  // confirmed in the picker.
+  // Opens an iPhone-style scroll-wheel sheet for date+time. Returns the
+  // chosen DateTime in local time, or null on cancel. Floors at "now + 5
+  // minutes" so the server-side "earliest" check can't reject what the
+  // merchant confirmed in the picker.
   Future<DateTime?> _pickScheduledAt() async {
     final now = DateTime.now();
-    final earliest = now.add(const Duration(minutes: 6));
-    final initial = _scheduledAt ?? now.add(const Duration(hours: 1));
-    final pickedDate = await showDatePicker(
+    final earliest = alignDateTimeToMinuteInterval(
+      now.add(const Duration(minutes: 6)),
+      _scheduleMinuteInterval,
+    );
+    final latest = alignDateTimeToMinuteInterval(
+      now.add(const Duration(days: 90)),
+      _scheduleMinuteInterval,
+    );
+    final initialRaw = _scheduledAt ?? now.add(const Duration(hours: 1));
+    final initial = alignDateTimeToMinuteInterval(
+      initialRaw.isBefore(earliest) ? earliest : initialRaw,
+      _scheduleMinuteInterval,
+    );
+
+    final picked = await showYuztooCupertinoDateTimePicker(
       context: context,
-      initialDate: initial.isBefore(earliest) ? earliest : initial,
-      firstDate: earliest,
-      // 90-day horizon is plenty for the SMB use case and keeps the
-      // picker scrollable. Spec doesn't ask for further-out scheduling.
-      lastDate: now.add(const Duration(days: 90)),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: MerchantColors.gold,
-            onPrimary: MerchantColors.darkOverlay,
-            surface: MerchantColors.bgHeader,
-            onSurface: Colors.white,
-          ),
-        ),
-        child: child ?? const SizedBox.shrink(),
-      ),
+      initial: initial,
+      minimumDate: earliest,
+      maximumDate: latest,
+      minuteInterval: _scheduleMinuteInterval,
     );
-    if (pickedDate == null || !mounted) return null;
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: MerchantColors.gold,
-            onPrimary: MerchantColors.darkOverlay,
-            surface: MerchantColors.bgHeader,
-            onSurface: Colors.white,
-          ),
-        ),
-        child: child ?? const SizedBox.shrink(),
-      ),
-    );
-    if (pickedTime == null) return null;
-    return DateTime(
-      pickedDate.year,
-      pickedDate.month,
-      pickedDate.day,
-      pickedTime.hour,
-      pickedTime.minute,
-    );
+    if (picked == null) return null;
+    return alignDateTimeToMinuteInterval(picked, _scheduleMinuteInterval);
   }
 
   Future<void> _toggleScheduleOn() async {
@@ -221,17 +230,16 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
         // weekly quota at scheduling time (the CF will, at fire time).
         final repo =
             ref.read(scheduledNotificationRepositoryProvider);
-        // The merchantOwnerUid is the same as the widget's merchantId in
-        // the current single-owner model, but the use case wants a
-        // distinct creator UID so multi-user merchants stay auditable.
-        // Fall back to merchantId when no separate owner is plumbed.
         final result = await repo.schedule(
           merchantId: widget.merchantId,
-          createdByUid: widget.merchantId,
+          createdByUid: widget.createdByUid,
           text: _ctrl.text.trim(),
           audience: audience,
           segments: segments,
-          scheduledAt: scheduled,
+          scheduledAt: alignDateTimeToMinuteInterval(
+            scheduled,
+            _scheduleMinuteInterval,
+          ),
         );
         if (!mounted) return;
         result.fold(

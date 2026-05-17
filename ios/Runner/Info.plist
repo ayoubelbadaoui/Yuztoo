@@ -45,6 +45,10 @@
 	<string>Yuztoo a besoin de la caméra pour scanner les QR codes des commerces.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>Yuztoo utilise le NFC pour se connecter instantanément à un commerce en approchant votre téléphone.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Yuztoo utilise le Bluetooth pour valider un passage fidélité sans scanner de QR code.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Yuztoo utilise le Bluetooth pour valider un passage fidélité sans scanner de QR code.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Yuztoo accède à votre galerie pour que vous puissiez choisir la photo de votre commerce.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

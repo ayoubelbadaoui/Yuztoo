@@ -11,6 +11,7 @@ import '../domain/entities/client_bon.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart';
 import '../domain/entities/client_reward_item.dart';
 import '../infrastructure/client_bon_repository_provider.dart';
+import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
 import '../infrastructure/client_loyalty_repository_provider.dart';
 import 'use_cases/claim_welcome_bon.dart';
 import 'use_cases/record_loyalty_passage.dart';
@@ -26,7 +27,10 @@ export '../../auth/core/application/state/auth_state.dart'
 // ─── Use-case providers ────────────────────────────────────────────────────────
 
 final recordLoyaltyPassageProvider = Provider<RecordLoyaltyPassage>((ref) {
-  return RecordLoyaltyPassage(ref.watch(clientLoyaltyRepositoryProvider));
+  return RecordLoyaltyPassage(
+    ref.watch(clientLoyaltyRepositoryProvider),
+    ref.watch(clientNotificationRepositoryProvider),
+  );
 });
 
 final validatePendingLoyaltyPassageProvider =
@@ -247,6 +251,23 @@ final clientLoyaltyFeedProvider =
 
 // ─── "Mes avantages" — aggregated rewards across followed merchants ───────────
 
+/// Live stream of all persisted bons for the connected client.
+///
+/// Wraps [ClientBonRepository.watchAll] as a `StreamProvider` so any consumer
+/// that needs to react to issuance / redemption / expiry can either watch it
+/// directly or, like [availableClientRewardsProvider] below, depend on it
+/// via `.future` — Riverpod re-runs the dependent provider on every emission.
+final _allClientBonsStreamProvider =
+    StreamProvider.autoDispose<List<ClientBon>>((ref) {
+  final auth = ref.watch(auth_providers.authStateProvider);
+  if (auth is! Authenticated) {
+    return Stream<List<ClientBon>>.value(const <ClientBon>[]);
+  }
+  return ref
+      .watch(clientBonRepositoryProvider)
+      .watchAll(auth.user.id);
+});
+
 /// All redeemable bons currently visible to the connected client, ordered by
 /// kind (welcome first, then milestone) and then by merchant name.
 ///
@@ -258,21 +279,21 @@ final clientLoyaltyFeedProvider =
 ///     "Donner le bon" flow decrements per claim, and the next cycle's bon
 ///     reappears once the deduction lands).
 ///
-/// Implemented as a `FutureProvider` rather than a stream because the loyalty
-/// feed itself is a Future. Per-merchant progress is fetched once via
-/// `repo.watchProgress(...).first` so the aggregate has a single emission;
-/// the underlying card view continues to subscribe to the live stream and
-/// will refresh independently when a passage lands.
+/// Reactivity contract: this provider re-emits whenever any of its
+/// dependencies changes — the loyalty feed, the per-merchant progress
+/// stream, or the bons stream. Concretely that means a bon claimed on
+/// another device, a merchant marking the welcome bon redeemed, or a
+/// milestone crossing all flush through here without a manual invalidate.
+/// (Previously this used `Stream.first` on the progress and bons streams,
+/// capturing a one-shot snapshot that did not refresh — the user complaint
+/// "le bon utilisé doit disparaitre" was caused by that.)
 final availableClientRewardsProvider =
     FutureProvider.autoDispose<List<ClientRewardItem>>((ref) async {
   final entries = await ref.watch(clientLoyaltyFeedProvider.future);
   if (entries.isEmpty) return <ClientRewardItem>[];
 
-  final repo = ref.watch(clientLoyaltyRepositoryProvider);
-  final bonRepo = ref.watch(clientBonRepositoryProvider);
   final auth = ref.watch(auth_providers.authStateProvider);
   if (auth is! Authenticated) return <ClientRewardItem>[];
-  final clientUid = auth.user.id;
 
   // Persisted bons are the source of truth: they carry valid_until_at
   // and survive merchant config changes. We still fall back to
@@ -288,17 +309,29 @@ final availableClientRewardsProvider =
   // also surface a fallback milestone bon for the same client even if
   // validated_passages also says "above threshold" — the persisted doc
   // wins on every read.
-  final progresses = await Future.wait(
-    entries.map(
-      (e) =>
-          repo.watchProgress(e.merchantId, clientUid).first.catchError(
-                (_) => const ClientMerchantLoyaltyProgress.empty(),
-              ),
-    ),
-  );
-  final allBons = await bonRepo.watchAll(clientUid).first.catchError(
-        (_) => const <ClientBon>[],
-      );
+  //
+  // The progress watches register synchronously (before any await), so
+  // Riverpod sees the full dependency graph before the body suspends.
+  final progressFutures = entries
+      .map(
+        (e) async {
+          try {
+            return await ref.watch(
+              clientLoyaltyProgressForMerchantProvider(e.merchantId).future,
+            );
+          } catch (_) {
+            return const ClientMerchantLoyaltyProgress.empty();
+          }
+        },
+      )
+      .toList();
+  List<ClientBon> allBons;
+  try {
+    allBons = await ref.watch(_allClientBonsStreamProvider.future);
+  } catch (_) {
+    allBons = const <ClientBon>[];
+  }
+  final progresses = await Future.wait(progressFutures);
   final now = DateTime.now();
   // Group active bons by (merchantId, kind) for O(1) lookup. We
   // include 'expired' bons in the bookkeeping so the UI doesn't

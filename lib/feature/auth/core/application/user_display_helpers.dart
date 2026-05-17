@@ -3,11 +3,28 @@ import '../domain/entities/auth_user.dart';
 import '../domain/entities/user_profile_basics.dart';
 import '../../../storefront/domain/entities/storefront.dart';
 
-/// Display name: Firestore / Auth display name, else email local part, else fallback.
+/// Display name resolution. Firestore is the source of truth for the editable
+/// name, so we prefer it over Firebase Auth — otherwise edits made in
+/// Informations personnelles wouldn't reflect until the next sign-in
+/// (FirebaseAuth.updateDisplayName does not push a new event through the
+/// authStateChanges stream, so [AuthUser] snapshots can lag arbitrarily).
+///
+/// Fallback order:
+///   1. `basics.firstName + basics.lastName` (Firestore — source of truth)
+///   2. `basics.firstName` or `basics.lastName` alone
+///   3. `user.displayName` (Firebase Auth)
+///   4. local part of email
+///   5. literal 'Utilisateur'
 String resolveDisplayName(
   AuthUser user,
   UserProfileBasics? basics,
 ) {
+  final fn = basics?.firstName?.trim() ?? '';
+  final ln = basics?.lastName?.trim() ?? '';
+  if (fn.isNotEmpty && ln.isNotEmpty) return '$fn $ln';
+  if (fn.isNotEmpty) return fn;
+  if (ln.isNotEmpty) return ln;
+
   final fromUser = user.displayName?.trim();
   if (fromUser != null && fromUser.isNotEmpty) return fromUser;
 

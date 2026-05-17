@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UserNotifications
+import FirebaseMessaging
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -14,7 +15,39 @@ import UserNotifications
       UNUserNotificationCenter.current().delegate = self
     }
 
+    // Explicitly ask APNs for a device token on every cold start. Without this,
+    // the token never lands on Messaging and FCM sends silently fail (no banner,
+    // no sound) even when permission is granted in-app. Belt-and-suspenders to
+    // the requestPermission call in Dart so registration also happens for users
+    // who deny in-app but later flip the iOS Settings toggle.
+    application.registerForRemoteNotifications()
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // Forward the APNs token to Firebase Messaging. With swizzling enabled this
+  // would happen automatically, but doing it explicitly guarantees the token
+  // reaches Messaging even if another plugin's AppDelegate hook intercepts it.
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    Messaging.messaging().apnsToken = deviceToken
+    super.application(
+      application,
+      didRegisterForRemoteNotificationsWithDeviceToken: deviceToken
+    )
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    NSLog("APNs registration failed: \(error.localizedDescription)")
+    super.application(
+      application,
+      didFailToRegisterForRemoteNotificationsWithError: error
+    )
   }
 
   // Clear the app icon badge as soon as the user opens the app.

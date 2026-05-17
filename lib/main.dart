@@ -10,7 +10,9 @@ import 'l10n/app_localizations.dart';
 
 import 'core/app_bootstrap.dart';
 import 'feature/auth/core/application/auth_controller.dart';
+import 'feature/auth/core/application/client_profile_readiness_logic.dart';
 import 'feature/auth/core/application/providers.dart';
+import 'feature/auth/core/domain/entities/client_profile_readiness.dart';
 import 'feature/auth/core/infrastructure/user_repository_provider.dart';
 import 'feature/auth/core/application/state/auth_state.dart';
 import 'feature/auth/core/domain/entities/auth_user.dart';
@@ -49,15 +51,15 @@ import 'feature/merchant_settings/application/screens.dart';
 import 'feature/merchant_notifications/presentation/merchant_notifications_hub_screen.dart';
 import 'feature/merchant_partners/presentation/merchant_partners_screen.dart';
 import 'feature/e_fidelite/application/screens.dart';
-import 'feature/account_preferences/application/screens.dart';
 import 'feature/guest/presentation/guest_shell.dart';
 import 'feature/merchant/application/providers.dart' as merchant_providers;
 import 'feature/client_notification/application/providers.dart'
     as client_notification_providers;
-import 'feature/client_list/application/providers.dart' as crm_providers;
 import 'feature/client_notification/infrastructure/fcm_token_service.dart';
 import 'feature/client_notification/infrastructure/notification_service.dart';
 import 'core/config/vitrine_qr_config.dart';
+import 'core/infrastructure/ble_proximity_notifier.dart';
+import 'feature/merchant/presentation/widgets/ble_client_detection_sheet.dart';
 
 part 'main_shell_state.part.dart';
 
@@ -82,6 +84,8 @@ void main() {
           return AuthController(
             signOut: ref.watch(signOutProvider),
             watchAuthState: ref.watch(watchAuthStateProvider),
+            reloadCurrentUserProfile:
+                ref.watch(reloadCurrentUserProfileProvider),
             onClearDevicePushToken: (uid) async {
               try {
                 await ref.read(fcmTokenServiceProvider).clearToken(uid);

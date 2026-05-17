@@ -15,6 +15,11 @@ export '../../client_home/application/providers.dart'
         viewedMerchantIdsForCurrentUserProvider,
         viewedMerchantsLocalServiceProvider,
         clientHomeFeedProvider;
+export '../../discovery/application/providers.dart'
+    show
+        discoveryFollowedMerchantsProvider,
+        discoveryMerchantsProvider,
+        discoveryRecommendedMerchantsProvider;
 export '../../followed_merchants/application/providers.dart'
     show
         toggleMerchantFollowProvider,
@@ -35,11 +40,28 @@ export '../../profile/domain/repositories/user_safety_repository.dart'
 /// before navigating to store profile.
 final selectedStoreMerchantIdProvider = StateProvider<String?>((ref) => null);
 
-/// One-shot flag set by the QR/NFC scan flow to instruct the storefront screen
-/// to automatically open the loyalty-passage sheet on first paint after entry.
-/// Consumers must reset it to `false` immediately after acting on it so that
-/// re-entering the same storefront from the carnet does not re-fire.
-final pendingScanAutoPassageProvider = StateProvider<bool>((ref) => false);
+/// One-shot promotion deep-link target. When the user taps a notification or
+/// push that references a specific promotion, the navigation handler sets the
+/// promotion id alongside [selectedStoreMerchantIdProvider]; the storefront
+/// screen consumes (and clears) this value on first build to auto-open the
+/// promotion detail sheet. Without this the user landed on the storefront
+/// and had to hunt for the promotion that triggered their notification.
+final pendingStorePromotionIdProvider = StateProvider<String?>((ref) => null);
+
+/// How the user arrived on the vitrine from a QR/NFC scan (one-shot).
+///
+/// [VitrineScanIntent.fromQrOrNfc] drives the post-scan funnel:
+/// guest → connect-to-store sheet; logged-in non-follower → follow + welcome
+/// then passage; already following → passage sheet.
+enum VitrineScanIntent {
+  none,
+  fromQrOrNfc,
+}
+
+/// Set by QR/NFC before navigating to [StoreProfileScreen]. Reset to
+/// [VitrineScanIntent.none] once the storefront has consumed the intent.
+final pendingVitrineScanIntentProvider =
+    StateProvider<VitrineScanIntent>((ref) => VitrineScanIntent.none);
 
 /// Merchant + promotions loaded in parallel for one spinner and aligned paint.
 typedef StoreProfilePageData = ({Merchant? merchant, List<Promotion> promotions});

@@ -324,20 +324,11 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
           ),
           const SizedBox(height: 32),
           Text(
-            'Votre date de naissance',
+            'Date de naissance',
             style: GoogleFonts.outfit(
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: MerchantOnboardingColors.textLight,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Pour recevoir vos avantages anniversaire.',
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: MerchantOnboardingColors.textGrey,
             ),
             textAlign: TextAlign.center,
           ),
@@ -515,7 +506,48 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
     );
   }
 
+  Widget _buildPhotoAvatar() {
+    final local = _localImagePath?.trim();
+    if (local != null && local.isNotEmpty) {
+      return Image.file(File(local), fit: BoxFit.cover);
+    }
+    final oauth = _oauthPhotoUrl?.trim();
+    if (isUsableOAuthProfilePhotoUrl(oauth)) {
+      return Image.network(
+        oauth!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.person_outline_rounded,
+          size: 48,
+          color: MerchantOnboardingColors.primaryGold,
+        ),
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return const Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: MerchantOnboardingColors.primaryGold,
+              ),
+            ),
+          );
+        },
+      );
+    }
+    return const Icon(
+      Icons.add_a_photo_outlined,
+      size: 48,
+      color: MerchantOnboardingColors.primaryGold,
+    );
+  }
+
   Widget _buildPhotoStep() {
+    final hasOAuthOnly = _hasPhotoPreview &&
+        (_localImagePath == null || _localImagePath!.trim().isEmpty) &&
+        isUsableOAuthProfilePhotoUrl(_oauthPhotoUrl);
+
     return ResponsiveScrollBody(
       horizontalPadding: 24,
       verticalPadding: 0,
@@ -536,18 +568,30 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
                 ),
               ),
               clipBehavior: Clip.antiAlias,
-              child: _localImagePath != null
-                  ? Image.file(
-                      File(_localImagePath!),
-                      fit: BoxFit.cover,
-                    )
-                  : const Icon(
-                      Icons.add_a_photo_outlined,
-                      size: 48,
-                      color: MerchantOnboardingColors.primaryGold,
-                    ),
+              child: _buildPhotoAvatar(),
             ),
           ),
+          if (hasOAuthOnly) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Text(
+                'Importée depuis votre compte',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantOnboardingColors.primaryGold,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 32),
           Text(
             'Photo de profil',
@@ -560,10 +604,15 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
           ),
           const SizedBox(height: 12),
           Text(
-            'Ajoutez une photo depuis la galerie, ou passez cette étape.',
+            hasOAuthOnly
+                ? 'Nous avons récupéré votre photo. Gardez-la ou choisissez-en une autre.'
+                : _hasPhotoPreview
+                    ? 'Vérifiez votre photo avant de continuer.'
+                    : 'Prenez une photo ou choisissez-en une dans la galerie pour personnaliser votre profil.',
             style: GoogleFonts.outfit(
               fontSize: 14,
               color: MerchantOnboardingColors.textGrey,
+              height: 1.45,
             ),
             textAlign: TextAlign.center,
           ),
@@ -583,14 +632,18 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.photo_library_outlined,
+                  Icon(
+                    hasOAuthOnly
+                        ? Icons.swap_horiz_rounded
+                        : Icons.photo_library_outlined,
                     color: MerchantOnboardingColors.primaryGold,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Choisir une photo',
+                    hasOAuthOnly
+                        ? 'Choisir une autre photo'
+                        : 'Prendre ou choisir une photo',
                     style: GoogleFonts.outfit(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -603,9 +656,9 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
           ),
           const SizedBox(height: 16),
           _buildGoldButton(
-            label: 'Terminer',
-            enabled: !_isSaving,
-            onTap: () => _finish(skipPhoto: _localImagePath == null),
+            label: hasOAuthOnly ? 'Garder cette photo' : 'Terminer',
+            enabled: !_isSaving && _hasPhotoPreview,
+            onTap: () => _finish(skipPhoto: false),
           ),
           const SizedBox(height: 12),
           GestureDetector(

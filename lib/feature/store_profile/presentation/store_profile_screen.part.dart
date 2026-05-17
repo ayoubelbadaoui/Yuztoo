@@ -381,6 +381,7 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
     required this.needsPurchaseAmount,
     required this.parentContext,
     this.isAlreadyFollowing = false,
+    this.skipWelcomeOnPassage = false,
   });
 
   final Merchant merchant;
@@ -392,6 +393,8 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
   /// When false, successfully recording a passage silently auto-follows the
   /// merchant so the client's loyalty card appears in their Fidélité tab.
   final bool isAlreadyFollowing;
+  /// When true, welcome modal was already shown (e.g. after scan follow).
+  final bool skipWelcomeOnPassage;
 
   @override
   ConsumerState<_RecordLoyaltyPassageSheet> createState() =>
@@ -453,7 +456,8 @@ class _RecordLoyaltyPassageSheetState
             : widget.merchant.name;
 
         // Auto-follow the merchant when the client records a passage without
-        // already following — ensures their loyalty card appears in Fidélité.
+        // already following — ensures their loyalty card appears in Fidélité
+        // and the merchant appears in the client's carnet (home feed).
         if (!widget.isAlreadyFollowing) {
           final toggleFollow = ref.read(toggleMerchantFollowProvider);
           unawaited(toggleFollow.call(
@@ -461,10 +465,15 @@ class _RecordLoyaltyPassageSheetState
             merchantId: widget.merchant.id,
             currentlyFollowing: false,
           ));
+          ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+          ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
+          ref.invalidate(clientHomeFeedProvider);
         }
 
         Navigator.of(context).pop();
-        if (progress.isFirstVisit && welcomeGift.isNotEmpty) {
+        if (!widget.skipWelcomeOnPassage &&
+            progress.isFirstVisit &&
+            welcomeGift.isNotEmpty) {
           // Use the parent screen's context — sheet context is invalid after pop.
           Future.delayed(const Duration(milliseconds: 300), () {
             if (!parentCtx.mounted) return;
@@ -603,10 +612,12 @@ class _WelcomeGiftSheet extends StatelessWidget {
   const _WelcomeGiftSheet({
     required this.merchantName,
     required this.welcomeGift,
+    this.subtitle,
   });
 
   final String merchantName;
   final String welcomeGift;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -647,7 +658,8 @@ class _WelcomeGiftSheet extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'C\'est votre première visite. Le commerçant vous offre :',
+              subtitle ??
+                  'C\'est votre première visite. Le commerçant vous offre :',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 14,
@@ -744,17 +756,24 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     );
     final viewedIdsAsync = ref.watch(viewedMerchantIdsForCurrentUserProvider);
 
+    final isFollowListReady = followedIdsAsync.hasValue;
     final isFollowing =
         followedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
     final hasViewed =
         viewedIdsAsync.valueOrNull?.contains(merchant.id) ?? false;
 
     _markMerchantAsViewed(userId, merchant.id);
-    _maybeAutoOpenPassageSheetOnScan(
+    _handleVitrineScanArrival(
       context: context,
       merchant: merchant,
       userId: userId,
       isFollowing: isFollowing,
+      isFollowListReady: isFollowListReady,
+    );
+    _handlePromotionDeepLink(
+      context: context,
+      merchantId: merchant.id,
+      promotions: promotions,
     );
 
     final baseHeartLevel = isFollowing
@@ -771,9 +790,6 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     final followersCount = isFollowing
         ? (fetchedFollowersCount < 1 ? 1 : fetchedFollowersCount)
         : fetchedFollowersCount;
-
-    final loyaltyProgressAsync =
-        ref.watch(clientLoyaltyProgressForMerchantProvider(merchant.id));
 
     return Stack(
       children: [
@@ -836,20 +852,26 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                       _FollowersPill(count: followersCount),
                       const SizedBox(height: 16),
 
-                      // Loyalty block
-                      _buildClientLoyaltyBlock(
-                        context,
-                        merchant,
-                        loyaltyProgressAsync,
-                        userId,
-                        isFollowing: isFollowing,
-                      ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 0),
 
-                      // Action buttons
-                      if (merchant.welcomeGiftDescription != null &&
-                          merchant.welcomeGiftDescription!.trim().isNotEmpty &&
-                          !isFollowing)
+                      // Welcome-gift card.
+                      //
+                      // Previously this hid the card the moment the client
+                      // followed the merchant, which buried the welcome bon
+                      // between "follow" and "claim" — users complained they
+                      // could not find the bon ("premier cadeau de bienvenu
+                      // est difficile à trouver"). The card now stays visible
+                      // until the bon is actually claimed (or never offered),
+                      // and is suppressed on the merchant's own preview
+                      // because welcoming yourself makes no sense.
+                      if ((merchant.welcomeGiftDescription?.trim().isNotEmpty ?? false) &&
+                          !(ref
+                                  .watch(clientLoyaltyProgressForMerchantProvider(
+                                      merchant.id))
+                                  .valueOrNull
+                                  ?.welcomeBonClaimed ??
+                              false) &&
+                          userId != merchant.id)
                         _buildWelcomeGiftCard(
                             merchant.welcomeGiftDescription!.trim()),
                       const SizedBox(height: 12),
@@ -1257,9 +1279,28 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                       ref.invalidate(
                           followedMerchantHeartLevelsForCurrentUserProvider);
                       ref.invalidate(clientHomeFeedProvider);
+                      ref.invalidate(discoveryMerchantsProvider);
+                      ref.invalidate(discoveryRecommendedMerchantsProvider);
+                      ref.invalidate(discoveryFollowedMerchantsProvider);
+                      // Refresh the "X abonnés" pill on this vitrine so the
+                      // count reflects the new follow/unfollow immediately.
+                      ref.invalidate(followersCountByMerchantIdsProvider(
+                          <String>[merchantId]));
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        // `isFollowing` here is the state BEFORE the toggle,
+                        // so when it was true we just unfollowed. Offer a
+                        // 5-second undo on the unfollow path — fat-finger
+                        // taps are the most common support ticket on this
+                        // button and a re-follow round-trip is otherwise
+                        // friction-heavy (it also re-fires the welcome bon
+                        // flow on some merchants).
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.hideCurrentSnackBar();
+                        messenger.showSnackBar(
                           SnackBar(
+                            duration: isFollowing
+                                ? const Duration(seconds: 5)
+                                : const Duration(seconds: 2),
                             content: Text(
                               isFollowing
                                   ? 'Commerce retiré de votre carnet'
@@ -1267,15 +1308,50 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                             ),
                             behavior: SnackBarBehavior.floating,
                             backgroundColor: StorefrontColors.primaryGold,
+                            action: isFollowing
+                                ? SnackBarAction(
+                                    label: 'Annuler',
+                                    textColor: StorefrontColors.navyDark,
+                                    onPressed: () async {
+                                      if (!context.mounted) return;
+                                      _setFollowToggling(true);
+                                      final undo = await toggleFollow.call(
+                                        userId: userId,
+                                        merchantId: merchantId,
+                                        // Currently NOT following (we just
+                                        // unfollowed), so re-follow.
+                                        currentlyFollowing: false,
+                                      );
+                                      if (!context.mounted) return;
+                                      _setFollowToggling(false);
+                                      if (undo.isRight) {
+                                        ref.invalidate(
+                                            followedMerchantIdsForCurrentUserProvider);
+                                        ref.invalidate(
+                                            followedMerchantHeartLevelsForCurrentUserProvider);
+                                        ref.invalidate(clientHomeFeedProvider);
+                                        ref.invalidate(
+                                            followersCountByMerchantIdsProvider(
+                                                <String>[merchantId]));
+                                      }
+                                    },
+                                  )
+                                : null,
                           ),
                         );
                       }
                     },
               borderRadius: BorderRadius.circular(14),
+              // The follow button is the primary CTA — keep it tall and
+              // filled. The unfollow button (post-follow) is a secondary
+              // affordance and should NOT compete visually with the
+              // primary actions on the vitrine: smaller vertical padding,
+              // outlined-only. Matches the user feedback "le bouton ne
+              // plus suivre est trop gros".
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: isFollowing ? 10 : 14),
                 decoration: BoxDecoration(
                   color: isFollowing
                       ? Colors.transparent
@@ -1300,253 +1376,21 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     );
   }
 
-  // ── Loyalty block ──────────────────────────────────────────────────────────
-
-  Widget _buildClientLoyaltyBlock(
-    BuildContext context,
-    Merchant merchant,
-    AsyncValue<ClientMerchantLoyaltyProgress> progressAsync,
-    String? userId, {
-    bool isFollowing = false,
-  }) {
-    final summary = merchant.loyaltyClientSummaryForDisplay;
-    final program = merchant.loyaltyProgram ??
-        LoyaltyProgramConfig.fallbackFromFlags(
-            loyaltyEnabled: merchant.loyaltyEnabled);
-    final canRecordPassage =
-        merchant.loyaltyEnabled && program.programEnabled;
-
-    if (!merchant.loyaltyEnabled) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: StorefrontColors.primaryGold.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: StorefrontColors.primaryGold.withValues(alpha: 0.25),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row
-          Row(
-            children: [
-              const Icon(Icons.star_rounded,
-                  color: StorefrontColors.primaryGold, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                'Programme de fidélité',
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: StorefrontColors.primaryGold,
-                ),
-              ),
-            ],
-          ),
-          if (summary != null && summary.trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              summary.trim(),
-              maxLines: 6,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                color: StorefrontColors.textSecondary,
-                height: 1.45,
-              ),
-            ),
-          ],
-          if (canRecordPassage)
-            progressAsync.when(
-              data: (p) {
-                final entry = ClientLoyaltyEntry(
-                    merchant: merchant, config: program);
-                final rewardAvailable = entry.isRewardAvailable(p);
-                if (rewardAvailable) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            StorefrontColors.primaryGold.withValues(alpha: 0.18),
-                            StorefrontColors.primaryGold.withValues(alpha: 0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: StorefrontColors.primaryGold,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.card_giftcard_rounded,
-                              color: StorefrontColors.primaryGold, size: 22),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '🎁 Bon disponible !',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: StorefrontColors.primaryGold,
-                                  ),
-                                ),
-                                Text(
-                                  entry.rewardLabel(),
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 12,
-                                    color: StorefrontColors.textPrimary,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-                final line = _loyaltyProgressSubtitle(merchant, program, p);
-                if (line == null) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    line,
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: StorefrontColors.textPrimary,
-                      height: 1.45,
-                    ),
-                  ),
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: StorefrontColors.primaryGold,
-                  ),
-                ),
-              ),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-          if (canRecordPassage) ...[
-            const SizedBox(height: 12),
-            // Tier status badge
-            progressAsync.maybeWhen(
-              data: (p) {
-                final tier = ClientLoyaltyTier.fromPassages(p.validatedPassages);
-                return Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _tierColorStorefront(tier).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: _tierColorStorefront(tier).withValues(alpha: 0.5)),
-                    ),
-                    child: Text(
-                      'Votre statut : ${tier.label}',
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: _tierColorStorefront(tier),
-                      ),
-                    ),
-                  ),
-                );
-              },
-              orElse: () => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _openRecordPassageSheet(
-                    context, merchant, userId,
-                    isFollowing: isFollowing),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: StorefrontColors.primaryGold,
-                  side: const BorderSide(color: StorefrontColors.primaryGold),
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
-                label: Text(
-                  'Enregistrer un passage',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  String? _loyaltyProgressSubtitle(
-    Merchant merchant,
-    LoyaltyProgramConfig program,
-    ClientMerchantLoyaltyProgress p,
-  ) {
-    if (!merchant.loyaltyEnabled || !program.programEnabled) return null;
+  // (loyalty block removed — fidelité shown in dedicated Fidelité tab only)
 
-    if (program.passageValidation == LoyaltyPassageValidation.manual) {
-      if (p.pendingPassages <= 0) {
-        return 'Vos passages seront validés par le commerçant.';
-      }
-      if (p.pendingPassages == 1) {
-        return '1 passage en attente de validation.';
-      }
-      return '${p.pendingPassages} passages en attente de validation.';
-    }
-
-    if (program.triggerType == LoyaltyTriggerType.visitCount) {
-      final need = program.visitsRequired.clamp(1, 9999);
-      final v = p.validatedPassages;
-      if (v >= need) return 'Objectif atteint — $need passages validés ✓';
-      return '$v / $need passages — encore ${need - v} avant la récompense.';
-    }
-
-    final needSpend = program.cumulativeSpendRequiredEuros;
-    final spent = p.cumulativeSpendEuros;
-    if (spent >= needSpend) return 'Objectif d\'achats atteint ✓';
-    final remain = needSpend - spent;
-    final spentStr = _fmtEuro(spent);
-    final needStr = _fmtEuro(needSpend);
-    final remStr = remain == remain.roundToDouble()
-        ? remain.toInt().toString()
-        : remain.toStringAsFixed(2);
-    return '$spentStr € / $needStr € — encore $remStr €.';
+  void _clearVitrineScanIntent() {
+    ref.read(pendingVitrineScanIntentProvider.notifier).state =
+        VitrineScanIntent.none;
   }
 
-  String _fmtEuro(double n) =>
-      n == n.roundToDouble() ? n.toInt().toString() : n.toStringAsFixed(2);
+  bool _merchantLoyaltyActive(Merchant merchant) {
+    if (!merchant.loyaltyEnabled) return false;
+    final program = merchant.loyaltyProgram;
+    if (program != null && !program.programEnabled) return false;
+    return true;
+  }
 
   void _showAuthGateSheet(
     BuildContext context,
@@ -1567,7 +1411,6 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Handle
               Center(
                 child: Container(
                   width: 36,
@@ -1681,11 +1524,294 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     );
   }
 
+  /// QR/NFC scan while logged out — follow-the-store framing, not passage-first.
+  void _showScanGuestConnectSheet(
+    BuildContext context,
+    Merchant merchant,
+  ) {
+    final name = merchant.displayName ?? merchant.name;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: StorefrontColors.backgroundLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: StorefrontColors.primaryGold.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Icon(
+                Icons.storefront_rounded,
+                size: 48,
+                color: StorefrontColors.primaryGold,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Rejoignez $name',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: StorefrontColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Connectez-vous pour suivre ce magasin, recevoir ses actualités et utiliser la fidélité.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: StorefrontColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    widget.onRequestLogin?.call();
+                  },
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          StorefrontColors.primaryGold,
+                          Color(0xFFB8860B),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Se connecter pour suivre',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _clearVitrineScanIntent();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Continuer sans compte',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: StorefrontColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Logged-in client scanned but does not follow yet — follow before passage.
+  Future<void> _showScanFollowFirstSheet(
+    BuildContext context,
+    Merchant merchant,
+    String userId,
+  ) async {
+    final name = merchant.displayName ?? merchant.name;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: StorefrontColors.backgroundLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: StorefrontColors.primaryGold.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Icon(
+                Icons.favorite_rounded,
+                size: 44,
+                color: StorefrontColors.primaryGold,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Suivez $name',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: StorefrontColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Ajoutez ce commerce à votre carnet Yuztoo pour enregistrer vos passages et recevoir vos avantages.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: StorefrontColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: GestureDetector(
+                  onTap: () async {
+                    final toggleFollow = ref.read(toggleMerchantFollowProvider);
+                    final result = await toggleFollow.call(
+                      userId: userId,
+                      merchantId: merchant.id,
+                      currentlyFollowing: false,
+                    );
+                    if (!ctx.mounted) return;
+                    if (result.isLeft) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(
+                          content: Text('Échec de la sauvegarde'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+                    ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+                    ref.invalidate(
+                        followedMerchantHeartLevelsForCurrentUserProvider);
+                    ref.invalidate(clientHomeFeedProvider);
+                    Navigator.of(ctx).pop();
+                    if (!context.mounted) return;
+                    _afterScanFollowSuccess(context, merchant, userId);
+                  },
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: StorefrontColors.primaryGold,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Suivre ce commerce',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: StorefrontColors.navyDark,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => Navigator.of(ctx).pop(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Plus tard',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: StorefrontColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _afterScanFollowSuccess(
+    BuildContext context,
+    Merchant merchant,
+    String userId,
+  ) {
+    final welcomeGift = merchant.welcomeGiftDescription?.trim() ?? '';
+    final merchantName = merchant.displayName?.isNotEmpty == true
+        ? merchant.displayName!
+        : merchant.name;
+
+    void offerPassage() {
+      if (!context.mounted) return;
+      if (!_merchantLoyaltyActive(merchant)) return;
+      _openRecordPassageSheet(
+        context,
+        merchant,
+        userId,
+        isFollowing: true,
+        skipWelcomeOnPassage: _welcomeShownForMerchantId == merchant.id,
+      );
+    }
+
+    if (welcomeGift.isEmpty) {
+      offerPassage();
+      return;
+    }
+
+    if (_welcomeShownForMerchantId == merchant.id) {
+      offerPassage();
+      return;
+    }
+
+    _welcomeShownForMerchantId = merchant.id;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _WelcomeGiftSheet(
+        merchantName: merchantName,
+        welcomeGift: welcomeGift,
+        subtitle:
+            'Merci de nous suivre ! Le commerçant vous offre :',
+      ),
+    ).then((_) {
+      Future.delayed(const Duration(milliseconds: 300), offerPassage);
+    });
+  }
+
   void _openRecordPassageSheet(
     BuildContext context,
     Merchant merchant,
     String? userId, {
     bool isFollowing = false,
+    bool skipWelcomeOnPassage = false,
   }) {
     if (userId == null || userId.isEmpty) {
       _showAuthGateSheet(context, merchant);
@@ -1710,6 +1836,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           needsPurchaseAmount: program.effectiveAskClientPurchaseAmount,
           parentContext: context,
           isAlreadyFollowing: isFollowing,
+          skipWelcomeOnPassage: skipWelcomeOnPassage,
         ),
       ),
     );
@@ -1728,56 +1855,97 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     ref.invalidate(viewedMerchantIdsForCurrentUserProvider);
   }
 
-  /// Consumes [pendingScanAutoPassageProvider] exactly once per screen
-  /// instance and auto-opens the loyalty-passage sheet for logged-in clients
-  /// at merchants where loyalty is enabled. Other cases (guest, loyalty
-  /// disabled) silently clear the flag — the spec keeps the vitrine front
-  /// and centre and lets the user tap "Suivre ce commerce" themselves.
+  /// Consumes [pendingVitrineScanIntentProvider] once per screen visit.
   ///
-  /// Idempotency:
-  /// - `_scanAutoPassageHandled` blocks re-firing on rebuild within the same
-  ///   screen instance (e.g. when isFollowing flips after auto-follow).
-  /// - The provider reset to `false` blocks re-firing if the user later
-  ///   navigates away and back to the same storefront from the carnet.
-  /// - The transaction-level cooldown blocks duplicate writes if the user
-  ///   somehow reaches the use case twice (the sheet "Confirmer" button is
-  ///   itself debounced, so this is belt-and-suspenders).
-  void _maybeAutoOpenPassageSheetOnScan({
+  /// Funnel: guest → connect to store; logged-in non-follower → follow +
+  /// welcome → passage; already following → passage sheet.
+  void _handleVitrineScanArrival({
     required BuildContext context,
     required Merchant merchant,
     required String? userId,
     required bool isFollowing,
+    required bool isFollowListReady,
   }) {
-    if (_scanAutoPassageHandled) return;
-    final pending = ref.read(pendingScanAutoPassageProvider);
-    if (!pending) return;
+    if (_scanArrivalHandled) return;
+    if (ref.read(pendingVitrineScanIntentProvider) !=
+        VitrineScanIntent.fromQrOrNfc) {
+      return;
+    }
 
-    _scanAutoPassageHandled = true;
+    final loggedIn = userId != null && userId.isNotEmpty;
+    // Wait until follow state is loaded so existing followers skip follow-first.
+    if (loggedIn && !isFollowListReady) return;
 
-    // Defer the provider reset and any sheet display past the current build
-    // phase — Riverpod state mutations and showModalBottomSheet must not run
-    // synchronously inside a build callback.
+    _scanArrivalHandled = true;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(pendingScanAutoPassageProvider.notifier).state = false;
 
-      // Guests stay on the vitrine — the spec ("CTA: Suivre ce commerce")
-      // routes their first conversion through the follow CTA, not through a
-      // surprise auth-gate modal.
-      if (userId == null || userId.isEmpty) return;
+      if (!loggedIn) {
+        _showScanGuestConnectSheet(context, merchant);
+        return;
+      }
 
-      // Merchant disabled loyalty entirely — no sheet to show. Honour the
-      // scan as a plain vitrine open.
-      if (!merchant.loyaltyEnabled) return;
-      final program = merchant.loyaltyProgram;
-      if (program != null && !program.programEnabled) return;
+      _clearVitrineScanIntent();
+
+      if (!_merchantLoyaltyActive(merchant)) return;
+
+      if (!isFollowing) {
+        unawaited(_showScanFollowFirstSheet(context, merchant, userId));
+        return;
+      }
 
       _openRecordPassageSheet(
         context,
         merchant,
         userId,
-        isFollowing: isFollowing,
+        isFollowing: true,
       );
+    });
+  }
+
+  /// Consumes [pendingStorePromotionIdProvider] once per screen visit.
+  ///
+  /// Fired when the user taps a notification that references a specific
+  /// promotion. We need the page data (promotions list) to be loaded
+  /// before we can open the detail sheet — otherwise the promo doesn't
+  /// exist in memory yet. The handler is idempotent across rebuilds.
+  ///
+  /// Edge cases handled:
+  ///   - The pending id targets a different merchant (race during fast
+  ///     re-tap) → leave the provider in place; the next navigation
+  ///     with the matching merchant will consume it.
+  ///   - The promotion was deleted between send and tap → silently
+  ///     clear the provider; the user is still on the storefront, no
+  ///     scary error dialog.
+  void _handlePromotionDeepLink({
+    required BuildContext context,
+    required String merchantId,
+    required List<Promotion> promotions,
+  }) {
+    if (_promotionDeepLinkHandled) return;
+    final pendingId = ref.read(pendingStorePromotionIdProvider);
+    if (pendingId == null || pendingId.isEmpty) return;
+    if (promotions.isEmpty) return; // wait for the page data to resolve
+
+    Promotion? match;
+    for (final p in promotions) {
+      if (p.id == pendingId && p.merchantId == merchantId) {
+        match = p;
+        break;
+      }
+    }
+
+    _promotionDeepLinkHandled = true;
+    // Always clear the one-shot — whether or not we found a match,
+    // the next storefront visit must start fresh.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(pendingStorePromotionIdProvider.notifier).state = null;
+      final m = match;
+      if (m != null) {
+        _showPromoDetail(context, m);
+      }
     });
   }
 
@@ -2061,19 +2229,6 @@ class _MuteBellButton extends ConsumerWidget {
         ),
       ),
     );
-  }
-}
-
-Color _tierColorStorefront(ClientLoyaltyTier tier) {
-  switch (tier) {
-    case ClientLoyaltyTier.nouveau:
-      return StorefrontColors.textSecondary;
-    case ClientLoyaltyTier.soutien:
-      return const Color(0xFF4FC3F7);
-    case ClientLoyaltyTier.habitue:
-      return StorefrontColors.primaryGold;
-    case ClientLoyaltyTier.vip:
-      return const Color(0xFFE040FB);
   }
 }
 

@@ -54,19 +54,33 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       // Use batch write to ensure atomicity
       final batch = _firestore.batch();
       final userRef = _firestore.collection('users').doc(userId);
-      
+
+      // Read existing user doc so we can MERGE rather than REPLACE the
+      // onboarding + roles maps. See sibling comment in
+      // firestore_merchant_repository.core.part.dart::createMerchant for
+      // the full rationale — Firestore's merge:true does not deep-merge
+      // nested maps, so writing the maps as literals silently wipes any
+      // pre-existing keys (and breaks dual-profile users).
+      final existingUserSnap = await userRef.get();
+      final existingUserData = existingUserSnap.data();
+      final existingOnboarding = Map<String, dynamic>.from(
+        (existingUserData?['onboarding'] as Map<String, dynamic>?) ?? {},
+      );
+      existingOnboarding['merchant'] = 'completed';
+      existingOnboarding.putIfAbsent('client', () => 'not_started');
+      final existingRoles = Map<String, dynamic>.from(
+        (existingUserData?['roles'] as Map<String, dynamic>?) ?? {},
+      );
+      existingRoles['merchant'] = true;
+      existingRoles['provider'] = true;
+      existingRoles.putIfAbsent('client', () => false);
+
       final merchantCity =
           (merchantData?['city'] as String?)?.trim() ?? '';
       final linkUpdate = <String, dynamic>{
         'merchant_id': merchantId,
-        'onboarding': {
-          'merchant': 'completed',
-        },
-        'roles': {
-          'merchant': true,
-          'client': false,
-          'provider': true,
-        },
+        'onboarding': existingOnboarding,
+        'roles': existingRoles,
         'updated_at': FieldValue.serverTimestamp(),
       };
       if (merchantCity.isNotEmpty && !CityInput.isPlaceholder(merchantCity)) {
@@ -299,7 +313,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
         },
       );
 
-      // Keep owner user doc city in sync so préférences + discovery stay aligned (MVP: merchantId == uid).
+      // Keep owner user doc city + cities[] in sync (Découvrir filters on client cities).
       if (persistedCity != null && persistedCity.isNotEmpty) {
         try {
           final userRef = _firestore.collection('users').doc(merchantId);
@@ -308,6 +322,10 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
             final existing = Map<String, dynamic>.from(userSnap.data()!);
             final userPatch = <String, dynamic>{
               'city': persistedCity,
+              'cities': mergedOwnerConnectedCities(
+                existingUserData: userSnap.data(),
+                persistedCity: persistedCity,
+              ),
               'updated_at': FieldValue.serverTimestamp(),
             };
             mergeUserPatchForFirestoreRules(existing, userPatch);
@@ -329,6 +347,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
             final existing = Map<String, dynamic>.from(userSnap.data()!);
             final userPatch = <String, dynamic>{
               'city': FieldValue.delete(),
+              'cities': <String>[],
               'updated_at': FieldValue.serverTimestamp(),
             };
             mergeUserPatchForFirestoreRules(existing, userPatch);
@@ -380,6 +399,45 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       return Left<MerchantFailure, Merchant>(
         MerchantUnexpectedFailure(
           message: 'Impossible d\'enregistrer la vitrine',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  Future<Result<void>> updateGratificationConfig({
+    required String merchantId,
+    required ClientGratificationConfig config,
+  }) async {
+    if (merchantId.isEmpty) {
+      return const Left<MerchantFailure, void>(
+        MerchantUnexpectedFailure(message: 'Identifiant du commerce requis'),
+      );
+    }
+    try {
+      await _firestore.collection('merchants').doc(merchantId).set(
+        {
+          'gratification_config': config.toMap(),
+          'updated_at': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      return const Right<MerchantFailure, void>(null);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError(
+        'Error saving gratification config',
+        error: e,
+        stackTrace: st,
+        context: {'merchantId': merchantId},
+      );
+      return Left<MerchantFailure, void>(
+        MerchantNetworkFailure(cause: e, stackTrace: st),
+      );
+    } catch (e, st) {
+      return Left<MerchantFailure, void>(
+        MerchantUnexpectedFailure(
+          message: 'Impossible d\'enregistrer la configuration',
           cause: e,
           stackTrace: st,
         ),

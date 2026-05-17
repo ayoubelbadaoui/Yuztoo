@@ -27,6 +27,8 @@ class CompleteMerchantOnboarding {
     String? logoUrl,
     String? bannerUrl,
     String? merchantType,
+    String? categoryId,
+    String? subcategoryTitle,
   }) async {
     // Defensive: only persist the values the schema knows about. The
     // wizard picker is binary so this is a backstop; anything else
@@ -51,6 +53,8 @@ class CompleteMerchantOnboarding {
       logoUrl: logoUrl,
       bannerUrl: bannerUrl,
       merchantType: cleanType ?? 'b2c',
+      categoryId: categoryId,
+      subcategoryTitle: subcategoryTitle,
       // Visible in Découvrir / listMerchants (query expects discoverable merchants).
       status: 'active',
     );

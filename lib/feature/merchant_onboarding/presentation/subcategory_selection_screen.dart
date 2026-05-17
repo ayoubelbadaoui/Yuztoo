@@ -3,12 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../application/onboarding_flow_provider.dart';
 import '../application/providers.dart';
 import '../domain/entities/merchant_subcategory.dart';
+import 'widgets/subcategory/merchant_subcategory_catalog.dart';
 import 'widgets/subcategory/subcategory_card.dart';
 import 'widgets/subcategory/subcategory_colors.dart';
 import 'widgets/subcategory/subcategory_footer.dart';
-import 'widgets/subcategory/restaurant_subcategories.dart';
 
 class SubcategorySelectionScreen extends ConsumerStatefulWidget {
   const SubcategorySelectionScreen({
@@ -31,7 +32,10 @@ class _SubcategorySelectionScreenState
   late final AnimationController _animationController;
   String? _selectedSubcategoryId;
 
-  List<MerchantSubcategory> get _subcategories => RestaurantSubcategories.all;
+  /// Subcategories for the category the merchant picked on the previous
+  /// step. Resolved once in [initState] so a rebuild during the auto-skip
+  /// post-frame callback can't flicker the grid before navigation lands.
+  late final List<MerchantSubcategory> _subcategories;
 
   @override
   void initState() {
@@ -40,6 +44,28 @@ class _SubcategorySelectionScreenState
       vsync: this,
       duration: const Duration(milliseconds: 500),
     )..forward();
+
+    final categoryId =
+        ref.read(selectedMerchantCategoryIdProvider);
+    _subcategories = MerchantSubcategoryCatalog.forCategory(categoryId);
+
+    // Categories without a curated subcategory list (retail, beauty,
+    // fitness, services, other for now) should NOT block the merchant
+    // on an empty grid. Skip directly to the next step — the merchant
+    // already specified their domain via the top-level category, and
+    // the profile form will collect any further detail. Use a
+    // post-frame callback because we cannot call widget.onNext()
+    // during build / initState.
+    if (_subcategories.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // Make sure no stale subcategory leaks through from a previous run.
+        ref
+            .read(selectedMerchantSubcategoryTitleProvider.notifier)
+            .state = null;
+        widget.onNext();
+      });
+    }
   }
 
   @override
@@ -54,6 +80,7 @@ class _SubcategorySelectionScreenState
         _subcategories.firstWhere((s) => s.id == _selectedSubcategoryId);
     ref.read(selectedMerchantSubcategoryTitleProvider.notifier).state =
         selected.title;
+    ref.read(onboardingFlowProvider.notifier).setSubcategoryTitle(selected.title);
     widget.onNext();
   }
 

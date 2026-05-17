@@ -336,6 +336,7 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
     return StreamBuilder<List<ScheduledNotification>>(
       stream: repo.watchAll(widget.merchantId),
       builder: (context, snap) {
+        if (snap.hasError) return const SizedBox.shrink();
         final all = snap.data ?? const <ScheduledNotification>[];
         // Only pending entries get UI surface here. Sent/cancelled/failed
         // entries are deliberately hidden — a future "historique

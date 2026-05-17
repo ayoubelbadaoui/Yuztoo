@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/auth_user.dart';
 import '../../../../core/domain/core/result.dart';
 import 'state/auth_state.dart';
+import 'use_cases/reload_current_user_profile.dart';
 import 'use_cases/sign_out.dart';
 import 'use_cases/watch_auth_state.dart';
 
@@ -12,11 +13,13 @@ class AuthController extends StateNotifier<AuthState> {
   AuthController({
     required SignOut signOut,
     required WatchAuthState watchAuthState,
+    required ReloadCurrentUserProfile reloadCurrentUserProfile,
     /// Runs **before** Firebase Auth sign-out so Firestore rules still see
     /// `request.auth.uid` (e.g. delete `users/{uid}/push_tokens/device`).
     Future<void> Function(String uid)? onClearDevicePushToken,
   })  : _signOut = signOut,
         _watchAuthState = watchAuthState,
+        _reloadCurrentUserProfile = reloadCurrentUserProfile,
         _onClearDevicePushToken = onClearDevicePushToken,
         super(const AuthInitial()) {
     _listenToAuthStream();
@@ -24,6 +27,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   final SignOut _signOut;
   final WatchAuthState _watchAuthState;
+  final ReloadCurrentUserProfile _reloadCurrentUserProfile;
   final Future<void> Function(String uid)? _onClearDevicePushToken;
 
   StreamSubscription<Result<AuthUser?>>? _authSubscription;
@@ -66,6 +70,20 @@ class AuthController extends StateNotifier<AuthState> {
     // userChanges() emits the current user immediately on subscription,
     // so this is safe and won't cause logout
     _listenToAuthStream();
+  }
+
+  /// Reloads `/users/{uid}` + Firebase Auth into [state] immediately.
+  ///
+  /// Prefer this (or [refreshUserProfileCache]) after profile edits — the auth
+  /// stream skips duplicate UIDs and does not emit on Firestore-only changes.
+  Future<void> reloadProfile() async {
+    final result = await _reloadCurrentUserProfile();
+    if (!mounted) return;
+    state = result.fold<AuthState>(
+      (failure) => AuthError(failure),
+      (user) =>
+          user == null ? const Unauthenticated() : Authenticated(user),
+    );
   }
 
   @override

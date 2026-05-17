@@ -7,7 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/utils/image_crop_utils.dart';
 import '../../../auth/core/application/user_display_helpers.dart';
-import '../../../auth/core/application/providers.dart' show updateAuthUserProfileProvider;
+import '../../../auth/core/application/providers.dart'
+    show updateAuthUserProfileProvider, updateClientBasicInfoProvider;
 import '../../../storage/application/providers.dart' show uploadClientAvatarProvider;
 import '../../application/providers.dart';
 
@@ -158,6 +159,11 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
         await ref
             .read(updateAuthUserProfileProvider)
             .call(photoUrl: downloadUrl);
+        await ref.read(updateClientBasicInfoProvider).call(
+              uid: uid,
+              photoUrl: downloadUrl,
+            );
+        await refreshUserProfileCache(ref as Ref, uid: uid);
       },
     );
   }

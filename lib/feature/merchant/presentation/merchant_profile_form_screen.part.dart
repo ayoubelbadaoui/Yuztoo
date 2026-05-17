@@ -58,7 +58,7 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         user.phoneNumber ??
         '';
     // City comes directly from the onboarding City step.
-    final city = (data.city ?? '').trim();
+    final city = persistableMerchantCity(data.city) ?? (data.city ?? '').trim();
 
     final websiteUrl = data.websiteUrl?.trim().isEmpty == true
         ? null
@@ -180,6 +180,8 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         logoUrl: logoUrl,
         bannerUrl: bannerUrl,
         merchantType: data.merchantType,
+        categoryId: data.categoryId,
+        subcategoryTitle: data.subcategoryTitle,
       );
       firestoreSuccess = result.fold((_) => false, (_) => true);
     } catch (_) {}
@@ -207,6 +209,8 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
     }
 
     ref.invalidate(storefrontProvider);
+    invalidateDiscoveryCatalog(ref as Ref);
+    ref.invalidate(auth_providers.connectedCitiesProvider(userId));
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

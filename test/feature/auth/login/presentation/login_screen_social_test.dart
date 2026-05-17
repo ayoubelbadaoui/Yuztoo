@@ -35,6 +35,10 @@ class _CountingSocialAuthRepository implements AuthRepository {
       Stream.value(const Right<AuthFailure, AuthUser?>(null));
 
   @override
+  Future<Result<AuthUser?>> reloadCurrentUserProfile() async =>
+      const Right<AuthFailure, AuthUser?>(null);
+
+  @override
   Future<Result<AuthUser>> signInWithEmailAndPassword({
     required EmailAddress email,
     required Password password,

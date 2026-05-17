@@ -4,11 +4,24 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
   Future<Result<List<Merchant>>> listMerchants({
     int limit = 20,
     String? cityFilter,
+    List<String>? cityFilters,
     int cityFetchCap = 500,
   }) async {
     try {
-      final trimmedFilter = cityFilter?.trim() ?? '';
-      final useCityFilter = trimmedFilter.isNotEmpty;
+      // Multi-city list takes precedence over the single-city convenience
+      // parameter. Both are trimmed + lower-cased once here so the per-doc
+      // comparison stays O(n) without re-allocating strings.
+      final Set<String> normalizedCities = <String>{
+        if (cityFilters != null)
+          ...cityFilters
+              .map((c) => c.trim().toLowerCase())
+              .where((c) => c.isNotEmpty),
+        if ((cityFilters == null || cityFilters.isEmpty) &&
+            cityFilter != null &&
+            cityFilter.trim().isNotEmpty)
+          cityFilter.trim().toLowerCase(),
+      };
+      final useCityFilter = normalizedCities.isNotEmpty;
       final fetchLimit =
           useCityFilter ? cityFetchCap.clamp(limit, 1000) : limit;
 
@@ -32,9 +45,9 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
       merchants = merchants.where((m) => m.status == 'active').toList();
 
       if (useCityFilter) {
-        final n = trimmedFilter.toLowerCase();
         merchants = merchants
-            .where((m) => m.city.trim().toLowerCase() == n)
+            .where((m) =>
+                normalizedCities.contains(m.city.trim().toLowerCase()))
             .take(limit)
             .toList();
       }
@@ -44,7 +57,8 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
         context: {
           'count': merchants.length,
           'limit': limit,
-          'cityFilter': useCityFilter ? trimmedFilter : null,
+          'cityFilter':
+              useCityFilter ? normalizedCities.join(',') : null,
         },
       );
       return Right<MerchantFailure, List<Merchant>>(merchants);
@@ -119,15 +133,16 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
       );
       return Right<MerchantFailure, List<Merchant>>(ordered);
     } on FirebaseException catch (e, st) {
+      // /merchants is publicly readable per firestore.rules, so a real
+      // permission-denied here is unusual and points at a project-config
+      // issue — return it as Left so the UI can surface a retry instead of
+      // showing an empty carnet to the user.
       LoggerService.logError(
         'Firebase error getMerchantsByIds',
         error: e,
         stackTrace: st,
-        context: {'code': e.code},
+        context: {'code': e.code, 'requested': ids.length},
       );
-      if (e.code == 'permission-denied') {
-        return const Right<MerchantFailure, List<Merchant>>([]);
-      }
       return Left<MerchantFailure, List<Merchant>>(
         MerchantNetworkFailure(cause: e, stackTrace: st),
       );

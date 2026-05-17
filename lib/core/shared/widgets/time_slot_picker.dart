@@ -1,19 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../constants/merchant_colors.dart';
 import '../../../feature/storefront/domain/entities/business_hours.dart'
     show normalizeTimeString;
-
-/// Predefined half-hour time slots from 06h00 to 23h30.
-const _kTimeOptions = [
-  '6h', '6h30', '7h', '7h30', '8h', '8h30',
-  '9h', '9h30', '10h', '10h30', '11h', '11h30',
-  '12h', '12h30', '13h', '13h30', '14h', '14h30',
-  '15h', '15h30', '16h', '16h30', '17h', '17h30',
-  '18h', '18h30', '19h', '19h30', '20h', '20h30',
-  '21h', '21h30', '22h', '22h30', '23h', '23h30',
-];
+import '../../../feature/storefront/presentation/widgets/storefront_colors.dart';
+import 'cupertino_picker_sheet.dart';
 
 /// A row with two tappable chips: [Start ▾] → [End ▾].
 /// Tapping either opens a bottom sheet of predefined time choices.
@@ -50,7 +41,7 @@ class TimeSlotPicker extends StatelessWidget {
           child: Text(
             '→',
             style: GoogleFonts.outfit(
-              color: MerchantColors.textGrey,
+              color: StorefrontColors.textSecondary,
               fontSize: 16,
             ),
           ),
@@ -65,25 +56,42 @@ class TimeSlotPicker extends StatelessWidget {
     );
   }
 
-  void _pickTime(
+  Future<void> _pickTime(
     BuildContext context, {
     required String current,
     required ValueChanged<String> onPicked,
-  }) {
-    showModalBottomSheet<void>(
+  }) async {
+    final initial = _parseToDateTime(current);
+    final picked = await showYuztooCupertinoTimePicker(
       context: context,
-      backgroundColor: MerchantColors.bgHeader,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _TimePickerSheet(
-        current: current,
-        onPicked: (v) {
-          Navigator.of(ctx).pop();
-          onPicked(v);
-        },
-      ),
+      initial: initial,
+      minuteInterval: 5,
     );
+    if (picked != null) {
+      onPicked(_format(picked));
+    }
+  }
+
+  /// Parses the canonical `'Nh'` / `'NhMM'` storage format (and a couple of
+  /// legacy variants) into a DateTime so the wheel can be seeded. Returns 8h00
+  /// for anything unparseable so the picker still opens on a sensible default.
+  static DateTime _parseToDateTime(String raw) {
+    final s = normalizeTimeString(raw);
+    final hMatch = RegExp(r'^(\d{1,2})h(\d{0,2})$').firstMatch(s);
+    final today = DateTime.now();
+    if (hMatch == null) {
+      return DateTime(today.year, today.month, today.day, 8);
+    }
+    final h = int.parse(hMatch.group(1)!);
+    final mStr = hMatch.group(2)!;
+    final m = mStr.isEmpty ? 0 : int.parse(mStr);
+    return DateTime(today.year, today.month, today.day, h, m);
+  }
+
+  static String _format(DateTime d) {
+    return d.minute == 0
+        ? '${d.hour}h'
+        : '${d.hour}h${d.minute.toString().padLeft(2, '0')}';
   }
 }
 
@@ -107,10 +115,10 @@ class _TimeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: MerchantColors.navyCard,
+          color: StorefrontColors.primaryGold.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: MerchantColors.gold.withValues(alpha: 0.35),
+            color: StorefrontColors.primaryGold.withValues(alpha: 0.25),
             width: 1,
           ),
         ),
@@ -125,7 +133,7 @@ class _TimeChip extends StatelessWidget {
                   prefix,
                   style: GoogleFonts.outfit(
                     fontSize: 10,
-                    color: MerchantColors.textGrey,
+                    color: StorefrontColors.textSecondary,
                     letterSpacing: 0.3,
                   ),
                 ),
@@ -134,7 +142,7 @@ class _TimeChip extends StatelessWidget {
                   style: GoogleFonts.outfit(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: MerchantColors.gold,
+                    color: StorefrontColors.primaryGold,
                   ),
                 ),
               ],
@@ -142,103 +150,11 @@ class _TimeChip extends StatelessWidget {
             const SizedBox(width: 4),
             const Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: MerchantColors.textGrey,
+              color: StorefrontColors.textSecondary,
               size: 16,
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _TimePickerSheet extends StatelessWidget {
-  const _TimePickerSheet({
-    required this.current,
-    required this.onPicked,
-  });
-
-  final String current;
-  final ValueChanged<String> onPicked;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: MerchantColors.textGrey.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Choisir l\'heure',
-            style: GoogleFonts.outfit(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 260,
-            child: GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 2.2,
-              ),
-              itemCount: _kTimeOptions.length,
-              itemBuilder: (ctx, i) {
-                final time = _kTimeOptions[i];
-                // Normalize current before comparison so legacy-format values
-                // (e.g. "08:30", "8H30", "08h00") still highlight correctly.
-                final isSelected = time == normalizeTimeString(current);
-                return GestureDetector(
-                  onTap: () => onPicked(time),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? MerchantColors.gold
-                          : MerchantColors.navyCard,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isSelected
-                            ? MerchantColors.gold
-                            : MerchantColors.gold.withValues(alpha: 0.2),
-                        width: 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        time,
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          fontWeight: isSelected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: isSelected
-                              ? MerchantColors.bgHeader
-                              : Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
       ),
     );
   }

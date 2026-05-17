@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,10 +7,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/cupertino_dob_picker.dart';
 import '../../../core/utils/cities.dart';
 import '../../../core/utils/image_crop_utils.dart';
 import '../../auth/core/application/providers.dart'
-    show updateAuthUserProfileProvider;
+    show updateAuthUserProfileProvider, updateUserCityProvider;
 import '../../auth/core/application/user_display_helpers.dart';
 import '../../storage/application/providers.dart' show uploadClientAvatarProvider;
 import '../application/providers.dart';
@@ -16,9 +19,32 @@ import '../application/providers.dart';
 part 'personal_information_screen.part.dart';
 
 class PersonalInformationScreen extends ConsumerStatefulWidget {
-  const PersonalInformationScreen({super.key, this.onCreateProAccount});
+  const PersonalInformationScreen({
+    super.key,
+    this.onCreateProAccount,
+    this.createOtherRoleLabel,
+    this.onBack,
+  });
 
+  /// Tapped when the user wants to add their secondary role. The label of the
+  /// button is controlled by [createOtherRoleLabel] — defaults to
+  /// "Créer un compte pro" (the original client-side CTA wording).
+  ///
+  /// Merchant callers should pass `'Créer un carnet Yuztoo'` and wire this
+  /// callback to the create-client-carnet flow, otherwise a merchant viewing
+  /// their personal info sees a "compte pro" button that makes no sense for
+  /// them (they already have one) — the regression the user reported.
   final VoidCallback? onCreateProAccount;
+
+  /// Override label for the secondary-role CTA. Defaults to
+  /// "Créer un compte pro" when null.
+  final String? createOtherRoleLabel;
+
+  /// When provided, the back button uses this callback instead of
+  /// `Navigator.pop`. Used when the screen is rendered as a nested shell
+  /// destination (no route to pop) — pass `_handleBackFromNested` so the
+  /// shell falls back to its base view.
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<PersonalInformationScreen> createState() =>
@@ -35,6 +61,7 @@ class _PersonalInformationScreenState
   final _lastNameCtrl = TextEditingController();
   final _picker = ImagePicker();
   DateTime? _selectedDob;
+  String? _selectedCity;
   bool _seeded = false;
 
   @override
@@ -45,15 +72,18 @@ class _PersonalInformationScreenState
   }
 
   /// Seeds controllers once basics have loaded from Firestore.
-  void _seed(String? firstName, String? lastName, DateTime? dob) {
+  void _seed(String? firstName, String? lastName, DateTime? dob, String? city) {
     if (_seeded) return;
     _seeded = true;
     _firstNameCtrl.text = firstName ?? '';
     _lastNameCtrl.text = lastName ?? '';
     _selectedDob = dob;
+    _selectedCity = city?.isNotEmpty == true ? city : null;
   }
 
   void _startEdit() => setState(() => _editing = true);
+
+  void _setCity(String city) => setState(() => _selectedCity = city);
 
   void _setPhotoUploading(bool v) => setState(() => _photoUploading = v);
 
@@ -83,13 +113,38 @@ class _PersonalInformationScreenState
           dateOfBirth: _selectedDob,
         );
     if (!mounted) return;
+
+    // Persist city change independently — non-fatal if it fails.
+    if (_selectedCity != null && _selectedCity!.isNotEmpty) {
+      await ref
+          .read(updateUserCityProvider)
+          .call(uid: uid, city: _selectedCity!);
+    }
+
     setState(() => _saving = false);
-    result.fold(
-      (f) => ScaffoldMessenger.of(context).showSnackBar(
+    await result.fold(
+      (f) async => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(f.message)),
       ),
-      (_) {
-        ref.invalidate(userProfileBasicsProvider(uid));
+      (_) async {
+        // Mirror the new name into Firebase Auth so any UI that reads
+        // user.displayName from authStateProvider (e.g. the shell header)
+        // reflects it without a re-sign-in. Failure here is non-fatal —
+        // Firestore is the source of truth.
+        final newDisplay = ln.isNotEmpty ? '$fn $ln' : fn;
+        if (newDisplay.isNotEmpty) {
+          await ref
+              .read(updateAuthUserProfileProvider)
+              .call(displayName: newDisplay);
+        }
+        final cityChanged =
+            _selectedCity != null && _selectedCity!.isNotEmpty;
+        await refreshUserProfileCache(
+          ref as Ref,
+          uid: uid,
+          cityChanged: cityChanged,
+        );
+        if (!mounted) return;
         setState(() {
           _editing = false;
           _seeded = false; // allow re-seeding after invalidation
@@ -101,27 +156,13 @@ class _PersonalInformationScreenState
   Future<void> _pickDob() async {
     final now = DateTime.now();
     final initial = _selectedDob ?? DateTime(now.year - 25, now.month, now.day);
-    final picked = await showDatePicker(
+    final picked = await showCupertinoDobPicker(
       context: context,
-      initialDate: initial,
-      firstDate: DateTime(1920),
-      lastDate: DateTime(now.year - 13, now.month, now.day),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          // ignore: prefer_const_constructors
-          colorScheme: ColorScheme.dark(
-            primary: MerchantColors.gold,
-            surface: MerchantColors.bgHeader,
-            onSurface: MerchantColors.textWhite,
-          ),
-          dialogTheme: const DialogThemeData(
-            backgroundColor: MerchantColors.bgHeader,
-          ),
-        ),
-        child: child!,
-      ),
+      initial: initial,
+      minimum: DateTime(1920),
+      maximum: DateTime(now.year - 13, now.month, now.day),
     );
-    if (picked != null) setState(() => _selectedDob = picked);
+    if (picked != null && mounted) setState(() => _selectedDob = picked);
   }
 
   @override
@@ -136,7 +177,7 @@ class _PersonalInformationScreenState
 
     // Seed controllers once data arrives.
     if (basics != null) {
-      _seed(basics.firstName, basics.lastName, basics.dateOfBirth);
+      _seed(basics.firstName, basics.lastName, basics.dateOfBirth, basics.city);
     }
 
     final fullName =
@@ -179,6 +220,7 @@ class _PersonalInformationScreenState
           ? () => _pickAndUploadPhoto(uid)
           : null,
       onCreateProAccount: widget.onCreateProAccount,
+      createOtherRoleLabel: widget.createOtherRoleLabel,
     );
   }
 }

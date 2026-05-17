@@ -88,11 +88,30 @@ class AuthUserDto {
       role = 'client';
     }
 
+    final fsFirst = (data?['firstName'] as String?)?.trim() ?? '';
+    final fsLast = (data?['lastName'] as String?)?.trim() ?? '';
+    String? displayName;
+    if (fsFirst.isNotEmpty && fsLast.isNotEmpty) {
+      displayName = '$fsFirst $fsLast';
+    } else if (fsFirst.isNotEmpty) {
+      displayName = fsFirst;
+    } else if (fsLast.isNotEmpty) {
+      displayName = fsLast;
+    } else {
+      displayName = user.displayName ?? data?['displayName'] as String?;
+    }
+
+    final fsPhoto = (data?['photoUrl'] as String?)?.trim();
+    final authPhoto = user.photoURL?.trim();
+    final photoUrl = (fsPhoto != null && fsPhoto.isNotEmpty)
+        ? fsPhoto
+        : (authPhoto != null && authPhoto.isNotEmpty ? authPhoto : null);
+
     return AuthUserDto(
       id: user.uid,
       email: email,
-      displayName: user.displayName ?? data?['displayName'] as String?,
-      photoUrl: user.photoURL ?? data?['photoUrl'] as String?,
+      displayName: displayName,
+      photoUrl: photoUrl,
       phoneNumber: user.phoneNumber ?? data?['phoneNumber'] as String?,
       roles: rolesMap,
       primaryRole: primaryRole,

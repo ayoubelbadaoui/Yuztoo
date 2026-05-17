@@ -6,8 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
 import '../../auth/core/application/user_display_helpers.dart';
+import '../../storefront/presentation/widgets/storefront_colors.dart';
+import '../../merchant/domain/entities/loyalty_program_config.dart'
+    show LoyaltyRewardKind;
 import '../application/providers.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart' show ClientLoyaltyTier;
+import 'client_ble_broadcast_screen.dart';
 
 part 'loyalty_cards_screen.part.dart';
 
@@ -77,6 +81,21 @@ class LoyaltyCardsScreen extends ConsumerWidget {
         ),
         child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ClientBleBroadcastScreen(),
+                fullscreenDialog: true,
+              ),
+            ),
+            backgroundColor: StorefrontColors.primaryGold,
+            foregroundColor: StorefrontColors.navyDark,
+            icon: const Icon(Icons.nfc_rounded),
+            label: Text(
+              'Valider',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
+            ),
+          ),
           body: Column(
             children: [
               _Header(

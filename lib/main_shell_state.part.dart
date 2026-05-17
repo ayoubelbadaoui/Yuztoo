@@ -11,6 +11,7 @@ class _RootShellState extends ConsumerState<_RootShell>
   bool _isDualProfile = false; // true when user has both client + merchant roles
   // Guard: prevents double-tap from launching two concurrent merchant switches.
   bool _isSwitchingToMerchant = false;
+  bool _isSwitchingToClient = false;
   String _activeTab = 'home';
   // Signup/OTP flow data
   String? _signupUserId;
@@ -25,6 +26,7 @@ class _RootShellState extends ConsumerState<_RootShell>
   StreamSubscription<RemoteMessage>? _fcmForegroundSub;
   StreamSubscription<RemoteMessage>? _fcmOpenedAppSub;
   StreamSubscription<Map<String, dynamic>?>? _notifTapSub;
+  StreamSubscription<BleClientDetection>? _bleDetectionSub;
 
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
   String? _pendingVitrineMerchantId;
@@ -145,6 +147,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     _notifTapSub?.cancel();
     NotificationService.instance.dispose();
     _appLinkSubscription?.cancel();
+    _bleDetectionSub?.cancel();
     _authStateSub?.close();
     super.dispose();
   }
@@ -188,11 +191,19 @@ class _RootShellState extends ConsumerState<_RootShell>
     return !defer.contains(screen);
   }
 
-  void _openVitrineForMerchant(String merchantId) {
+  /// Navigates to a merchant's storefront, optionally deep-linking into a
+  /// specific promotion. When [promotionId] is non-null the storefront
+  /// consumes [pendingStorePromotionIdProvider] on arrival and opens the
+  /// promo detail sheet — so tapping a push that says "Nouvelle promo X"
+  /// lands the user on X, not on the storefront's accueil.
+  void _openVitrineForMerchant(String merchantId, {String? promotionId}) {
     if (!mounted) return;
     ref
         .read(store_profile_providers.selectedStoreMerchantIdProvider.notifier)
         .state = merchantId;
+    ref
+        .read(store_profile_providers.pendingStorePromotionIdProvider.notifier)
+        .state = (promotionId == null || promotionId.isEmpty) ? null : promotionId;
     setState(() {
       _nestedScreen = ScreenId.storeProfile;
     });
@@ -224,8 +235,10 @@ class _RootShellState extends ConsumerState<_RootShell>
       //   2. Cloud Function deleted push_tokens/device (invalid-token error).
       //   3. User granted notification permission in device Settings after denying in-app.
       _reRegisterFcmToken();
+      unawaited(_startBle());
     } else {
       unawaited(WakelockPlus.disable());
+      unawaited(_stopBle());
     }
   }
 
@@ -261,7 +274,15 @@ class _RootShellState extends ConsumerState<_RootShell>
     // 'promotion' is the type written by ClientNotificationDto.typeToString.
     // Previously stored as 'promotion_created' which never matched.
     if (type == 'promotion' && merchantId.isNotEmpty) {
-      _openVitrineForMerchant(merchantId);
+      // Carry the promotion id through to the storefront so tapping the
+      // push opens the actual promo detail instead of dumping the user
+      // on the storefront's accueil to hunt for it. Field name matches
+      // the CF payload (`promotion_id`).
+      final promotionId = data['promotion_id'] as String? ?? '';
+      _openVitrineForMerchant(
+        merchantId,
+        promotionId: promotionId.isEmpty ? null : promotionId,
+      );
       return;
     }
 
@@ -278,7 +299,13 @@ class _RootShellState extends ConsumerState<_RootShell>
       if (_isDualProfile) {
         // Dual-profile user currently in merchant shell: switch to client shell
         // and open the loyalty tab so the push lands on the right screen.
-        ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.client);
+        final uid = ref.read(authStateProvider);
+        if (uid is Authenticated) {
+          ref.read(roleCacheServiceProvider).saveLastSelectedRole(
+                UserRole.client,
+                userId: uid.user.id,
+              );
+        }
         setState(() {
           _role = UserRole.client;
           _activeTab = 'loyalty';
@@ -378,6 +405,7 @@ class _RootShellState extends ConsumerState<_RootShell>
             _nestedScreen = null;
             _role = null;
           });
+          unawaited(_stopBle());
         }
       } else if (authState is AuthError) {
         // Reset navigation flag
@@ -517,7 +545,9 @@ class _RootShellState extends ConsumerState<_RootShell>
       // role so signup/login can proceed without bouncing back to auth screens.
       if (role == null) {
         try {
-          role = await ref.read(roleCacheServiceProvider).readLastSelectedRole();
+          role = await ref
+              .read(roleCacheServiceProvider)
+              .readLastSelectedRole(userId: user.id);
         } catch (_) {}
         role ??= _role;
       }
@@ -560,6 +590,8 @@ class _RootShellState extends ConsumerState<_RootShell>
         return;
       }
 
+      role = await _resolveRoleForSession(user.id, role);
+
       // Determine target screen based strictly on Firestore role + onboarding.
       ScreenId targetScreen;
       if (role == UserRole.client) {
@@ -586,9 +618,14 @@ class _RootShellState extends ConsumerState<_RootShell>
       // Now navigate to home screen (we were on splash, so this is safe)
       if (mounted) {
         final roles = user.roles;
-        final dualProfile = roles != null &&
+        final dualFromRoles = roles != null &&
             roles['client'] == true &&
             roles['merchant'] == true;
+        var dualProfile = dualFromRoles;
+        if (!dualProfile && role == UserRole.client) {
+          dualProfile =
+              await ref.read(merchant_providers.hasLinkedMerchantAccountProvider.future);
+        }
         setState(() {
           _authScreen = targetScreen;
           _role = role;
@@ -597,12 +634,18 @@ class _RootShellState extends ConsumerState<_RootShell>
           _nestedScreen = null;
           _isNavigatingToHome = false; // Navigation complete
         });
+        unawaited(
+          ref.read(roleCacheServiceProvider).saveLastSelectedRole(
+                role,
+                userId: user.id,
+              ),
+        );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _tryConsumePendingVitrineLink();
           _tryConsumePendingFcmMessage();
         });
-        // UI updates handled by setState above
+        unawaited(_startBle());
       }
     } catch (_) {
       // Fail closed: keep access guarded when profile routing cannot be resolved.
@@ -665,46 +708,141 @@ class _RootShellState extends ConsumerState<_RootShell>
     _handleBackToBase();
   }
 
+  // ── BLE proximity ─────────────────────────────────────────────────────────
+
+  /// Starts BLE in the mode matching the current role (client → advertise,
+  /// merchant → scan). No-op when unauthenticated or role is unknown.
+  Future<void> _startBle() async {
+    final authState = ref.read(authControllerProvider);
+    if (authState is! Authenticated) return;
+    final notifier = ref.read(bleProximityProvider.notifier);
+    _bleDetectionSub?.cancel();
+    _bleDetectionSub = null;
+    if (_role == UserRole.client) {
+      await notifier.startAsClient(authState.user.id);
+    } else if (_role == UserRole.merchant) {
+      _bleDetectionSub = notifier.detections.listen(_onClientDetected);
+      await notifier.startAsMerchant();
+    }
+  }
+
+  /// Stops all BLE activity and cancels the detection subscription.
+  Future<void> _stopBle() async {
+    _bleDetectionSub?.cancel();
+    _bleDetectionSub = null;
+    await ref.read(bleProximityProvider.notifier).stop();
+  }
+
+  /// Called when a client is detected nearby. Shows the confirmation sheet on
+  /// top of whatever screen the merchant is currently viewing.
+  void _onClientDetected(BleClientDetection detection) {
+    if (!mounted) return;
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BleClientDetectionSheet(
+        detection: detection,
+        onDismiss: () {},
+      ),
+    ).then((_) {
+      if (mounted) {
+        ref.read(bleProximityProvider.notifier).resetAfterDetection();
+      }
+    });
+  }
+
   // ── Dual-profile role switching ────────────────────────────────────────────
 
-  /// Merchant taps "switch to client".
-  ///
-  /// Three possible states from [isClientOnboardingCompleted]:
-  ///   - `true`  → already has a complete client profile → go to clientHome.
-  ///   - `false` → role flag exists but onboarding not finished → onboard.
-  ///   - `null`  → role flag MISSING from Firestore (pure merchant who has
-  ///               never been a client) → add role THEN onboard.
-  ///
-  /// Bug-fix: previously `null` fell into `else` (already-client path) without
-  /// calling [addSecondaryClientRole], so `roles.client` was never written to
-  /// Firestore. On every app restart the user was stuck in merchant mode.
+  /// Merchant taps "switch to client" — confirm, then onboarding only if profile gaps remain.
   Future<void> _switchToClient() async {
-    final authState = ref.read(authStateProvider);
-    if (authState is! Authenticated) return;
-    final uid = authState.user.id;
-    final repo = ref.read(userRepositoryProvider);
+    if (_isSwitchingToClient) return;
+    _isSwitchingToClient = true;
+    try {
+      final authState = ref.read(authStateProvider);
+      if (authState is! Authenticated) return;
+      final uid = authState.user.id;
+      final repo = ref.read(userRepositoryProvider);
 
-    final completedResult = await repo.isClientOnboardingCompleted(uid);
-    final completed = completedResult.fold((_) => null, (v) => v);
+      final readinessResult = await repo.getClientProfileReadiness(uid);
+      if (!mounted) return;
+      final ClientProfileReadiness? readiness = readinessResult.fold(
+        (_) => null,
+        (ClientProfileReadiness r) => r,
+      );
+      if (readiness == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible de vérifier votre profil client. Réessayez.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
 
-    if (completed == true) {
-      // Already has a completed client profile — switch immediately.
-      ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.client);
+      if (readiness.canEnterClientHomeDirectly) {
+        await _applyClientModeNavigation(uid);
+        return;
+      }
+
+      final confirmed = await _confirmCreateClientAccount(readiness);
+      if (!mounted || confirmed != true) return;
+
+      if (!readiness.hasClientRole) {
+        final roleResult = await repo.addSecondaryClientRole(uid);
+        if (!mounted) return;
+        final roleFailed = roleResult.fold((_) => true, (_) => false);
+        if (roleFailed) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible de créer le compte client. Réessayez.'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
+      if (readiness.isProfileDataComplete) {
+        final authStateNow = ref.read(authStateProvider);
+        final displayName = buildClientDisplayName(
+          firstName: readiness.firstName,
+          lastName: readiness.lastName,
+          fallbackDisplayName: authStateNow is Authenticated
+              ? authStateNow.user.displayName
+              : null,
+        );
+        final completeResult = await repo.completeClientProfile(
+          uid: uid,
+          displayName: displayName.isNotEmpty ? displayName : 'Client',
+          firstName: readiness.firstName,
+          lastName: readiness.lastName,
+          dateOfBirth: readiness.dateOfBirth,
+          city: readiness.city,
+          photoUrl: readiness.photoUrl,
+        );
+        if (!mounted) return;
+        if (completeResult.isLeft) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible de finaliser le profil client. Réessayez.'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+        await _applyClientModeNavigation(uid);
+        return;
+      }
+
       if (!mounted) return;
-      setState(() {
-        _role = UserRole.client;
-        _isDualProfile = true;
-        _authScreen = ScreenId.clientHome;
-        _activeTab = 'home';
-        _nestedScreen = null;
-      });
-    } else {
-      // completed == false: role exists but onboarding not done.
-      // completed == null: role flag missing entirely (pure merchant, first switch).
-      // In both cases: persist roles.client=true to Firestore before routing.
-      await repo.addSecondaryClientRole(uid);
-      if (!mounted) return;
-      ref.read(roleCacheServiceProvider).saveLastSelectedRole(UserRole.client);
+      ref.read(roleCacheServiceProvider).saveLastSelectedRole(
+            UserRole.client,
+            userId: uid,
+          );
       setState(() {
         _role = UserRole.client;
         _isDualProfile = true;
@@ -712,7 +850,82 @@ class _RootShellState extends ConsumerState<_RootShell>
         _activeTab = 'home';
         _nestedScreen = null;
       });
+      unawaited(_startBle());
+    } finally {
+      _isSwitchingToClient = false;
     }
+  }
+
+  Future<void> _applyClientModeNavigation(String uid) async {
+    ref.read(roleCacheServiceProvider).saveLastSelectedRole(
+          UserRole.client,
+          userId: uid,
+        );
+    if (!mounted) return;
+    setState(() {
+      _role = UserRole.client;
+      _isDualProfile = true;
+      _authScreen = ScreenId.clientHome;
+      _activeTab = 'home';
+      _nestedScreen = null;
+    });
+    unawaited(_startBle());
+  }
+
+  /// Returns `true` when the user confirms creating a client account.
+  Future<bool?> _confirmCreateClientAccount(ClientProfileReadiness readiness) {
+    final missing = readiness.missingFieldsLabelFr;
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF152A40),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        title: const Text(
+          'Créer un compte client ?',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        content: Text(
+          missing.isEmpty
+              ? 'Voulez-vous utiliser Yuztoo aussi en tant que client ? '
+                  'Vous pourrez suivre vos commerces favoris et profiter de la fidélité.'
+              : 'Voulez-vous créer votre compte client ?\n\n'
+                  'Il nous manque encore : $missing.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.85),
+            height: 1.45,
+            fontSize: 14,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Annuler',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: const Color(0xFF0E2A44),
+            ),
+            child: const Text(
+              'Créer mon compte client',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Client taps "switch to merchant" / "Créer un compte pro". If this is the
@@ -733,9 +946,10 @@ class _RootShellState extends ConsumerState<_RootShell>
 
       if (completed == true) {
         // Already has a merchant profile — switch immediately.
-        ref
-            .read(roleCacheServiceProvider)
-            .saveLastSelectedRole(UserRole.merchant);
+        ref.read(roleCacheServiceProvider).saveLastSelectedRole(
+              UserRole.merchant,
+              userId: uid,
+            );
         if (!mounted) return;
         setState(() {
           _role = UserRole.merchant;
@@ -744,6 +958,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           _activeTab = 'storefront';
           _nestedScreen = null;
         });
+        unawaited(_startBle());
       } else {
         // First time — register the merchant role in Firestore, then onboard.
         final roleResult = await repo.addSecondaryMerchantRole(uid);
@@ -760,9 +975,10 @@ class _RootShellState extends ConsumerState<_RootShell>
           );
           return;
         }
-        ref
-            .read(roleCacheServiceProvider)
-            .saveLastSelectedRole(UserRole.merchant);
+        ref.read(roleCacheServiceProvider).saveLastSelectedRole(
+              UserRole.merchant,
+              userId: uid,
+            );
         setState(() {
           _role = UserRole.merchant;
           _isDualProfile = true;
@@ -770,6 +986,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           _activeTab = 'storefront';
           _nestedScreen = null;
         });
+        unawaited(_startBle());
       }
     } finally {
       _isSwitchingToMerchant = false;
@@ -806,6 +1023,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       'partners': ScreenId.merchantPartners,
       'notifications-hub': ScreenId.merchantNotificationsHub,
       'scheduled-notifications': ScreenId.merchantScheduledNotifications,
+      'gratification-config': ScreenId.merchantGratificationConfig,
     };
 
     final target = map[screen];
@@ -854,6 +1072,55 @@ class _RootShellState extends ConsumerState<_RootShell>
         setState(() => _nestedScreen = ScreenId.storeProfile);
       }
     }
+  }
+
+  /// Restores client vs merchant shell from local session when the account
+  /// can use both (dual profile or merchant doc + client role).
+  Future<UserRole> _resolveRoleForSession(
+    String userId,
+    UserRole firestoreRole,
+  ) async {
+    final rolesResult = await ref.read(getUserRolesProvider).call(userId);
+    final rolesMap = rolesResult.fold((_) => null, (m) => m);
+
+    final canClient = rolesMap?['client'] == true ||
+        firestoreRole == UserRole.client;
+    var canMerchant = rolesMap?['merchant'] == true ||
+        firestoreRole == UserRole.merchant;
+    if (!canMerchant) {
+      try {
+        canMerchant = await ref
+            .read(merchant_providers.hasLinkedMerchantAccountProvider.future);
+      } catch (_) {
+        canMerchant = false;
+      }
+    }
+
+    if (!canClient || !canMerchant) {
+      return firestoreRole;
+    }
+
+    try {
+      final last = await ref
+          .read(roleCacheServiceProvider)
+          .readLastSelectedRole(userId: userId);
+      if (last == UserRole.client && canClient) return UserRole.client;
+      if (last == UserRole.merchant && canMerchant) return UserRole.merchant;
+    } catch (_) {}
+
+    return firestoreRole;
+  }
+
+  void _persistSessionRole() {
+    final authState = ref.read(authStateProvider);
+    final role = _role;
+    if (authState is! Authenticated || role == null) return;
+    unawaited(
+      ref.read(roleCacheServiceProvider).saveLastSelectedRole(
+            role,
+            userId: authState.user.id,
+          ),
+    );
   }
 
   void _handleTabChange(String tab) {
@@ -929,6 +1196,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         _activeTab = 'storefront';
       });
     }
+    _persistSessionRole();
   }
 
   void _openNotificationsScreen() {
@@ -939,6 +1207,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       _nestedScreen = null;
       
     });
+    _persistSessionRole();
   }
 
   /// Go back from a nested screen to its parent (the current _authScreen).
@@ -1127,7 +1396,8 @@ class _RootShellState extends ConsumerState<_RootShell>
     final isAccountPrefs = currentScreen == ScreenId.merchantAccountPreferences ||
         currentScreen == ScreenId.merchantSecurity ||
         currentScreen == ScreenId.merchantDataPrivacy ||
-        currentScreen == ScreenId.merchantProfileSummary;
+        currentScreen == ScreenId.merchantProfileSummary ||
+        currentScreen == ScreenId.merchantGratificationConfig;
     final isMerchantClients = currentScreen == ScreenId.merchantClients;
     final isClientProfile = currentScreen == ScreenId.clientProfile;
     final isClientHome = currentScreen == ScreenId.clientHome;
@@ -1162,9 +1432,10 @@ class _RootShellState extends ConsumerState<_RootShell>
     // IMPORTANT: Use AnnotatedRegion (not SystemChrome.setSystemUIOverlayStyle in build),
     // so screens that provide their own overlay style (e.g. OTP/Login dark screens)
     // are not overridden.
-    final statusBarColor = isNotifications
+    final statusBarColor = isNotifications ||
+            currentScreen == ScreenId.merchantGratificationConfig
         ? const Color(
-            0xFF0B1F33) // MerchantColors.bgHeader (match notifications header)
+            0xFF0B1F33) // MerchantColors.bgHeader (match dark header)
         : isAuthDarkScreen
             ? authBgDark
             : (isStorefront
@@ -1275,21 +1546,6 @@ class _RootShellState extends ConsumerState<_RootShell>
                           client_notification_providers
                               .unreadNotificationCountProvider,
                         )
-                      : 0,
-                  merchantClientCount: _role == UserRole.merchant
-                      ? (() {
-                          final mid = ref
-                              .watch(merchant_providers
-                                  .currentMerchantForOwnerProvider)
-                              .valueOrNull
-                              ?.id ??
-                              '';
-                          return ref
-                              .watch(crm_providers.merchantClientsProvider(mid))
-                              .valueOrNull
-                              ?.length ??
-                              0;
-                        })()
                       : 0,
                 )
               : null,
@@ -1513,13 +1769,10 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .read(store_profile_providers
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
-            // Signal the storefront to auto-open the loyalty-passage sheet
-            // exactly once. The storefront resets the flag after consuming
-            // it, so re-entering from the carnet stays silent.
             ref
                 .read(store_profile_providers
-                    .pendingScanAutoPassageProvider.notifier)
-                .state = true;
+                    .pendingVitrineScanIntentProvider.notifier)
+                .state = store_profile_providers.VitrineScanIntent.fromQrOrNfc;
             setState(() {
               _nestedScreen = ScreenId.storeProfile;
             });
@@ -1579,11 +1832,20 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .state = merchantId;
             setState(() => _nestedScreen = ScreenId.storeProfile);
           },
-          onPromotionTap: (merchantId, _) {
+          onPromotionTap: (merchantId, promotionId) {
+            // Set the merchant target AND the one-shot promotion deep-link
+            // so the storefront opens directly into the promotion detail
+            // sheet on arrival. Previously the promotionId was ignored
+            // and the user was dropped on the storefront — they then had
+            // to scroll to find the promotion the notification was about.
             ref
                 .read(store_profile_providers
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
+            ref
+                .read(store_profile_providers
+                    .pendingStorePromotionIdProvider.notifier)
+                .state = promotionId.isEmpty ? null : promotionId;
             setState(() => _nestedScreen = ScreenId.storeProfile);
           },
           // Tapping a bon_expiring / bon_expired push lands on Mes
@@ -1606,6 +1868,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.clientProfile:
         return ClientProfileScreen(
+          isDualProfile: _isDualProfile,
           onCreateProAccount: () {
             // PersonalInformationScreen is pushed on the root navigator on top
             // of the shell. If we just switch state below, that pushed screen
@@ -1614,6 +1877,7 @@ class _RootShellState extends ConsumerState<_RootShell>
             Navigator.of(context).popUntil((route) => route.isFirst);
             unawaited(_switchToMerchant());
           },
+          onNavigate: _handleNavigate,
         );
       case ScreenId.merchantClients:
         return ClientListScreen(
@@ -1645,10 +1909,21 @@ class _RootShellState extends ConsumerState<_RootShell>
           onBack: _handleBackFromNested,
         );
       case ScreenId.merchantAccountPreferences:
-        return AccountPreferencesScreen(
+        // The merchant "Préférences du compte pro" entry now opens the
+        // personal-info edit screen directly — no intermediate landing page.
+        // Editing here writes through to Firestore via
+        // [updateClientBasicInfoProvider] (already wired in this screen's
+        // _save method).
+        //
+        // A merchant on this screen sees a secondary-role CTA — the action
+        // is creating a Yuztoo client carnet (so they can use the app from
+        // the client side too), NOT creating a pro account they already
+        // have. The previous label "Créer un compte pro" was the
+        // user-reported regression.
+        return PersonalInformationScreen(
           onBack: _handleBackFromNested,
-          onEditProfile: () => _handleNavigate('pro-profile'),
-          onCreateProAccount: () => unawaited(_switchToMerchant()),
+          createOtherRoleLabel: 'Créer un carnet Yuztoo',
+          onCreateProAccount: () => unawaited(_switchToClient()),
         );
       case ScreenId.merchantSecurity:
         return IdentificationSecurityScreen(
@@ -1688,6 +1963,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantProfileForm:
         return MerchantProfileFormScreen(
+          // A dual-profile user already completed client onboarding — skip
+          // the personal-info steps (owner name, DOB, logo) since that
+          // data is already on the account.
+          skipPersonalInfo: _isDualProfile,
           onBack: () {
             if (_isDualProfile) {
               // Dual-profile user is abandoning merchant creation →
@@ -1730,6 +2009,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantScheduledNotifications:
         return ScheduledNotificationsScreen(
+          onBack: _handleBackFromNested,
+        );
+      case ScreenId.merchantGratificationConfig:
+        return ClientGratificationConfigScreen(
           onBack: _handleBackFromNested,
         );
     }

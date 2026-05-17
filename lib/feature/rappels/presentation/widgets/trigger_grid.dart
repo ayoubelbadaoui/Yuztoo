@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../domain/auto_notification_triggers.dart';
 
 /// Trigger definition with label and icon.
 class _Trigger {
@@ -10,23 +11,9 @@ class _Trigger {
   const _Trigger(this.label, this.icon);
 }
 
-/// All available triggers.
-/// NOTE: "Chaque promotion créé" was removed — the onPromotionCreated Cloud
-/// Function now guarantees a fan-out to all eligible followers automatically,
-/// making this trigger redundant and potentially duplicative.
-const triggerLabels = [
-  'Date anniversaire client',
-  'Changement de Statut client',
-  'Nouveau client connecté',
-  'Visite client détectée',
-  'Passage fidélité validé',
-  'Retour d\'un client inactif',
-  'Récompense disponible',
-  'Récompense proche',
-  'Fermeture exceptionnelle',
-  'Nouveau partenaire',
-  'Anniversaire de connexion',
-];
+/// All available triggers (canonical strings — synced with Cloud Functions).
+/// NOTE: "Chaque promotion créé" was removed — onPromotionCreated fans out promos.
+const triggerLabels = AutoNotificationTriggers.triggerLabels;
 
 const _triggers = [
   _Trigger('Date anniversaire', Icons.cake_outlined),
@@ -78,14 +65,22 @@ class TriggerGrid extends StatelessWidget {
           itemBuilder: (context, index) {
             final trigger = _triggers[index];
             final isSelected = selectedIndex == index;
-            return _triggerCard(trigger, isSelected, index);
+            final isWired = AutoNotificationTriggers.isWiredInCloud(
+              triggerLabels[index],
+            );
+            return _triggerCard(trigger, isSelected, index, isWired: isWired);
           },
         );
       },
     );
   }
 
-  Widget _triggerCard(_Trigger trigger, bool isSelected, int index) {
+  Widget _triggerCard(
+    _Trigger trigger,
+    bool isSelected,
+    int index, {
+    bool isWired = true,
+  }) {
     return GestureDetector(
       onTap: () => onSelected(index),
       child: AnimatedContainer(
@@ -136,6 +131,17 @@ class TriggerGrid extends StatelessWidget {
                 height: 1.3,
               ),
             ),
+            if (!isWired) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Bientôt',
+                style: GoogleFonts.outfit(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.textGrey,
+                ),
+              ),
+            ],
           ],
         ),
       ),

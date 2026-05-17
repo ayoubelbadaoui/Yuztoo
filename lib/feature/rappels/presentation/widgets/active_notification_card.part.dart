@@ -111,6 +111,8 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
                                 .toList(),
                           ),
                         ],
+                        const SizedBox(height: 6),
+                        _cloudStatusBadge(),
                       ],
                     ),
                   ),
@@ -173,6 +175,31 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
         ),
         ],
       ),
+    );
+  }
+
+  Widget _cloudStatusBadge() {
+    final isWired = AutoNotificationTriggers.isWiredInCloud(notification.trigger);
+    final color = isWired ? const Color(0xFF64B5F6) : const Color(0xFFFFB74D);
+    final icon = isWired ? Icons.cloud_done_outlined : Icons.cloud_off_outlined;
+    final label = isWired ? 'Exécuté automatiquement par le service cloud' : 'Déclencheur en cours d\'intégration';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11, color: color.withValues(alpha: 0.8)),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              fontSize: 10,
+              color: color.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

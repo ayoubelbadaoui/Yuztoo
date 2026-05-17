@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/cupertino_dob_picker.dart';
 import '../../../../core/shared/widgets/time_slot_picker.dart';
 import '../../../../core/utils/cities.dart';
 import '../../../../core/utils/email_validator.dart';
@@ -21,8 +23,11 @@ import '../../auth/signup/presentation/widgets/city_selection_modal.dart';
 
 part 'onboarding_flow_screen.part.dart';
 
-/// Steps: Welcome(0), OwnerInfo(1), Name(2), City(3), Image(4), Address(5), Description(6), Hours(7), Ready(8)
+/// Full flow: Welcome(0), OwnerInfo(1), Name(2), MerchantType(3), City(4), Image(5), Address(6), Description(7), Hours(8), Ready(9)
 const _totalSteps = 10;
+
+/// Client-upgrade flow (skipPersonalInfo=true): Welcome(0), Name(1), MerchantType(2), City(3), Address(4), Description(5), Hours(6), Ready(7)
+const _totalStepsSkipPersonal = 8;
 
 /// Uber Eats / Glovo-style multi-step merchant onboarding.
 class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
@@ -31,6 +36,7 @@ class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
     required this.onBack,
     required this.onComplete,
     this.isPostSignup = false,
+    this.skipPersonalInfo = false,
     /// When set with [isPostSignup], the final button **only** awaits this (e.g. create
     /// merchant in Firestore). Do not fire-and-forget [onComplete] for the same work —
     /// otherwise routing can unmount the screen before signup city is read from `/users`.
@@ -42,6 +48,10 @@ class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
 
   /// When true, last step shows "Accéder à mon commerce" instead of "Créer mon compte".
   final bool isPostSignup;
+
+  /// When true, personal steps (owner info + logo) are removed from the flow
+  /// because the user already provided them during client onboarding.
+  final bool skipPersonalInfo;
 
   /// Optional: awaited on the last step when [isPostSignup] is true (full persist path).
   final Future<void> Function()? onPostSignupPersist;
@@ -80,9 +90,12 @@ class _MerchantOnboardingFlowScreenState
     super.dispose();
   }
 
+  int get _effectiveTotalSteps =>
+      widget.skipPersonalInfo ? _totalStepsSkipPersonal : _totalSteps;
+
   void _goNext() {
     FocusManager.instance.primaryFocus?.unfocus();
-    if (_currentStep < _totalSteps - 1) {
+    if (_currentStep < _effectiveTotalSteps - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -116,13 +129,14 @@ class _MerchantOnboardingFlowScreenState
   }
 
   bool _isOptionalStep() {
-    // Indices reflect the current PageView order:
-    //   0 Welcome · 1 OwnerInfo · 2 Name · 3 MerchantType · 4 City
-    //   5 Image (optional) · 6 Address
-    //   7 Description (optional) · 8 Hours (optional) · 9 Ready
-    return _currentStep == 5 || // Image
-        _currentStep == 7 || // Description
-        _currentStep == 8; // Hours
+    if (widget.skipPersonalInfo) {
+      // 0 Welcome · 1 Name · 2 MerchantType · 3 City
+      // 4 Address · 5 Description (optional) · 6 Hours (optional) · 7 Ready
+      return _currentStep == 5 || _currentStep == 6;
+    }
+    // 0 Welcome · 1 OwnerInfo · 2 Name · 3 MerchantType · 4 City
+    // 5 Image (optional) · 6 Address · 7 Description (optional) · 8 Hours (optional) · 9 Ready
+    return _currentStep == 5 || _currentStep == 7 || _currentStep == 8;
   }
 
   Future<void> _persistMerchantOnboardingCompleted() async {
@@ -173,23 +187,24 @@ class _MerchantOnboardingFlowScreenState
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
                     _StepWelcome(onNext: _goNext),
-                    _StepOwnerInfo(
-                      firstNameController: _ownerFirstNameController,
-                      lastNameController: _ownerLastNameController,
-                      initialFirstName: data.ownerFirstName,
-                      initialLastName: data.ownerLastName,
-                      initialDob: data.ownerDateOfBirth,
-                      onFirstNameChanged: (v) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setOwnerFirstName(v),
-                      onLastNameChanged: (v) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setOwnerLastName(v),
-                      onDobChanged: (d) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setOwnerDateOfBirth(d),
-                      onNext: _goNext,
-                    ),
+                    if (!widget.skipPersonalInfo)
+                      _StepOwnerInfo(
+                        firstNameController: _ownerFirstNameController,
+                        lastNameController: _ownerLastNameController,
+                        initialFirstName: data.ownerFirstName,
+                        initialLastName: data.ownerLastName,
+                        initialDob: data.ownerDateOfBirth,
+                        onFirstNameChanged: (v) => ref
+                            .read(onboardingFlowProvider.notifier)
+                            .setOwnerFirstName(v),
+                        onLastNameChanged: (v) => ref
+                            .read(onboardingFlowProvider.notifier)
+                            .setOwnerLastName(v),
+                        onDobChanged: (d) => ref
+                            .read(onboardingFlowProvider.notifier)
+                            .setOwnerDateOfBirth(d),
+                        onNext: _goNext,
+                      ),
                     _StepName(
                       controller: _nameController,
                       initialValue: data.fullName,
@@ -214,18 +229,19 @@ class _MerchantOnboardingFlowScreenState
                           .setCity(v),
                       onNext: _goNext,
                     ),
-                    _StepImage(
-                      imagePath: data.imagePath,
-                      bannerImagePath: data.bannerImagePath,
-                      onPickedLogo: (p) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setImagePath(p),
-                      onPickedBanner: (p) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setBannerImagePath(p),
-                      onNext: _goNext,
-                      picker: _imagePicker,
-                    ),
+                    if (!widget.skipPersonalInfo)
+                      _StepImage(
+                        imagePath: data.imagePath,
+                        bannerImagePath: data.bannerImagePath,
+                        onPickedLogo: (p) => ref
+                            .read(onboardingFlowProvider.notifier)
+                            .setImagePath(p),
+                        onPickedBanner: (p) => ref
+                            .read(onboardingFlowProvider.notifier)
+                            .setBannerImagePath(p),
+                        onNext: _goNext,
+                        picker: _imagePicker,
+                      ),
                     _StepAddress(
                       controller: _addressController,
                       phoneController: _phoneController,
@@ -233,13 +249,6 @@ class _MerchantOnboardingFlowScreenState
                       websiteController: _websiteController,
                       initialValue: data.address,
                       initialPhone: data.phoneNumber,
-                      // Prefill: previously typed onboarding email > auth
-                      // email (Firebase / social provider). The merchant
-                      // can still overwrite if they want a different
-                      // public contact email than their login. Auth lookup
-                      // is guarded so widget tests without Firebase
-                      // initialised still mount the screen (they just see
-                      // an empty email field, which is fine for them).
                       initialEmail:
                           data.contactEmail ?? _authEmailForPrefill(),
                       initialWebsite: data.websiteUrl,
@@ -332,7 +341,7 @@ class _MerchantOnboardingFlowScreenState
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: (_currentStep + 1) / _totalSteps,
+                value: (_currentStep + 1) / _effectiveTotalSteps,
                 backgroundColor: MerchantOnboardingColors.bgDark2,
                 valueColor: const AlwaysStoppedAnimation<Color>(
                   MerchantOnboardingColors.primaryGold,

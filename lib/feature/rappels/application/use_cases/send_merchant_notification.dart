@@ -65,10 +65,27 @@ class SendMerchantNotification {
     // Apply segment filter when audience is targeted and segments are specified.
     if (audience == 'Certains clients' && segments.isNotEmpty) {
       final clientSegments = await _loyaltyRepo.getClientSegments(merchantId);
+      final beforeCount = targetIds.length;
+      // Tally the segment distribution among current followers so a merchant
+      // debugging "why didn't my Habitué notification reach client X" can see
+      // whether X was even computed as 'habitue'. Followers without a loyalty
+      // doc (have never visited) fall back to 'nouveau' — preserved behaviour.
+      final segDistribution = <String, int>{};
       targetIds = targetIds.where((id) {
         final seg = clientSegments[id] ?? 'nouveau';
+        segDistribution.update(seg, (v) => v + 1, ifAbsent: () => 1);
         return promotionSegmentMatchesTarget(seg, segments);
       }).toList();
+      LoggerService.logInfo(
+        'Segment filter applied to merchant notification',
+        context: <String, Object?>{
+          'merchantId': merchantId,
+          'targets': segments,
+          'followersBeforeFilter': beforeCount,
+          'followersAfterFilter': targetIds.length,
+          'segmentDistribution': segDistribution,
+        },
+      );
     }
     if (targetIds.isEmpty) return const Right(0);
 

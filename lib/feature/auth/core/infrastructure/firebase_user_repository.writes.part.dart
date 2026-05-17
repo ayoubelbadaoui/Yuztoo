@@ -3,9 +3,24 @@ part of 'firebase_user_repository.dart';
 mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
   Future<Result<Unit>> markMerchantOnboardingCompleted(String uid) async {
     try {
-      await _firestore.collection('users').doc(uid).set(
+      // Read-then-write to preserve any existing `onboarding.client` value.
+      // The previous code wrote `{'onboarding': {'merchant': 'completed'}}`
+      // with merge:true — Firestore does NOT deep-merge nested maps under
+      // merge:true, so the entire onboarding map was being replaced with
+      // a {merchant} singleton, silently dropping the client field for
+      // every dual-profile user. After that, isClientOnboardingCompleted
+      // returned false (key missing) and the next routing pass dumped the
+      // dual-profile user back into client onboarding.
+      final ref = _firestore.collection('users').doc(uid);
+      final snap = await ref.get();
+      final existingOnboarding = Map<String, dynamic>.from(
+        (snap.data()?['onboarding'] as Map<String, dynamic>?) ?? {},
+      );
+      existingOnboarding['merchant'] = 'completed';
+      existingOnboarding.putIfAbsent('client', () => 'not_started');
+      await ref.set(
         <String, dynamic>{
-          'onboarding': <String, dynamic>{'merchant': 'completed'},
+          'onboarding': existingOnboarding,
           'updated_at': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -229,15 +244,35 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
     }
   }
 
-  Future<Result<Unit>> updateLastLoginAt(String uid) async {
+  Future<Result<Unit>> updateLastLoginAt(
+    String uid, {
+    String? displayName,
+    String? photoUrl,
+  }) async {
     try {
-      // Use update() with server timestamp for consistency and concurrent login safety
-      await _firestore.collection('users').doc(uid).update({
+      final update = <String, dynamic>{
         'last_login_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
-      });
+      };
+      // Mirror Firebase Auth → Firestore on every sign-in so the merchant
+      // CRM client list always shows the latest photo/name without waiting
+      // for the user to re-edit their personal info. Backfills accounts that
+      // were created before the avatar-mirror code shipped.
+      final dn = displayName?.trim() ?? '';
+      if (dn.isNotEmpty) {
+        update['displayName'] = dn;
+      }
+      final pu = photoUrl?.trim() ?? '';
+      if (pu.isNotEmpty) {
+        update['photoUrl'] = pu;
+      }
+      await _firestore.collection('users').doc(uid).update(update);
       LoggerService.logInfo('Last login timestamp updated successfully',
-          context: {'uid': uid});
+          context: {
+            'uid': uid,
+            'mirroredPhoto': pu.isNotEmpty,
+            'mirroredName': dn.isNotEmpty,
+          });
       return const Right<AuthFailure, Unit>(unit);
     } catch (e, st) {
       LoggerService.logError(

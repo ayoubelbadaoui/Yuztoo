@@ -467,7 +467,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
             children: [
               // Left: trash icon — visible when on alertes tab and list non-empty
               SizedBox(
-                width: 44,
+                width: 68,
                 height: 44,
                 child: (isAlertes && hasAny)
                     ? GestureDetector(
@@ -523,34 +523,31 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
               ),
               // Right: "Tout lire" when there are unread alerts
               SizedBox(
-                width: 44,
+                width: 68,
                 height: 44,
                 child: (unreadCount > 0 && isAlertes)
                     ? GestureDetector(
                         onTap: _markAllRead,
                         behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          alignment: Alignment.center,
+                        child: Align(
+                          alignment: Alignment.centerRight,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 4),
+                                horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
+                              color: MerchantColors.gold.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: MerchantColors.gold.withValues(
                                     alpha: MerchantColors.goldBorderStronger),
                               ),
                             ),
                             child: Text(
-                              'Tout\nlire',
-                              textAlign: TextAlign.center,
+                              'Tout lire',
                               style: GoogleFonts.outfit(
-                                fontSize: 9,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: MerchantColors.gold,
-                                height: 1.2,
                               ),
                             ),
                           ),
@@ -581,7 +578,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
         }
         final n = entry as ClientNotification;
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           child: Dismissible(
             key: ValueKey(n.id),
             direction: DismissDirection.endToStart,
@@ -982,7 +979,7 @@ class _NotificationCard extends StatelessWidget {
           splashColor: MerchantColors.gold.withValues(alpha: 0.06),
           highlightColor: MerchantColors.gold.withValues(alpha: 0.04),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -1014,7 +1011,7 @@ class _NotificationCard extends StatelessWidget {
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                                 color: MerchantColors.textWhite,
-                                height: 1.2,
+                                height: 1.3,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1035,7 +1032,7 @@ class _NotificationCard extends StatelessWidget {
                       ),
 
                       // Row 2: merchant name
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         notification.merchantName,
                         style: GoogleFonts.outfit(
@@ -1050,20 +1047,20 @@ class _NotificationCard extends StatelessWidget {
                       ),
 
                       // Row 3: body text
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 5),
                       Text(
                         notification.body,
                         style: GoogleFonts.outfit(
-                          fontSize: 12,
+                          fontSize: 13,
                           color: MerchantColors.textLightGrey,
-                          height: 1.4,
+                          height: 1.45,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
 
                       // Row 4: timestamp + type chip
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Text(
@@ -1207,7 +1204,7 @@ class _ShimmerCardState extends State<_ShimmerCard>
       builder: (_, __) => Opacity(
         opacity: _anim.value,
         child: Container(
-          height: 86,
+          height: 96,
           decoration: BoxDecoration(
             color: MerchantColors.bgHeader,
             borderRadius: BorderRadius.circular(14),

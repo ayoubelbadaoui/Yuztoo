@@ -27,7 +27,7 @@ jest.mock("firebase-admin", () => ({
 }));
 
 const noopFn = jest.fn().mockReturnThis();
-const firestoreDoc = { onCreate: noopFn, onWrite: noopFn };
+const firestoreDoc = { onCreate: noopFn, onWrite: noopFn, onUpdate: noopFn };
 const firestoreRegion = { document: jest.fn().mockReturnValue(firestoreDoc) };
 const pubsubSchedule = {
   timeZone: jest.fn().mockReturnThis(),
@@ -49,6 +49,7 @@ jest.mock("firebase-functions", () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
+import { filterEnabledNotificationsForTrigger } from "../auto_notification_core";
 import { computeSegment, computeBonValidUntil } from "../index";
 
 // ── DOB date parsing ──────────────────────────────────────────────────────────
@@ -506,18 +507,17 @@ describe("G5: Orphaned 'Chaque promotion créé' auto_notification docs", () => 
     expect(RETIRED_TRIGGER.length).toBeGreaterThan(0);
   });
 
-  test("G5-3 — simulated getEnabledNotifications excludes retired trigger", () => {
-    // Simulate a Firestore auto_notifications collection with one orphaned doc.
+  test("G5-3 — legacy birthday alias still matches canonical trigger query", () => {
     const docs = [
-      { trigger: RETIRED_TRIGGER, is_enabled: true },
-      { trigger: "Chaque birthday client", is_enabled: true },
+      { data: () => ({ trigger: RETIRED_TRIGGER, is_enabled: true }) },
+      { data: () => ({ trigger: "Chaque birthday client", is_enabled: true }) },
     ];
-    // getEnabledNotifications filters by trigger == requested trigger.
-    // The CF never requests RETIRED_TRIGGER, so the orphaned doc is never read.
-    const requestedTrigger = "Chaque birthday client";
-    const matching = docs.filter((d) => d.trigger === requestedTrigger && d.is_enabled);
+    const matching = filterEnabledNotificationsForTrigger(
+      docs,
+      "Date anniversaire client"
+    );
     expect(matching.length).toBe(1);
-    expect(matching[0].trigger).toBe("Chaque birthday client");
+    expect(matching[0].data().trigger).toBe("Chaque birthday client");
   });
 
   test("G5-4 — orphaned doc: trigger no longer dispatched by any CF handler", () => {

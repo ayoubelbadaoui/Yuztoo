@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -165,8 +167,15 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
                                     );
                                   },
                                   (_) {
-                                    ref.invalidate(
-                                        connectedCitiesProvider(uid));
+                                    final auth = ref.read(authStateProvider);
+                                    final isMerchant = auth is Authenticated &&
+                                        auth.user.isMerchant;
+                                    unawaited(refreshUserProfileCache(
+                                      ref as Ref,
+                                      uid: uid,
+                                      isMerchant: isMerchant,
+                                      cityChanged: true,
+                                    ));
                                   },
                                 );
                               },
@@ -314,7 +323,16 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
           ),
         ),
       ),
-      (_) => ref.invalidate(connectedCitiesProvider(uid)),
+      (_) {
+        final isMerchant = ref.read(authStateProvider) is Authenticated &&
+            (ref.read(authStateProvider) as Authenticated).user.isMerchant;
+        unawaited(refreshUserProfileCache(
+          ref as Ref,
+          uid: uid,
+          isMerchant: isMerchant,
+          cityChanged: true,
+        ));
+      },
     );
   }
 

@@ -12,7 +12,7 @@ import '../domain/repositories/client_loyalty_repository.dart';
 class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   FirestoreClientLoyaltyRepository({
     required FirebaseFirestore firestore,
-    Duration passageCooldown = const Duration(seconds: 60),
+    Duration passageCooldown = const Duration(hours: 1),
   })  : _firestore = firestore,
         _passageCooldown = passageCooldown;
 
@@ -20,8 +20,29 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
 
   /// Minimum time between two passage writes for the same (client, merchant).
   /// Blocks accidental double-tap and the simplest fraud loop (rapid re-scan).
-  /// Server-time-aware via `last_passage_at` written inside the transaction.
+  ///
+  /// The anchor `last_passage_at` is written with `FieldValue.serverTimestamp()`,
+  /// so the stored value is authoritative server time. The comparison in this
+  /// SDK uses the device clock for "now", which is fine as a UX guard but is
+  /// NOT a security boundary — a tampered clock would bypass it. The real
+  /// enforcement lives in [firestore.rules] (`loyaltyClientSelfUpdateValid`),
+  /// which compares `request.time` (server time) to `resource.data.last_passage_at`.
   final Duration _passageCooldown;
+
+  /// Tolerance applied to the client-side cooldown comparison to absorb honest
+  /// device clock skew (NTP drift, time-zone fiddling). Capped at 2 minutes
+  /// because larger drift is uncommon on phones, but never more than a quarter
+  /// of the cooldown itself — otherwise small cooldowns (e.g. unit-test
+  /// overrides) would be fully absorbed by the tolerance and never fire.
+  /// Larger drift than 2 min is caught by the server-side rule anyway.
+  static const Duration _maxClockSkewTolerance = Duration(minutes: 2);
+
+  Duration get _effectiveClockSkewTolerance {
+    final quarterCooldown = _passageCooldown ~/ 4;
+    return quarterCooldown < _maxClockSkewTolerance
+        ? quarterCooldown
+        : _maxClockSkewTolerance;
+  }
 
   /// Sentinel error string used to bubble cooldown rejection out of the
   /// Firestore transaction without coupling the error mapping to the
@@ -126,12 +147,26 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         UnexpectedFailure(message: 'Aucune mise à jour de passage'),
       );
     }
-    // Whether this call is *adding* a passage (positive delta on any counter).
-    // Cooldown only applies to additions; a reverting delta from
-    // validate-pending should always be allowed.
-    final bool isAddingPassage = validatedPassagesDelta > 0 ||
-        pendingPassagesDelta > 0 ||
-        cumulativeSpendEurosDelta > 0;
+    // Whether this call represents a NEW passage event (vs resolving an
+    // existing pending). Cooldown applies only to new events.
+    //
+    // Cases:
+    //   - Client scans (manual-validation): pending=+1                 → NEW
+    //   - Client scans (auto, visit-count):  validated=+1              → NEW
+    //   - Client scans (auto, spend-based):  spend=+X                  → NEW
+    //   - Merchant validates pending (visit):  pending=-1, validated=+1 → NOT new
+    //   - Merchant validates pending (spend):  pending=-1, spend=+X    → NOT new
+    //   - Merchant rejects pending:            pending=-1              → NOT new
+    //
+    // Key insight: when `pendingPassagesDelta < 0` we're resolving a pending
+    // that was already counted toward the cooldown when it was created — so
+    // the merchant must always be able to validate immediately, even if the
+    // client scanned 30 seconds ago. Inferring this from "any counter went
+    // up" (the previous logic) was wrong and would have broken the merchant
+    // flow as soon as we raised the cooldown to 1 hour.
+    final bool isNewPassageEvent = pendingPassagesDelta > 0 ||
+        (pendingPassagesDelta == 0 &&
+            (validatedPassagesDelta > 0 || cumulativeSpendEurosDelta > 0));
     try {
       final progress = await _firestore.runTransaction(
         (Transaction tx) async {
@@ -140,15 +175,22 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           final isFirstVisit = !snap.exists;
           final cur = _fromMap(snap.data());
 
-          // Cooldown: block accidental double-tap and rapid re-scan loops.
-          // Server-side timestamp comparison — never trust the device clock.
-          if (isAddingPassage) {
+          // Cooldown: UX-level guard against accidental double-tap and the
+          // most casual rapid re-scan abuse. Compares the device clock to a
+          // server-written `last_passage_at`. A tampered clock would bypass
+          // this — the authoritative enforcement is in firestore.rules,
+          // which compares `request.time` (server) to `last_passage_at`.
+          if (isNewPassageEvent) {
             final lastPassageAt = snap.data()?['last_passage_at'];
             if (lastPassageAt is Timestamp) {
               final since = DateTime.now()
                   .toUtc()
                   .difference(lastPassageAt.toDate().toUtc());
-              if (!since.isNegative && since < _passageCooldown) {
+              // A negative `since` means the device clock is behind server
+              // time — fall through to the rule check rather than blocking
+              // (we cannot trust the local arithmetic in that case).
+              if (!since.isNegative &&
+                  since + _effectiveClockSkewTolerance < _passageCooldown) {
                 throw StateError(_passageCooldownSentinel);
               }
             }
@@ -177,7 +219,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
               'pending_passages': next.pendingPassages,
               'cumulative_spend_euros': next.cumulativeSpendEuros,
               'updated_at': FieldValue.serverTimestamp(),
-              if (isAddingPassage)
+              if (isNewPassageEvent)
                 'last_passage_at': FieldValue.serverTimestamp(),
               if (isFirstVisit) 'first_visit_at': FieldValue.serverTimestamp(),
             },
@@ -198,7 +240,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
       );
       // Increment the monthly validated-passages counter when needed.
       if (validatedPassagesDelta > 0) {
-        _incrementMonthlyValidatedPassages(merchantId);
+        await _incrementMonthlyValidatedPassages(merchantId);
       }
       return Right<AppFailure, ClientMerchantLoyaltyProgress>(progress);
     } on FirebaseException catch (e, st) {
@@ -216,13 +258,16 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
       );
     } catch (e, st) {
       if (e.toString().contains(_passageCooldownSentinel)) {
-        // Surfaced verbatim to the UI — the parent layer recognises this
-        // string to render the friendly "déjà été enregistré" sheet rather
-        // than a generic error toast.
+        // Surfaced verbatim to the UI — the parent layer keys off the words
+        // "passage" and either "patientez" or "enregistré" to render the
+        // friendly "déjà été enregistré" sheet rather than a generic toast.
+        // The exact duration is mentioned for transparency: clients have
+        // asked support why a re-scan was rejected, and a vague "patientez"
+        // sent them through the merchant validation flow unnecessarily.
         return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
           UnexpectedFailure(
             message:
-                'Votre passage vient d’être enregistré. Patientez un instant avant le prochain.',
+                'Votre passage vient d’être enregistré. Patientez 1 heure avant le prochain passage chez ce commerçant.',
           ),
         );
       }
@@ -461,28 +506,62 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   Future<Map<String, String>> getClientSegments(String merchantId) async {
     if (merchantId.isEmpty) return {};
     try {
-      final snap = await _firestore
+      final loyaltySnap = await _firestore
           .collection('merchants')
           .doc(merchantId)
           .collection('loyalty_clients')
           .get();
+
       final result = <String, String>{};
       final now = DateTime.now();
-      for (final doc in snap.docs) {
+      for (final doc in loyaltySnap.docs) {
         final data = doc.data();
         final validated = (data['validated_passages'] as num?)?.toInt() ?? 0;
-        final updatedAt = data['updated_at'];
+        // Prefer `last_passage_at` (the cooldown anchor) — it is written
+        // ONLY on a true passage event. `updated_at` was the previous
+        // anchor but it also moves on merchant-side CRM edits (notes,
+        // manual segment), which made `daysSinceLastVisit` artificially
+        // small and silently kept clients out of the `inactif` segment.
+        // Fall back to `updated_at` for legacy docs that pre-date the
+        // cooldown deployment and so never wrote `last_passage_at`.
         DateTime? lastVisit;
-        if (updatedAt is Timestamp) lastVisit = updatedAt.toDate();
+        final lastPassageAt = data['last_passage_at'];
+        if (lastPassageAt is Timestamp) {
+          lastVisit = lastPassageAt.toDate();
+        } else {
+          final updatedAt = data['updated_at'];
+          if (updatedAt is Timestamp) lastVisit = updatedAt.toDate();
+        }
         final daysSince = lastVisit != null
             ? now.difference(lastVisit).inDays
             : 999;
-        final segment = _computeSegment(
+        result[doc.id] = _computeSegment(
           validatedPassages: validated,
           daysSinceLastVisit: daysSince,
         );
-        result[doc.id] = segment;
       }
+
+      // Merchant manual labels (VIP, etc.) live on merchants/{id}/clients/{uid}
+      // and must override auto segments for notification / promo ciblage.
+      try {
+        final overridesSnap = await _firestore
+            .collection('merchants')
+            .doc(merchantId)
+            .collection('clients')
+            .get();
+        for (final doc in overridesSnap.docs) {
+          final manual = (doc.data()['manual_segment'] as String?)?.trim();
+          if (manual != null && manual.isNotEmpty) {
+            result[doc.id] = manual;
+          }
+        }
+      } catch (e) {
+        LoggerService.logError(
+          'getClientSegments: fetch manual_segment overrides',
+          error: e,
+        );
+      }
+
       return result;
     } catch (_) {
       return {};
@@ -501,13 +580,13 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
 
   /// Best-effort: increments `rappels_monthly_validated_passages` on the
   /// merchant doc, resetting the counter when the calendar month changes.
-  void _incrementMonthlyValidatedPassages(String merchantId) {
+  Future<void> _incrementMonthlyValidatedPassages(String merchantId) async {
     final now = DateTime.now();
     final currentYm =
         '${now.year}-${now.month.toString().padLeft(2, '0')}';
     final merchantRef =
         _firestore.collection('merchants').doc(merchantId);
-    _firestore.runTransaction((tx) async {
+    await _firestore.runTransaction((tx) async {
       final snap = await tx.get(merchantRef);
       final storedYm =
           snap.data()?['rappels_monthly_validated_ym'] as String?;

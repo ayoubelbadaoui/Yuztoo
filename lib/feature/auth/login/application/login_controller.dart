@@ -7,6 +7,7 @@ class LoginController extends AuthController {
     required SignInWithEmailPassword signInWithEmailPassword,
     required super.signOut,
     required super.watchAuthState,
+    required super.reloadCurrentUserProfile,
   })  : _signInWithEmailPassword = signInWithEmailPassword,
         super();
 

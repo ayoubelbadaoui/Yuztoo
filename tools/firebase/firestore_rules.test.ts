@@ -856,4 +856,173 @@ describe("merchants/loyalty_clients", () => {
         .get()
     );
   });
+
+  // ── Cooldown enforcement (security-critical) ──────────────────────────────
+  //
+  // A client whose device clock is tampered to think hours have passed must
+  // NOT be able to bypass the 1-hour cooldown. The rule compares
+  // `request.time` (server time) to the stored `last_passage_at`. These tests
+  // simulate the attack by seeding `last_passage_at` to "just now" via admin
+  // bypass and then attempting a client-side additive write.
+
+  test("client CANNOT increment validated_passages inside the 1h cooldown", async () => {
+    await seedMerchant("merch1", "owner1");
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set({
+          validated_passages: 1,
+          pending_passages: 0,
+          cumulative_spend_euros: 0,
+          updated_at: new Date(),
+          // Anchor set to "now" — well inside the 1h window.
+          last_passage_at: new Date(),
+          first_visit_at: new Date(),
+        });
+    });
+    await assertFails(
+      authDb("client1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set(
+          {
+            validated_passages: 2, // would be allowed by the +1 cap, but cooldown blocks
+            pending_passages: 0,
+            cumulative_spend_euros: 0,
+            updated_at: new Date(),
+            last_passage_at: new Date(),
+          },
+          { merge: true }
+        )
+    );
+  });
+
+  test("client CAN increment when last_passage_at is older than 1 hour", async () => {
+    await seedMerchant("merch1", "owner1");
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set({
+          validated_passages: 1,
+          pending_passages: 0,
+          cumulative_spend_euros: 0,
+          updated_at: twoHoursAgo,
+          last_passage_at: twoHoursAgo,
+          first_visit_at: twoHoursAgo,
+        });
+    });
+    await assertSucceeds(
+      authDb("client1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set(
+          {
+            validated_passages: 2,
+            pending_passages: 0,
+            cumulative_spend_euros: 0,
+            updated_at: new Date(),
+            last_passage_at: new Date(),
+          },
+          { merge: true }
+        )
+    );
+  });
+
+  test("client CANNOT bypass cooldown by omitting last_passage_at on an additive write", async () => {
+    // The new-event branch of the rule requires the client SDK to ALSO stamp
+    // last_passage_at — otherwise a client could increment a counter without
+    // touching the anchor, leaving the next write's cooldown check on a
+    // stale (older) timestamp and effectively halving the cooldown each
+    // successive write.
+    await seedMerchant("merch1", "owner1");
+    const justNow = new Date();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set({
+          validated_passages: 1,
+          pending_passages: 0,
+          cumulative_spend_euros: 0,
+          updated_at: justNow,
+          last_passage_at: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          first_visit_at: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        });
+    });
+    // Cooldown has lapsed (anchor was 2h ago), so the write itself is permitted,
+    // but the client omits last_passage_at from the update payload. The rule
+    // must reject this — additive writes are required to refresh the anchor.
+    await assertFails(
+      authDb("client1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set(
+          {
+            validated_passages: 2,
+            pending_passages: 0,
+            cumulative_spend_euros: 0,
+            updated_at: justNow,
+            // last_passage_at intentionally absent
+          },
+          { merge: true }
+        )
+    );
+  });
+
+  test("client CANNOT create loyalty doc recording a passage without last_passage_at", async () => {
+    // Defense-in-depth: if the very first write also records a passage,
+    // the anchor MUST be set. Otherwise an attacker creates the doc with
+    // validated_passages: 1 and no anchor, then re-writes immediately.
+    await seedMerchant("merch1", "owner1");
+    await assertFails(
+      authDb("client1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set({
+          validated_passages: 1,
+          pending_passages: 0,
+          cumulative_spend_euros: 0,
+          updated_at: new Date(),
+          // last_passage_at intentionally absent
+        })
+    );
+  });
+
+  test("client CAN create an empty loyalty seed doc without last_passage_at", async () => {
+    // Sanity: pure-seed creates (all counters at 0) remain anchor-free.
+    await seedMerchant("merch1", "owner1");
+    await assertSucceeds(
+      authDb("client1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set({
+          validated_passages: 0,
+          pending_passages: 0,
+          cumulative_spend_euros: 0,
+          updated_at: new Date(),
+        })
+    );
+  });
 });

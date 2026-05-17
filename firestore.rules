@@ -238,6 +238,15 @@ service cloud.firestore {
 
     function loyaltyClientCreateValid() {
       let r = request.resource.data;
+      // If the first write also records a passage (any counter > 0), the
+      // cooldown anchor MUST be stamped — otherwise a tampered client could
+      // create the doc with `validated_passages: 1` and no `last_passage_at`,
+      // then re-write seconds later and bypass the cooldown rule entirely
+      // (no anchor = nothing to compare `request.time` against).
+      let recordsPassage =
+        r.validated_passages > 0
+        || r.pending_passages > 0
+        || r.cumulative_spend_euros > 0;
       return loyaltyClientDocKeys()
         && r.validated_passages is int
         && r.pending_passages is int
@@ -248,8 +257,13 @@ service cloud.firestore {
         && r.cumulative_spend_euros >= 0 && r.cumulative_spend_euros <= 5000
         // first_visit_at is optional on creation but must be a server timestamp when present.
         && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at is timestamp)
-        // last_passage_at is optional on creation; when present must be a server timestamp.
-        && (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp)
+        // last_passage_at: required & server-stamped if this create is also
+        // a passage event; otherwise optional (e.g. empty seed doc).
+        && (
+          !recordsPassage
+            ? (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp)
+            : (r.keys().hasAll(['last_passage_at']) && r.last_passage_at is timestamp)
+        )
         // welcome_bon_claimed_at must not be present on creation — it's only
         // written via a later update once the bon is actually claimed.
         && !r.keys().hasAll(['welcome_bon_claimed_at']);
@@ -258,6 +272,22 @@ service cloud.firestore {
     function loyaltyClientSelfUpdateValid() {
       let r = request.resource.data;
       let o = resource.data;
+      // A "new passage event" is any client-driven write that increments a
+      // counter. The client rules never allow decrement (see >= o below), so
+      // every client-side counter bump IS a new event from the rule's POV.
+      // This is the server-side anti-fraud line for the cooldown: a tampered
+      // device clock cannot bypass `request.time` since that is server time.
+      // 1-hour window matches the production default in
+      // FirestoreClientLoyaltyRepository._passageCooldown.
+      let isNewPassageEvent =
+        r.validated_passages > o.validated_passages
+        || r.pending_passages > o.pending_passages
+        || r.cumulative_spend_euros > o.cumulative_spend_euros;
+      let cooldownOk =
+        !isNewPassageEvent
+        || !('last_passage_at' in o)
+        || o.last_passage_at == null
+        || request.time > o.last_passage_at + duration.value(1, 'h');
       return loyaltyClientDocKeys()
         && r.validated_passages is int
         && r.pending_passages is int
@@ -269,11 +299,25 @@ service cloud.firestore {
         && r.pending_passages <= o.pending_passages + 1
         && r.cumulative_spend_euros >= o.cumulative_spend_euros
         && r.cumulative_spend_euros <= o.cumulative_spend_euros + 5000
+        && cooldownOk
         // first_visit_at is immutable: clients cannot add or change it after creation.
         // After merge, it will appear in request.resource.data; its value must equal
         // what was stored (i.e., it was not tampered with).
         && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at == o.get('first_visit_at', null))
-        // last_passage_at must be a server timestamp on writes that touch it.
+        // On a new passage event the anchor MUST be refreshed. Checking
+        // mere "presence" on r is not enough: a merge=true write leaves the
+        // old field in request.resource.data, so the rule must require the
+        // value to differ from the stored one — server timestamps strictly
+        // advance, so r != o is equivalent to "the SDK called
+        // FieldValue.serverTimestamp() on this write".
+        && (
+          !isNewPassageEvent
+          || (
+            r.keys().hasAll(['last_passage_at'])
+            && r.last_passage_at is timestamp
+            && r.last_passage_at != o.get('last_passage_at', null)
+          )
+        )
         && (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp)
         // welcome_bon_claimed_at is a one-shot. The client may set it from
         // null → a server timestamp (claiming the bon), but once set it can
@@ -332,6 +376,13 @@ service cloud.firestore {
     match /merchants/{merchantId}/partners/{partnerId} {
       allow read: if true;
       allow create, update, delete: if isMerchantOwner(merchantId);
+    }
+
+    // --- /merchants/{merchantId}/clients/{clientId} ---
+    // Merchant-side per-client overrides (manual segment tag, notes, etc.).
+    // Owned by the merchant — only the merchant can read or write.
+    match /merchants/{merchantId}/clients/{clientId} {
+      allow read, create, update, delete: if isMerchantOwner(merchantId);
     }
 
     match /merchants/{merchantId}/auto_notifications/{notificationId} {

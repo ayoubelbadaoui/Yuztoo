@@ -193,5 +193,101 @@ void main() {
       expect(snap.data()?['pending_passages'], 1,
           reason: 'rejected pending write must not be counted');
     });
+
+    test(
+        'merchant validating a pending passage bypasses cooldown even '
+        'immediately after the client created the pending', () async {
+      // Step 1 — client scans, creating a pending passage. This stamps
+      // last_passage_at and starts the cooldown window for "new" events.
+      final clientScan = await repo.applyPassageDeltas(
+        merchantId: merchantId,
+        clientUid: clientUid,
+        pendingPassagesDelta: 1,
+      );
+      expect(clientScan.isRight, isTrue);
+
+      // Step 2 — without any delay, the merchant validates the pending
+      // (pending=-1, validated=+1). This is a state transition of an
+      // event that was already counted toward the cooldown, NOT a new
+      // event. It must be allowed even though we are well inside the
+      // cooldown window. (This is what would break in production if we
+      // had naively raised the cooldown to 1 hour without fixing the
+      // "isAddingPassage" logic.)
+      final merchantValidate = await repo.applyPassageDeltas(
+        merchantId: merchantId,
+        clientUid: clientUid,
+        pendingPassagesDelta: -1,
+        validatedPassagesDelta: 1,
+      );
+      expect(merchantValidate.isRight, isTrue,
+          reason: 'merchant validate-pending must bypass cooldown');
+
+      final snap = await readDoc();
+      expect(snap.data()?['pending_passages'], 0);
+      expect(snap.data()?['validated_passages'], 1);
+    });
+
+    test(
+        'merchant validating a pending spend-based passage bypasses cooldown',
+        () async {
+      final clientScan = await repo.applyPassageDeltas(
+        merchantId: merchantId,
+        clientUid: clientUid,
+        pendingPassagesDelta: 1,
+      );
+      expect(clientScan.isRight, isTrue);
+
+      final merchantValidate = await repo.applyPassageDeltas(
+        merchantId: merchantId,
+        clientUid: clientUid,
+        pendingPassagesDelta: -1,
+        cumulativeSpendEurosDelta: 17.5,
+      );
+      expect(merchantValidate.isRight, isTrue);
+
+      final snap = await readDoc();
+      expect(snap.data()?['pending_passages'], 0);
+      expect(snap.data()?['cumulative_spend_euros'], closeTo(17.5, 1e-9));
+    });
+  });
+
+  group('production default cooldown', () {
+    test('defaults to 1 hour when no duration is passed', () async {
+      // Using the default-constructed repo (no passageCooldown argument)
+      // we expect the second additive write within the hour to fail.
+      // We cannot wait an hour in a unit test, so we just verify that a
+      // second call seconds after the first is rejected.
+      final defaultRepo = FirestoreClientLoyaltyRepository(
+        firestore: FakeFirebaseFirestore(),
+      );
+      final first = await defaultRepo.applyPassageDeltas(
+        merchantId: merchantId,
+        clientUid: clientUid,
+        validatedPassagesDelta: 1,
+      );
+      expect(first.isRight, isTrue);
+
+      final second = await defaultRepo.applyPassageDeltas(
+        merchantId: merchantId,
+        clientUid: clientUid,
+        validatedPassagesDelta: 1,
+      );
+      expect(second.isLeft, isTrue,
+          reason:
+              'with the production default of 1h, a second passage seconds '
+              'after the first must be rejected — if this test fails, check '
+              'that the constructor default has not been lowered for testing.');
+      second.fold(
+        (failure) => expect(
+          failure.message.contains('1 heure'),
+          isTrue,
+          reason:
+              'production cooldown message must communicate the 1-hour wait '
+              'so users understand why a re-scan was rejected — got: '
+              '"${failure.message}"',
+        ),
+        (_) => fail('expected cooldown rejection'),
+      );
+    });
   });
 }

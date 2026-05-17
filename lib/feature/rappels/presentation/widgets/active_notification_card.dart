@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../domain/auto_notification_triggers.dart';
 import '../../domain/entities/active_notification.dart';
 
 part 'active_notification_card.part.dart';

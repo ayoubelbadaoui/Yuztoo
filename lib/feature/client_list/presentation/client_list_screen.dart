@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
+import '../../merchant/presentation/merchant_ble_scan_screen.dart';
 import '../../loyalty/application/client_loyalty_providers.dart'
     show merchantClientLoyaltyProgressProvider;
 import '../../merchant/application/providers.dart' as merchant_providers;

@@ -384,23 +384,12 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
   }
 
   Future<void> _pickDob() async {
-    final picked = await showDatePicker(
+    final now = DateTime.now();
+    final picked = await showCupertinoDobPicker(
       context: context,
-      initialDate: _dob ?? DateTime(1990),
-      firstDate: DateTime(1920),
-      lastDate: DateTime.now().subtract(const Duration(days: 365 * 13)),
-      helpText: 'Date de naissance',
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: MerchantOnboardingColors.primaryGold,
-            onPrimary: Colors.black,
-            surface: MerchantOnboardingColors.bgDark2,
-            onSurface: Colors.white,
-          ),
-        ),
-        child: child!,
-      ),
+      initial: _dob ?? DateTime(1990),
+      minimum: DateTime(1920),
+      maximum: now.subtract(const Duration(days: 365 * 13)),
     );
     if (picked != null && mounted) {
       setState(() => _dob = picked);
@@ -1266,6 +1255,7 @@ class _StepAddress extends StatefulWidget {
 
 class _StepAddressState extends State<_StepAddress> {
   bool _canProceed = false;
+  Timer? _phoneDebounce;
 
   String _toFrenchE164(String rawInput) {
     var digits = rawInput.replaceAll(RegExp(r'[^\d]'), '');
@@ -1319,8 +1309,22 @@ class _StepAddressState extends State<_StepAddress> {
     widget.emailController.addListener(_onEmailFieldChange);
   }
 
+  void _schedulePhonePersist(String raw) {
+    _phoneDebounce?.cancel();
+    _phoneDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      widget.onPhoneChanged(_toFrenchE164(raw));
+    });
+  }
+
+  void _flushPhonePersist() {
+    _phoneDebounce?.cancel();
+    widget.onPhoneChanged(_toFrenchE164(widget.phoneController.text));
+  }
+
   @override
   void dispose() {
+    _phoneDebounce?.cancel();
     widget.controller.removeListener(_onAddressChange);
     widget.emailController.removeListener(_onEmailFieldChange);
     super.dispose();
@@ -1432,7 +1436,7 @@ class _StepAddressState extends State<_StepAddress> {
                           vertical: 14,
                         ),
                       ),
-                      onChanged: (v) => widget.onPhoneChanged(_toFrenchE164(v)),
+                      onChanged: _schedulePhonePersist,
                     ),
                   ),
                 ],
@@ -1480,7 +1484,12 @@ class _StepAddressState extends State<_StepAddress> {
           _StepEntrance(
             delayMs: 160,
             child: _SuivantButton(
-              onPressed: _canProceed ? widget.onNext : null,
+              onPressed: _canProceed
+                  ? () {
+                      _flushPhonePersist();
+                      widget.onNext();
+                    }
+                  : null,
             ),
           ),
         ],

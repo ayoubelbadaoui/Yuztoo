@@ -212,10 +212,18 @@ extension _SignupScreenUi on _SignupScreenState {
       otpResult.fold(
         (failure) {
           if (mounted) {
-            final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-            if (frenchMessage != null) {
-              showErrorSnackbar(context, frenchMessage);
-            }
+            // ALWAYS show an error — the previous code silently swallowed
+            // failures whose mapper returned null, which left the user
+            // stuck on the signup form with no feedback (the reported
+            // "shows only error" / "no OTP page" symptom). When the mapper
+            // has nothing specific to say, fall back to the raw failure
+            // message so support can at least eyeball it.
+            final mapped = AuthErrorMapper.getFrenchMessage(failure);
+            final shown = mapped ??
+                (failure.message.isNotEmpty
+                    ? failure.message
+                    : 'Impossible d\'envoyer le code de vérification. Vérifiez votre connexion ou réessayez plus tard.');
+            showErrorSnackbar(context, shown);
             _withSetState(() {
               _isLoading = false;
               _isSubmitting = false;
@@ -385,11 +393,16 @@ extension _SignupScreenUi on _SignupScreenState {
         return;
       }
 
+      final oauthIdentity = oauthIdentityForCreateUserDocument(authUser);
       final createResult = await ref.read(createUserDocumentProvider).call(
             uid: authUser.id,
             email: email,
             phone: phoneE164,
             roles: signupRolesMap(widget.role),
+            firstName: oauthIdentity.firstName,
+            lastName: oauthIdentity.lastName,
+            displayName: oauthIdentity.displayName,
+            photoUrl: oauthIdentity.photoUrl,
           );
       if (!mounted) return;
 
@@ -414,7 +427,11 @@ extension _SignupScreenUi on _SignupScreenState {
         await ref.read(auth_core.patchUserDocumentProvider).call(authUser.id);
       } catch (_) {}
       try {
-        await ref.read(auth_core.updateLastLoginAtProvider).call(authUser.id);
+        await ref.read(auth_core.updateLastLoginAtProvider).call(
+              authUser.id,
+              displayName: authUser.displayName,
+              photoUrl: authUser.photoUrl,
+            );
       } catch (_) {}
       await ref.read(auth_core.authControllerProvider.notifier).refreshAuthState();
     } catch (_) {
@@ -565,7 +582,9 @@ extension _SignupScreenUi on _SignupScreenState {
   }
 
   void _onPhoneNumberUpdate(String formattedPhone) {
-    _withSetState(() => _phoneNumber = formattedPhone);
+    // Stored for submit only — no setState (avoids rebuilding the whole form
+    // on every digit, which can break focus / formatters on Android).
+    _phoneNumber = formattedPhone;
   }
 
   void _onCountryCodeChange(String code) {
