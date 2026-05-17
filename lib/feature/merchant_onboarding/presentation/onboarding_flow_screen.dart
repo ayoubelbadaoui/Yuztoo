@@ -306,8 +306,12 @@ class _MerchantOnboardingFlowScreenState
     // Hide progress bar on Welcome step
     if (_currentStep == 0) return const SizedBox.shrink();
 
+    // iOS-native: 44pt nav region, chevron-only back (no bordered circle),
+    // 2px hairline progress indicator. Matches the chrome we use on the
+    // category + subcategory screens so every screen of the merchant
+    // onboarding flow has identical top-bar visuals.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
         children: [
           SizedBox(
@@ -318,35 +322,24 @@ class _MerchantOnboardingFlowScreenState
               child: GestureDetector(
                 onTap: _goBack,
                 behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: MerchantOnboardingColors.primaryGold, width: 2),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: MerchantOnboardingColors.primaryGold,
-                      size: 16,
-                    ),
-                  ),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: MerchantOnboardingColors.primaryGold,
+                  size: 18,
                 ),
               ),
             ),
           ),
           Expanded(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(2),
               child: LinearProgressIndicator(
                 value: (_currentStep + 1) / _effectiveTotalSteps,
                 backgroundColor: MerchantOnboardingColors.bgDark2,
                 valueColor: const AlwaysStoppedAnimation<Color>(
                   MerchantOnboardingColors.primaryGold,
                 ),
-                minHeight: 5,
+                minHeight: 2,
               ),
             ),
           ),

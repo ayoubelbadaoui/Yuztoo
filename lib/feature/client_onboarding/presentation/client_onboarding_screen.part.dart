@@ -3,7 +3,8 @@ part of 'client_onboarding_screen.dart';
 extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
   Widget _buildProgressBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      // iOS spec: 44pt tall nav region, 16pt horizontal gutter.
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
         children: [
           SizedBox(
@@ -19,15 +20,17 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
                   color: (_currentStep > 0 && !_isSaving)
                       ? MerchantOnboardingColors.primaryGold
                       : MerchantOnboardingColors.primaryGold
-                          .withValues(alpha: 0.3),
-                  size: 20,
+                          .withValues(alpha: 0.25),
+                  size: 18,
                 ),
               ),
             ),
           ),
           Expanded(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              // iOS native progress is a hairline. 2px reads as cleaner
+              // than the previous 6px chunky bar.
+              borderRadius: BorderRadius.circular(2),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(
                   begin: 0,
@@ -42,7 +45,7 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
                     valueColor: const AlwaysStoppedAnimation<Color>(
                       MerchantOnboardingColors.primaryGold,
                     ),
-                    minHeight: 6,
+                    minHeight: 2,
                   );
                 },
               ),
@@ -95,45 +98,14 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
       verticalPadding: 0,
       child: Column(
         children: [
-          const SizedBox(height: 40),
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: MerchantOnboardingColors.bgDark2,
-              border: Border.all(
-                color: MerchantOnboardingColors.primaryGold,
-                width: 2,
-              ),
-            ),
-            child: const Icon(
-              Icons.waving_hand_rounded,
-              size: 44,
-              color: MerchantOnboardingColors.primaryGold,
-            ),
-          ),
+          const SizedBox(height: 56),
+          _buildStepHero(Icons.waving_hand_rounded),
           const SizedBox(height: 32),
-          Text(
-            'Bienvenue',
-            style: GoogleFonts.outfit(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: MerchantOnboardingColors.textLight,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Complétez votre profil en quelques étapes pour commencer à utiliser votre espace client.',
-            style: GoogleFonts.outfit(
-              fontSize: 15,
-              height: 1.5,
-              color: MerchantOnboardingColors.textGrey,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 36),
+          _buildStepTitle('Bienvenue'),
+          const SizedBox(height: 12),
+          _buildStepSubtitle(
+              'Complétez votre profil en quelques étapes pour commencer à utiliser votre espace client.'),
+          const SizedBox(height: 40),
           _buildGoldButton(
             label: 'Commencer',
             enabled: !_isSaving,
@@ -144,41 +116,61 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
     );
   }
 
+  /// Shared Apple-style hero: solid gold icon, no container or border. The
+  /// previous "circle with gold ring" chrome read as Material; Apple's own
+  /// onboarding (Watch setup, AirPods, Migration Assistant) puts a single
+  /// large icon directly on the background.
+  Widget _buildStepHero(IconData icon) {
+    return Icon(
+      icon,
+      size: 56,
+      color: MerchantOnboardingColors.primaryGold,
+    );
+  }
+
+  /// Display-sized title: 28pt semibold with tight letter spacing, the
+  /// iOS large-title rhythm. Always white, always centered.
+  Widget _buildStepTitle(String text) {
+    return Text(
+      text,
+      style: GoogleFonts.outfit(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        color: MerchantOnboardingColors.textLight,
+        letterSpacing: -0.6,
+        height: 1.15,
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  /// Body subtitle: 15pt, comfortable line-height, soft grey. Sits directly
+  /// under the title with a 12pt gap (smaller than the previous 16 because
+  /// the tighter title leading needs less air below).
+  Widget _buildStepSubtitle(String text) {
+    return Text(
+      text,
+      style: GoogleFonts.outfit(
+        fontSize: 15,
+        height: 1.45,
+        color: MerchantOnboardingColors.textGrey,
+        letterSpacing: -0.1,
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
   Widget _buildNameStep() {
     return ResponsiveScrollBody(
       horizontalPadding: 24,
       verticalPadding: 0,
       child: Column(
         children: [
-          const SizedBox(height: 40),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: MerchantOnboardingColors.bgDark2,
-              border: Border.all(
-                color: MerchantOnboardingColors.primaryGold,
-                width: 2,
-              ),
-            ),
-            child: const Icon(
-              Icons.person_outline_rounded,
-              size: 40,
-              color: MerchantOnboardingColors.primaryGold,
-            ),
-          ),
+          const SizedBox(height: 56),
+          _buildStepHero(Icons.person_outline_rounded),
           const SizedBox(height: 32),
-          Text(
-            'Comment vous appelez-vous ?',
-            style: GoogleFonts.outfit(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: MerchantOnboardingColors.textLight,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
+          _buildStepTitle('Comment vous appelez-vous ?'),
+          const SizedBox(height: 32),
           _buildNameField(
             controller: _firstNameController,
             hintText: 'Prénom',
@@ -247,43 +239,38 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
     required bool enabled,
     required VoidCallback onTap,
   }) {
+    // iOS-style continuous pill. Single solid gold (no gradient, no drop
+    // shadow) — iOS native CTAs use a flat fill and rely on the corner
+    // radius + typography to feel premium. The previous diagonal
+    // gradient + glow read as decorative rather than luxe.
+    const goldEnabled = Color(0xFFD4A017);
+    const goldDisabled = Color(0x66D4A017); // 0.4 alpha
     return GestureDetector(
-      onTap: enabled ? onTap : null,
+      onTap: enabled
+          ? () {
+              HapticFeedback.lightImpact();
+              onTap();
+            }
+          : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
         width: double.infinity,
-        height: 52,
+        height: 54,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: enabled
-                ? const [Color(0xFFD4AF37), Color(0xFFD4A017)]
-                : [
-                    const Color(0xFFD4AF37).withValues(alpha: 0.3),
-                    const Color(0xFFD4A017).withValues(alpha: 0.3),
-                  ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: enabled ? goldEnabled : goldDisabled,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: enabled
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFD4AF37).withValues(alpha: 0.35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [],
         ),
         child: Center(
           child: Text(
             label,
             style: GoogleFonts.outfit(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
               color: enabled
                   ? const Color(0xFF0E2A44)
-                  : const Color(0xFF0E2A44).withValues(alpha: 0.5),
+                  : const Color(0xFF0E2A44).withValues(alpha: 0.45),
             ),
           ),
         ),
@@ -304,35 +291,11 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
       verticalPadding: 0,
       child: Column(
         children: [
-          const SizedBox(height: 40),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: MerchantOnboardingColors.bgDark2,
-              border: Border.all(
-                color: MerchantOnboardingColors.primaryGold,
-                width: 2,
-              ),
-            ),
-            child: const Icon(
-              Icons.cake_outlined,
-              size: 40,
-              color: MerchantOnboardingColors.primaryGold,
-            ),
-          ),
+          const SizedBox(height: 56),
+          _buildStepHero(Icons.cake_outlined),
           const SizedBox(height: 32),
-          Text(
-            'Date de naissance',
-            style: GoogleFonts.outfit(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: MerchantOnboardingColors.textLight,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 28),
+          _buildStepTitle('Date de naissance'),
+          const SizedBox(height: 32),
           GestureDetector(
             onTap: _isSaving ? null : _pickDob,
             child: Container(
@@ -398,45 +361,14 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
       verticalPadding: 0,
       child: Column(
         children: [
-          const SizedBox(height: 40),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: MerchantOnboardingColors.bgDark2,
-              border: Border.all(
-                color: MerchantOnboardingColors.primaryGold,
-                width: 2,
-              ),
-            ),
-            child: const Icon(
-              Icons.location_city_rounded,
-              size: 40,
-              color: MerchantOnboardingColors.primaryGold,
-            ),
-          ),
+          const SizedBox(height: 56),
+          _buildStepHero(Icons.location_city_rounded),
           const SizedBox(height: 32),
-          Text(
-            'Dans quelle ville êtes-vous ?',
-            style: GoogleFonts.outfit(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: MerchantOnboardingColors.textLight,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Nous vous montrerons les commerces proches de chez vous.',
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              height: 1.5,
-              color: MerchantOnboardingColors.textGrey,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 28),
+          _buildStepTitle('Dans quelle ville êtes-vous ?'),
+          const SizedBox(height: 12),
+          _buildStepSubtitle(
+              'Nous vous montrerons les commerces proches de chez vous.'),
+          const SizedBox(height: 32),
           GestureDetector(
             onTap: _isSaving
                 ? null
@@ -593,28 +525,14 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             ),
           ],
           const SizedBox(height: 32),
-          Text(
-            'Photo de profil',
-            style: GoogleFonts.outfit(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: MerchantOnboardingColors.textLight,
-            ),
-            textAlign: TextAlign.center,
-          ),
+          _buildStepTitle('Photo de profil'),
           const SizedBox(height: 12),
-          Text(
+          _buildStepSubtitle(
             hasOAuthOnly
                 ? 'Nous avons récupéré votre photo. Gardez-la ou choisissez-en une autre.'
                 : _hasPhotoPreview
                     ? 'Vérifiez votre photo avant de continuer.'
                     : 'Prenez une photo ou choisissez-en une dans la galerie pour personnaliser votre profil.',
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: MerchantOnboardingColors.textGrey,
-              height: 1.45,
-            ),
-            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           GestureDetector(

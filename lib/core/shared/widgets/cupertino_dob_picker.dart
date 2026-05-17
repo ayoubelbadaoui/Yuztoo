@@ -123,7 +123,6 @@ class _DobPickerSheetState extends State<_DobPickerSheet> {
   Widget build(BuildContext context) {
     return YuztooCupertinoPickerSheet(
       title: 'Date de naissance',
-      showSelectionBand: true,
       onCancel: () => Navigator.of(context).pop(),
       onConfirm: () {
         final day = _day.clamp(0, _dayCount - 1) + 1;
