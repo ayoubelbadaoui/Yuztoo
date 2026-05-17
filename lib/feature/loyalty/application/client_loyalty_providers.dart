@@ -14,6 +14,7 @@ import '../infrastructure/client_bon_repository_provider.dart';
 import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
 import '../infrastructure/client_loyalty_repository_provider.dart';
 import 'use_cases/claim_welcome_bon.dart';
+import 'use_cases/record_client_visit_passage.dart';
 import 'use_cases/record_loyalty_passage.dart';
 import 'use_cases/redeem_loyalty_reward.dart';
 import 'use_cases/validate_pending_loyalty_passage.dart';
@@ -31,6 +32,10 @@ final recordLoyaltyPassageProvider = Provider<RecordLoyaltyPassage>((ref) {
     ref.watch(clientLoyaltyRepositoryProvider),
     ref.watch(clientNotificationRepositoryProvider),
   );
+});
+
+final recordClientVisitPassageProvider = Provider<RecordClientVisitPassage>((ref) {
+  return RecordClientVisitPassage(ref.watch(clientLoyaltyRepositoryProvider));
 });
 
 final validatePendingLoyaltyPassageProvider =

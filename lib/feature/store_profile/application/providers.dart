@@ -30,6 +30,7 @@ export '../../loyalty/application/client_loyalty_providers.dart'
     show
         clientLoyaltyProgressForMerchantProvider,
         recordLoyaltyPassageProvider,
+        recordClientVisitPassageProvider,
         ClientLoyaltyEntry;
 export '../../profile/application/user_safety_providers.dart'
     show blockedMerchantIdsProvider, userSafetyRepositoryProvider;

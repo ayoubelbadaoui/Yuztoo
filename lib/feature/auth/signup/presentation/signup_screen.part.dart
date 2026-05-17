@@ -328,7 +328,15 @@ extension _SignupScreenUi on _SignupScreenState {
       if (hasProfile) {
         ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
             false;
-        await ref.read(auth_core.authControllerProvider.notifier).refreshAuthState();
+        // Defer to next frame so the signup screen's pending setState
+        // calls finish before the shell unmounts it. Inline awaiting
+        // races with the unmount and fires '_dependents.isEmpty: is
+        // not true' in framework.dart.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(ref
+              .read(auth_core.authControllerProvider.notifier)
+              .refreshAuthState());
+        });
         return;
       }
 
@@ -433,7 +441,14 @@ extension _SignupScreenUi on _SignupScreenState {
               photoUrl: authUser.photoUrl,
             );
       } catch (_) {}
-      await ref.read(auth_core.authControllerProvider.notifier).refreshAuthState();
+      // Defer to next frame — see same comment in the existing-user
+      // branch above. Prevents the framework assertion when the shell
+      // unmounts the signup screen while it's still rebuilding.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(ref
+            .read(auth_core.authControllerProvider.notifier)
+            .refreshAuthState());
+      });
     } catch (_) {
       ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
           false;

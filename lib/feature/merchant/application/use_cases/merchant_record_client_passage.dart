@@ -30,19 +30,20 @@ class MerchantRecordClientPassage {
         UnexpectedFailure(message: 'Client invalide'),
       );
     }
-    if (!merchant.loyaltyEnabled) {
-      return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
-        UnexpectedFailure(message: 'Fidélité non activée pour ce commerce'),
+    final loyaltyActive = merchant.loyaltyEnabled &&
+        (merchant.loyaltyProgram?.programEnabled ??
+            merchant.loyaltyEnabled);
+
+    if (!loyaltyActive) {
+      return _loyaltyRepo.applyPassageDeltas(
+        merchantId: merchant.id,
+        clientUid: clientUid,
+        validatedPassagesDelta: 1,
       );
     }
 
     final LoyaltyProgramConfig config = merchant.loyaltyProgram ??
         LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: true);
-    if (!config.programEnabled) {
-      return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
-        UnexpectedFailure(message: 'Le programme de fidélité est désactivé'),
-      );
-    }
 
     if (purchaseAmountEuros != null &&
         purchaseAmountEuros > 0 &&

@@ -192,9 +192,22 @@ extension _OTPScreenFlow on _OTPScreenState {
               .state = false;
         } catch (_) {}
 
-        // Auth often emits before Firestore `createUserDocument` finishes; refresh so
-        // [main] re-runs routing and shows client onboarding (same idea as merchant gate).
-        await ref.read(auth_core.authControllerProvider.notifier).refreshAuthState();
+        // Defer the auth refresh to the next frame so the OTP screen
+        // has time to finish the current build/setState cycle before
+        // the shell yanks it out of the tree. Awaiting it inline races
+        // with the `finally` block's `_setVerifying(false)` setState —
+        // the shell navigates first, the OTP element starts unmounting,
+        // then setState dirties dependents on the disposing inherited
+        // element → 'package:flutter/src/widgets/framework.dart:6171
+        // _dependents.isEmpty: is not true'. Deferring + not awaiting
+        // keeps the unmount serialized after the OTP rebuild.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(
+            ref
+                .read(auth_core.authControllerProvider.notifier)
+                .refreshAuthState(),
+          );
+        });
       },
     );
   }

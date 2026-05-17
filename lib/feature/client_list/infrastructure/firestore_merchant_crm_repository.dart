@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/infrastructure/logger_service.dart';
+import '../../merchant/domain/entities/client_gratification_config.dart';
 import '../domain/entities/merchant_client_row.dart';
 import '../domain/repositories/i_merchant_crm_repository.dart';
 
@@ -33,6 +34,21 @@ class FirestoreMerchantCrmRepository implements IMerchantCrmRepository {
         .orderBy('followed_at', descending: true)
         .snapshots()
         .asyncMap((QuerySnapshot<Map<String, dynamic>> snap) async {
+      ClientGratificationConfig gratificationConfig =
+          ClientGratificationConfig.defaults;
+      try {
+        final merchantSnap =
+            await _firestore.collection('merchants').doc(merchantId).get();
+        final raw = merchantSnap.data()?['gratification_config'];
+        if (raw is Map) {
+          gratificationConfig = ClientGratificationConfig.fromMap(
+            Map<String, dynamic>.from(raw),
+          );
+        }
+      } catch (e) {
+        LoggerService.logError('CRM: fetch gratification_config', error: e);
+      }
+
       // ── 1 read: fetch all loyalty_clients in one shot ──────────────────────
       // This gives us validated_passages + updated_at for every client without
       // an N+1 read per follower.
@@ -134,6 +150,7 @@ class FirestoreMerchantCrmRepository implements IMerchantCrmRepository {
             validatedPassages: validatedPassages,
             lastVisitAt: lastVisitAt,
             manualSegment: manualSegment,
+            gratificationConfig: gratificationConfig,
           );
         },
       );
