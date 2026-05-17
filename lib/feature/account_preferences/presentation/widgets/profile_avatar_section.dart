@@ -163,7 +163,7 @@ class _ProfileAvatarSectionState extends ConsumerState<ProfileAvatarSection> {
               uid: uid,
               photoUrl: downloadUrl,
             );
-        await refreshUserProfileCache(ref as Ref, uid: uid);
+        await refreshUserProfileCacheWidget(ref, uid: uid);
       },
     );
   }

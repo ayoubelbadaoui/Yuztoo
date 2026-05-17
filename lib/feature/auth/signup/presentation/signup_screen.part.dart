@@ -158,7 +158,7 @@ extension _SignupScreenUi on _SignupScreenState {
     final emailError = emailResult.fold<String?>(
       (failure) {
         emailBlocked = true;
-        return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
+        return AuthErrorMapper.displayMessage(failure);
       },
       (_) => null,
     );
@@ -184,7 +184,7 @@ extension _SignupScreenUi on _SignupScreenState {
     final phoneError = phoneResult.fold<String?>(
       (failure) {
         phoneBlocked = true;
-        return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
+        return AuthErrorMapper.displayMessage(failure);
       },
       (_) => null,
     );
@@ -218,12 +218,10 @@ extension _SignupScreenUi on _SignupScreenState {
             // "shows only error" / "no OTP page" symptom). When the mapper
             // has nothing specific to say, fall back to the raw failure
             // message so support can at least eyeball it.
-            final mapped = AuthErrorMapper.getFrenchMessage(failure);
-            final shown = mapped ??
-                (failure.message.isNotEmpty
-                    ? failure.message
-                    : 'Impossible d\'envoyer le code de vérification. Vérifiez votre connexion ou réessayez plus tard.');
-            showErrorSnackbar(context, shown);
+            showErrorSnackbar(
+              context,
+              AuthErrorMapper.displayMessage(failure),
+            );
             _withSetState(() {
               _isLoading = false;
               _isSubmitting = false;
@@ -249,14 +247,19 @@ extension _SignupScreenUi on _SignupScreenState {
           }
         },
       );
-    } catch (_) {
+    } catch (e, st) {
       if (mounted) {
+        showErrorSnackbar(
+          context,
+          AuthErrorMapper.displayMessage(
+            AuthUnexpectedFailure(cause: e, stackTrace: st),
+          ),
+        );
         _withSetState(() {
           _isLoading = false;
           _isSubmitting = false;
         });
       }
-      rethrow;
     }
 
     if (mounted && _isSubmitting) {

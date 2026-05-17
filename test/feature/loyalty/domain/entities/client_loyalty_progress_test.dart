@@ -38,15 +38,13 @@ void main() {
       expect(a, isNot(b));
     });
 
-    test('props contains all six fields', () {
+    test('props contains all fields including enrollment', () {
       const p = ClientMerchantLoyaltyProgress(
         validatedPassages: 1,
         pendingPassages: 2,
         cumulativeSpendEuros: 33.5,
       );
-      // Order: validatedPassages, pendingPassages, cumulativeSpendEuros,
-      //        isFirstVisit, hasFirstVisit, welcomeBonClaimed
-      expect(p.props, [1, 2, 33.5, false, false, false]);
+      expect(p.props, [1, 2, 33.5, false, false, false, null, null]);
     });
 
     test('welcomeBonClaimed defaults to false and surfaces in equality', () {

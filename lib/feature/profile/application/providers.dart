@@ -16,4 +16,5 @@ export '../../auth/core/application/state/auth_state.dart'
 
 export '../../storefront/application/providers.dart' show storefrontProvider;
 
-export 'refresh_user_profile_cache.dart' show refreshUserProfileCache;
+export 'refresh_user_profile_cache.dart'
+    show refreshUserProfileCache, refreshUserProfileCacheWidget;

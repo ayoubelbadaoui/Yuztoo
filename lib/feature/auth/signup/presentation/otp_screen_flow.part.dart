@@ -33,7 +33,7 @@ extension _OTPScreenFlow on _OTPScreenState {
       final emailError = emailCheck.fold<String?>(
         (failure) {
           emailBlocked = true;
-          return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
+          return AuthErrorMapper.displayMessage(failure);
         },
         (_) => null,
       );
@@ -58,7 +58,7 @@ extension _OTPScreenFlow on _OTPScreenState {
       final phoneError = phoneCheck.fold<String?>(
         (failure) {
           phoneBlocked = true;
-          return AuthErrorMapper.getFrenchMessage(failure) ?? failure.message;
+          return AuthErrorMapper.displayMessage(failure);
         },
         (_) => null,
       );
@@ -94,10 +94,10 @@ extension _OTPScreenFlow on _OTPScreenState {
       await verifyResult.fold<Future<void>>(
         (failure) async {
           if (mounted) {
-            final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-            if (frenchMessage != null) {
-              showErrorSnackbar(context, frenchMessage);
-            }
+            showErrorSnackbar(
+              context,
+              AuthErrorMapper.displayMessage(failure),
+            );
             for (final controller in _controllers) {
               controller.clear();
             }
@@ -150,10 +150,10 @@ extension _OTPScreenFlow on _OTPScreenState {
     await createResult.fold<Future<void>>(
       (failure) async {
         if (mounted) {
-          final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          if (frenchMessage != null) {
-            showErrorSnackbar(context, frenchMessage);
-          }
+          showErrorSnackbar(
+            context,
+            AuthErrorMapper.displayMessage(failure),
+          );
         }
       },
       (_) async {
@@ -227,11 +227,10 @@ extension _OTPScreenFlow on _OTPScreenState {
     otpResult.fold(
       (failure) {
         if (mounted) {
-          final frenchMessage = AuthErrorMapper.getFrenchMessage(failure);
-          // Only show error if it's a specific Firebase error (not generic)
-          if (frenchMessage != null) {
-            showErrorSnackbar(context, frenchMessage);
-          }
+          showErrorSnackbar(
+            context,
+            AuthErrorMapper.displayMessage(failure),
+          );
         }
       },
       (verificationId) {

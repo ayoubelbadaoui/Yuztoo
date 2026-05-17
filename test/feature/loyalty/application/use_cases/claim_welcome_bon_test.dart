@@ -41,6 +41,13 @@ class _RecordingRepo implements ClientLoyaltyRepository {
 
   // ── Unused stubs ───────────────────────────────────────────────────────────
   @override
+  Future<ClientMerchantLoyaltyProgress> readProgress(
+    String merchantId,
+    String clientUid,
+  ) async =>
+      const ClientMerchantLoyaltyProgress.empty();
+
+  @override
   Stream<ClientMerchantLoyaltyProgress> watchProgress(
           String merchantId, String clientUid) =>
       const Stream.empty();
@@ -63,6 +70,7 @@ class _RecordingRepo implements ClientLoyaltyRepository {
     int validatedPassagesDelta = 0,
     int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
+    LoyaltyProgramConfig? enrollProgram,
   }) async =>
       throw UnimplementedError();
   @override

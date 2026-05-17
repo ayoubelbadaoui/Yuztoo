@@ -202,14 +202,14 @@ class _ValidationStep extends StatelessWidget {
     return _StepSection(
       question: 'Comment valider les passages ?',
       subtitle:
-          'Choisissez la méthode de confirmation lorsque vos clients effectuent un passage.',
+          'Le client demande un passage après le scan ; vous validez le montant (si besoin) dans Rappels ou via BLE.',
       child: Column(
         children: [
           _BigChoiceCard(
-            icon: Icons.qr_code_scanner,
+            icon: Icons.bluetooth_searching,
             title: 'Automatique',
             description:
-                'Le passage est validé instantanément quand le client scanne le QR code de votre vitrine.',
+                'Validation plus rapide en boutique (BLE) : le client demande toujours un passage, vous confirmez en un geste.',
             selected: value == LoyaltyPassageValidation.automatic,
             onTap: () => onChanged(LoyaltyPassageValidation.automatic),
           ),
@@ -218,7 +218,7 @@ class _ValidationStep extends StatelessWidget {
             icon: Icons.pending_actions_rounded,
             title: 'Manuelle',
             description:
-                "Chaque passage doit être confirmé manuellement depuis l'écran Rappels.",
+                'Chaque demande de passage est validée depuis l’écran Rappels (montant inclus pour les programmes à cumul €).',
             selected: value == LoyaltyPassageValidation.manual,
             onTap: () => onChanged(LoyaltyPassageValidation.manual),
           ),

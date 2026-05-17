@@ -170,8 +170,8 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
                                     final auth = ref.read(authStateProvider);
                                     final isMerchant = auth is Authenticated &&
                                         auth.user.isMerchant;
-                                    unawaited(refreshUserProfileCache(
-                                      ref as Ref,
+                                    unawaited(refreshUserProfileCacheWidget(
+                                      ref,
                                       uid: uid,
                                       isMerchant: isMerchant,
                                       cityChanged: true,
@@ -326,8 +326,8 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
       (_) {
         final isMerchant = ref.read(authStateProvider) is Authenticated &&
             (ref.read(authStateProvider) as Authenticated).user.isMerchant;
-        unawaited(refreshUserProfileCache(
-          ref as Ref,
+        unawaited(refreshUserProfileCacheWidget(
+          ref,
           uid: uid,
           isMerchant: isMerchant,
           cityChanged: true,

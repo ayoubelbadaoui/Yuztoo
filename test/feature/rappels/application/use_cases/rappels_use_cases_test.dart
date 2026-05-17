@@ -8,6 +8,7 @@ import 'package:flutter_yuztoo/feature/followed_merchants/domain/repositories/fo
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/loyalty_pending_client_row.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/client_loyalty_repository.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/acknowledge_new_client.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/create_auto_notification.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/delete_auto_notification.dart';
@@ -131,6 +132,13 @@ class _FakeLoyaltyRepoForSend implements ClientLoyaltyRepository {
       segmentMap;
 
   @override
+  Future<ClientMerchantLoyaltyProgress> readProgress(
+    String merchantId,
+    String clientUid,
+  ) async =>
+      const ClientMerchantLoyaltyProgress.empty();
+
+  @override
   Stream<ClientMerchantLoyaltyProgress> watchProgress(
           String merchantId, String clientUid) async* {}
 
@@ -145,6 +153,7 @@ class _FakeLoyaltyRepoForSend implements ClientLoyaltyRepository {
     int validatedPassagesDelta = 0,
     int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
+    LoyaltyProgramConfig? enrollProgram,
   }) async =>
       throw UnimplementedError();
 

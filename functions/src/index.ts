@@ -758,8 +758,13 @@ export const onLoyaltyProgressUpdated = functions
       await markActiveBonRedeemed(clientId, merchantId, "welcome");
     }
 
-    // Passage was just validated (increment).
-    if (afterValidated > beforeValidated) {
+    const beforeSpend: number = before.cumulative_spend_euros ?? 0;
+    const afterSpend: number = after.cumulative_spend_euros ?? 0;
+    const spendValidated =
+      afterSpend > beforeSpend && afterValidated <= beforeValidated;
+
+    // Passage was just validated (visit-count increment or spend increment).
+    if (afterValidated > beforeValidated || spendValidated) {
       await dispatchTrigger(
         merchantId,
         AUTO_NOTIFICATION_TRIGGERS.passageValidated,
@@ -775,8 +780,13 @@ export const onLoyaltyProgressUpdated = functions
       const loyaltyConfig = merchantData.loyalty_program ?? {};
       const visitsRequired: number =
         loyaltyConfig.visits_required ?? loyaltyConfig.visit_count ?? 10;
+      const spendRequired: number =
+        loyaltyConfig.cumulative_spend_required_euros ?? 100;
 
-      if (afterValidated >= visitsRequired) {
+      const visitRewardUnlocked = afterValidated >= visitsRequired;
+      const spendRewardUnlocked = afterSpend >= spendRequired;
+
+      if (visitRewardUnlocked || spendRewardUnlocked) {
         // Reward unlocked.
         await dispatchTrigger(
           merchantId,
@@ -787,8 +797,13 @@ export const onLoyaltyProgressUpdated = functions
         // can warn / expire it later. Idempotent — won't re-issue if an
         // active one already exists.
         await issueMilestoneBonIfEligible(clientId, merchantId, merchantData);
-      } else if (afterValidated === visitsRequired - 1) {
-        // One step away from reward.
+      } else if (
+        afterValidated === visitsRequired - 1 ||
+        (spendRequired > 0 &&
+          afterSpend < spendRequired &&
+          afterSpend >= spendRequired - 1)
+      ) {
+        // One step away from reward (last visit or last euro of spend goal).
         await dispatchTrigger(
           merchantId,
           AUTO_NOTIFICATION_TRIGGERS.rewardNear,

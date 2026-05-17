@@ -24,12 +24,21 @@ class _TrackingLoyaltyRepo implements ClientLoyaltyRepository {
   );
 
   @override
+  @override
+  Future<ClientMerchantLoyaltyProgress> readProgress(
+    String merchantId,
+    String clientUid,
+  ) async =>
+      const ClientMerchantLoyaltyProgress.empty();
+
+  @override
   Future<Result<ClientMerchantLoyaltyProgress>> applyPassageDeltas({
     required String merchantId,
     required String clientUid,
     int validatedPassagesDelta = 0,
     int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
+    LoyaltyProgramConfig? enrollProgram,
   }) async {
     applyCalls++;
     lastValidatedDelta = validatedPassagesDelta;
@@ -137,13 +146,11 @@ Merchant _merchant({
 void main() {
   group('HARD: RecordLoyaltyPassage abuse / edge cases', () {
     late _TrackingLoyaltyRepo repo;
-    late _NoopNotifRepo notifs;
     late RecordLoyaltyPassage useCase;
 
     setUp(() {
       repo = _TrackingLoyaltyRepo();
-      notifs = _NoopNotifRepo();
-      useCase = RecordLoyaltyPassage(repo, notifs);
+      useCase = RecordLoyaltyPassage(repo);
     });
 
     test('empty clientUid → Left, no Firestore call', () async {
@@ -170,58 +177,27 @@ void main() {
       expect(repo.lastValidatedDelta, 0);
     });
 
-    test('automatic validation → validated +1', () async {
+    test('automatic validation mode still creates pending only', () async {
       await useCase.call(
         clientUid: 'c1',
         merchant: _merchant(validation: LoyaltyPassageValidation.automatic),
       );
-      expect(repo.lastValidatedDelta, 1);
-      expect(repo.lastPendingDelta, 0);
+      expect(repo.lastPendingDelta, 1);
+      expect(repo.lastValidatedDelta, 0);
     });
 
-    test('amount required but missing → Left', () async {
-      final r = await useCase.call(
-        clientUid: 'c1',
-        merchant: _merchant(askAmount: true),
-      );
-      expect(r, isA<Left<AppFailure, ClientMerchantLoyaltyProgress>>());
-    });
-
-    test('amount below minimum → Left with message', () async {
-      final r = await useCase.call(
-        clientUid: 'c1',
-        merchant: _merchant(askAmount: true, minimumPerVisit: 20),
-        purchaseAmountEuros: 5,
-      );
-      expect(r, isA<Left<AppFailure, ClientMerchantLoyaltyProgress>>());
-      r.fold(
-        (f) => expect(f.message, contains('20')),
-        (_) => fail('expected Left'),
-      );
-    });
-
-    test('Firestore failure → Left, no reward notification', () async {
+    test('Firestore failure → Left', () async {
       repo.failNext = true;
       final r = await useCase.call(clientUid: 'c1', merchant: _merchant());
       expect(r, isA<Left<AppFailure, ClientMerchantLoyaltyProgress>>());
-      expect(notifs.creates, 0);
-    });
-
-    test('threshold crossing writes reward notification once', () async {
-      repo.nextProgress = const ClientMerchantLoyaltyProgress(
-        validatedPassages: 10,
-        pendingPassages: 0,
-        cumulativeSpendEuros: 0,
-      );
-      await useCase.call(clientUid: 'c1', merchant: _merchant());
-      expect(notifs.creates, 1);
     });
   });
 
   group('HARD: ValidatePendingLoyaltyPassage guards', () {
     test('non-owner cannot validate', () async {
       final repo = _TrackingLoyaltyRepo();
-      final useCase = ValidatePendingLoyaltyPassage(repo);
+      final notifs = _NoopNotifRepo();
+      final useCase = ValidatePendingLoyaltyPassage(repo, notifs);
       final r = await useCase.call(
         actingOwnerUid: 'hacker',
         merchant: _merchant(validation: LoyaltyPassageValidation.manual),
@@ -231,15 +207,18 @@ void main() {
       expect(repo.applyCalls, 0);
     });
 
-    test('automatic merchant cannot use manual validate', () async {
+    test('automatic validation merchant can validate pending', () async {
       final repo = _TrackingLoyaltyRepo();
-      final useCase = ValidatePendingLoyaltyPassage(repo);
+      final notifs = _NoopNotifRepo();
+      final useCase = ValidatePendingLoyaltyPassage(repo, notifs);
       final r = await useCase.call(
         actingOwnerUid: 'owner1',
         merchant: _merchant(validation: LoyaltyPassageValidation.automatic),
         clientUid: 'c1',
       );
-      expect(r, isA<Left<AppFailure, ClientMerchantLoyaltyProgress>>());
+      expect(r, isA<Right<AppFailure, ClientMerchantLoyaltyProgress>>());
+      expect(repo.lastPendingDelta, -1);
+      expect(repo.lastValidatedDelta, 1);
     });
   });
 }

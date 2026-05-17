@@ -1,24 +1,17 @@
 import '../domain/auth_failure.dart';
 import '../../../../core/domain/core/failure.dart';
 
-/// Maps AuthFailure and AppFailure to French error messages for UI display
+/// Maps [AuthFailure] / [AppFailure] to French messages for snackbars and dialogs.
 class AuthErrorMapper {
-  /// Get French error message from AuthFailure or AppFailure
-  /// Returns null if error is too generic (not from Firebase)
+  /// Legacy mapper — prefer [displayMessage] for UI (never returns null).
   static String? getFrenchMessage(AppFailure failure) {
-    if (failure is AuthFailure) {
-      return _getAuthFailureMessage(failure);
-    }
-    // Handle generic AppFailure - only show if it has a specific message
-    if (failure.message.isNotEmpty && 
-        !failure.message.toLowerCase().contains('une erreur s\'est produite')) {
-      return failure.message;
-    }
-    // Don't show generic errors - return null to indicate no error should be shown
-    return null;
+    final message = displayMessage(failure);
+    if (_isGenericFallback(message)) return null;
+    return message;
   }
 
-  static String? _getAuthFailureMessage(AuthFailure failure) {
+  /// User-facing message; always non-empty.
+  static String displayMessage(AppFailure failure) {
     if (failure is InvalidCredentialsFailure) {
       return 'Identifiants incorrects. Vérifiez votre adresse e-mail et votre mot de passe.';
     }
@@ -34,51 +27,30 @@ class AuthErrorMapper {
     if (failure is ProfileIncompleteFailure) {
       return 'Profil incomplet';
     }
-    if (failure is AuthUnexpectedFailure) {
-      // Use the message from the failure if it's already in French and specific
-      final message = failure.message;
-      
-      // Check if it's a real Firebase error (has cause/stackTrace)
-      if (failure.cause != null) {
-        // This is a real Firebase error - return the specific message if available
-        // or a generic message if the message is generic
-        if (message.isNotEmpty && 
-            !message.toLowerCase().contains('une erreur s\'est produite')) {
-          // Return the specific message (e.g., "Erreur de configuration de l'application...")
-          return message;
-        }
-        // Generic message for real Firebase errors without specific message
-        return 'Une erreur s\'est produite. Veuillez réessayer.';
-      }
-      
-      // Only return message if it's specific (not generic) and matches keywords
-      if (message.isNotEmpty && 
-          (message.contains('email') || 
-           message.contains('mot de passe') ||
-           message.contains('téléphone') ||
-           message.contains('compte') ||
-           message.contains('Connectez') ||
-           message.contains('vérification') ||
-           message.contains('facturation') ||
-           message.contains('billing') ||
-           message.contains('quota') ||
-           message.contains('SMS') ||
-           message.contains('configuration') ||
-           message.contains('support') ||
-           message.contains('Profil utilisateur') ||
-           message.contains('certificat') ||
-           message.contains('autorisée') ||
-           message.contains('Google') ||
-           message.contains('Apple') ||
-           message.contains('session'))) {
-        return message;
-      }
-      
-      // Not a real Firebase error - don't show generic message
-      return null;
-    }
-    // Unknown failure type - only show if it's a real Firebase error
-    return null;
-  }
-}
 
+    final trimmed = failure.message.trim();
+    if (trimmed.isNotEmpty && !_isGenericDefault(trimmed)) {
+      return trimmed;
+    }
+
+    if (failure is AuthUnexpectedFailure && failure.cause != null) {
+      return 'Une erreur s\'est produite. Veuillez réessayer.';
+    }
+
+    if (trimmed.isNotEmpty) return trimmed;
+
+    return 'Une erreur s\'est produite. Veuillez réessayer.';
+  }
+
+  static bool _isGenericDefault(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('une erreur est survenue') ||
+        lower.contains('une erreur s\'est produite') ||
+        lower.contains('something went wrong') ||
+        lower.contains('network error during authentication') ||
+        lower.contains('an unexpected error');
+  }
+
+  static bool _isGenericFallback(String message) =>
+      message == 'Une erreur s\'est produite. Veuillez réessayer.';
+}

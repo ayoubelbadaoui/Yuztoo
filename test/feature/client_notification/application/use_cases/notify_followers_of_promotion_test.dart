@@ -8,6 +8,7 @@ import 'package:flutter_yuztoo/feature/followed_merchants/domain/repositories/fo
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/loyalty_pending_client_row.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/client_loyalty_repository.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/promotions/domain/entities/promotion.dart';
 
 // ── Fakes (duplicated from rappels tests to keep feature tests self-contained) ─
@@ -101,6 +102,13 @@ class _FakeLoyalty implements ClientLoyaltyRepository {
       segments;
 
   @override
+  Future<ClientMerchantLoyaltyProgress> readProgress(
+    String merchantId,
+    String clientUid,
+  ) async =>
+      const ClientMerchantLoyaltyProgress.empty();
+
+  @override
   Stream<ClientMerchantLoyaltyProgress> watchProgress(
           String merchantId, String clientUid) async* {}
 
@@ -115,6 +123,7 @@ class _FakeLoyalty implements ClientLoyaltyRepository {
     int validatedPassagesDelta = 0,
     int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
+    LoyaltyProgramConfig? enrollProgram,
   }) async =>
       throw UnimplementedError();
 

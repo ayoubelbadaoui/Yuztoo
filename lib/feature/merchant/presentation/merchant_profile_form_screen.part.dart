@@ -228,14 +228,14 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
       widget.onComplete?.call();
       _setSubmitting(false);
       ref.invalidate(storefrontProvider);
-      invalidateDiscoveryCatalog(ref as Ref);
+      invalidateDiscoveryCatalogWidget(ref);
       ref.invalidate(auth_providers.connectedCitiesProvider(userId));
       // Pull the freshly-written displayName / city / phone into the
       // AuthUser. The shell's _handleAuthStateChange short-circuits the
       // re-emission (same uid + not on splash + not navigating) so this
       // is now safe to fire after navigation.
-      unawaited(refreshUserProfileCache(
-        ref as Ref,
+      unawaited(refreshUserProfileCacheWidget(
+        ref,
         uid: userId,
         isMerchant: true,
         cityChanged: city.isNotEmpty,

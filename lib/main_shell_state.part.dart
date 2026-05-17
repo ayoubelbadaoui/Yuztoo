@@ -211,6 +211,11 @@ class _RootShellState extends ConsumerState<_RootShell>
     ref
         .read(store_profile_providers.pendingStorePromotionIdProvider.notifier)
         .state = (promotionId == null || promotionId.isEmpty) ? null : promotionId;
+    if (_role == UserRole.client) {
+      ref
+          .read(store_profile_providers.pendingVitrineScanIntentProvider.notifier)
+          .state = store_profile_providers.VitrineScanIntent.fromQrOrNfc;
+    }
     setState(() {
       _nestedScreen = ScreenId.storeProfile;
     });

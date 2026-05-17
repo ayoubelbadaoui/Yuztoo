@@ -5,10 +5,19 @@ import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/record_clie
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/loyalty_pending_client_row.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/client_loyalty_repository.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 
 class _FakeLoyaltyRepo implements ClientLoyaltyRepository {
   int? validatedDelta;
+
+  @override
+  @override
+  Future<ClientMerchantLoyaltyProgress> readProgress(
+    String merchantId,
+    String clientUid,
+  ) async =>
+      const ClientMerchantLoyaltyProgress.empty();
 
   @override
   Future<Result<ClientMerchantLoyaltyProgress>> applyPassageDeltas({
@@ -17,6 +26,7 @@ class _FakeLoyaltyRepo implements ClientLoyaltyRepository {
     int validatedPassagesDelta = 0,
     int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
+    LoyaltyProgramConfig? enrollProgram,
   }) async {
     validatedDelta = validatedPassagesDelta;
     return const Right(

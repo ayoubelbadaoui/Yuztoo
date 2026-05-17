@@ -16,6 +16,8 @@ import '../../promotions/application/providers.dart' show recordPromoViewsProvid
 import '../../promotions/domain/entities/promotion.dart';
 import '../../storefront/domain/entities/business_hours.dart';
 import '../../storefront/application/widgets.dart';
+import '../../loyalty/application/client_loyalty_providers.dart'
+    show clientLoyaltyFeedProvider;
 import '../application/providers.dart';
 import 'widgets/store_profile_banner_section.dart';
 

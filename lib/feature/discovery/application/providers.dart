@@ -215,10 +215,18 @@ final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
   return merchants.where((m) => seen.add(m.id)).toList();
 });
 
-/// Refreshes Découvrir catalog providers (call after merchant city / vitrine save).
-void invalidateDiscoveryCatalog(Ref ref) {
-  ref.invalidate(discoveryCityMerchantsProvider);
-  ref.invalidate(discoveryRecommendedMerchantsProvider);
-  ref.invalidate(discoveryFollowedMerchantsProvider);
-  ref.invalidate(discoveryMerchantsProvider);
+void _invalidateDiscoveryCatalog(
+  void Function(ProviderOrFamily provider) invalidate,
+) {
+  invalidate(discoveryCityMerchantsProvider);
+  invalidate(discoveryRecommendedMerchantsProvider);
+  invalidate(discoveryFollowedMerchantsProvider);
+  invalidate(discoveryMerchantsProvider);
 }
+
+/// Refreshes Découvrir catalog providers (call after merchant city / vitrine save).
+void invalidateDiscoveryCatalog(Ref ref) => _invalidateDiscoveryCatalog(ref.invalidate);
+
+/// Same as [invalidateDiscoveryCatalog] for [WidgetRef] (Consumer widgets).
+void invalidateDiscoveryCatalogWidget(WidgetRef ref) =>
+    _invalidateDiscoveryCatalog(ref.invalidate);

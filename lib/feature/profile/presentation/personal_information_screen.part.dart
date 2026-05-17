@@ -65,7 +65,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                 uid: uid,
                 photoUrl: downloadUrl,
               );
-          await refreshUserProfileCache(ref as Ref, uid: uid);
+          await refreshUserProfileCacheWidget(ref, uid: uid);
         },
       );
     } catch (e) {
@@ -1070,8 +1070,8 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
                                       .showSnackBar(
                                     SnackBar(content: Text(f.message)),
                                   ),
-                                  (_) => unawaited(refreshUserProfileCache(
-                                        ref as Ref,
+                                  (_) => unawaited(refreshUserProfileCacheWidget(
+                                        ref,
                                         uid: uid,
                                         cityChanged: true,
                                       )),
@@ -1139,8 +1139,8 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
       (f) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(f.message)),
       ),
-      (_) => unawaited(refreshUserProfileCache(
-            ref as Ref,
+      (_) => unawaited(refreshUserProfileCacheWidget(
+            ref,
             uid: uid,
             cityChanged: true,
           )),

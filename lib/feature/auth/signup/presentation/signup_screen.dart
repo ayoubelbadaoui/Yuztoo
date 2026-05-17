@@ -12,6 +12,7 @@ import '../application/providers.dart';
 import '../domain/signup_roles_map.dart';
 import '../../login/application/providers.dart' as login_providers;
 import '../../core/application/auth_error_mapper.dart';
+import '../../core/domain/auth_failure.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../../../types.dart';

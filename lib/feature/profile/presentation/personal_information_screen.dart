@@ -139,8 +139,8 @@ class _PersonalInformationScreenState
         }
         final cityChanged =
             _selectedCity != null && _selectedCity!.isNotEmpty;
-        await refreshUserProfileCache(
-          ref as Ref,
+        await refreshUserProfileCacheWidget(
+          ref,
           uid: uid,
           cityChanged: cityChanged,
         );

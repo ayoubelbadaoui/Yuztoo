@@ -5,8 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../merchant/application/providers.dart';
+import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;
+import '../../loyalty/application/client_loyalty_providers.dart'
+    show loyaltyProgramsDiffer;
 import '../application/e_fidelite_providers.dart';
 import 'widgets/loyalty_configuration_wizard.dart';
 
@@ -37,8 +40,39 @@ class _EFideliteScreenState extends ConsumerState<EFideliteScreen> {
       return;
     }
 
-    setState(() => _saving = true);
     final config = ref.read(loyaltyProgramEditingProvider);
+    final previous = merchant.loyaltyProgram ??
+        LoyaltyProgramConfig.fallbackFromFlags(
+          loyaltyEnabled: merchant.loyaltyEnabled,
+        );
+    final programChanged = loyaltyProgramsDiffer(previous, config);
+    final disabling = previous.programEnabled && !config.programEnabled;
+
+    if (programChanged || disabling) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Modifier le programme ?'),
+          content: const Text(
+            'Les clients déjà inscrits conservent leur programme actuel. '
+            'Seuls les nouveaux clients suivront le nouveau programme.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true || !mounted) return;
+    }
+
+    setState(() => _saving = true);
     final result = await ref.read(updateMerchantLoyaltyProgramProvider).call(
           merchantId: merchant.id,
           config: config,
