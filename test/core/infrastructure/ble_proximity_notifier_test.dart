@@ -13,6 +13,7 @@ BleProximityNotifier _makeNotifier({
   void Function()? startScan,
   Stream<List<ScanResult>> Function()? scanResultsStream,
   Future<void> Function()? stopScan,
+  Future<bool> Function()? merchantPermissionsGranted,
 }) =>
     BleProximityNotifier(
       startBroadcast: startBroadcast ?? (_) async => true,
@@ -21,6 +22,8 @@ BleProximityNotifier _makeNotifier({
       startScan: startScan ?? () {},
       scanResultsStream: scanResultsStream ?? () => const Stream.empty(),
       stopScan: stopScan ?? () async {},
+      merchantPermissionsGranted:
+          merchantPermissionsGranted ?? () async => true,
       firestore: FakeFirebaseFirestore(),
     );
 
@@ -257,6 +260,7 @@ void main() {
         // Emit an empty list first — the internal scan sub just waits.
         scanResultsStream: () => const Stream.empty(),
         stopScan: () async {},
+        merchantPermissionsGranted: () async => true,
         firestore: fakeFirestore,
       );
 

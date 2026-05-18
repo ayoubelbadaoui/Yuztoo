@@ -153,24 +153,14 @@ void main() {
       expect(alert.detail, 'Expire dans 1 j');
     });
 
-    test('loyaltyPendingValidation with no detail', () {
-      const alert = RappelAlert(
-        type: RappelAlertType.loyaltyPendingValidation,
-        count: 5,
-      );
-      expect(alert.type, RappelAlertType.loyaltyPendingValidation);
-      expect(alert.count, 5);
-      expect(alert.detail, isNull);
-    });
-
     test('loyaltyRewardReady type stored correctly', () {
       const alert =
           RappelAlert(type: RappelAlertType.loyaltyRewardReady, count: 1);
       expect(alert.type, RappelAlertType.loyaltyRewardReady);
     });
 
-    test('RappelAlertType has exactly 3 values', () {
-      expect(RappelAlertType.values.length, 3);
+    test('RappelAlertType has exactly 2 values', () {
+      expect(RappelAlertType.values.length, 2);
     });
   });
 }

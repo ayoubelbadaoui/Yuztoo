@@ -7,10 +7,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/application/precache_network_images.dart';
-import '../../../core/domain/core/result.dart';
-import '../../loyalty/domain/entities/client_merchant_loyalty_progress.dart';
-import '../../merchant/domain/entities/loyalty_program_config.dart';
+import '../../auth/core/application/providers.dart' show authStateProvider;
+import '../../auth/core/application/state/auth_state.dart' show Authenticated;
+import '../../loyalty/domain/entities/active_validation_request.dart';
 import '../../merchant_partners/application/providers.dart' as partners_providers;
+import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
 import '../../promotions/application/providers.dart' show recordPromoViewsProvider;
 import '../../promotions/domain/entities/promotion.dart';

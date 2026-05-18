@@ -405,23 +405,16 @@ class _RecordLoyaltyPassageSheet extends ConsumerStatefulWidget {
 class _RecordLoyaltyPassageSheetState
     extends ConsumerState<_RecordLoyaltyPassageSheet> {
   bool _busy = false;
+  bool _waitingForMerchant = false;
 
-  Future<void> _submit() async {
+  Future<void> _submitVisitOnly() async {
     if (_busy) return;
-
     setState(() => _busy = true);
-    final Result<ClientMerchantLoyaltyProgress> result;
-    if (widget.visitOnly) {
-      result = await ref.read(recordClientVisitPassageProvider).call(
-            clientUid: widget.clientUid,
-            merchant: widget.merchant,
-          );
-    } else {
-      result = await ref.read(recordLoyaltyPassageProvider).call(
-            clientUid: widget.clientUid,
-            merchant: widget.merchant,
-          );
-    }
+
+    final result = await ref.read(recordClientVisitPassageProvider).call(
+          clientUid: widget.clientUid,
+          merchant: widget.merchant,
+        );
     if (!mounted) return;
     setState(() => _busy = false);
 
@@ -433,16 +426,12 @@ class _RecordLoyaltyPassageSheetState
         ),
       ),
       (progress) {
-        // Capture what we need BEFORE popping (context becomes invalid after pop).
         final parentCtx = widget.parentContext;
         final welcomeGift = widget.merchant.welcomeGiftDescription?.trim() ?? '';
         final merchantName = widget.merchant.displayName?.isNotEmpty == true
             ? widget.merchant.displayName!
             : widget.merchant.name;
 
-        // Auto-follow the merchant when the client records a passage without
-        // already following — ensures their loyalty card appears in Fidélité
-        // and the merchant appears in the client's carnet (home feed).
         if (!widget.isAlreadyFollowing) {
           final toggleFollow = ref.read(toggleMerchantFollowProvider);
           unawaited(toggleFollow.call(
@@ -463,7 +452,6 @@ class _RecordLoyaltyPassageSheetState
         if (!widget.skipWelcomeOnPassage &&
             progress.isFirstVisit &&
             welcomeGift.isNotEmpty) {
-          // Use the parent screen's context — sheet context is invalid after pop.
           Future.delayed(const Duration(milliseconds: 300), () {
             if (!parentCtx.mounted) return;
             showModalBottomSheet<void>(
@@ -479,12 +467,9 @@ class _RecordLoyaltyPassageSheetState
         } else {
           final grat = widget.merchant.effectiveGratificationConfig;
           final tierLabel = grat.labelForPassages(progress.validatedPassages);
-          final message = widget.visitOnly
-              ? 'Passage enregistré — statut : $tierLabel'
-              : 'Demande envoyée — en attente de validation par le commerçant';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(message),
+              content: Text('Passage enregistré — statut : $tierLabel'),
               behavior: SnackBarBehavior.floating,
               backgroundColor: StorefrontColors.primaryGold,
             ),
@@ -494,8 +479,115 @@ class _RecordLoyaltyPassageSheetState
     );
   }
 
+  Future<void> _submitRequest() async {
+    if (_busy || _waitingForMerchant) return;
+    final config = widget.merchant.loyaltyProgram ??
+        LoyaltyProgramConfig.fallbackFromFlags(
+          loyaltyEnabled: widget.merchant.loyaltyEnabled,
+        );
+    if (config.passageValidation == LoyaltyPassageValidation.automatic) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Présentez-vous au comptoir : le commerçant valide votre passage '
+            'automatiquement (proximité).',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vous devez être connecté pour faire une demande.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+
+    // Auto-follow before opening the session so the celebration overlay
+    // (which iterates followed merchants) listens to this merchant from the
+    // moment the merchant validates.
+    if (!widget.isAlreadyFollowing) {
+      final toggleFollow = ref.read(toggleMerchantFollowProvider);
+      unawaited(toggleFollow.call(
+        userId: widget.clientUid,
+        merchantId: widget.merchant.id,
+        currentlyFollowing: false,
+      ));
+      ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+      ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
+      ref.invalidate(clientHomeFeedProvider);
+    }
+
+    final result = await ref.read(requestActiveValidationProvider).call(
+          client: authState.user,
+          merchant: widget.merchant,
+        );
+    if (!mounted) return;
+
+    result.fold(
+      (failure) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+      (_) {
+        setState(() {
+          _busy = false;
+          _waitingForMerchant = true;
+        });
+      },
+    );
+  }
+
+  Future<void> _cancelRequest() async {
+    final useCase = ref.read(cancelActiveValidationProvider);
+    await useCase.byClient(
+      merchantId: widget.merchant.id,
+      clientUid: widget.clientUid,
+    );
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  void _onSessionUpdate(ActiveValidationRequest? session) {
+    if (!_waitingForMerchant) return;
+    if (session == null) return;
+    if (session.status == ActiveValidationStatus.completed) {
+      Navigator.of(context).pop();
+      // Celebration overlay on LoyaltyCardsScreen picks up the transition.
+    } else if (session.status == ActiveValidationStatus.cancelled) {
+      Navigator.of(context).pop();
+      Future.microtask(() {
+        if (!widget.parentContext.mounted) return;
+        ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+          const SnackBar(
+            content: Text('Le commerçant a refusé votre demande.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Listen to live session changes when we're in the waiting phase.
+    if (_waitingForMerchant) {
+      ref.listen<AsyncValue<ActiveValidationRequest?>>(
+        clientActiveValidationSessionProvider(widget.merchant.id),
+        (_, next) => next.whenData(_onSessionUpdate),
+      );
+    }
     final grat = widget.merchant.effectiveGratificationConfig;
     return SafeArea(
       child: Padding(
@@ -504,7 +596,6 @@ class _RecordLoyaltyPassageSheetState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 width: 36,
@@ -516,60 +607,136 @@ class _RecordLoyaltyPassageSheetState
                 ),
               ),
             ),
-            Text(
-              widget.visitOnly ? 'Enregistrer votre passage' : 'Demander un passage',
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: StorefrontColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.visitOnly
-                  ? 'Votre visite est comptée pour votre statut chez ce commerce '
-                      '(${grat.nouveauLabel}, ${grat.habituelLabel}, ${grat.vipLabel}).'
-                  : 'Votre passage sera validé par le commerçant. '
-                      'Vous recevrez une notification dès qu’il sera confirmé.',
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                height: 1.5,
-                color: StorefrontColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _busy ? null : _submit,
-              style: FilledButton.styleFrom(
-                backgroundColor: StorefrontColors.primaryGold,
-                foregroundColor: StorefrontColors.navyDark,
-                disabledBackgroundColor:
-                    StorefrontColors.primaryGold.withValues(alpha: 0.5),
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+            if (_waitingForMerchant)
+              _WaitingForMerchantBody(
+                merchantName:
+                    widget.merchant.displayName?.isNotEmpty == true
+                        ? widget.merchant.displayName!
+                        : widget.merchant.name,
+                onCancel: _cancelRequest,
+              )
+            else ...[
+              Text(
+                widget.visitOnly
+                    ? 'Enregistrer votre passage'
+                    : 'Demander un passage',
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: StorefrontColors.textPrimary,
                 ),
               ),
-              child: _busy
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: StorefrontColors.navyDark,
+              const SizedBox(height: 8),
+              Text(
+                widget.visitOnly
+                    ? 'Votre visite est comptée pour votre statut chez ce commerce '
+                        '(${grat.nouveauLabel}, ${grat.habituelLabel}, ${grat.vipLabel}).'
+                    : 'Le commerçant validera votre passage à l\'instant. '
+                        'Vous verrez la confirmation en direct dès qu\'il aura terminé.',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: StorefrontColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _busy
+                    ? null
+                    : (widget.visitOnly ? _submitVisitOnly : _submitRequest),
+                style: FilledButton.styleFrom(
+                  backgroundColor: StorefrontColors.primaryGold,
+                  foregroundColor: StorefrontColors.navyDark,
+                  disabledBackgroundColor:
+                      StorefrontColors.primaryGold.withValues(alpha: 0.5),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: _busy
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: StorefrontColors.navyDark,
+                        ),
+                      )
+                    : Text(
+                        'Valider',
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    )
-                  : Text(
-                      'Valider',
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-            ),
+              ),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _WaitingForMerchantBody extends StatelessWidget {
+  const _WaitingForMerchantBody({
+    required this.merchantName,
+    required this.onCancel,
+  });
+
+  final String merchantName;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Center(
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: StorefrontColors.primaryGold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'En attente du commerçant…',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.outfit(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: StorefrontColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Votre demande a été envoyée à $merchantName. '
+          'Vous verrez la confirmation dès qu\'il aura validé.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            height: 1.5,
+            color: StorefrontColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 20),
+        TextButton(
+          onPressed: onCancel,
+          child: Text(
+            'Annuler la demande',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: StorefrontColors.textSecondary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

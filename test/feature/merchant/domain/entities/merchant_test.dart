@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 
 void main() {
@@ -268,6 +269,34 @@ void main() {
       );
 
       expect(merchant.hours, hours);
+    });
+
+    test('hasSavedLoyaltyProgram is false without loyaltyProgram', () {
+      const merchant = Merchant(
+        id: 'merchant-1',
+        ownerUid: 'user-1',
+        name: 'Business',
+        email: 'biz@example.com',
+        phone: '+33611111111',
+        city: 'Paris',
+      );
+      expect(merchant.hasSavedLoyaltyProgram, isFalse);
+      expect(merchant.isLoyaltyLive, isFalse);
+    });
+
+    test('isLoyaltyLive requires saved program and programEnabled', () {
+      const merchant = Merchant(
+        id: 'merchant-1',
+        ownerUid: 'user-1',
+        name: 'Business',
+        email: 'biz@example.com',
+        phone: '+33611111111',
+        city: 'Paris',
+        loyaltyProgram: LoyaltyProgramConfig(programEnabled: true),
+        loyaltyEnabled: true,
+      );
+      expect(merchant.hasSavedLoyaltyProgram, isTrue);
+      expect(merchant.isLoyaltyLive, isTrue);
     });
   });
 }

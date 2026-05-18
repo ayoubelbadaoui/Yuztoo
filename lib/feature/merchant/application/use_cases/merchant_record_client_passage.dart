@@ -10,7 +10,10 @@ import '../../domain/entities/merchant.dart';
 
 /// Records a passage when the merchant validates in person (BLE).
 ///
-/// Clears a pending client request when present, then writes validated progress.
+/// Synchronous write to loyalty_clients — no pending queue (those went away
+/// with the active_validations rewrite). The merchant decides on the spot
+/// whether the spend amount is needed (purchase-total programs) or not
+/// (visit-count programs).
 class MerchantRecordClientPassage {
   MerchantRecordClientPassage(this._loyaltyRepo, this._notificationRepo);
 
@@ -31,12 +34,10 @@ class MerchantRecordClientPassage {
         (merchant.loyaltyProgram?.programEnabled ?? merchant.loyaltyEnabled);
 
     if (!loyaltyActive) {
-      final pendingClear = await _pendingClearDelta(clientUid, merchant.id);
       return _loyaltyRepo.applyPassageDeltas(
         merchantId: merchant.id,
         clientUid: clientUid,
         validatedPassagesDelta: 1,
-        pendingPassagesDelta: pendingClear,
       );
     }
 
@@ -57,14 +58,12 @@ class MerchantRecordClientPassage {
       );
     }
 
-    final pendingClear = await _pendingClearDelta(clientUid, merchant.id);
-
     if (config.triggerType == LoyaltyTriggerType.visitCount) {
       final result = await _loyaltyRepo.applyPassageDeltas(
         merchantId: merchant.id,
         clientUid: clientUid,
-        pendingPassagesDelta: pendingClear,
         validatedPassagesDelta: 1,
+        enrollProgram: config,
       );
       await result.fold(
         (_) async {},
@@ -90,8 +89,8 @@ class MerchantRecordClientPassage {
     final result = await _loyaltyRepo.applyPassageDeltas(
       merchantId: merchant.id,
       clientUid: clientUid,
-      pendingPassagesDelta: pendingClear,
       cumulativeSpendEurosDelta: spend,
+      enrollProgram: config,
     );
     await result.fold(
       (_) async {},
@@ -107,11 +106,5 @@ class MerchantRecordClientPassage {
       },
     );
     return result;
-  }
-
-  Future<int> _pendingClearDelta(String clientUid, String merchantId) async {
-    final snap = await _loyaltyRepo.readProgress(merchantId, clientUid);
-    if (snap.pendingPassages > 0) return -1;
-    return 0;
   }
 }

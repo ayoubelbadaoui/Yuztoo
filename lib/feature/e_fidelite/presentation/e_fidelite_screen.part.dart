@@ -1,8 +1,37 @@
 part of 'e_fidelite_screen.dart';
 
 extension _EFideliteScreenUi on _EFideliteScreenState {
+  void _initViewModeIfNeeded(Merchant merchant) {
+    if (_viewModeInitialized) return;
+    _viewModeInitialized = true;
+    final pending = ref.read(pendingLoyaltyConfigurationProvider);
+    final mode = resolveEFideliteInitialMode(
+      merchant: merchant,
+      pendingConfiguration: pending,
+    );
+    _viewMode =
+        mode == EFideliteInitialMode.recap ? _EFideliteViewMode.recap : _EFideliteViewMode.wizard;
+  }
+
+  void _openWizard({required int initialStep, bool fromRecap = false}) {
+    ref.read(loyaltyWizardMaxStepVisitedProvider.notifier).state =
+        fromRecap ? loyaltyWizardLastStepIndex : initialStep;
+    setState(() {
+      _viewMode = _EFideliteViewMode.wizard;
+      _editingFromRecap = fromRecap;
+      _wizardInitialStep = initialStep;
+    });
+  }
+
+  void _disableProgram() {
+    ref.read(loyaltyProgramEditingProvider.notifier).setProgramEnabled(false);
+    _save();
+  }
+
   Widget _buildEFideliteBody(BuildContext context) {
     final asyncMerchant = ref.watch(currentMerchantForOwnerProvider);
+    final config = ref.watch(loyaltyProgramEditingProvider);
+    final maxStepVisited = ref.watch(loyaltyWizardMaxStepVisitedProvider);
 
     ref.listen<AsyncValue<Merchant?>>(currentMerchantForOwnerProvider,
         (previous, next) {
@@ -11,9 +40,26 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
           ref
               .read(loyaltyProgramEditingProvider.notifier)
               .hydrateFromMerchantIfNeeded(merchant);
+          _initViewModeIfNeeded(merchant);
         }
       });
     });
+
+    final merchant = asyncMerchant.valueOrNull;
+    if (merchant != null) {
+      _initViewModeIfNeeded(merchant);
+    }
+
+    final inRecap = _viewMode == _EFideliteViewMode.recap;
+    final saveEnabled = merchant != null &&
+        !_saving &&
+        !inRecap &&
+        loyaltyWizardSaveEnabled(
+          config: config,
+          hasSavedLoyaltyProgram: merchant.hasSavedLoyaltyProgram,
+          editingFromRecap: _editingFromRecap,
+          maxStepVisited: maxStepVisited,
+        );
 
     return PopScope(
       canPop: false,
@@ -37,9 +83,8 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
               _EFideliteHeader(
                 onBack: widget.onBack,
                 onSave: _save,
-                saveEnabled: asyncMerchant.hasValue &&
-                    asyncMerchant.value != null &&
-                    !_saving,
+                showSave: !inRecap,
+                saveEnabled: saveEnabled,
                 saving: _saving,
               ),
               Expanded(
@@ -140,12 +185,30 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
                         ),
                       );
                     }
+
+                    if (_viewMode == _EFideliteViewMode.recap) {
+                      final saved = merchant.loyaltyProgram ?? config;
+                      return LoyaltyProgramRecap(
+                        config: saved,
+                        saving: _saving,
+                        onEdit: ({required int initialStep}) =>
+                            _openWizard(
+                          initialStep: initialStep,
+                          fromRecap: true,
+                        ),
+                        onDisable: _disableProgram,
+                      );
+                    }
+
                     return LoyaltyConfigurationWizard(
+                      key: ValueKey(
+                        'wizard_${_wizardInitialStep}_$_editingFromRecap',
+                      ),
                       onSave: _save,
-                      saveEnabled: asyncMerchant.hasValue &&
-                          asyncMerchant.value != null &&
-                          !_saving,
+                      saveEnabled: saveEnabled,
                       saving: _saving,
+                      initialStep: _wizardInitialStep,
+                      editingFromRecap: _editingFromRecap,
                     );
                   },
                 ),
@@ -162,12 +225,14 @@ class _EFideliteHeader extends StatelessWidget {
   const _EFideliteHeader({
     this.onBack,
     required this.onSave,
+    required this.showSave,
     required this.saveEnabled,
     required this.saving,
   });
 
   final VoidCallback? onBack;
   final VoidCallback onSave;
+  final bool showSave;
   final bool saveEnabled;
   final bool saving;
 
@@ -215,29 +280,32 @@ class _EFideliteHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              if (saving)
-                const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: MerchantColors.gold,
-                  ),
-                )
-              else
-                TextButton(
-                  onPressed: saveEnabled ? onSave : null,
-                  child: Text(
-                    'Enregistrer',
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: saveEnabled
-                          ? MerchantColors.gold
-                          : MerchantColors.textLightGrey,
+              if (showSave)
+                if (saving)
+                  const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: MerchantColors.gold,
                     ),
-                  ),
-                ),
+                  )
+                else
+                  TextButton(
+                    onPressed: saveEnabled ? onSave : null,
+                    child: Text(
+                      'Enregistrer',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: saveEnabled
+                            ? MerchantColors.gold
+                            : MerchantColors.textLightGrey,
+                      ),
+                    ),
+                  )
+              else
+                const SizedBox(width: 44),
             ],
           ),
         ),

@@ -7,6 +7,7 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/logout_confirm_dialog.dart';
 import '../../legal/domain/legal_document.dart';
 import '../../legal/presentation/legal_document_screen.dart';
+import '../../e_fidelite/application/e_fidelite_providers.dart';
 import '../application/providers.dart';
 import 'widgets/settings_preferences_section.dart';
 import 'widgets/settings_services_section.dart';
@@ -90,8 +91,21 @@ class _MerchantSettingsScreenState
   }
 
   void _setFidelite(bool v) {
-    setState(() => _fidelite = v);
-    _toggle(loyaltyEnabled: v);
+    if (!v) {
+      setState(() => _fidelite = false);
+      _toggle(loyaltyEnabled: false);
+      return;
+    }
+
+    final merchant = ref.read(currentMerchantForOwnerProvider).valueOrNull;
+    if (merchant != null && !merchant.isLoyaltyLive) {
+      ref.read(pendingLoyaltyConfigurationProvider.notifier).state = true;
+      widget.onNavigate?.call('e-fidelite');
+      return;
+    }
+
+    setState(() => _fidelite = true);
+    _toggle(loyaltyEnabled: true);
   }
 
   void _setNotificationsAuto(bool v) {

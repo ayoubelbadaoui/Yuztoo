@@ -52,10 +52,6 @@ class _RecordingRepo implements ClientLoyaltyRepository {
           String merchantId, String clientUid) =>
       const Stream.empty();
   @override
-  Stream<List<LoyaltyPendingClientRow>> watchPendingLoyaltyClients(
-          String merchantId) =>
-      const Stream.empty();
-  @override
   Stream<List<LoyaltyPendingClientRow>> watchClientsWithRewardAvailable({
     required String merchantId,
     required int visitsRequired,
@@ -68,9 +64,9 @@ class _RecordingRepo implements ClientLoyaltyRepository {
     required String merchantId,
     required String clientUid,
     int validatedPassagesDelta = 0,
-    int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
+    ActiveValidationCompletion? completeActiveValidation,
   }) async =>
       throw UnimplementedError();
   @override

@@ -123,7 +123,7 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('OK',
+              child: Text('D\'accord',
                   style: GoogleFonts.outfit(color: MerchantColors.gold)),
             ),
           ],

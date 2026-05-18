@@ -30,7 +30,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
     AsyncValue<List<MerchantClientRow>> clientsAsync,
     String merchantId,
   ) {
-    final isApercu = _section == _Section.apercu;
+    final isList = _section == _Section.list;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -46,8 +46,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
         },
         child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
-          floatingActionButton:
-              isApercu ? null : _buildValidateFab(context),
+          floatingActionButton: isList ? _buildValidateFab(context) : null,
           body: GestureDetector(
             onTap: () => FocusScope.of(context).unfocus(),
             behavior: HitTestBehavior.translucent,
@@ -55,14 +54,20 @@ extension _ClientListScreenUi on _ClientListScreenState {
               children: [
                 _buildHeader(context),
                 _buildTabBar(),
-                if (!isApercu) ...[
+                if (isList) ...[
                   _buildSearchBar(),
                   _buildSegmentChips(),
                 ],
                 Expanded(
-                  child: isApercu
-                      ? _buildApercu(context, clientsAsync, merchantId)
-                      : _buildBody(context, clientsAsync, merchantId),
+                  child: switch (_section) {
+                    _Section.apercu =>
+                      _buildApercu(context, clientsAsync, merchantId),
+                    _Section.validation => ClientValidationTab(
+                        onNavigate: widget.onNavigate,
+                      ),
+                    _Section.list =>
+                      _buildBody(context, clientsAsync, merchantId),
+                  },
                 ),
               ],
             ),
@@ -91,6 +96,11 @@ extension _ClientListScreenUi on _ClientListScreenState {
           Row(
             children: [
               _buildTab('Clients', _Section.list, Icons.people_outline_rounded),
+              _buildTab(
+                'Validation',
+                _Section.validation,
+                Icons.how_to_reg_outlined,
+              ),
               _buildTab('Aperçu', _Section.apercu, Icons.bar_chart_rounded),
             ],
           ),
@@ -117,15 +127,18 @@ extension _ClientListScreenUi on _ClientListScreenState {
                   color: active ? MerchantColors.gold : MerchantColors.textGrey,
                 ),
                 const SizedBox(width: 5),
-                Text(
-                  label,
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight:
-                        active ? FontWeight.w700 : FontWeight.w500,
-                    color: active
-                        ? MerchantColors.gold
-                        : MerchantColors.textGrey,
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight:
+                          active ? FontWeight.w700 : FontWeight.w500,
+                      color: active
+                          ? MerchantColors.gold
+                          : MerchantColors.textGrey,
+                    ),
                   ),
                 ),
               ],
@@ -543,7 +556,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: 40),
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
@@ -701,7 +714,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).padding.bottom + 80,
         ),
-        itemCount: clients.length + 2, // +1 QR banner, +1 list header
+        itemCount: clients.length + 2, // QR + header
         itemBuilder: (_, i) {
           if (i == 0) {
             return Padding(
@@ -1554,17 +1567,17 @@ class _ClientDetailSheetState extends ConsumerState<_ClientDetailSheet> {
           progressAsync.when(
             loading: () => _buildStatsRow(
               validated: '—',
-              pending: '—',
+              spend: '—',
               days: _daysSince(liveClient.followedAt),
             ),
             error: (_, __) => _buildStatsRow(
               validated: '0',
-              pending: '0',
+              spend: '0',
               days: _daysSince(liveClient.followedAt),
             ),
             data: (progress) => _buildStatsRow(
               validated: '${progress.validatedPassages}',
-              pending: '${progress.pendingPassages}',
+              spend: '${progress.cumulativeSpendEuros.toStringAsFixed(0)} €',
               days: _daysSince(liveClient.followedAt),
             ),
           ),
@@ -1577,13 +1590,13 @@ class _ClientDetailSheetState extends ConsumerState<_ClientDetailSheet> {
 
   Widget _buildStatsRow({
     required String validated,
-    required String pending,
+    required String spend,
     required String days,
   }) {
     return Row(
       children: [
         _statCell(validated, 'Passages'),
-        _statCell(pending, 'En attente'),
+        _statCell(spend, 'Cumul'),
         _statCell(days, 'Jours client'),
       ],
     );

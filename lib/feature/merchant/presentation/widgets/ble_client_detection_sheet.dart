@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/infrastructure/ble_proximity_notifier.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../loyalty/presentation/widgets/merchant_spend_amount_dialog.dart';
 import '../../../storefront/presentation/widgets/storefront_colors.dart';
 import '../../application/providers.dart' as merchant_providers;
 import '../../domain/entities/merchant.dart';
@@ -56,12 +57,18 @@ class _BleClientDetectionSheetState
   }
 
   Future<void> _confirm(Merchant merchant) async {
-    final needsAmount =
-        merchant.loyaltyProgram?.effectiveAskClientPurchaseAmount ?? false;
+    final config = merchant.loyaltyProgram;
+    final needsAmount = config?.effectiveAskClientPurchaseAmount ?? false;
+    final double? minimumPerVisitEuros = (config?.minimumPerVisitEnabled ?? false)
+        ? config?.minimumPerVisitEuros
+        : null;
 
     double? amount;
     if (needsAmount) {
-      amount = await _showAmountDialog();
+      amount = await showMerchantSpendAmountDialog(
+        context,
+        minimumPerVisitEuros: minimumPerVisitEuros,
+      );
       if (!mounted) return;
       if (amount == null) return; // cancelled — keep sheet open
     }
@@ -95,63 +102,6 @@ class _BleClientDetectionSheetState
         Navigator.of(context).pop();
         widget.onDismiss();
       },
-    );
-  }
-
-  Future<double?> _showAmountDialog() {
-    final ctrl = TextEditingController();
-    return showDialog<double>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: MerchantColors.navyCard,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Montant de l\'achat',
-          style: GoogleFonts.outfit(
-              color: MerchantColors.textWhite,
-              fontWeight: FontWeight.w600),
-        ),
-        content: TextField(
-          controller: ctrl,
-          keyboardType:
-              const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          style: const TextStyle(color: MerchantColors.textWhite),
-          decoration: const InputDecoration(
-            hintText: '0.00',
-            hintStyle: TextStyle(color: MerchantColors.textGrey),
-            suffixText: '€',
-            suffixStyle: TextStyle(
-                color: StorefrontColors.primaryGold,
-                fontWeight: FontWeight.w600),
-            enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: MerchantColors.gold)),
-            focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(
-                    color: StorefrontColors.primaryGold, width: 2)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Annuler',
-                style: TextStyle(color: MerchantColors.textGrey)),
-          ),
-          TextButton(
-            onPressed: () {
-              final v =
-                  double.tryParse(ctrl.text.replaceAll(',', '.'));
-              Navigator.of(ctx).pop(v);
-            },
-            child: const Text('Valider',
-                style: TextStyle(
-                    color: StorefrontColors.primaryGold,
-                    fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
     );
   }
 

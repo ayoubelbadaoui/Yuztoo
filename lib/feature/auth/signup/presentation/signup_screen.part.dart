@@ -299,6 +299,15 @@ extension _SignupScreenUi on _SignupScreenState {
     ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
         true;
     _withSetState(() => _isSocialLoading = true);
+    // When this is true, the success path has scheduled the shell to swap
+    // away the signup screen on the next frame. The `finally` block MUST
+    // skip its own `setState(_isSocialLoading = false)` in that case —
+    // otherwise the pending rebuild on the signup screen races with the
+    // shell tearing it down and fires `_dependents.isEmpty` in
+    // framework.dart (the same red-screen assertion the previous commit
+    // tried to fix; it patched refreshAuthState but missed the loading
+    // setState that came AFTER it).
+    bool scheduledShellSwap = false;
     try {
       final result = await signIn();
       if (!mounted) return;
@@ -331,6 +340,7 @@ extension _SignupScreenUi on _SignupScreenState {
       if (hasProfile) {
         ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
             false;
+        scheduledShellSwap = true;
         // Defer to next frame so the signup screen's pending setState
         // calls finish before the shell unmounts it. Inline awaiting
         // races with the unmount and fires '_dependents.isEmpty: is
@@ -444,6 +454,7 @@ extension _SignupScreenUi on _SignupScreenState {
               photoUrl: authUser.photoUrl,
             );
       } catch (_) {}
+      scheduledShellSwap = true;
       // Defer to next frame — see same comment in the existing-user
       // branch above. Prevents the framework assertion when the shell
       // unmounts the signup screen while it's still rebuilding.
@@ -463,7 +474,15 @@ extension _SignupScreenUi on _SignupScreenState {
         await ref.read(auth_core.authControllerProvider.notifier).signOut();
       }
     } finally {
-      if (mounted) {
+      // On the success branches (`scheduledShellSwap == true`) we let the
+      // shell tear the signup screen down with `_isSocialLoading` still
+      // true — its rebuild is wasted because the screen is being unmounted
+      // anyway, and triggering one HERE races with the shell's parent-side
+      // rebuild and fires the framework assertion. The user sees the
+      // spinner for ~1 frame before the splash takes over: fine.
+      // On the error path we DO need to clear the spinner because the
+      // screen stays visible for the user to retry.
+      if (!scheduledShellSwap && mounted) {
         _withSetState(() => _isSocialLoading = false);
       }
     }
@@ -573,7 +592,11 @@ extension _SignupScreenUi on _SignupScreenState {
                       });
                       return;
                     }
-                    setModal(() => fieldError = null);
+                    // Don't setModal(fieldError = null) before pop — the
+                    // dialog is being torn down on the next line, and the
+                    // pending markNeedsBuild on the StatefulBuilder racing
+                    // with the route removal is what triggers the red-screen
+                    // assertion users reported.
                     Navigator.of(dialogContext).pop(formatted);
                   },
                   child: Text(

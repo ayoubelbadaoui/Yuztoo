@@ -31,6 +31,28 @@ class BleDiscoveredDevice {
 ///
 /// The merchant never needs the client's UID before tapping a card — the
 /// connection happens on demand (tap → connect → read → validate).
+
+/// Status of the Android 12+ runtime permissions the merchant scan needs.
+/// Top-level so it can be referenced as `MerchantPermissionStatus.granted`
+/// without the `BleProximityService.` prefix from call sites.
+enum MerchantPermissionStatus {
+  /// Both BLUETOOTH_SCAN and BLUETOOTH_CONNECT are granted — safe to scan.
+  granted,
+
+  /// Permission was denied once. The next `.request()` call will pop the
+  /// OS prompt (Android — iOS shows the prompt the first time too).
+  denied,
+
+  /// Permission was denied twice (or "Don't ask again" was selected).
+  /// `.request()` will silently return denied — the only way to enable
+  /// it is to send the user to system Settings via `openAppSettings()`.
+  permanentlyDenied,
+
+  /// iOS-only: restricted by device policy (parental controls, MDM).
+  /// Treated the same as permanentlyDenied for UX purposes.
+  restricted,
+}
+
 class BleProximityService {
   /// 128-bit service UUID reserved for Yuztoo BLE proximity sessions.
   static const String serviceUuid = '12340000-1234-1000-8000-00805f9b34fb';
@@ -109,13 +131,66 @@ class BleProximityService {
 
   // ─── Merchant (Central) ────────────────────────────────────────────────────
 
+  /// Reads the **current** runtime-permission status without prompting the
+  /// user. Use this before showing your own in-app activation dialog — that
+  /// way the OS permission popup doesn't appear unsolicited when the user
+  /// taps "Valider un passage".
+  static Future<MerchantPermissionStatus> merchantPermissionStatus() async {
+    final scan = await Permission.bluetoothScan.status;
+    final connect = await Permission.bluetoothConnect.status;
+    if (scan.isGranted && connect.isGranted) {
+      return MerchantPermissionStatus.granted;
+    }
+    if (scan.isPermanentlyDenied || connect.isPermanentlyDenied) {
+      return MerchantPermissionStatus.permanentlyDenied;
+    }
+    if (scan.isRestricted || connect.isRestricted) {
+      return MerchantPermissionStatus.restricted;
+    }
+    return MerchantPermissionStatus.denied;
+  }
+
+  /// Requests the Android 12+ runtime permissions needed for the merchant
+  /// scan flow:
+  ///   - BLUETOOTH_SCAN  — needed before `FlutterBluePlus.startScan`
+  ///   - BLUETOOTH_CONNECT — needed before `device.connect()` (GATT read)
+  ///
+  /// This **does** pop the OS permission prompt. Only call it after the user
+  /// has explicitly agreed to activate Bluetooth in your in-app dialog —
+  /// otherwise the OS popup appears out of nowhere when they tap the
+  /// "Valider un passage" button.
+  ///
+  /// Returns true when both are granted. On iOS both calls resolve to
+  /// granted because there's no equivalent runtime gate — the global
+  /// `NSBluetoothAlwaysUsageDescription` prompt is handled when the BLE
+  /// stack is first touched.
+  static Future<bool> requestMerchantPermissions() async {
+    final scan = await Permission.bluetoothScan.request();
+    if (!scan.isGranted) return false;
+    final connect = await Permission.bluetoothConnect.request();
+    if (!connect.isGranted) return false;
+    return true;
+  }
+
+  /// Opens the system Settings page for the app so the user can flip the
+  /// Bluetooth permission switch manually. Use this when
+  /// [merchantPermissionStatus] returns `permanentlyDenied` — `.request()`
+  /// won't help there.
+  static Future<bool> openSystemBluetoothSettings() async {
+    try {
+      return await openAppSettings();
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Starts scanning for devices advertising the Yuztoo service UUID.
   /// Each emission is the deduplicated list of discovered [BluetoothDevice]s.
-  /// Returns an empty stream immediately if BLUETOOTH_SCAN is not granted.
+  /// Returns an empty stream immediately if the runtime permissions are not
+  /// granted.
   static Stream<List<BluetoothDevice>> startMerchantScan() async* {
-    // Android 12+ requires BLUETOOTH_SCAN at runtime before startScan.
-    final scan = await Permission.bluetoothScan.request();
-    if (!scan.isGranted) return;
+    final ok = await requestMerchantPermissions();
+    if (!ok) return;
     FlutterBluePlus.startScan(withServices: [Guid(serviceUuid)]);
     final seen = <DeviceIdentifier>{};
     yield* FlutterBluePlus.scanResults.map((results) {

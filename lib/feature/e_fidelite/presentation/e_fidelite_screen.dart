@@ -11,9 +11,11 @@ import '../../storefront/application/providers.dart' as storefront_providers;
 import '../../loyalty/application/client_loyalty_providers.dart'
     show loyaltyProgramsDiffer;
 import '../application/e_fidelite_providers.dart';
+import '../application/loyalty_program_flow.dart';
 import 'widgets/loyalty_configuration_wizard.dart';
 
 part 'e_fidelite_screen.part.dart';
+part 'loyalty_program_recap.part.dart';
 
 /// Merchant "E-Fidélité" — loyalty questionnaire + Firestore persistence.
 class EFideliteScreen extends ConsumerStatefulWidget {
@@ -25,8 +27,14 @@ class EFideliteScreen extends ConsumerStatefulWidget {
   ConsumerState<EFideliteScreen> createState() => _EFideliteScreenState();
 }
 
+enum _EFideliteViewMode { recap, wizard }
+
 class _EFideliteScreenState extends ConsumerState<EFideliteScreen> {
   bool _saving = false;
+  _EFideliteViewMode? _viewMode;
+  bool _editingFromRecap = false;
+  int _wizardInitialStep = 0;
+  bool _viewModeInitialized = false;
 
   Future<void> _save() async {
     final merchant = ref.read(currentMerchantForOwnerProvider).valueOrNull;
@@ -94,8 +102,14 @@ class _EFideliteScreenState extends ConsumerState<EFideliteScreen> {
       },
       (updated) {
         ref.read(loyaltyProgramEditingProvider.notifier).applySavedMerchant(updated);
+        ref.read(pendingLoyaltyConfigurationProvider.notifier).state = false;
         ref.invalidate(currentMerchantForOwnerProvider);
         ref.invalidate(storefront_providers.storefrontProvider);
+        setState(() {
+          _viewMode = _EFideliteViewMode.recap;
+          _editingFromRecap = false;
+          _viewModeInitialized = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Programme de fidélité enregistré.')),
         );

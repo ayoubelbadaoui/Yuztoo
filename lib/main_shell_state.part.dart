@@ -27,6 +27,10 @@ class _RootShellState extends ConsumerState<_RootShell>
   StreamSubscription<RemoteMessage>? _fcmOpenedAppSub;
   StreamSubscription<Map<String, dynamic>?>? _notifTapSub;
   StreamSubscription<BleClientDetection>? _bleDetectionSub;
+  ProviderSubscription<AsyncValue<List<ActiveValidationRequest>>>?
+      _activeValidationSub;
+  bool _activeValidationSheetOpen = false;
+  final Set<String> _handledActiveValidationKeys = <String>{};
 
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
   String? _pendingVitrineMerchantId;
@@ -56,6 +60,9 @@ class _RootShellState extends ConsumerState<_RootShell>
     // Show banner for foreground FCM messages.
     _fcmForegroundSub = FirebaseMessaging.onMessage.listen((message) {
       debugPrint('[FCM] foreground message: ${message.notification?.title}');
+      if (_role == UserRole.merchant) {
+        unawaited(_tryOpenPassageValidationFromPush(message.data));
+      }
       unawaited(NotificationService.instance.showFromRemoteMessage(message));
     });
 
@@ -155,6 +162,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     NotificationService.instance.dispose();
     _appLinkSubscription?.cancel();
     _bleDetectionSub?.cancel();
+    _activeValidationSub?.close();
     _authStateSub?.close();
     super.dispose();
   }
@@ -247,10 +255,10 @@ class _RootShellState extends ConsumerState<_RootShell>
       //   2. Cloud Function deleted push_tokens/device (invalid-token error).
       //   3. User granted notification permission in device Settings after denying in-app.
       _reRegisterFcmToken();
-      unawaited(_startBle());
+      unawaited(_startMerchantRealtimeServices());
     } else {
       unawaited(WakelockPlus.disable());
-      unawaited(_stopBle());
+      unawaited(_stopBleOnly());
     }
   }
 
@@ -295,6 +303,11 @@ class _RootShellState extends ConsumerState<_RootShell>
         merchantId,
         promotionId: promotionId.isEmpty ? null : promotionId,
       );
+      return;
+    }
+
+    if (type == 'loyalty_passage_request' && _role == UserRole.merchant) {
+      unawaited(_tryOpenPassageValidationFromPush(data));
       return;
     }
 
@@ -452,7 +465,7 @@ class _RootShellState extends ConsumerState<_RootShell>
             _nestedScreen = null;
             _role = null;
           });
-          unawaited(_stopBle());
+          unawaited(_stopMerchantRealtimeServices());
         }
       } else if (authState is AuthError) {
         // Reset navigation flag
@@ -698,7 +711,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           _tryConsumePendingVitrineLink();
           _tryConsumePendingFcmMessage();
         });
-        unawaited(_startBle());
+        unawaited(_startMerchantRealtimeServices());
       }
     } catch (_) {
       // Fail closed: keep access guarded when profile routing cannot be resolved.
@@ -778,13 +791,25 @@ class _RootShellState extends ConsumerState<_RootShell>
 
   /// Starts BLE in the mode matching the current role (client → advertise,
   /// merchant → scan). No-op when unauthenticated or role is unknown.
-  Future<void> _startBle() async {
+  /// BLE scan/advertise + merchant passage-validation Firestore listener.
+  Future<void> _startMerchantRealtimeServices() async {
+    await _startBleOnly();
+    _ensureMerchantPassageListener();
+  }
+
+  Future<void> _stopMerchantRealtimeServices() async {
+    _stopActiveValidationListener();
+    await _stopBleOnly();
+  }
+
+  Future<void> _startBleOnly() async {
     final authState = ref.read(authControllerProvider);
     if (authState is! Authenticated) return;
     final notifier = ref.read(bleProximityProvider.notifier);
     _bleDetectionSub?.cancel();
     _bleDetectionSub = null;
     if (_role == UserRole.client) {
+      _stopActiveValidationListener();
       await notifier.startAsClient(authState.user.id);
     } else if (_role == UserRole.merchant) {
       _bleDetectionSub = notifier.detections.listen(_onClientDetected);
@@ -792,11 +817,109 @@ class _RootShellState extends ConsumerState<_RootShell>
     }
   }
 
-  /// Stops all BLE activity and cancels the detection subscription.
-  Future<void> _stopBle() async {
+  /// Stops BLE only (passage listener stays active while merchant shell is open).
+  Future<void> _stopBleOnly() async {
     _bleDetectionSub?.cancel();
     _bleDetectionSub = null;
     await ref.read(bleProximityProvider.notifier).stop();
+  }
+
+  void _ensureMerchantPassageListener() {
+    if (_role != UserRole.merchant) return;
+    if (_activeValidationSub != null) return;
+    _startActiveValidationListener();
+  }
+
+  /// Opens the validation sheet from FCM when the Firestore queue already
+  /// contains the session (foreground / resume).
+  Future<void> _tryOpenPassageValidationFromPush(
+    Map<String, dynamic> data,
+  ) async {
+    if (!mounted || _role != UserRole.merchant || _activeValidationSheetOpen) {
+      return;
+    }
+    final clientUid = data['client_uid'] as String? ?? '';
+    if (clientUid.isEmpty) return;
+
+    final queue =
+        ref.read(merchantActiveValidationQueueProvider).valueOrNull ??
+            const <ActiveValidationRequest>[];
+    ActiveValidationRequest? session;
+    for (final s in queue) {
+      if (s.clientUid == clientUid && s.isAwaiting && !s.isExpired) {
+        session = s;
+        break;
+      }
+    }
+    if (session == null) return;
+
+    final key = _activeValidationSessionKey(session);
+    if (_handledActiveValidationKeys.contains(key)) return;
+    _handledActiveValidationKeys.add(key);
+    await _openActiveValidationSheet(session);
+  }
+
+  /// Subscribes to merchant-side live validation requests. When a new
+  /// 'awaiting' session appears, pops the smart-form sheet on top of any
+  /// screen. Serializes overlapping requests with [_activeValidationSheetOpen].
+  void _startActiveValidationListener() {
+    _activeValidationSub?.close();
+    _activeValidationSub = ref.listenManual<
+        AsyncValue<List<ActiveValidationRequest>>>(
+      merchantActiveValidationQueueProvider,
+      (previous, next) {
+        next.whenData(_onActiveValidationQueue);
+      },
+      fireImmediately: true,
+    );
+  }
+
+  void _stopActiveValidationListener() {
+    _activeValidationSub?.close();
+    _activeValidationSub = null;
+    _handledActiveValidationKeys.clear();
+    _activeValidationSheetOpen = false;
+  }
+
+  String _activeValidationSessionKey(ActiveValidationRequest session) =>
+      '${session.merchantId}__${session.clientUid}__'
+      '${session.createdAt?.millisecondsSinceEpoch ?? 0}';
+
+  void _onActiveValidationQueue(List<ActiveValidationRequest> queue) {
+    if (!mounted || _activeValidationSheetOpen) return;
+    for (final session in queue) {
+      if (!session.isAwaiting || session.isExpired) continue;
+      final key = _activeValidationSessionKey(session);
+      if (_handledActiveValidationKeys.contains(key)) continue;
+      _handledActiveValidationKeys.add(key);
+      _openActiveValidationSheet(session);
+      break; // Open one at a time; the next will be picked up on close.
+    }
+  }
+
+  Future<void> _openActiveValidationSheet(
+    ActiveValidationRequest session,
+  ) async {
+    final merchant = await ref.read(
+      merchant_providers.currentMerchantForOwnerProvider.future,
+    );
+    if (!mounted || merchant == null || merchant.id != session.merchantId) {
+      return;
+    }
+    _activeValidationSheetOpen = true;
+    await showMerchantActiveValidationSheet(
+      context: context,
+      merchant: merchant,
+      session: session,
+    );
+    if (!mounted) return;
+    _activeValidationSheetOpen = false;
+    // Re-process the queue in case another request landed while the sheet
+    // was open — the provider always holds the current state.
+    final next = ref
+        .read(merchantActiveValidationQueueProvider)
+        .valueOrNull;
+    if (next != null) _onActiveValidationQueue(next);
   }
 
   /// Called when a client is detected nearby. Shows the confirmation sheet on
@@ -916,7 +1039,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         _activeTab = 'home';
         _nestedScreen = null;
       });
-      unawaited(_startBle());
+      unawaited(_startBleOnly());
     } finally {
       _isSwitchingToClient = false;
     }
@@ -935,7 +1058,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       _activeTab = 'home';
       _nestedScreen = null;
     });
-    unawaited(_startBle());
+    unawaited(_startBleOnly());
   }
 
   /// Returns `true` when the user confirms creating a client account.
@@ -1024,7 +1147,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           _activeTab = 'storefront';
           _nestedScreen = null;
         });
-        unawaited(_startBle());
+        unawaited(_startMerchantRealtimeServices());
       } else {
         // First time — register the merchant role in Firestore, then onboard.
         final roleResult = await repo.addSecondaryMerchantRole(uid);
@@ -1052,7 +1175,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           _activeTab = 'storefront';
           _nestedScreen = null;
         });
-        unawaited(_startBle());
+        unawaited(_startMerchantRealtimeServices());
       }
     } finally {
       _isSwitchingToMerchant = false;
@@ -1953,6 +2076,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           isDualProfile: _isDualProfile,
           onSwitchRole: () => _handleNavigate('switch-to-client'),
           onShowQr: () => _handleNavigate('qr-code'),
+          onNavigate: _handleNavigate,
         );
       case ScreenId.merchantPromotions:
         return PromotionsManagementScreen(

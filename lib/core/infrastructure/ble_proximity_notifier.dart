@@ -50,6 +50,7 @@ typedef BleReadClientIdFn = Future<String?> Function(BluetoothDevice device);
 typedef BleStartScanFn = void Function();
 typedef BleScanResultsStreamFn = Stream<List<ScanResult>> Function();
 typedef BleStopScanFn = Future<void> Function();
+typedef BleMerchantPermissionsGrantedFn = Future<bool> Function();
 
 /// Manages BLE advertising (client role) and scanning (merchant role) for the
 /// entire app session.  Start via [startAsClient] or [startAsMerchant] when
@@ -68,6 +69,7 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
     BleStartScanFn? startScan,
     BleScanResultsStreamFn? scanResultsStream,
     BleStopScanFn? stopScan,
+    BleMerchantPermissionsGrantedFn? merchantPermissionsGranted,
     FirebaseFirestore? firestore,
   })  : _startBroadcast =
             startBroadcast ?? BleProximityService.startClientBroadcast,
@@ -79,6 +81,11 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
         _scanResultsStream =
             scanResultsStream ?? (() => FlutterBluePlus.scanResults),
         _stopScan = stopScan ?? BleProximityService.stopMerchantScan,
+        _merchantPermissionsGranted = merchantPermissionsGranted ??
+            (() async {
+              final s = await BleProximityService.merchantPermissionStatus();
+              return s == MerchantPermissionStatus.granted;
+            }),
         _firestore = firestore ?? FirebaseFirestore.instance,
         super(const BleProximityState());
 
@@ -88,6 +95,7 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
   final BleStartScanFn _startScan;
   final BleScanResultsStreamFn _scanResultsStream;
   final BleStopScanFn _stopScan;
+  final BleMerchantPermissionsGrantedFn _merchantPermissionsGranted;
   final FirebaseFirestore _firestore;
 
   final _detectedController =
@@ -118,10 +126,20 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
 
   /// Starts scanning for nearby Yuztoo clients.
   /// Emits on [detections] when a client passes the RSSI threshold.
+  ///
+  /// **Permissions**: this method *checks* the Android 12+ runtime
+  /// permissions but does **not** prompt the user. If the permissions are
+  /// missing, the scan stays idle and the caller is responsible for asking
+  /// the user to activate them via the in-app dialog (see
+  /// [BleProximityService.merchantPermissionStatus] +
+  /// [BleProximityService.requestMerchantPermissions]). This avoids the OS
+  /// permission popup appearing unsolicited when the merchant just logs in.
   Future<void> startAsMerchant() async {
     await _stopInternal();
     final available = await _isAvailable();
     if (!mounted || !available) return;
+    final permitted = await _merchantPermissionsGranted();
+    if (!mounted || !permitted) return;
     _startScan();
     _scanSub = _scanResultsStream().listen(_onScanResult);
     state = const BleProximityState(

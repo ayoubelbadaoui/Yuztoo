@@ -86,6 +86,27 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       return;
     }
 
+    // Android 12+: BLUETOOTH_SCAN / BLUETOOTH_CONNECT are runtime
+    // permissions. We check the *status* first — the OS popup is only
+    // surfaced after the user explicitly taps "Activer" in our in-app
+    // sheet. This keeps the system permission popup from appearing the
+    // instant the merchant taps "Valider un passage".
+    final status = await BleProximityService.merchantPermissionStatus();
+    if (!mounted) return;
+    if (status == MerchantPermissionStatus.granted) {
+      _beginScan();
+      return;
+    }
+    final granted = await _promptPermissionActivation(status);
+    if (!mounted) return;
+    if (!granted) {
+      setState(() => _bleUnavailable = true);
+      return;
+    }
+    _beginScan();
+  }
+
+  void _beginScan() {
     // Subscribe directly to flutter_blue_plus scan results so we have RSSI.
     FlutterBluePlus.startScan(
         withServices: [Guid(BleProximityService.serviceUuid)]);
@@ -106,6 +127,93 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
         }
       }
     });
+  }
+
+  /// Shows the in-app activation prompt. Returns true once the permission
+  /// is actually granted (the user tapped "Activer" AND the system flow
+  /// completed). Returns false on cancel or denial.
+  ///
+  /// When the permission is `permanentlyDenied`, calling `.request()` would
+  /// silently return denied — the user must enable it from system Settings.
+  /// In that case we send them straight to the app's Settings page via
+  /// `openAppSettings()`.
+  Future<bool> _promptPermissionActivation(
+    MerchantPermissionStatus status,
+  ) async {
+    final mustOpenSettings =
+        status == MerchantPermissionStatus.permanentlyDenied ||
+            status == MerchantPermissionStatus.restricted;
+
+    final action = await showDialog<_PermissionPromptAction>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: MerchantColors.navyCard,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Activer le Bluetooth',
+          style: GoogleFonts.outfit(
+            color: MerchantColors.textWhite,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          mustOpenSettings
+              ? 'L\'autorisation Bluetooth a été refusée. Activez-la dans les '
+                  'réglages de l\'application pour valider un passage à '
+                  'proximité.'
+              : 'Yuztoo a besoin du Bluetooth pour valider le passage du '
+                  'client lorsque vos téléphones se touchent. Activez '
+                  'l\'autorisation pour continuer.',
+          style: GoogleFonts.outfit(
+            color: MerchantColors.textGrey,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx)
+                .pop(_PermissionPromptAction.cancel),
+            child: Text(
+              'Annuler',
+              style: GoogleFonts.outfit(color: MerchantColors.textGrey),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(
+              mustOpenSettings
+                  ? _PermissionPromptAction.openSettings
+                  : _PermissionPromptAction.requestNow,
+            ),
+            child: Text(
+              mustOpenSettings ? 'Ouvrir les réglages' : 'Activer',
+              style: GoogleFonts.outfit(
+                color: StorefrontColors.primaryGold,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return false;
+    switch (action) {
+      case null:
+      case _PermissionPromptAction.cancel:
+        return false;
+      case _PermissionPromptAction.openSettings:
+        await BleProximityService.openSystemBluetoothSettings();
+        // Re-check status when the user comes back from Settings. We
+        // don't block here — if they enabled it, the next time they
+        // re-open this screen the scan starts cleanly.
+        final after = await BleProximityService.merchantPermissionStatus();
+        return after == MerchantPermissionStatus.granted;
+      case _PermissionPromptAction.requestNow:
+        return await BleProximityService.requestMerchantPermissions();
+    }
   }
 
   Future<void> _onDeviceTapped(BluetoothDevice device) async {
@@ -503,4 +611,19 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       ),
     );
   }
+}
+
+/// Outcome of the in-app Bluetooth activation prompt.
+enum _PermissionPromptAction {
+  /// User dismissed the prompt without granting.
+  cancel,
+
+  /// User tapped "Activer" — caller should call `requestMerchantPermissions`
+  /// (this is what fires the OS permission dialog).
+  requestNow,
+
+  /// User tapped "Ouvrir les réglages" — caller should send them to the
+  /// system Settings page because the permission is permanently denied
+  /// and `.request()` would silently no-op.
+  openSettings,
 }

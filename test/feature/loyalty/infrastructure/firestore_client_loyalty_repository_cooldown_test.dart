@@ -8,14 +8,10 @@ import 'package:flutter_yuztoo/feature/loyalty/infrastructure/firestore_client_l
 // Cooldown tests for FirestoreClientLoyaltyRepository.applyPassageDeltas.
 //
 // The cooldown lives inside the Firestore transaction and uses the
-// `last_passage_at` field as its anchor. These tests cover:
-//   • first additive write succeeds and stamps `last_passage_at`
-//   • a second additive write inside the cooldown window is rejected with
-//     a message that contains "déjà" (the UI keys off this string)
-//   • a second additive write past the cooldown window is allowed
-//   • a negative-pending delta (validate-pending) bypasses the cooldown and
-//     does not refresh `last_passage_at`
-//   • cooldown applies independently to validated, pending, and spend deltas
+// `last_passage_at` field as its anchor. Every counter increment is now a
+// "new passage event" (the old pending_passages path is gone), so the
+// cooldown applies uniformly to validated_passages and cumulative_spend_euros
+// writes.
 //
 // We keep the cooldown tiny (50ms) so tests run fast.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -119,41 +115,6 @@ void main() {
       expect(snap.data()?['validated_passages'], 2);
     });
 
-    test('negative pending delta bypasses cooldown (validate-pending path)',
-        () async {
-      // Seed a pending passage.
-      final seed = await repo.applyPassageDeltas(
-        merchantId: merchantId,
-        clientUid: clientUid,
-        pendingPassagesDelta: 1,
-      );
-      expect(seed.isRight, isTrue);
-
-      // The pure "merchant rejects pending" case is purely negative and must
-      // NOT hit cooldown — even when called immediately after the seeding
-      // additive write that stamped `last_passage_at`.
-      final reject = await repo.applyPassageDeltas(
-        merchantId: merchantId,
-        clientUid: clientUid,
-        pendingPassagesDelta: -1,
-      );
-      expect(reject.isRight, isTrue,
-          reason: 'pure pending revert must bypass cooldown');
-
-      final snap = await readDoc();
-      expect(snap.data()?['pending_passages'], 0,
-          reason: 'revert must zero out the pending counter');
-
-      // NOTE: the production code uses `SetOptions(merge: true)` which on
-      // real Firestore preserves `last_passage_at` across non-additive
-      // writes (so the cooldown stays in effect after a revert). The
-      // `fake_cloud_firestore` v4 implementation has a known bug where
-      // `tx.set(..., merge: true)` overwrites the document inside a
-      // transaction, so we cannot assert the preserved value here. The
-      // preservation is verified manually against the live Firestore
-      // emulator in tools/firebase.
-    });
-
     test('cooldown applies independently to spend-based deltas', () async {
       final first = await repo.applyPassageDeltas(
         merchantId: merchantId,
@@ -173,90 +134,10 @@ void main() {
       final snap = await readDoc();
       expect(snap.data()?['cumulative_spend_euros'], closeTo(12.5, 1e-9));
     });
-
-    test('cooldown applies to pending passages too', () async {
-      final first = await repo.applyPassageDeltas(
-        merchantId: merchantId,
-        clientUid: clientUid,
-        pendingPassagesDelta: 1,
-      );
-      expect(first.isRight, isTrue);
-
-      final second = await repo.applyPassageDeltas(
-        merchantId: merchantId,
-        clientUid: clientUid,
-        pendingPassagesDelta: 1,
-      );
-      expect(second.isLeft, isTrue);
-
-      final snap = await readDoc();
-      expect(snap.data()?['pending_passages'], 1,
-          reason: 'rejected pending write must not be counted');
-    });
-
-    test(
-        'merchant validating a pending passage bypasses cooldown even '
-        'immediately after the client created the pending', () async {
-      // Step 1 — client scans, creating a pending passage. This stamps
-      // last_passage_at and starts the cooldown window for "new" events.
-      final clientScan = await repo.applyPassageDeltas(
-        merchantId: merchantId,
-        clientUid: clientUid,
-        pendingPassagesDelta: 1,
-      );
-      expect(clientScan.isRight, isTrue);
-
-      // Step 2 — without any delay, the merchant validates the pending
-      // (pending=-1, validated=+1). This is a state transition of an
-      // event that was already counted toward the cooldown, NOT a new
-      // event. It must be allowed even though we are well inside the
-      // cooldown window. (This is what would break in production if we
-      // had naively raised the cooldown to 1 hour without fixing the
-      // "isAddingPassage" logic.)
-      final merchantValidate = await repo.applyPassageDeltas(
-        merchantId: merchantId,
-        clientUid: clientUid,
-        pendingPassagesDelta: -1,
-        validatedPassagesDelta: 1,
-      );
-      expect(merchantValidate.isRight, isTrue,
-          reason: 'merchant validate-pending must bypass cooldown');
-
-      final snap = await readDoc();
-      expect(snap.data()?['pending_passages'], 0);
-      expect(snap.data()?['validated_passages'], 1);
-    });
-
-    test(
-        'merchant validating a pending spend-based passage bypasses cooldown',
-        () async {
-      final clientScan = await repo.applyPassageDeltas(
-        merchantId: merchantId,
-        clientUid: clientUid,
-        pendingPassagesDelta: 1,
-      );
-      expect(clientScan.isRight, isTrue);
-
-      final merchantValidate = await repo.applyPassageDeltas(
-        merchantId: merchantId,
-        clientUid: clientUid,
-        pendingPassagesDelta: -1,
-        cumulativeSpendEurosDelta: 17.5,
-      );
-      expect(merchantValidate.isRight, isTrue);
-
-      final snap = await readDoc();
-      expect(snap.data()?['pending_passages'], 0);
-      expect(snap.data()?['cumulative_spend_euros'], closeTo(17.5, 1e-9));
-    });
   });
 
   group('production default cooldown', () {
     test('defaults to 1 hour when no duration is passed', () async {
-      // Using the default-constructed repo (no passageCooldown argument)
-      // we expect the second additive write within the hour to fail.
-      // We cannot wait an hour in a unit test, so we just verify that a
-      // second call seconds after the first is rejected.
       final defaultRepo = FirestoreClientLoyaltyRepository(
         firestore: FakeFirebaseFirestore(),
       );

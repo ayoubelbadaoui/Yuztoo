@@ -199,13 +199,6 @@ class _AlertCard extends StatelessWidget {
           title: (n) => n == 1 ? 'Promotion expire bientôt' : '$n promos expirent bientôt',
           subtitle: (_) => 'Dans moins de 3 jours',
         );
-      case RappelAlertType.loyaltyPendingValidation:
-        return _AlertConfig(
-          icon: Icons.pending_actions_rounded,
-          bgColor: const Color(0xFF2196F3),
-          title: (n) => n == 1 ? '1 passage à valider' : '$n passages à valider',
-          subtitle: (_) => 'En attente de validation manuelle',
-        );
       case RappelAlertType.loyaltyRewardReady:
         return _AlertConfig(
           icon: Icons.card_giftcard_outlined,

@@ -6,8 +6,6 @@ extension _RappelsScreenUi on _RappelsScreenState {
     required AsyncValue<Storefront?> storefrontAsync,
     required AsyncValue<Merchant?> merchantAsync,
     required Merchant? merchant,
-    required bool isManualPassageValidation,
-    required int totalPendingPassages,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -58,28 +56,16 @@ extension _RappelsScreenUi on _RappelsScreenState {
                             storefront?.rappelsMonthlyConnectedClients ?? 0,
                         validatedPassagesThisMonth:
                             storefront?.rappelsMonthlyValidatedPassages ?? 0,
-                        pendingLoyaltyPassagesToConfirm: totalPendingPassages,
-                        isManualPassageValidation: isManualPassageValidation,
-                        onConfirmPendingPassagesTap:
-                            _ensurePendingLoyaltySectionVisible,
                         onAutoTap: _scrollToToggles,
                       ),
                       loading: () => RappelsClientsSection(
                         connectedClientsThisMonth: 0,
                         validatedPassagesThisMonth: 0,
-                        pendingLoyaltyPassagesToConfirm: totalPendingPassages,
-                        isManualPassageValidation: isManualPassageValidation,
-                        onConfirmPendingPassagesTap:
-                            _ensurePendingLoyaltySectionVisible,
                         onAutoTap: _scrollToToggles,
                       ),
                       error: (_, __) => RappelsClientsSection(
                         connectedClientsThisMonth: 0,
                         validatedPassagesThisMonth: 0,
-                        pendingLoyaltyPassagesToConfirm: totalPendingPassages,
-                        isManualPassageValidation: isManualPassageValidation,
-                        onConfirmPendingPassagesTap:
-                            _ensurePendingLoyaltySectionVisible,
                         onAutoTap: _scrollToToggles,
                       ),
                     ),
@@ -88,18 +74,6 @@ extension _RappelsScreenUi on _RappelsScreenState {
                       data: (Merchant? m) {
                         if (m == null) return const SizedBox.shrink();
                         return RewardRedemptionSection(merchant: m);
-                      },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                    // ── Passages en attente (validation manuelle) ───────────
-                    merchantAsync.when(
-                      data: (Merchant? m) {
-                        if (m == null) return const SizedBox.shrink();
-                        return PendingLoyaltyValidationsSection(
-                          key: _pendingLoyaltySectionKey,
-                          merchant: m,
-                        );
                       },
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),

@@ -26,10 +26,14 @@ export '../../followed_merchants/application/providers.dart'
         ensureFollowedAndSetHeartLevelProvider,
         merchantMuteStateProvider,
         setMuteStateProvider;
+export '../../loyalty/application/active_validation_providers.dart'
+    show
+        requestActiveValidationProvider,
+        cancelActiveValidationProvider,
+        clientActiveValidationSessionProvider;
 export '../../loyalty/application/client_loyalty_providers.dart'
     show
         clientLoyaltyProgressForMerchantProvider,
-        recordLoyaltyPassageProvider,
         recordClientVisitPassageProvider,
         ClientLoyaltyEntry;
 export '../../profile/application/user_safety_providers.dart'

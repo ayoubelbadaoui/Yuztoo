@@ -239,90 +239,43 @@ service cloud.firestore {
       ]);
     }
 
-    function loyaltyClientCreateValid() {
+    // Merchant-side create: the merchant validates a client's first passage
+    // and the loyalty_clients doc is born from that synchronous write. The
+    // legacy client-side create path (writing pending_passages = 1) is gone —
+    // there is no pending state anymore. Pending sessions live in the
+    // `active_validations` subcollection until the merchant submits the form.
+    function loyaltyClientMerchantCreateValid() {
       let r = request.resource.data;
-      // If the first write also records a passage (any counter > 0), the
-      // cooldown anchor MUST be stamped — otherwise a tampered client could
-      // create the doc with `validated_passages: 1` and no `last_passage_at`,
-      // then re-write seconds later and bypass the cooldown rule entirely
-      // (no anchor = nothing to compare `request.time` against).
-      let recordsPassage =
-        r.validated_passages > 0
-        || r.pending_passages > 0
-        || r.cumulative_spend_euros > 0;
       return loyaltyClientDocKeys()
         && r.validated_passages is int
-        && r.pending_passages is int
         && r.cumulative_spend_euros is number
         && r.updated_at is timestamp
-        && r.validated_passages == 0
-        && r.pending_passages == 1
-        && r.cumulative_spend_euros == 0
-        // first_visit_at is optional on creation but must be a server timestamp when present.
+        && r.validated_passages >= 0
+        && r.cumulative_spend_euros >= 0
         && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at is timestamp)
-        // last_passage_at: required & server-stamped if this create is also
-        // a passage event; otherwise optional (e.g. empty seed doc).
-        && (
-          !recordsPassage
-            ? (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp)
-            : (r.keys().hasAll(['last_passage_at']) && r.last_passage_at is timestamp)
-        )
-        // welcome_bon_claimed_at must not be present on creation — it's only
-        // written via a later update once the bon is actually claimed.
-        && !r.keys().hasAll(['welcome_bon_claimed_at']);
+        && (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp);
     }
 
+    // Client self-update: the only mutation a client can make to their own
+    // loyalty_clients doc is to claim the welcome bon (one-shot
+    // welcome_bon_claimed_at: null → server timestamp). Every counter is
+    // merchant-only — the client no longer writes pending_passages or any
+    // passage delta; that responsibility moved to the merchant on validation.
     function loyaltyClientSelfUpdateValid() {
       let r = request.resource.data;
       let o = resource.data;
-      // A "new passage event" is any client-driven write that increments a
-      // counter. The client rules never allow decrement (see >= o below), so
-      // every client-side counter bump IS a new event from the rule's POV.
-      // This is the server-side anti-fraud line for the cooldown: a tampered
-      // device clock cannot bypass `request.time` since that is server time.
-      // 1-hour window matches the production default in
-      // FirestoreClientLoyaltyRepository._passageCooldown.
-      let isNewPassageEvent =
-        r.validated_passages > o.validated_passages
-        || r.pending_passages > o.pending_passages
-        || r.cumulative_spend_euros > o.cumulative_spend_euros;
-      let cooldownOk =
-        !isNewPassageEvent
-        || !('last_passage_at' in o)
-        || o.last_passage_at == null
-        || request.time > o.last_passage_at + duration.value(1, 'h');
       return loyaltyClientDocKeys()
-        && r.validated_passages is int
-        && r.pending_passages is int
-        && r.cumulative_spend_euros is number
-        && r.updated_at is timestamp
         && r.validated_passages == o.validated_passages
-        && r.pending_passages == o.pending_passages + 1
+        // Legacy `pending_passages` may persist on old docs — tolerate it but
+        // forbid client-side mutation.
+        && (!r.keys().hasAll(['pending_passages'])
+            || r.pending_passages == o.get('pending_passages', 0))
         && r.cumulative_spend_euros == o.cumulative_spend_euros
-        && cooldownOk
-        // first_visit_at is immutable: clients cannot add or change it after creation.
-        // After merge, it will appear in request.resource.data; its value must equal
-        // what was stored (i.e., it was not tampered with).
-        && (!r.keys().hasAll(['first_visit_at']) || r.first_visit_at == o.get('first_visit_at', null))
-        // On a new passage event the anchor MUST be refreshed. Checking
-        // mere "presence" on r is not enough: a merge=true write leaves the
-        // old field in request.resource.data, so the rule must require the
-        // value to differ from the stored one — server timestamps strictly
-        // advance, so r != o is equivalent to "the SDK called
-        // FieldValue.serverTimestamp() on this write".
-        && (
-          !isNewPassageEvent
-          || (
-            r.keys().hasAll(['last_passage_at'])
-            && r.last_passage_at is timestamp
-            && r.last_passage_at != o.get('last_passage_at', null)
-          )
-        )
-        && (!r.keys().hasAll(['last_passage_at']) || r.last_passage_at is timestamp)
-        // welcome_bon_claimed_at is a one-shot. The client may set it from
-        // null → a server timestamp (claiming the bon), but once set it can
-        // NEVER be cleared or overwritten by the client SDK. Any reset must
-        // go through a privileged Cloud Function with Admin SDK.
+        // first_visit_at, last_passage_at, enrolled_* are merchant-managed.
+        && (!r.keys().hasAll(['first_visit_at'])
+            || r.first_visit_at == o.get('first_visit_at', null))
+        && (!r.keys().hasAll(['last_passage_at'])
+            || r.last_passage_at == o.get('last_passage_at', null))
         && (
           !r.keys().hasAll(['welcome_bon_claimed_at'])
           || (
@@ -343,9 +296,9 @@ service cloud.firestore {
       allow read: if isSignedIn()
         && (request.auth.uid == userId || isMerchantOwner(merchantId));
 
-      allow create: if isSignedIn()
-        && request.auth.uid == userId
-        && loyaltyClientCreateValid();
+      // Only the merchant can create — the doc is born on first validation.
+      allow create: if isMerchantOwner(merchantId)
+        && loyaltyClientMerchantCreateValid();
 
       allow update: if isMerchantOwner(merchantId)
         || (isSignedIn()
@@ -357,6 +310,73 @@ service cloud.firestore {
       // (e.g. program reset) must go through a privileged Cloud Function
       // (Admin SDK) which bypasses security rules.
       allow delete: if false;
+    }
+
+    // --- /merchants/{merchantId}/active_validations/{clientUid} ---
+    // Live "passage validation" sessions. The client taps "Demander un passage"
+    // on the merchant's vitrine → this doc is created with status='awaiting'.
+    // The merchant's app listens on the merchant-scoped collection and pops a
+    // smart per-program form. On submit the merchant flips status to
+    // 'completed' (and writes the deltas to loyalty_clients). On dismiss,
+    // 'cancelled'. The doc id is the client's uid, so a re-tap overwrites a
+    // stale completed/cancelled session.
+    function activeValidationSessionPayloadValid() {
+      let r = request.resource.data;
+      return r.keys().hasAll(['client_uid', 'client_display_name', 'created_at', 'status', 'program_snapshot'])
+        && r.keys().hasOnly([
+            'client_uid', 'client_display_name', 'client_photo_url',
+            'created_at', 'status', 'program_snapshot'
+          ])
+        && r.client_display_name is string
+        && r.status == 'awaiting'
+        && r.created_at is timestamp
+        && r.program_snapshot is map
+        && (!r.keys().hasAll(['client_photo_url']) || r.client_photo_url is string);
+    }
+
+    function activeValidationCreateValid() {
+      let r = request.resource.data;
+      return activeValidationSessionPayloadValid()
+        && r.client_uid == request.auth.uid;
+    }
+
+    // Merchant debug: simulate a client tapping « Demander un passage » on vitrine.
+    function activeValidationMerchantSimulateCreateValid(uid) {
+      let r = request.resource.data;
+      return activeValidationSessionPayloadValid()
+        && r.client_uid == uid
+        && r.client_uid != request.auth.uid;
+    }
+
+    function clientResetActiveValidation() {
+      // Allow the client to overwrite a previous completed/cancelled doc with
+      // a fresh 'awaiting' session (handles the case where the merchant hasn't
+      // deleted the doc yet but the client wants to start again).
+      return (resource.data.status == 'completed' || resource.data.status == 'cancelled')
+        && activeValidationCreateValid();
+    }
+
+    function clientCancelActiveValidation() {
+      return resource.data.status == 'awaiting'
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'cancel_reason']);
+    }
+
+    match /merchants/{merchantId}/active_validations/{clientUid} {
+      allow read: if isSignedIn()
+        && (request.auth.uid == clientUid || isMerchantOwner(merchantId));
+      allow create: if isSignedIn()
+        && (
+          (request.auth.uid == clientUid && activeValidationCreateValid())
+          || (isMerchantOwner(merchantId)
+              && activeValidationMerchantSimulateCreateValid(clientUid))
+        );
+      allow update: if isMerchantOwner(merchantId)
+        || (isSignedIn() && request.auth.uid == clientUid
+            && (clientResetActiveValidation() || clientCancelActiveValidation()));
+      allow delete: if isMerchantOwner(merchantId)
+        || (isSignedIn() && request.auth.uid == clientUid);
     }
 
     match /merchants/{merchantId}/promotions/{promoId} {
