@@ -3,7 +3,14 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart'
+    show
+        AndroidScanMode,
+        BluetoothDevice,
+        DeviceIdentifier,
+        FlutterBluePlus,
+        Guid,
+        ScanResult;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -16,24 +23,31 @@ import '../../storefront/presentation/widgets/storefront_colors.dart';
 import '../application/providers.dart' as merchant_providers;
 import '../domain/entities/merchant.dart';
 
-// RSSI threshold for "tap" proximity (~3-5 cm).
-// BLE at this distance reads between -20 and -45 dBm depending on hardware;
-// -45 is a safe threshold that reliably fires at ≤ 5 cm on most devices.
-const int _kTapRssiThreshold = -45;
+/// Minimum RSSI to show a client in the manual list (several metres on
+/// many phones — much more forgiving than the old "phones touching" bar).
+const int _kListMinRssi = -92;
 
-// How many consecutive scan emissions must exceed the threshold before
-// auto-triggering — prevents a single noisy spike from firing validation.
-const int _kRequiredHits = 2;
+/// When RSSI stays at or above this level, we auto-start validation after
+/// [_kAutoProximityHits] consecutive readings (optional shortcut).
+const int _kAutoProximityRssi = -54;
+
+const int _kAutoProximityHits = 3;
+
+class _NearbyYuztooClient {
+  _NearbyYuztooClient({required this.device, required this.rssi});
+
+  final BluetoothDevice device;
+  final int rssi;
+}
 
 enum _ScanState { waiting, connecting, validating }
 
-/// Merchant-side BLE proximity screen.
+/// Merchant-side BLE passage validation.
 ///
-/// The merchant opens this screen and holds their phone ~3 cm from the client's
-/// phone (which must have [ClientBleBroadcastScreen] open). When the signal
-/// exceeds [_kTapRssiThreshold] for [_kRequiredHits] consecutive readings the
-/// app auto-connects, reads the clientId, and launches the validation flow —
-/// no list, no button to tap.
+/// While this screen is open, the commerce advertises a **merchant beacon**
+/// so the client can pick this shop from their list. The merchant sees a
+/// **live list of nearby client phones** (tap a row to validate) plus an
+/// optional auto-trigger when phones stay very close (strong RSSI).
 class MerchantBleScanScreen extends ConsumerStatefulWidget {
   const MerchantBleScanScreen({super.key, required this.merchant});
 
@@ -58,8 +72,16 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   /// from "permission denied" from "scan threw an exception".
   String? _bleErrorReason;
 
-  // Per-device consecutive hit counter for debouncing.
-  final Map<DeviceIdentifier, int> _hitCount = {};
+  /// Yuztoo client peripherals currently in range (manual pick list).
+  final Map<DeviceIdentifier, _NearbyYuztooClient> _nearbyClients = {};
+
+  /// Hits for optional auto-validation when phones are very close.
+  final Map<DeviceIdentifier, int> _autoProximityHits = {};
+
+  /// True when this commerce is advertising the merchant beacon (so the
+  /// client can select us from their list).
+  bool _merchantBeaconActive = false;
+
   // Prevent re-triggering after a validation attempt.
   bool _triggered = false;
 
@@ -91,7 +113,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       if (_loyaltyFideliteDisabled) return;
       _radarController.repeat();
       _glowController.repeat(reverse: true);
-      unawaited(_startScan());
+      unawaited(_openBleSession());
     });
   }
 
@@ -101,11 +123,13 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     _radarController.dispose();
     _glowController.dispose();
     _scanSub?.cancel();
-    BleProximityService.stopMerchantScan();
+    unawaited(BleProximityService.stopMerchantScan());
+    unawaited(BleProximityService.stopMerchantBeacon());
     super.dispose();
   }
 
-  Future<void> _startScan() async {
+  /// Bluetooth permissions, merchant beacon (for client-side picker), then scan.
+  Future<void> _openBleSession() async {
     final available = await BleProximityService.isAvailable;
     if (!mounted) return;
     if (!available) {
@@ -117,49 +141,44 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       return;
     }
 
-    // Android 12+: BLUETOOTH_SCAN / BLUETOOTH_CONNECT are runtime
-    // permissions. We check the *status* first — the OS popup is only
-    // surfaced after the user explicitly taps "Activer" in our in-app
-    // sheet. This keeps the system permission popup from appearing the
-    // instant the merchant taps "Valider un passage".
     final status = await BleProximityService.merchantPermissionStatus();
     if (!mounted) return;
-    if (status == MerchantPermissionStatus.granted) {
-      _beginScan();
-      return;
+    if (status != MerchantPermissionStatus.granted) {
+      final granted = await _promptPermissionActivation(status);
+      if (!mounted) return;
+      if (!granted) {
+        setState(() {
+          _bleUnavailable = true;
+          _bleErrorReason = _reasonForStatus(status);
+        });
+        return;
+      }
     }
-    final granted = await _promptPermissionActivation(status);
+
+    final beaconOk = await BleProximityService.startMerchantBeacon(
+      widget.merchant.id,
+      onClientUidWritten: _onClientWroteUidFromTheirPhone,
+    );
     if (!mounted) return;
-    if (!granted) {
-      setState(() {
-        _bleUnavailable = true;
-        _bleErrorReason = _reasonForStatus(status);
-      });
-      return;
+    _merchantBeaconActive = beaconOk;
+    if (!beaconOk) {
+      LoggerService.logInfo(
+        'MerchantBleScanScreen — merchant beacon did not start; '
+        'merchant→client picker may be unavailable',
+      );
     }
-    _beginScan();
+    await _beginScanSubscription();
   }
 
-  /// Translates a [MerchantPermissionStatus] into the user-visible French
-  /// reason shown on the "BLE indisponible" state.
-  String _reasonForStatus(MerchantPermissionStatus status) {
-    switch (status) {
-      case MerchantPermissionStatus.granted:
-        return '';
-      case MerchantPermissionStatus.permanentlyDenied:
-        return 'L\'autorisation Bluetooth a été refusée. Activez-la depuis les réglages de l\'application.';
-      case MerchantPermissionStatus.restricted:
-        return 'L\'utilisation du Bluetooth est restreinte sur ce téléphone (contrôle parental ou MDM).';
-      case MerchantPermissionStatus.denied:
-        return 'L\'autorisation Bluetooth n\'a pas été accordée.';
-    }
-  }
-
-  void _beginScan() {
-    // Subscribe directly to flutter_blue_plus scan results so we have RSSI.
+  Future<void> _beginScanSubscription() async {
     try {
-      FlutterBluePlus.startScan(
-          withServices: [Guid(BleProximityService.serviceUuid)]);
+      await FlutterBluePlus.startScan(
+        withServices: [Guid(BleProximityService.serviceUuid)],
+        continuousUpdates: true,
+        continuousDivisor: 2,
+        removeIfGone: const Duration(seconds: 14),
+        androidScanMode: AndroidScanMode.lowLatency,
+      );
     } catch (e, st) {
       LoggerService.logError(
         'MerchantBleScanScreen — FlutterBluePlus.startScan threw',
@@ -175,22 +194,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     }
 
     _scanSub = FlutterBluePlus.scanResults.listen(
-      (results) {
-        if (!mounted || _triggered) return;
-        for (final r in results) {
-          if (r.rssi >= _kTapRssiThreshold) {
-            final count = (_hitCount[r.device.remoteId] ?? 0) + 1;
-            _hitCount[r.device.remoteId] = count;
-            if (count >= _kRequiredHits) {
-              _onDeviceTapped(r.device);
-              return;
-            }
-          } else {
-            // Reset counter if device moved away.
-            _hitCount.remove(r.device.remoteId);
-          }
-        }
-      },
+      _onScanResults,
       onError: (Object e, StackTrace st) {
         LoggerService.logError(
           'MerchantBleScanScreen — scan stream error',
@@ -207,11 +211,81 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     LoggerService.logInfo(
       'MerchantBleScanScreen — scan started',
       context: <String, Object?>{
-        'rssiThreshold': _kTapRssiThreshold,
-        'requiredHits': _kRequiredHits,
+        'listMinRssi': _kListMinRssi,
+        'autoProximityRssi': _kAutoProximityRssi,
+        'autoHits': _kAutoProximityHits,
         'serviceUuid': BleProximityService.serviceUuid,
       },
     );
+  }
+
+  bool _nearbyClientsChanged(Map<DeviceIdentifier, _NearbyYuztooClient> next) {
+    if (next.length != _nearbyClients.length) return true;
+    for (final e in next.entries) {
+      final prev = _nearbyClients[e.key];
+      if (prev == null || (prev.rssi - e.value.rssi).abs() > 4) return true;
+    }
+    return false;
+  }
+
+  bool _scanResultHasYuztooClientService(ScanResult r) {
+    final target = Guid(BleProximityService.serviceUuid);
+    for (final u in r.advertisementData.serviceUuids) {
+      if (u == target) return true;
+    }
+    return false;
+  }
+
+  void _onScanResults(List<ScanResult> results) {
+    if (!mounted || _triggered) return;
+
+    final next = <DeviceIdentifier, _NearbyYuztooClient>{};
+    for (final r in results) {
+      if (!_scanResultHasYuztooClientService(r)) continue;
+      if (r.rssi < _kListMinRssi) continue;
+      next[r.device.remoteId] =
+          _NearbyYuztooClient(device: r.device, rssi: r.rssi);
+    }
+
+    if (!_triggered && _nearbyClientsChanged(next)) {
+      setState(() {
+        _nearbyClients
+          ..clear()
+          ..addAll(next);
+      });
+    }
+
+    if (_state != _ScanState.waiting || _triggered) return;
+
+    for (final r in results) {
+      if (!_scanResultHasYuztooClientService(r)) continue;
+      if (r.rssi >= _kAutoProximityRssi) {
+        final n = (_autoProximityHits[r.device.remoteId] ?? 0) + 1;
+        _autoProximityHits[r.device.remoteId] = n;
+        if (n >= _kAutoProximityHits) {
+          _autoProximityHits.clear();
+          unawaited(_onDeviceTapped(r.device));
+          return;
+        }
+      } else {
+        _autoProximityHits.remove(r.device.remoteId);
+      }
+    }
+  }
+
+  /// Translates a [MerchantPermissionStatus] into the user-visible French
+  /// reason shown on the "BLE indisponible" state.
+  String _reasonForStatus(MerchantPermissionStatus status) {
+    switch (status) {
+      case MerchantPermissionStatus.granted:
+        return '';
+      case MerchantPermissionStatus.permanentlyDenied:
+        return 'L\'autorisation Bluetooth a été refusée. Activez-la depuis les réglages de l\'application.';
+      case MerchantPermissionStatus.restricted:
+        return 'L\'utilisation du Bluetooth est restreinte sur ce téléphone (contrôle parental ou MDM).';
+      case MerchantPermissionStatus.denied:
+        return 'L\'autorisation Bluetooth n\'a pas été accordée.';
+    }
   }
 
   /// Shows the in-app activation prompt. Returns true once the permission
@@ -248,8 +322,8 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
               ? 'L\'autorisation Bluetooth a été refusée. Activez-la dans les '
                   'réglages de l\'application pour valider un passage à '
                   'proximité.'
-              : 'Yuztoo a besoin du Bluetooth pour valider le passage du '
-                  'client lorsque vos téléphones se touchent. Activez '
+              : 'Yuztoo a besoin du Bluetooth pour rechercher le téléphone du '
+                  'client et afficher les commerces à proximité. Activez '
                   'l\'autorisation pour continuer.',
           style: GoogleFonts.outfit(
             color: MerchantColors.textGrey,
@@ -301,26 +375,28 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     }
   }
 
-  Future<void> _onDeviceTapped(BluetoothDevice device) async {
+  /// Client picked this commerce on their phone and wrote their Firebase UID
+  /// to our merchant beacon — continue the same validation pipeline.
+  void _onClientWroteUidFromTheirPhone(String rawUid) {
+    final clientId = rawUid.trim();
+    if (clientId.isEmpty || !mounted || _triggered) return;
+    unawaited(_validateFromClientBeaconWrite(clientId));
+  }
+
+  Future<void> _validateFromClientBeaconWrite(String clientId) async {
     if (_triggered) return;
     _triggered = true;
-
     HapticFeedback.mediumImpact();
+    if (!mounted) return;
     setState(() => _state = _ScanState.connecting);
 
-    // Stop scanning while we connect.
     await BleProximityService.stopMerchantScan();
     _scanSub?.cancel();
-
-    final clientId = await BleProximityService.readClientId(device);
-    if (!mounted) return;
-
-    if (clientId == null || clientId.isEmpty) {
-      _reset('Connexion échouée — réessayez.');
-      return;
+    if (_merchantBeaconActive) {
+      await BleProximityService.stopMerchantBeacon();
+      _merchantBeaconActive = false;
     }
 
-    // Fetch Firestore profile for the amount dialog title.
     String? displayName;
     try {
       final doc = await FirebaseFirestore.instance
@@ -335,6 +411,52 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
 
     if (!mounted) return;
 
+    await _completePassageAfterClientKnown(clientId, displayName);
+  }
+
+  Future<void> _onDeviceTapped(BluetoothDevice device) async {
+    if (_triggered) return;
+    _triggered = true;
+
+    HapticFeedback.mediumImpact();
+    setState(() => _state = _ScanState.connecting);
+
+    await BleProximityService.stopMerchantScan();
+    _scanSub?.cancel();
+    if (_merchantBeaconActive) {
+      await BleProximityService.stopMerchantBeacon();
+      _merchantBeaconActive = false;
+    }
+
+    final clientId = await BleProximityService.readClientId(device);
+    if (!mounted) return;
+
+    if (clientId == null || clientId.isEmpty) {
+      _reset('Connexion échouée — réessayez.');
+      return;
+    }
+
+    String? displayName;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(clientId)
+          .get();
+      final data = doc.data();
+      displayName = (data?['displayName'] as String?)?.trim().isNotEmpty == true
+          ? (data!['displayName'] as String).trim()
+          : (data?['display_name'] as String?)?.trim();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    await _completePassageAfterClientKnown(clientId, displayName);
+  }
+
+  Future<void> _completePassageAfterClientKnown(
+    String clientId,
+    String? displayName,
+  ) async {
     final loyaltyActive = widget.merchant.loyaltyEnabled &&
         (widget.merchant.loyaltyProgram?.programEnabled ??
             widget.merchant.loyaltyEnabled);
@@ -347,7 +469,6 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       amount = await _showAmountDialog(displayName);
       if (!mounted) return;
       if (amount == null) {
-        // User cancelled — allow retry.
         _reset(null);
         return;
       }
@@ -401,11 +522,24 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     setState(() {
       _state = _ScanState.waiting;
       _triggered = false;
-      _hitCount.clear();
+      _autoProximityHits.clear();
+      _nearbyClients.clear();
     });
-    if (!_loyaltyFideliteDisabled) {
-      unawaited(_startScan());
+    if (!_loyaltyFideliteDisabled && !_bleUnavailable) {
+      unawaited(_resumeBleAfterReset());
     }
+  }
+
+  Future<void> _resumeBleAfterReset() async {
+    await BleProximityService.stopMerchantScan();
+    _scanSub?.cancel();
+    final ok = await BleProximityService.startMerchantBeacon(
+      widget.merchant.id,
+      onClientUidWritten: _onClientWroteUidFromTheirPhone,
+    );
+    if (!mounted) return;
+    _merchantBeaconActive = ok;
+    await _beginScanSubscription();
   }
 
   Future<double?> _showAmountDialog(String? clientName) {
@@ -563,14 +697,136 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     if (_bleUnavailable) return _buildUnavailable();
 
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildRadar(),
-        const SizedBox(height: 48),
-        _buildStatusText(),
-        const SizedBox(height: 16),
-        _buildSubtitle(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildRadar(),
+              const SizedBox(height: 16),
+              _buildStatusText(),
+              const SizedBox(height: 8),
+              _buildSubtitle(),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Text(
+                'Clients détectés',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: MerchantColors.gold,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const Spacer(),
+              if (_state == _ScanState.waiting && _nearbyClients.isEmpty)
+                Text(
+                  'Recherche…',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: MerchantColors.textGrey,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Expanded(child: _buildNearbyClientsPanel()),
       ],
+    );
+  }
+
+  String _rssiLabel(int rssi) {
+    if (rssi >= -55) return 'Signal excellent';
+    if (rssi >= -70) return 'Signal bon';
+    if (rssi >= -85) return 'Signal moyen';
+    return 'Signal faible';
+  }
+
+  Widget _buildNearbyClientsPanel() {
+    if (_state != _ScanState.waiting) {
+      return const SizedBox.shrink();
+    }
+    if (_nearbyClients.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: Center(
+          child: Text(
+            'Aucun téléphone client pour le moment.\n\n'
+            'Le client doit ouvrir « Valider un passage » sur son application '
+            'et activer le Bluetooth. Ensuite, touchez son nom dans la liste '
+            'ci-dessous dès qu\'il apparaît — ou rapprochez fortement les deux '
+            'téléphones pour une détection automatique.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              height: 1.55,
+              color: MerchantColors.textLightGrey,
+            ),
+          ),
+        ),
+      );
+    }
+    final sorted = _nearbyClients.values.toList()
+      ..sort((a, b) => b.rssi.compareTo(a.rssi));
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      itemCount: sorted.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 6),
+      itemBuilder: (context, index) {
+        final e = sorted[index];
+        return Material(
+          color: MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: _triggered ? null : () => unawaited(_onDeviceTapped(e.device)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(Icons.smartphone_rounded,
+                      color: StorefrontColors.primaryGold, size: 26),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Téléphone client',
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: MerchantColors.textWhite,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_rssiLabel(e.rssi)} · ${e.rssi} dBm',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: MerchantColors.textGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded,
+                      color: MerchantColors.textGrey, size: 22),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -580,8 +836,8 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
         _state == _ScanState.validating;
 
     return SizedBox(
-      width: 240,
-      height: 240,
+      width: 220,
+      height: 220,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -667,7 +923,9 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
 
   Widget _buildStatusText() {
     final text = switch (_state) {
-      _ScanState.waiting => 'Approchez les téléphones',
+      _ScanState.waiting =>
+        'Recherche des clients à proximité — touchez un nom dans la liste '
+        'ou rapprochez les téléphones',
       _ScanState.connecting => 'Connexion…',
       _ScanState.validating => 'Validation…',
     };
@@ -684,7 +942,8 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   Widget _buildSubtitle() {
     final text = switch (_state) {
       _ScanState.waiting =>
-        'Collez votre téléphone contre celui\ndu client (~3 cm)',
+        'Sur le téléphone du client : ouvrir « Valider un passage ».\n'
+        'Sur votre écran : touchez la ligne du client dès qu\'elle apparaît.',
       _ScanState.connecting => 'Lecture du profil client…',
       _ScanState.validating => 'Enregistrement du passage…',
     };

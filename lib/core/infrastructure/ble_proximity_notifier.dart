@@ -7,13 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'ble_proximity_service.dart';
 import 'logger_service.dart';
 
-/// RSSI threshold for "tap" proximity (~3–5 cm).
-/// BLE at ≤5 cm typically reads between -20 and -45 dBm depending on hardware.
-const int kBleRssiThreshold = -45;
+/// RSSI threshold for background "nearby client" detection (~30–80 cm on
+/// many phones). Tighter than a manual list tap but looser than the old
+/// -45 dBm "phones touching" bar so real-world passes still work.
+const int kBleRssiThreshold = -58;
 
 /// Consecutive scan emissions that must exceed [kBleRssiThreshold] before
 /// detection fires — prevents a single noisy spike from triggering.
-const int kBleRequiredHits = 2;
+const int kBleRequiredHits = 3;
 
 /// Resolved information about a nearby client, ready for the confirmation UI.
 class BleClientDetection {

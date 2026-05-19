@@ -64,6 +64,22 @@ class BleProximityService {
   static const String clientIdCharUuid =
       '12340001-1234-1000-8000-00805f9b34fb';
 
+  /// Merchant "session" peripheral — advertised while the merchant has the
+  /// passage-validation screen open so the **client** can scan, pick this
+  /// commerce from a list, and write their UID (merchant continues the flow).
+  static const String merchantBeaconServiceUuid =
+      '12340010-1234-1000-8000-00805f9b34fb';
+
+  /// Readable: Firestore merchant document id (UTF-8).
+  static const String merchantBeaconMerchantIdCharUuid =
+      '12340011-1234-1000-8000-00805f9b34fb';
+
+  /// Writable: client's Firebase UID (UTF-8) — merchant app receives a write.
+  static const String merchantBeaconClientPickCharUuid =
+      '12340012-1234-1000-8000-00805f9b34fb';
+
+  static void Function(String clientUid)? _merchantBeaconWriteHandler;
+
   // ─── Client (Peripheral) ───────────────────────────────────────────────────
 
   /// Starts advertising the Yuztoo service and exposes [clientId] via a
@@ -157,6 +173,204 @@ class BleProximityService {
       await peripheral.BlePeripheral.stopAdvertising();
       await peripheral.BlePeripheral.clearServices();
     } catch (_) {}
+  }
+
+  // ─── Merchant beacon (peripheral) — client can scan & pick this commerce ───
+
+  /// Advertises [merchantBeaconServiceUuid] while the merchant validates a
+  /// passage. The client app scans for this UUID, then connects and writes
+  /// their Firebase UID to [merchantBeaconClientPickCharUuid]; we surface
+  /// that via [onClientUidWritten].
+  ///
+  /// **Do not** call while [startClientBroadcast] is active on the same
+  /// device (both use `ble_peripheral`).
+  static Future<bool> startMerchantBeacon(
+    String merchantDocId, {
+    required void Function(String clientUid) onClientUidWritten,
+  }) async {
+    if (merchantDocId.isEmpty) return false;
+    LoggerService.logInfo(
+      'BLE startMerchantBeacon — start',
+      context: <String, Object?>{
+        'merchantDocIdLen': merchantDocId.length,
+        'platform': Platform.operatingSystem,
+      },
+    );
+    try {
+      if (Platform.isAndroid) {
+        final advertise = await Permission.bluetoothAdvertise.request();
+        if (!advertise.isGranted) return false;
+      }
+      _merchantBeaconWriteHandler = onClientUidWritten;
+
+      await peripheral.BlePeripheral.initialize();
+      await peripheral.BlePeripheral.clearServices();
+
+      peripheral.BlePeripheral.setWriteRequestCallback(
+        (deviceId, characteristicId, offset, value) {
+          try {
+            if (Guid(characteristicId) !=
+                Guid(merchantBeaconClientPickCharUuid)) {
+              return null;
+            }
+          } catch (_) {
+            return null;
+          }
+          if (value == null || value.isEmpty) {
+            return peripheral.WriteRequestResult();
+          }
+          final uid = String.fromCharCodes(value);
+          if (uid.isNotEmpty) {
+            try {
+              _merchantBeaconWriteHandler?.call(uid.trim());
+            } catch (e, st) {
+              LoggerService.logError(
+                'BLE startMerchantBeacon — onClientUidWritten threw',
+                error: e,
+                stackTrace: st,
+              );
+            }
+          }
+          return peripheral.WriteRequestResult();
+        },
+      );
+
+      final merchantBytes = Uint8List.fromList(merchantDocId.codeUnits);
+      final serviceReady = Completer<void>();
+      peripheral.BlePeripheral.setServiceAddedCallback(
+        (serviceId, error) {
+          if (!serviceReady.isCompleted) {
+            if (error == null) {
+              serviceReady.complete();
+            } else {
+              serviceReady.completeError(error.toString());
+            }
+          }
+        },
+      );
+
+      await peripheral.BlePeripheral.addService(
+        peripheral.BleService(
+          uuid: merchantBeaconServiceUuid,
+          primary: true,
+          characteristics: [
+            peripheral.BleCharacteristic(
+              uuid: merchantBeaconMerchantIdCharUuid,
+              properties: [
+                peripheral.CharacteristicProperties.read.index,
+              ],
+              permissions: [
+                peripheral.AttributePermissions.readable.index,
+              ],
+              value: merchantBytes,
+            ),
+            peripheral.BleCharacteristic(
+              uuid: merchantBeaconClientPickCharUuid,
+              properties: [
+                peripheral.CharacteristicProperties.write.index,
+                peripheral.CharacteristicProperties.writeWithoutResponse.index,
+              ],
+              permissions: [
+                peripheral.AttributePermissions.writeable.index,
+              ],
+              value: Uint8List(0),
+            ),
+          ],
+        ),
+      );
+
+      await serviceReady.future.timeout(const Duration(seconds: 5));
+
+      await peripheral.BlePeripheral.startAdvertising(
+        services: [merchantBeaconServiceUuid],
+        localName: 'Yuztoo',
+      );
+      LoggerService.logInfo('BLE startMerchantBeacon — advertising started');
+      return true;
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE startMerchantBeacon — failed',
+        error: e,
+        stackTrace: st,
+      );
+      _merchantBeaconWriteHandler = null;
+      return false;
+    }
+  }
+
+  static Future<void> stopMerchantBeacon() async {
+    _merchantBeaconWriteHandler = null;
+    try {
+      peripheral.BlePeripheral.setWriteRequestCallback(
+          (deviceId, characteristicId, offset, value) => null);
+    } catch (_) {}
+    try {
+      await peripheral.BlePeripheral.stopAdvertising();
+      await peripheral.BlePeripheral.clearServices();
+    } catch (_) {}
+  }
+
+  /// Client connects to a merchant beacon [device] and writes [clientUid] to
+  /// the pick characteristic so the merchant app can continue validation.
+  static Future<bool> writeClientUidToMerchantBeacon(
+    BluetoothDevice device,
+    String clientUid,
+  ) async {
+    if (clientUid.isEmpty) return false;
+    final deviceId = device.remoteId.str;
+    LoggerService.logInfo(
+      'BLE writeClientUidToMerchantBeacon — connect',
+      context: <String, Object?>{'deviceId': deviceId},
+    );
+    try {
+      await device.connect(timeout: const Duration(seconds: 12));
+      final services = await device.discoverServices();
+      BluetoothService? beacon;
+      for (final s in services) {
+        if (s.serviceUuid == Guid(merchantBeaconServiceUuid)) {
+          beacon = s;
+          break;
+        }
+      }
+      if (beacon == null) {
+        LoggerService.logError(
+          'BLE writeClientUidToMerchantBeacon — beacon service not found',
+          error: 'expected_uuid=$merchantBeaconServiceUuid',
+        );
+        await device.disconnect();
+        return false;
+      }
+      BluetoothCharacteristic? pick;
+      for (final c in beacon.characteristics) {
+        if (c.characteristicUuid == Guid(merchantBeaconClientPickCharUuid)) {
+          pick = c;
+          break;
+        }
+      }
+      if (pick == null) {
+        LoggerService.logError(
+          'BLE writeClientUidToMerchantBeacon — pick characteristic missing',
+        );
+        await device.disconnect();
+        return false;
+      }
+      final bytes = Uint8List.fromList(clientUid.codeUnits);
+      await pick.write(bytes, withoutResponse: false);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await device.disconnect();
+      LoggerService.logInfo('BLE writeClientUidToMerchantBeacon — success');
+      return true;
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE writeClientUidToMerchantBeacon — failed',
+        error: e,
+        stackTrace: st,
+      );
+      try {
+        await device.disconnect();
+      } catch (_) {}
+      return false;
+    }
   }
 
   // ─── Merchant (Central) ────────────────────────────────────────────────────
@@ -375,7 +589,7 @@ class BleProximityService {
       context: <String, Object?>{'deviceId': deviceId},
     );
     try {
-      await device.connect(timeout: const Duration(seconds: 6));
+      await device.connect(timeout: const Duration(seconds: 12));
       final services = await device.discoverServices();
       final service = services.cast<BluetoothService?>().firstWhere(
             (s) => s!.serviceUuid == Guid(serviceUuid),
