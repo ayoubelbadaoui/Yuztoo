@@ -202,7 +202,7 @@ class _ValidationStep extends StatelessWidget {
     return _StepSection(
       question: 'Comment valider les passages ?',
       subtitle:
-          'Le client demande un passage après le scan ; vous validez le montant (si besoin) dans Rappels ou via BLE.',
+          'Le client demande un passage après le scan ; vous validez (et saisissez le montant si besoin) depuis « Vos clients » ou via BLE.',
       child: Column(
         children: [
           _BigChoiceCard(
@@ -218,7 +218,7 @@ class _ValidationStep extends StatelessWidget {
             icon: Icons.pending_actions_rounded,
             title: 'Manuelle',
             description:
-                'Chaque demande de passage est validée depuis l’écran Rappels (montant inclus pour les programmes à cumul €).',
+                'Chaque demande est validée depuis « Vos clients » (montant saisi par vous si cumul € ou points).',
             selected: value == LoyaltyPassageValidation.manual,
             onTap: () => onChanged(LoyaltyPassageValidation.manual),
           ),

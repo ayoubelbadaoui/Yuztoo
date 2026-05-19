@@ -32,6 +32,7 @@ class _ClientBleBroadcastScreenState
 
   bool _broadcasting = false;
   bool _bleUnavailable = false;
+  bool _retrying = false;
 
   @override
   void initState() {
@@ -66,17 +67,50 @@ class _ClientBleBroadcastScreenState
     if (!mounted) return;
 
     if (!available) {
-      setState(() => _bleUnavailable = true);
+      setState(() {
+        _bleUnavailable = true;
+        _broadcasting = false;
+      });
       return;
     }
 
-    final ok = await BleProximityService.startClientBroadcast(auth.user.id);
-    if (!mounted) return;
-    if (ok) {
-      setState(() => _broadcasting = true);
-    } else {
-      setState(() => _bleUnavailable = true);
+    // A few transient failures are common right after permission grant or when
+    // the peripheral stack was used recently — retry before showing "indisponible".
+    const maxAttempts = 4;
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await BleProximityService.stopClientBroadcast();
+        await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+      }
+      final ok = await BleProximityService.startClientBroadcast(auth.user.id);
+      if (!mounted) return;
+      if (ok) {
+        setState(() {
+          _broadcasting = true;
+          _bleUnavailable = false;
+        });
+        return;
+      }
     }
+
+    if (!mounted) return;
+    setState(() {
+      _bleUnavailable = true;
+      _broadcasting = false;
+    });
+  }
+
+  Future<void> _retry() async {
+    if (_retrying) return;
+    setState(() {
+      _retrying = true;
+      _bleUnavailable = false;
+      _broadcasting = false;
+    });
+    await BleProximityService.stopClientBroadcast();
+    await _startBroadcasting();
+    if (!mounted) return;
+    setState(() => _retrying = false);
   }
 
   @override
@@ -95,7 +129,7 @@ class _ClientBleBroadcastScreenState
               _buildHeader(),
               Expanded(
                 child: _bleUnavailable
-                    ? _buildUnavailable()
+                    ? _buildUnavailable(context)
                     : SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: _buildBroadcasting(),
@@ -285,41 +319,44 @@ class _ClientBleBroadcastScreenState
     );
   }
 
-  Widget _buildUnavailable() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: MerchantColors.gold.withValues(alpha: 0.08),
-            border: Border.all(
-              color: MerchantColors.gold.withValues(alpha: 0.35),
-              width: 2,
+  Widget _buildUnavailable(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 24),
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: MerchantColors.gold.withValues(alpha: 0.08),
+              border: Border.all(
+                color: MerchantColors.gold.withValues(alpha: 0.35),
+                width: 2,
+              ),
+            ),
+            child: const Icon(
+              Icons.nfc_rounded,
+              color: MerchantColors.textGrey,
+              size: 56,
             ),
           ),
-          child: const Icon(
-            Icons.nfc_rounded,
-            color: MerchantColors.textGrey,
-            size: 56,
+          const SizedBox(height: 24),
+          Text(
+            'Validation indisponible',
+            style: GoogleFonts.outfit(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: MerchantColors.textWhite,
+            ),
           ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Validation indisponible',
-          style: GoogleFonts.outfit(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: MerchantColors.textWhite,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Text(
-            'Vérifiez les réglages de votre téléphone\n(connexion à courte portée activée).',
+          const SizedBox(height: 12),
+          Text(
+            'Vérifiez que le Bluetooth est activé et que Yuztoo peut diffuser '
+            'en Bluetooth (réglages Android : « Appareils à proximité » / '
+            'autorisations).',
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
               fontSize: 15,
@@ -327,8 +364,57 @@ class _ClientBleBroadcastScreenState
               height: 1.5,
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 28),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: FilledButton(
+              onPressed: _retrying ? null : () => unawaited(_retry()),
+              style: FilledButton.styleFrom(
+                backgroundColor: StorefrontColors.primaryGold,
+                foregroundColor: StorefrontColors.navyDark,
+                disabledBackgroundColor: StorefrontColors.primaryGold
+                    .withValues(alpha: 0.4),
+              ),
+              child: _retrying
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: StorefrontColors.navyDark,
+                      ),
+                    )
+                  : Text(
+                      'Réessayer',
+                      style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: _retrying
+                ? null
+                : () => BleProximityService.openSystemBluetoothSettings(),
+            icon: const Icon(
+              Icons.settings_rounded,
+              color: MerchantColors.gold,
+              size: 20,
+            ),
+            label: Text(
+              'Ouvrir les réglages',
+              style: GoogleFonts.outfit(
+                color: MerchantColors.gold,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 }

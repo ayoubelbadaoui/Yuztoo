@@ -183,6 +183,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     VoidCallback? onPhotoTap,
     VoidCallback? onCreateProAccount,
     String? createOtherRoleLabel,
+    bool isDualProfile = false,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -271,8 +272,6 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                     const SizedBox(height: 12),
                     const _CitiesWidget(),
                     const SizedBox(height: 24),
-                    _buildYuztooCard(fullName),
-                    const SizedBox(height: 16),
                     _buildCompletionBar(
                       completionPercent,
                       hasPhoto,
@@ -314,6 +313,10 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                         ),
                       ),
                     ),
+                    if (isDualProfile) ...[
+                      const SizedBox(height: 28),
+                      _buildYuztooCard(fullName),
+                    ],
                   ],
                 ),
               ),
@@ -781,11 +784,21 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
               letterSpacing: 0.3,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
+          Text(
+            'Présentez votre carte Yuztoo',
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: MerchantColors.gold.withValues(alpha: 0.9),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 2),
           Text(
             'Carte Fidélité · Membre',
             style: GoogleFonts.outfit(
-              fontSize: 12,
+              fontSize: 11,
               color: MerchantColors.textGrey,
             ),
           ),

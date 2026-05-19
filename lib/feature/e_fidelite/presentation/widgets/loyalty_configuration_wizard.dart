@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/snackbar.dart';
 import '../../application/e_fidelite_providers.dart';
 import '../../application/loyalty_program_editing_notifier.dart';
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
@@ -19,11 +20,15 @@ class LoyaltyConfigurationWizard extends ConsumerStatefulWidget {
     this.onSave,
     this.saveEnabled = false,
     this.saving = false,
+    this.initialStep = 0,
+    this.editingFromRecap = false,
   });
 
   final VoidCallback? onSave;
   final bool saveEnabled;
   final bool saving;
+  final int initialStep;
+  final bool editingFromRecap;
 
   @override
   ConsumerState<LoyaltyConfigurationWizard> createState() =>
@@ -34,8 +39,29 @@ class _LoyaltyConfigurationWizardState
     extends ConsumerState<LoyaltyConfigurationWizard> {
   final PageController _pageController = PageController();
   int _pageIndex = 0;
+  int _maxStepVisited = 0;
 
   static const int _pageCount = 7;
+
+  @override
+  void initState() {
+    super.initState();
+    final start = widget.initialStep.clamp(0, _pageCount - 1);
+    _pageIndex = start;
+    _maxStepVisited = start;
+    ref.read(loyaltyWizardMaxStepVisitedProvider.notifier).state = start;
+    if (widget.editingFromRecap) {
+      ref.read(loyaltyWizardMaxStepVisitedProvider.notifier).state =
+          _pageCount - 1;
+      _maxStepVisited = _pageCount - 1;
+    }
+    if (start > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _pageController.jumpToPage(start);
+      });
+    }
+  }
 
   static const _stepTitles = [
     'Activation',
@@ -55,12 +81,37 @@ class _LoyaltyConfigurationWizardState
 
   void _goTo(int index) {
     final next = index.clamp(0, _pageCount - 1);
-    setState(() => _pageIndex = next);
+    setState(() {
+      _pageIndex = next;
+      if (next > _maxStepVisited) _maxStepVisited = next;
+    });
+    ref.read(loyaltyWizardMaxStepVisitedProvider.notifier).update(
+          (current) => next > current ? next : current,
+        );
     _pageController.animateToPage(
       next,
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  void _onProgramEnabledChanged(bool enabled) {
+    ref.read(loyaltyProgramEditingProvider.notifier).setProgramEnabled(enabled);
+    if (enabled) {
+      _goTo(1);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Configurez votre programme, puis enregistrez.',
+            style: merchantSnackBarTextOnDark(fontWeight: FontWeight.w500),
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: MerchantColors.bgHeader,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   @override
@@ -94,9 +145,7 @@ class _LoyaltyConfigurationWizardState
                 saving: widget.saving,
                 child: _ActivationStep(
                   enabled: config.programEnabled,
-                  onChanged: (v) {
-                    notifier.setProgramEnabled(v);
-                  },
+                  onChanged: _onProgramEnabledChanged,
                 ),
               ),
               // Step 1: Trigger type

@@ -7,12 +7,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/application/precache_network_images.dart';
-import '../../../core/domain/core/result.dart';
-import '../../loyalty/domain/entities/client_merchant_loyalty_progress.dart';
+import '../../auth/core/application/providers.dart' show authStateProvider;
+import '../../auth/core/application/state/auth_state.dart' show Authenticated;
+import '../../merchant_partners/application/providers.dart'
+    as partners_providers;
 import '../../merchant/domain/entities/loyalty_program_config.dart';
-import '../../merchant_partners/application/providers.dart' as partners_providers;
 import '../../merchant/domain/entities/merchant.dart';
-import '../../promotions/application/providers.dart' show recordPromoViewsProvider;
+import '../../promotions/application/providers.dart'
+    show recordPromoViewsProvider;
 import '../../promotions/domain/entities/promotion.dart';
 import '../../storefront/domain/entities/business_hours.dart';
 import '../../storefront/application/widgets.dart';
@@ -186,6 +188,7 @@ class StoreProfileScreen extends ConsumerStatefulWidget {
   final VoidCallback? onNotifications;
   final VoidCallback? onMessage;
   final VoidCallback? onReserve;
+
   /// Called when a guest tries a loyalty or follow action that requires sign-in.
   final VoidCallback? onRequestLogin;
 
@@ -210,7 +213,6 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
 
   /// Avoids showing the welcome-gift modal twice (follow-then-passage).
   String? _welcomeShownForMerchantId;
-
 
   @override
   Widget build(BuildContext context) {
@@ -321,9 +323,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     // ensureFollowedAndSetHeartLevel also creates a follow when the user
     // hadn't followed yet — refresh the storefront's "X abonnés" pill so
     // the count reflects the new follower immediately.
-    ref.invalidate(
-        followersCountByMerchantIdsProvider(<String>[merchantId]));
+    ref.invalidate(followersCountByMerchantIdsProvider(<String>[merchantId]));
     // Keep UI instant and quiet; no success snackbar on every tap.
   }
-
 }

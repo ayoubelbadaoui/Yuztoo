@@ -30,7 +30,9 @@ extension _HubUi on _MerchantNotificationsHubScreenState {
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).padding.bottom + 80,
+                    bottom: MediaQuery.of(context).padding.bottom +
+                        MediaQuery.of(context).viewInsets.bottom +
+                        80,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

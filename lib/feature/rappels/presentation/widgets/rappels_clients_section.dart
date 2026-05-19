@@ -12,9 +12,6 @@ class RappelsClientsSection extends StatelessWidget {
     super.key,
     required this.connectedClientsThisMonth,
     required this.validatedPassagesThisMonth,
-    this.pendingLoyaltyPassagesToConfirm = 0,
-    this.isManualPassageValidation = false,
-    this.onConfirmPendingPassagesTap,
     this.onAutoTap,
   });
 
@@ -24,16 +21,7 @@ class RappelsClientsSection extends StatelessWidget {
   /// Passages validés ce mois (Firestore `rappels_monthly_validated_passages`).
   final int validatedPassagesThisMonth;
 
-  /// Somme des `pending_passages` (fidélité à validation manuelle).
-  final int pendingLoyaltyPassagesToConfirm;
-
-  /// Vrai si le programme exige une validation marchand des passages.
-  final bool isManualPassageValidation;
-
-  /// Défile vers la liste « Passages à valider » (fidélité).
-  final VoidCallback? onConfirmPendingPassagesTap;
-
-  /// Tapping "Auto" badge scrolls to the toggles section to change mode.
+  /// Tapping the toggle shortcut scrolls to the toggles section.
   final VoidCallback? onAutoTap;
 
   @override

@@ -15,7 +15,7 @@ import '../domain/repositories/client_loyalty_repository.dart';
 class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   FirestoreClientLoyaltyRepository({
     required FirebaseFirestore firestore,
-    Duration passageCooldown = const Duration(hours: 1),
+    Duration passageCooldown = Duration.zero,
   })  : _firestore = firestore,
         _passageCooldown = passageCooldown;
 
@@ -27,9 +27,8 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   /// The anchor `last_passage_at` is written with `FieldValue.serverTimestamp()`,
   /// so the stored value is authoritative server time. The comparison in this
   /// SDK uses the device clock for "now", which is fine as a UX guard but is
-  /// NOT a security boundary — a tampered clock would bypass it. The real
-  /// enforcement lives in [firestore.rules] (`loyaltyClientSelfUpdateValid`),
-  /// which compares `request.time` (server time) to `resource.data.last_passage_at`.
+  /// NOT a security boundary — a tampered clock would bypass it. Server rules
+  /// may add additional constraints when configured.
   final Duration _passageCooldown;
 
   /// Tolerance applied to the client-side cooldown comparison to absorb honest
@@ -65,7 +64,6 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   static ClientMerchantLoyaltyProgress _fromMap(Map<String, dynamic>? data) {
     if (data == null) return const ClientMerchantLoyaltyProgress.empty();
     final v = (data['validated_passages'] as num?)?.toInt() ?? 0;
-    final p = (data['pending_passages'] as num?)?.toInt() ?? 0;
     final c = (data['cumulative_spend_euros'] as num?)?.toDouble() ?? 0.0;
     // first_visit_at: first time we create the loyalty doc for this client at
     // this merchant. The "bon d'accueil" is shown on the loyalty card when
@@ -81,7 +79,6 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     final status = data['program_status'] as String?;
     return ClientMerchantLoyaltyProgress(
       validatedPassages: v,
-      pendingPassages: p,
       cumulativeSpendEuros: c,
       hasFirstVisit: hasFirstVisit,
       welcomeBonClaimed: welcomeBonClaimed,
@@ -119,80 +116,60 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   }
 
   @override
-  Stream<List<LoyaltyPendingClientRow>> watchPendingLoyaltyClients(
-    String merchantId,
-  ) {
-    if (merchantId.isEmpty) {
-      return Stream<List<LoyaltyPendingClientRow>>.value(
-        <LoyaltyPendingClientRow>[],
-      );
-    }
-    return _firestore
-        .collection('merchants')
-        .doc(merchantId)
-        .collection('loyalty_clients')
-        .where('pending_passages', isGreaterThan: 0)
-        .snapshots()
-        .map(
-          (QuerySnapshot<Map<String, dynamic>> snapshot) {
-            return snapshot.docs
-                .map(
-                  (QueryDocumentSnapshot<Map<String, dynamic>> d) =>
-                      LoyaltyPendingClientRow(
-                    clientUid: d.id,
-                    progress: _fromMap(d.data()),
-                  ),
-                )
-                .toList();
-          },
-        );
-  }
-
-  @override
   Future<Result<ClientMerchantLoyaltyProgress>> applyPassageDeltas({
     required String merchantId,
     required String clientUid,
     int validatedPassagesDelta = 0,
-    int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
+    ActiveValidationCompletion? completeActiveValidation,
   }) async {
     if (merchantId.isEmpty || clientUid.isEmpty) {
       return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
         UnexpectedFailure(message: 'Commerce ou utilisateur invalide'),
       );
     }
-    if (validatedPassagesDelta == 0 &&
-        pendingPassagesDelta == 0 &&
-        cumulativeSpendEurosDelta == 0) {
+    if (validatedPassagesDelta == 0 && cumulativeSpendEurosDelta == 0) {
       return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
         UnexpectedFailure(message: 'Aucune mise à jour de passage'),
       );
     }
-    // Whether this call represents a NEW passage event (vs resolving an
-    // existing pending). Cooldown applies only to new events.
-    //
-    // Cases:
-    //   - Client scans (manual-validation): pending=+1                 → NEW
-    //   - Client scans (auto, visit-count):  validated=+1              → NEW
-    //   - Client scans (auto, spend-based):  spend=+X                  → NEW
-    //   - Merchant validates pending (visit):  pending=-1, validated=+1 → NOT new
-    //   - Merchant validates pending (spend):  pending=-1, spend=+X    → NOT new
-    //   - Merchant rejects pending:            pending=-1              → NOT new
-    //
-    // Key insight: when `pendingPassagesDelta < 0` we're resolving a pending
-    // that was already counted toward the cooldown when it was created — so
-    // the merchant must always be able to validate immediately, even if the
-    // client scanned 30 seconds ago. Inferring this from "any counter went
-    // up" (the previous logic) was wrong and would have broken the merchant
-    // flow as soon as we raised the cooldown to 1 hour.
-    final bool isNewPassageEvent = pendingPassagesDelta > 0 ||
-        (pendingPassagesDelta == 0 &&
-            (validatedPassagesDelta > 0 || cumulativeSpendEurosDelta > 0));
+    // Every counter increment is a new passage event now — the old
+    // "resolving pending" exception is gone with the pending_passages field.
+    // Cooldown applies to all increments when [_passageCooldown] is non-zero.
+    // The synchronous validation flow (active_validations) is the canonical
+    // place where merchants record passages; optional cooldown reduces double-tap.
+    final bool isNewPassageEvent =
+        validatedPassagesDelta > 0 || cumulativeSpendEurosDelta > 0;
     try {
       final progress = await _firestore.runTransaction(
         (Transaction tx) async {
           final ref = _docRef(merchantId, clientUid);
+
+          // When the caller wants to also close an active_validation session
+          // atomically, read that doc first and verify it's still
+          // 'awaiting'. The merchant queue listener only pops the form for
+          // 'awaiting' docs, so a second tap on the loyalty popup hits a
+          // session in 'completed' state and is rejected here — that's the
+          // double-validation guard.
+          DocumentReference<Map<String, dynamic>>? sessionRef;
+          if (completeActiveValidation != null) {
+            sessionRef = _firestore
+                .collection('merchants')
+                .doc(merchantId)
+                .collection('active_validations')
+                .doc(clientUid);
+            final sessionSnap = await tx.get(sessionRef);
+            if (!sessionSnap.exists) {
+              throw StateError('active_validation_missing');
+            }
+            final sessionStatus =
+                sessionSnap.data()?['status'] as String?;
+            if (sessionStatus != 'awaiting') {
+              throw StateError('active_validation_not_awaiting');
+            }
+          }
+
           final snap = await tx.get(ref);
           final isFirstVisit = !snap.exists;
           final cur = _fromMap(snap.data());
@@ -218,25 +195,18 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
             }
           }
 
-          if (pendingPassagesDelta < 0 &&
-              cur.pendingPassages < -pendingPassagesDelta) {
-            throw StateError('no_pending_passage');
-          }
           final next = ClientMerchantLoyaltyProgress(
             validatedPassages: cur.validatedPassages + validatedPassagesDelta,
-            pendingPassages: cur.pendingPassages + pendingPassagesDelta,
             cumulativeSpendEuros:
                 cur.cumulativeSpendEuros + cumulativeSpendEurosDelta,
             isFirstVisit: isFirstVisit,
           );
           if (next.validatedPassages < 0 ||
-              next.pendingPassages < 0 ||
               next.cumulativeSpendEuros < 0) {
             throw StateError('invalid_loyalty_counters');
           }
           final write = <String, dynamic>{
             'validated_passages': next.validatedPassages,
-            'pending_passages': next.pendingPassages,
             'cumulative_spend_euros': next.cumulativeSpendEuros,
             'updated_at': FieldValue.serverTimestamp(),
             if (isNewPassageEvent)
@@ -250,6 +220,24 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
             },
           };
           tx.set(ref, write, SetOptions(merge: true));
+
+          // Atomic active_validation close. If we got this far the session
+          // was 'awaiting' (checked above) and the loyalty_clients write is
+          // staged. Mark the session 'completed' with the result deltas so
+          // the client's listener can celebrate.
+          if (completeActiveValidation != null && sessionRef != null) {
+            final sessionWrite = <String, dynamic>{
+              'status': 'completed',
+              'completed_at': FieldValue.serverTimestamp(),
+              'result_validated_delta':
+                  completeActiveValidation.validatedDelta,
+              'result_spend_delta': completeActiveValidation.spendDelta,
+              if (completeActiveValidation.declaredSpendEuros != null)
+                'declared_spend_euros':
+                    completeActiveValidation.declaredSpendEuros,
+            };
+            tx.set(sessionRef, sessionWrite, SetOptions(merge: true));
+          }
           return next;
         },
       );
@@ -259,7 +247,6 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           'merchantId': merchantId,
           'clientUid': clientUid,
           'validatedDelta': validatedPassagesDelta,
-          'pendingDelta': pendingPassagesDelta,
           'spendDelta': cumulativeSpendEurosDelta,
         },
       );
@@ -292,13 +279,22 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
           UnexpectedFailure(
             message:
-                'Votre passage vient d’être enregistré. Patientez 1 heure avant le prochain passage chez ce commerçant.',
+                'Votre passage vient d’être enregistré. Patientez un peu avant un nouveau passage chez ce commerçant.',
           ),
         );
       }
-      if (e.toString().contains('no_pending_passage')) {
+      if (e.toString().contains('active_validation_missing')) {
         return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
-          UnexpectedFailure(message: 'Aucun passage en attente pour ce client'),
+          UnexpectedFailure(
+            message: 'La demande de passage est introuvable.',
+          ),
+        );
+      }
+      if (e.toString().contains('active_validation_not_awaiting')) {
+        return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
+          UnexpectedFailure(
+            message: 'Cette demande a déjà été traitée.',
+          ),
         );
       }
       if (e.toString().contains('invalid_loyalty_counters')) {
@@ -391,7 +387,6 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
 
           final next = ClientMerchantLoyaltyProgress(
             validatedPassages: nextValidated,
-            pendingPassages: cur.pendingPassages,
             cumulativeSpendEuros: nextSpend,
           );
 
@@ -399,7 +394,6 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
             ref,
             <String, dynamic>{
               'validated_passages': next.validatedPassages,
-              'pending_passages': next.pendingPassages,
               'cumulative_spend_euros': next.cumulativeSpendEuros,
               'updated_at': FieldValue.serverTimestamp(),
             },
@@ -608,16 +602,6 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     } catch (_) {
       return {};
     }
-  }
-
-  static String _computeSegment({
-    required int validatedPassages,
-    required int daysSinceLastVisit,
-  }) {
-    if (daysSinceLastVisit > 60) return 'inactif';
-    if (validatedPassages >= 10) return 'vip';
-    if (validatedPassages >= 3) return 'habitue';
-    return 'nouveau';
   }
 
   /// Best-effort: increments `rappels_monthly_validated_passages` on the

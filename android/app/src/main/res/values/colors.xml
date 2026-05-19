@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand gold (matches lib/core/shared/constants MerchantColors.gold). -->
+    <color name="yuztoo_gold">#D4A017</color>
+    <!-- Brand navy used for the FCM notification icon tint (matches the app
+         header background MerchantColors.bgHeader = 0xFF0B1F33). On Android
+         12+ the status bar small icon gets tinted with this color so the
+         silhouette reads as YuzToo brand instead of a generic gold pin. -->
+    <color name="yuztoo_navy">#0B1F33</color>
+    <!-- White launcher icon background (Android adaptive icon). -->
+    <color name="ic_launcher_background">#FFFFFF</color>
+</resources>

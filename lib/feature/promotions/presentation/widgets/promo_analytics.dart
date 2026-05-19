@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/snackbar.dart';
 import '../../domain/entities/promotion.dart';
 
 /// Analytics section — shows real view data plus locked premium metrics.
@@ -113,7 +114,7 @@ class PromoAnalytics extends StatelessWidget {
                   SnackBar(
                     content: Text(
                       'Bientôt disponible.',
-                      style: GoogleFonts.outfit(),
+                      style: merchantSnackBarTextOnDark(),
                     ),
                     backgroundColor: MerchantColors.navyCard,
                   ),

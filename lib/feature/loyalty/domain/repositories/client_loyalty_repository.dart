@@ -3,6 +3,25 @@ import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../entities/client_merchant_loyalty_progress.dart';
 import '../entities/loyalty_pending_client_row.dart';
 
+/// Optional payload: when set on [ClientLoyaltyRepository.applyPassageDeltas],
+/// the loyalty_clients write AND the active_validation transition to
+/// 'completed' happen inside the same Firestore transaction. This is the only
+/// way to keep the two collections consistent — without it, a network flake
+/// between the two writes would leave the counter incremented but the session
+/// stuck at 'awaiting', causing the merchant queue listener to re-pop the
+/// validation form.
+class ActiveValidationCompletion {
+  const ActiveValidationCompletion({
+    required this.validatedDelta,
+    required this.spendDelta,
+    this.declaredSpendEuros,
+  });
+
+  final int validatedDelta;
+  final double spendDelta;
+  final double? declaredSpendEuros;
+}
+
 /// Persistance progression fidélité côté client.
 abstract class ClientLoyaltyRepository {
   Stream<ClientMerchantLoyaltyProgress> watchProgress(
@@ -15,19 +34,19 @@ abstract class ClientLoyaltyRepository {
     String clientUid,
   );
 
-  /// Clients avec `pending_passages > 0` (pour l’espace marchand / Rappels).
-  Stream<List<LoyaltyPendingClientRow>> watchPendingLoyaltyClients(
-    String merchantId,
-  );
-
   Future<Result<ClientMerchantLoyaltyProgress>> applyPassageDeltas({
     required String merchantId,
     required String clientUid,
     int validatedPassagesDelta = 0,
-    int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
-    /// Snapshot current program on first enrollment (client passage request).
+    /// Snapshot current program on first enrollment (merchant first
+    /// validation of this client).
     LoyaltyProgramConfig? enrollProgram,
+    /// When set, also flips the matching `active_validations/{clientUid}`
+    /// doc to status='completed' atomically with the loyalty_clients write.
+    /// The transaction reads the session first and rejects if status is not
+    /// 'awaiting' — that's the merchant-side double-validation guard.
+    ActiveValidationCompletion? completeActiveValidation,
   });
 
   /// Returns a real-time stream of loyalty clients whose progress meets or

@@ -106,6 +106,51 @@ class LoyaltyProgramConfig extends Equatable {
     ].where((s) => s.isNotEmpty).join(' ');
   }
 
+  /// Reward line for merchant recap (same copy as client preview).
+  String get recapRewardLabel => _rewardPhrase();
+
+  /// Trigger threshold for merchant recap.
+  String get recapTriggerLabel {
+    switch (triggerType) {
+      case LoyaltyTriggerType.visitCount:
+        return '$visitsRequired passages validés';
+      case LoyaltyTriggerType.purchaseTotal:
+        final eur = _formatNum(cumulativeSpendRequiredEuros);
+        return '$eur € d\'achats cumulés';
+    }
+  }
+
+  String get recapStatusLabel => programEnabled ? 'Actif' : 'Inactif';
+
+  String get recapValidationLabel =>
+      passageValidation == LoyaltyPassageValidation.automatic
+          ? 'Automatique (BLE + scan)'
+          : 'Manuelle (Rappels)';
+
+  String? get recapValidityLabel {
+    if (!rewardValidityEnabled ||
+        rewardValidityDays == null ||
+        rewardValidityDays! <= 0) {
+      return null;
+    }
+    return 'Récompense à utiliser sous ${rewardValidityDays!} jours';
+  }
+
+  String? get recapMinimumLabel {
+    if (!minimumPerVisitEnabled ||
+        minimumPerVisitEuros == null ||
+        minimumPerVisitEuros! <= 0) {
+      return null;
+    }
+    final eur = _formatNum(minimumPerVisitEuros!);
+    return 'Minimum $eur € par passage';
+  }
+
+  String? get recapClientAmountLabel {
+    if (!effectiveAskClientPurchaseAmount) return null;
+    return 'Le client saisit le montant à chaque passage';
+  }
+
   String _rewardPhrase() {
     switch (rewardKind) {
       case LoyaltyRewardKind.purchaseVoucher:

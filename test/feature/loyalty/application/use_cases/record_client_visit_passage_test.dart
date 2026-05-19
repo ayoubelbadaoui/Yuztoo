@@ -24,15 +24,14 @@ class _FakeLoyaltyRepo implements ClientLoyaltyRepository {
     required String merchantId,
     required String clientUid,
     int validatedPassagesDelta = 0,
-    int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
+    ActiveValidationCompletion? completeActiveValidation,
   }) async {
     validatedDelta = validatedPassagesDelta;
     return const Right(
       ClientMerchantLoyaltyProgress(
         validatedPassages: 1,
-        pendingPassages: 0,
         cumulativeSpendEuros: 0,
         isFirstVisit: true,
       ),
@@ -42,10 +41,6 @@ class _FakeLoyaltyRepo implements ClientLoyaltyRepository {
   @override
   Stream<ClientMerchantLoyaltyProgress> watchProgress(
           String merchantId, String clientUid) async* {}
-
-  @override
-  Stream<List<LoyaltyPendingClientRow>> watchPendingLoyaltyClients(
-          String merchantId) async* {}
 
   @override
   Stream<List<LoyaltyPendingClientRow>> watchClientsWithRewardAvailable({

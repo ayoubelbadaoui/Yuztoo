@@ -6,8 +6,6 @@ extension _RappelsScreenUi on _RappelsScreenState {
     required AsyncValue<Storefront?> storefrontAsync,
     required AsyncValue<Merchant?> merchantAsync,
     required Merchant? merchant,
-    required bool isManualPassageValidation,
-    required int totalPendingPassages,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -26,7 +24,9 @@ extension _RappelsScreenUi on _RappelsScreenState {
               child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
                 padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).padding.bottom + 80,
+                  bottom: MediaQuery.of(context).padding.bottom +
+                      MediaQuery.of(context).viewInsets.bottom +
+                      80,
                 ),
                 child: Column(
                   children: [
@@ -48,8 +48,12 @@ extension _RappelsScreenUi on _RappelsScreenState {
                           quotaExceeded: !m.canSendNotification,
                         );
                       },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
+                      // Loading: visible placeholder instead of `SizedBox.shrink()`
+                      // so the merchant doesn't see a flash of empty space while
+                      // their profile resolves. Same intent for error.
+                      loading: () => const _RappelsSectionPlaceholder(height: 220),
+                      error: (_, __) =>
+                          const _RappelsSectionPlaceholder(height: 220, isError: true),
                     ),
                     // ── Clients + stats ─────────────────────────────────────
                     storefrontAsync.when(
@@ -58,28 +62,16 @@ extension _RappelsScreenUi on _RappelsScreenState {
                             storefront?.rappelsMonthlyConnectedClients ?? 0,
                         validatedPassagesThisMonth:
                             storefront?.rappelsMonthlyValidatedPassages ?? 0,
-                        pendingLoyaltyPassagesToConfirm: totalPendingPassages,
-                        isManualPassageValidation: isManualPassageValidation,
-                        onConfirmPendingPassagesTap:
-                            _ensurePendingLoyaltySectionVisible,
                         onAutoTap: _scrollToToggles,
                       ),
                       loading: () => RappelsClientsSection(
                         connectedClientsThisMonth: 0,
                         validatedPassagesThisMonth: 0,
-                        pendingLoyaltyPassagesToConfirm: totalPendingPassages,
-                        isManualPassageValidation: isManualPassageValidation,
-                        onConfirmPendingPassagesTap:
-                            _ensurePendingLoyaltySectionVisible,
                         onAutoTap: _scrollToToggles,
                       ),
                       error: (_, __) => RappelsClientsSection(
                         connectedClientsThisMonth: 0,
                         validatedPassagesThisMonth: 0,
-                        pendingLoyaltyPassagesToConfirm: totalPendingPassages,
-                        isManualPassageValidation: isManualPassageValidation,
-                        onConfirmPendingPassagesTap:
-                            _ensurePendingLoyaltySectionVisible,
                         onAutoTap: _scrollToToggles,
                       ),
                     ),
@@ -89,19 +81,7 @@ extension _RappelsScreenUi on _RappelsScreenState {
                         if (m == null) return const SizedBox.shrink();
                         return RewardRedemptionSection(merchant: m);
                       },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                    // ── Passages en attente (validation manuelle) ───────────
-                    merchantAsync.when(
-                      data: (Merchant? m) {
-                        if (m == null) return const SizedBox.shrink();
-                        return PendingLoyaltyValidationsSection(
-                          key: _pendingLoyaltySectionKey,
-                          merchant: m,
-                        );
-                      },
-                      loading: () => const SizedBox.shrink(),
+                      loading: () => const _RappelsSectionPlaceholder(height: 120),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
                     // Nouveaux clients section — shown when auto-client-validation is OFF.
@@ -111,7 +91,7 @@ extension _RappelsScreenUi on _RappelsScreenState {
                         isAutoValidation:
                             storefront?.rappelsAutoClientValidation ?? true,
                       ),
-                      loading: () => const SizedBox.shrink(),
+                      loading: () => const _RappelsSectionPlaceholder(height: 120),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
                     // Alertes — actionable items first, before promotional content
@@ -119,7 +99,7 @@ extension _RappelsScreenUi on _RappelsScreenState {
                       data: (storefront) => AlertesSection(
                         merchantId: storefront?.id ?? '',
                       ),
-                      loading: () => const SizedBox.shrink(),
+                      loading: () => const _RappelsSectionPlaceholder(height: 100),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
                     // RappelsProductSection (the NFC plaque marketing
@@ -241,6 +221,43 @@ class _RappelsTogglesSkeleton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Minimal placeholder used while a Rappels section's data is loading.
+/// Just the plain spinner the rest of the app uses — no logo, no card
+/// styling. Without something here the section would collapse to zero
+/// height and snap open once data lands, making the page look broken.
+class _RappelsSectionPlaceholder extends StatelessWidget {
+  const _RappelsSectionPlaceholder({
+    required this.height,
+    this.isError = false,
+  });
+
+  final double height;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: Center(
+        child: isError
+            ? Icon(
+                Icons.error_outline_rounded,
+                color: Colors.red.shade300.withValues(alpha: 0.7),
+                size: 22,
+              )
+            : const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: MerchantColors.gold,
+                ),
+              ),
       ),
     );
   }

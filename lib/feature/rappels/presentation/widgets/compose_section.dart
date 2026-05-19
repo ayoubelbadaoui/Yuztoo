@@ -47,23 +47,27 @@ class ComposeSection extends StatelessWidget {
               minLines: 3,
               maxLength: 200,
               cursorColor: MerchantColors.gold,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
               style: GoogleFonts.outfit(
                 fontSize: 14,
                 color: Colors.white,
               ),
-              decoration: InputDecoration(
-                hintText: isEditing
-                    ? 'Modifiez votre notification...'
-                    : 'Écrivez votre notification ici...',
-                hintStyle: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: MerchantColors.textGrey,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                counterStyle: GoogleFonts.outfit(
-                  fontSize: 11,
-                  color: MerchantColors.textGrey,
+              decoration: MerchantColors.inputDecorationOnDarkSurface(
+                InputDecoration(
+                  hintText: isEditing
+                      ? 'Modifiez votre notification...'
+                      : 'Écrivez votre notification ici...',
+                  hintStyle: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: MerchantColors.textGrey,
+                  ),
+                  contentPadding:
+                      const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  counterStyle: GoogleFonts.outfit(
+                    fontSize: 11,
+                    color: MerchantColors.textGrey,
+                  ),
                 ),
               ),
             ),
@@ -72,7 +76,10 @@ class ComposeSection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: GestureDetector(
-                onTap: onCancelEdit,
+                onTap: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  onCancelEdit?.call();
+                },
                 child: Text(
                   'Annuler la modification',
                   style: GoogleFonts.outfit(

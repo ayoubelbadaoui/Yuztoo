@@ -22,6 +22,8 @@ import '../../signup/application/providers.dart' as signup_providers;
 import '../../signup/domain/signup_roles_map.dart';
 import '../../signup/presentation/constants/signup_constants.dart';
 import '../../signup/presentation/utils/phone_formatter.dart';
+import '../../signup/presentation/widgets/country_code_modal.dart';
+import '../../signup/presentation/widgets/phone_number_formatter.dart';
 import '../../core/application/oauth_identity_helpers.dart';
 import '../../core/domain/entities/auth_user.dart';
 
@@ -443,7 +445,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   /// Shows a modal dialog asking the user to enter their phone number.
   /// Returns the E.164 formatted number, or null if cancelled.
   Future<String?> _promptPhoneForOAuthCompletion() async {
+    var dialogCountryCode = '+33';
     final controller = TextEditingController();
+
     final submitted = await showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -470,7 +474,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Ajoutez votre numéro de mobile pour sécuriser votre compte.',
+                    'Choisissez l\'indicatif pays puis saisissez votre numéro de '
+                    'mobile pour sécuriser votre compte.',
                     style: GoogleFonts.outfit(
                       color: SignupConstants.textGrey,
                       fontSize: 13,
@@ -478,34 +483,107 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  TextField(
-                    controller: controller,
-                    keyboardType: TextInputType.phone,
-                    autofocus: true,
-                    style: GoogleFonts.outfit(
-                        color: SignupConstants.textLight, fontSize: 15),
-                    decoration: InputDecoration(
-                      hintText: '+33 6 12 34 56 78',
-                      hintStyle: GoogleFonts.outfit(
-                          color: SignupConstants.textGrey, fontSize: 14),
-                      errorText: fieldError,
-                      filled: true,
-                      fillColor: SignupConstants.bgDark1,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: SignupConstants.borderColor),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: SignupConstants.borderColor),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: SignupConstants.primaryGold, width: 1.5),
-                      ),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SignupConstants.borderColor),
+                      color: SignupConstants.bgDark1,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => CountryCodeModal.show(
+                              dialogContext,
+                              selectedCountryCode: dialogCountryCode,
+                              onCountrySelected: (code, name, flag) {
+                                setModal(() {
+                                  dialogCountryCode = code;
+                                  fieldError = null;
+                                });
+                              },
+                              phoneController: controller,
+                              onPhoneNumberUpdate: (_) {},
+                              onRevalidatePhone: () {},
+                              phoneFieldHasBeenValidated: false,
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(11),
+                              bottomLeft: Radius.circular(11),
+                            ),
+                            child: Container(
+                              height: 52,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                              ),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(
+                                    color: SignupConstants.borderColor,
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    dialogCountryCode,
+                                    style: GoogleFonts.outfit(
+                                      color: SignupConstants.textLight,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.expand_more_rounded,
+                                    color: SignupConstants.primaryGold,
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: controller,
+                            keyboardType: TextInputType.phone,
+                            autofocus: true,
+                            autocorrect: false,
+                            inputFormatters: [
+                              PhoneNumberFormatter(
+                                countryCode: dialogCountryCode,
+                              ),
+                            ],
+                            style: GoogleFonts.outfit(
+                              color: SignupConstants.textLight,
+                              fontSize: 15,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: SignupConstants.countryPhoneHints[
+                                      dialogCountryCode] ??
+                                  '---',
+                              hintStyle: GoogleFonts.outfit(
+                                color: SignupConstants.textGrey,
+                                fontSize: 14,
+                              ),
+                              errorText: fieldError,
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -524,7 +602,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   final raw = controller.text.trim();
                   final formatted = raw.startsWith('+')
                       ? raw.replaceAll(RegExp(r'\s'), '')
-                      : PhoneFormatter.formatPhoneNumber('+33', raw);
+                      : PhoneFormatter.formatPhoneNumber(
+                          dialogCountryCode,
+                          raw,
+                        );
                   if (!PhoneFormatter.isValidE164(formatted)) {
                     setModal(() {
                       fieldError = 'Numéro invalide (ex. +33 6 12 34 56 78).';

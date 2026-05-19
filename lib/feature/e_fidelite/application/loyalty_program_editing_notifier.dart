@@ -9,10 +9,23 @@ class LoyaltyProgramEditingNotifier extends StateNotifier<LoyaltyProgramConfig> 
 
   String? _hydrationKey;
 
+  /// When set, [hydrateFromMerchantIfNeeded] keeps the current draft (e.g. new
+  /// programme wizard) until save, abandon, or the merchant doc epoch changes.
+  String? _pauseHydrationForMerchantEpochKey;
+
+  static String _merchantEpochKey(Merchant merchant) =>
+      '${merchant.id}_${merchant.updatedAt?.millisecondsSinceEpoch ?? 0}';
+
   /// Loads server state once per merchant version (avoids wiping local edits).
   void hydrateFromMerchantIfNeeded(Merchant merchant) {
-    final key =
-        '${merchant.id}_${merchant.updatedAt?.millisecondsSinceEpoch ?? 0}';
+    final key = _merchantEpochKey(merchant);
+    if (_pauseHydrationForMerchantEpochKey != null) {
+      if (_pauseHydrationForMerchantEpochKey == key) {
+        return;
+      }
+      // Remote or concurrent update changed the doc — drop pause and sync.
+      _pauseHydrationForMerchantEpochKey = null;
+    }
     if (_hydrationKey == key) return;
     _hydrationKey = key;
     state = merchant.loyaltyProgram ??
@@ -23,12 +36,30 @@ class LoyaltyProgramEditingNotifier extends StateNotifier<LoyaltyProgramConfig> 
 
   /// After a successful save, align draft + hydration key with returned [Merchant].
   void applySavedMerchant(Merchant merchant) {
-    _hydrationKey =
-        '${merchant.id}_${merchant.updatedAt?.millisecondsSinceEpoch ?? 0}';
+    _pauseHydrationForMerchantEpochKey = null;
+    _hydrationKey = _merchantEpochKey(merchant);
     state = merchant.loyaltyProgram ??
         LoyaltyProgramConfig.fallbackFromFlags(
           loyaltyEnabled: merchant.loyaltyEnabled,
         );
+  }
+
+  /// Fresh questionnaire while the saved programme stays disabled on the server
+  /// until the merchant saves a new configuration.
+  void beginFreshProgramDraft(Merchant merchant) {
+    _pauseHydrationForMerchantEpochKey = _merchantEpochKey(merchant);
+    _hydrationKey = null;
+    state = LoyaltyProgramConfig.initial().copyWith(programEnabled: true);
+  }
+
+  /// Abandon in-memory draft and reload from [merchant] (same Firestore epoch).
+  void resumeHydrationIfPaused(Merchant? merchant) {
+    if (merchant == null || _pauseHydrationForMerchantEpochKey == null) return;
+    final key = _merchantEpochKey(merchant);
+    if (_pauseHydrationForMerchantEpochKey != key) return;
+    _pauseHydrationForMerchantEpochKey = null;
+    _hydrationKey = null;
+    hydrateFromMerchantIfNeeded(merchant);
   }
 
   void setProgramEnabled(bool value) {
@@ -103,6 +134,7 @@ class LoyaltyProgramEditingNotifier extends StateNotifier<LoyaltyProgramConfig> 
   }
 
   void reset() {
+    _pauseHydrationForMerchantEpochKey = null;
     _hydrationKey = null;
     state = LoyaltyProgramConfig.initial();
   }

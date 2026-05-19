@@ -113,17 +113,13 @@ class _FakeLoyalty implements ClientLoyaltyRepository {
           String merchantId, String clientUid) async* {}
 
   @override
-  Stream<List<LoyaltyPendingClientRow>> watchPendingLoyaltyClients(
-          String merchantId) async* {}
-
-  @override
   Future<Result<ClientMerchantLoyaltyProgress>> applyPassageDeltas({
     required String merchantId,
     required String clientUid,
     int validatedPassagesDelta = 0,
-    int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
+    ActiveValidationCompletion? completeActiveValidation,
   }) async =>
       throw UnimplementedError();
 

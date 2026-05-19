@@ -223,7 +223,11 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
             ),
             const SizedBox(height: 16),
             GestureDetector(
-              onTap: () => ref.invalidate(clientHomeFeedProvider),
+              onTap: () {
+                ref.invalidate(clientHomeFeedProvider);
+                ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+                ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 20, vertical: 10),
@@ -255,8 +259,6 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _RestonsProchesTile(),
-          const SizedBox(height: 16),
           Text(
             AppLocalizations.of(context)!.stores,
             style: GoogleFonts.outfit(
@@ -322,6 +324,8 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          const _RestonsProchesTile(),
         ],
       ),
     );
@@ -791,8 +795,8 @@ class _CarnetListState extends State<_CarnetList> {
     final showSearch = widget.merchants.length > 6;
     final filtered = _filtered;
 
-    // Carnet order: brand vignette first, then optional own-merchant tile
-    // (dual profile), then followed merchants. Hidden during search.
+    // Carnet order: own-merchant tile (dual profile), then followed merchants,
+    // then the Yuztoo « restons proches » brand vignette at the bottom. Hidden during search.
     Merchant? ownMerchant;
     if (widget.ownMerchantId != null) {
       for (final m in filtered) {
@@ -846,13 +850,8 @@ class _CarnetListState extends State<_CarnetList> {
             ),
             const SizedBox(height: 16),
           ],
-          if (showRestonsProches) ...[
-            const _RestonsProchesTile(),
-            if (showOwnMerchant || reorderableList.isNotEmpty)
-              const SizedBox(height: 16),
-          ],
           if (showOwnMerchant) ...[
-            // Own merchant — pinned below brand tile, NOT reorderable.
+            // Own merchant — pinned at top of list, NOT reorderable.
             _buildMerchantTile(
               ownMerchant,
               isLast: false,
@@ -919,6 +918,13 @@ class _CarnetListState extends State<_CarnetList> {
                 );
               },
             ),
+          if (showRestonsProches) ...[
+            if (showSearch ||
+                showOwnMerchant ||
+                reorderableList.isNotEmpty)
+              const SizedBox(height: 16),
+            const _RestonsProchesTile(),
+          ],
         ],
       ),
     );

@@ -443,9 +443,9 @@ async function fireAutoNotification(
       client_id: clientId,
       merchant_id: merchantId,
       merchant_name: merchantName,
-      // 'auto' type — tap routes to notifications tab (no promotion_id for deep-link).
-      // merchant_id IS included so onNotificationCreated forwards it in FCM data,
-      // allowing future routing enhancements without schema changes.
+      // 'auto' type — client app routes tap to the vitrine when `merchant_id`
+      // is present (FCM data); otherwise falls back to the notifications inbox.
+      // merchant_id is always set here so pushes can deep-link without schema churn.
       type: "auto",
       title: data.title ?? merchantName,
       body: data.text ?? "",
@@ -657,6 +657,95 @@ export const onFollowedMerchantCreated = functions
       AUTO_NOTIFICATION_TRIGGERS.newFollower,
       clientId
     );
+    return null;
+  });
+
+// ─── 2b. Client requests passage validation (merchant push) ─────────────────
+
+/**
+ * When a client creates an `active_validations` doc with status `awaiting`,
+ * notify the merchant owner immediately (FCM). The merchant app also listens
+ * on Firestore for in-app popups while foregrounded.
+ */
+export const onActiveValidationAwaiting = functions
+  .region("europe-west1")
+  .firestore.document(
+    "merchants/{merchantId}/active_validations/{clientUid}"
+  )
+  .onWrite(async (change, context) => {
+    const after = change.after.data();
+    if (!after || after.status !== "awaiting") return null;
+
+    const before = change.before.data();
+    // Skip noisy updates while still awaiting (e.g. opened_at).
+    if (before?.status === "awaiting") return null;
+
+    const { merchantId, clientUid } = context.params;
+    const merchantSnap = await db.collection("merchants").doc(merchantId).get();
+    if (!merchantSnap.exists) return null;
+    const ownerUid: string | undefined = merchantSnap.data()?.owner_uid;
+    if (!ownerUid) return null;
+
+    const tokenDoc = await db
+      .collection("users")
+      .doc(ownerUid)
+      .collection("push_tokens")
+      .doc("device")
+      .get();
+    if (!tokenDoc.exists) return null;
+    const fcmToken: string | undefined = tokenDoc.data()?.fcm_token;
+    if (!fcmToken) return null;
+
+    const clientName: string =
+      (after.client_display_name as string) || "Un client";
+    const title = "Passage à valider";
+    const body = `${clientName} attend votre validation`;
+
+    const message: admin.messaging.Message = {
+      token: fcmToken,
+      notification: { title, body },
+      data: {
+        type: "loyalty_passage_request",
+        merchant_id: merchantId,
+        client_uid: clientUid,
+        client_name: clientName,
+      },
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "yuztoo_promo_v2",
+          priority: "high",
+          defaultSound: true,
+        },
+      },
+      apns: {
+        headers: {
+          "apns-priority": "10",
+          "apns-push-type": "alert",
+        },
+        payload: {
+          aps: {
+            sound: "default",
+            "content-available": 1,
+          },
+        },
+      },
+    };
+
+    try {
+      await messaging.send(message);
+      functions.logger.info("Merchant passage-request push sent", {
+        merchantId,
+        clientUid,
+        ownerUid,
+      });
+    } catch (error: unknown) {
+      functions.logger.error("Merchant passage-request push failed", {
+        merchantId,
+        clientUid,
+        error: String(error),
+      });
+    }
     return null;
   });
 

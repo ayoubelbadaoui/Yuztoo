@@ -18,8 +18,8 @@ extension _RappelsClientsSectionUi on RappelsClientsSection {
         children: [
           const RappelsSectionHeader(
             icon: Icons.people_outline_rounded,
-            title: 'Nouveaux clients et Passage',
-            subtitle: 'fidélité à confirmer',
+            title: 'Nouveaux clients et Passages',
+            subtitle: 'aperçu mensuel',
           ),
           const SizedBox(height: 16),
           _buildClientsRow(),
@@ -48,63 +48,27 @@ extension _RappelsClientsSectionUi on RappelsClientsSection {
         ),
         const SizedBox(width: 14),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                connectedClientsThisMonth == 0
-                    ? 'Aucun nouveau client ce mois-ci'
-                    : '$connectedClientsThisMonth nouveau${connectedClientsThisMonth > 1 ? 'x' : ''} client${connectedClientsThisMonth > 1 ? 's' : ''} ce mois',
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-              if (pendingLoyaltyPassagesToConfirm > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 3),
-                  child: Text(
-                    '$pendingLoyaltyPassagesToConfirm passage${pendingLoyaltyPassagesToConfirm > 1 ? 's' : ''} en attente',
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      color: MerchantColors.gold,
-                    ),
-                  ),
-                ),
-            ],
+          child: Text(
+            connectedClientsThisMonth == 0
+                ? 'Aucun nouveau client ce mois-ci'
+                : '$connectedClientsThisMonth nouveau${connectedClientsThisMonth > 1 ? 'x' : ''} client${connectedClientsThisMonth > 1 ? 's' : ''} ce mois',
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
         ),
         const SizedBox(width: 12),
         Tooltip(
-          message: !isManualPassageValidation
-              ? 'Appuyez pour modifier le mode de validation'
-              : (pendingLoyaltyPassagesToConfirm <= 0
-                  ? 'Aucun passage en attente pour le moment.'
-                  : 'Voir les passages à valider'),
+          message: 'Appuyez pour modifier le mode de validation',
           child: GestureDetector(
-            onTap: !isManualPassageValidation
-                ? onAutoTap
-                : (isManualPassageValidation &&
-                        pendingLoyaltyPassagesToConfirm > 0 &&
-                        onConfirmPendingPassagesTap != null
-                    ? onConfirmPendingPassagesTap
-                    : null),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+            onTap: onAutoTap,
+            child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
               decoration: BoxDecoration(
-                gradient: isManualPassageValidation &&
-                        pendingLoyaltyPassagesToConfirm > 0
-                    ? const LinearGradient(
-                        colors: [MerchantColors.gold, Color(0xFFD4AF37)],
-                      )
-                    : null,
-                color: isManualPassageValidation &&
-                        pendingLoyaltyPassagesToConfirm > 0
-                    ? null
-                    : MerchantColors.navyCard,
+                color: MerchantColors.navyCard,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: MerchantColors.gold.withValues(alpha: 0.4),
@@ -112,18 +76,11 @@ extension _RappelsClientsSectionUi on RappelsClientsSection {
                 ),
               ),
               child: Text(
-                !isManualPassageValidation
-                    ? 'Auto'
-                    : (pendingLoyaltyPassagesToConfirm > 0
-                        ? 'Confirmer ($pendingLoyaltyPassagesToConfirm)'
-                        : 'Confirmer'),
+                'Auto',
                 style: GoogleFonts.outfit(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: isManualPassageValidation &&
-                          pendingLoyaltyPassagesToConfirm > 0
-                      ? MerchantColors.darkOverlay
-                      : MerchantColors.textLightGrey,
+                  color: MerchantColors.textLightGrey,
                 ),
               ),
             ),

@@ -41,7 +41,6 @@ enum ClientLoyaltyTier {
 class ClientMerchantLoyaltyProgress extends Equatable {
   const ClientMerchantLoyaltyProgress({
     required this.validatedPassages,
-    required this.pendingPassages,
     required this.cumulativeSpendEuros,
     this.isFirstVisit = false,
     this.hasFirstVisit = false,
@@ -52,7 +51,6 @@ class ClientMerchantLoyaltyProgress extends Equatable {
 
   const ClientMerchantLoyaltyProgress.empty()
       : validatedPassages = 0,
-        pendingPassages = 0,
         cumulativeSpendEuros = 0,
         isFirstVisit = false,
         hasFirstVisit = false,
@@ -61,7 +59,6 @@ class ClientMerchantLoyaltyProgress extends Equatable {
         programStatus = null;
 
   final int validatedPassages;
-  final int pendingPassages;
   final double cumulativeSpendEuros;
 
   /// Transient: true only for the duration of the `applyPassageDeltas` call
@@ -91,7 +88,6 @@ class ClientMerchantLoyaltyProgress extends Equatable {
   @override
   List<Object?> get props => <Object?>[
         validatedPassages,
-        pendingPassages,
         cumulativeSpendEuros,
         isFirstVisit,
         hasFirstVisit,

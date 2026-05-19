@@ -165,319 +165,422 @@ class _GreetingBlock extends StatelessWidget {
   }
 }
 
-// ─── Feed (loading / empty / list) ────────────────────────────────────────────
+// ─── Four-type filter (real rewardKind from Firestore programs) ───────────────
 
-enum _FeedFilter {
-  purchaseVoucher,
-  discountPercent,
-  freeProduct,
-  loyaltyPoints,
-}
-
-String _feedFilterLabel(_FeedFilter f) {
-  switch (f) {
-    case _FeedFilter.purchaseVoucher:
-      return 'Bon d\'achat';
-    case _FeedFilter.discountPercent:
-      return 'Remise';
-    case _FeedFilter.freeProduct:
-      return 'Produit offert';
-    case _FeedFilter.loyaltyPoints:
-      return 'Points';
-  }
-}
-
-bool _entryMatchesFilter(ClientLoyaltyEntry e, _FeedFilter f) {
-  switch (f) {
-    case _FeedFilter.purchaseVoucher:
-      return e.config.rewardKind == LoyaltyRewardKind.purchaseVoucher;
-    case _FeedFilter.discountPercent:
-      return e.config.rewardKind == LoyaltyRewardKind.discountPercent;
-    case _FeedFilter.freeProduct:
-      return e.config.rewardKind == LoyaltyRewardKind.freeProduct;
-    case _FeedFilter.loyaltyPoints:
-      return e.config.rewardKind == LoyaltyRewardKind.loyaltyPoints;
-  }
-}
-
-class _LoyaltyFeed extends StatefulWidget {
-  const _LoyaltyFeed({required this.feedAsync, this.onStoreTap});
-
-  final AsyncValue<List<ClientLoyaltyEntry>> feedAsync;
-  final ValueChanged<String>? onStoreTap;
-
-  @override
-  State<_LoyaltyFeed> createState() => _LoyaltyFeedState();
-}
-
-class _LoyaltyFeedState extends State<_LoyaltyFeed> {
-  _FeedFilter? _filter; // null = show all
-
-  @override
-  Widget build(BuildContext context) {
-    return widget.feedAsync.when(
-      loading: () => const _LoadingCards(),
-      error: (_, __) => const _EmptyState(
-        message: 'Impossible de charger votre fidélité pour le moment.',
-      ),
-      data: (entries) {
-        if (entries.isEmpty) return const _EmptyState();
-
-        final activeFilters = _FeedFilter.values
-            .where((f) => entries.any((e) => _entryMatchesFilter(e, f)))
-            .toList();
-        final showFilters = activeFilters.length > 1;
-
-        List<ClientLoyaltyEntry> visible = entries;
-        if (_filter != null) {
-          visible =
-              entries.where((e) => _entryMatchesFilter(e, _filter!)).toList();
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showFilters) ...[
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final f in activeFilters)
-                    _filterPill(
-                      _feedFilterLabel(f),
-                      f,
-                      entries.where((e) => _entryMatchesFilter(e, f)).length,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-            for (final entry in visible) ...[
-              _MerchantLoyaltyCard(
-                  entry: entry, onStoreTap: widget.onStoreTap),
-              const SizedBox(height: 16),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _filterPill(String label, _FeedFilter filter, int count) {
-    final active = _filter == filter;
-    return GestureDetector(
-      onTap: () => setState(
-          () => _filter = active ? null : filter),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: active
-              ? MerchantColors.gold
-              : MerchantColors.gold.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: active
-                ? MerchantColors.gold
-                : MerchantColors.gold
-                    .withValues(alpha: MerchantColors.goldBorderAlpha),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: active
-                    ? MerchantColors.darkOverlay
-                    : MerchantColors.textLightGrey,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: active
-                    ? MerchantColors.darkOverlay.withValues(alpha: 0.2)
-                    : MerchantColors.gold.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$count',
-                style: GoogleFonts.outfit(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color:
-                      active ? MerchantColors.darkOverlay : MerchantColors.gold,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── "Mes avantages" — two-tab section: Bon de commande | Remise ─────────────
-
-class _MesAvantagesSection extends ConsumerStatefulWidget {
-  const _MesAvantagesSection();
-
-  @override
-  ConsumerState<_MesAvantagesSection> createState() =>
-      _MesAvantagesSectionState();
-}
-
-class _MesAvantagesSectionState extends ConsumerState<_MesAvantagesSection> {
-  _FeedFilter? _selectedTab;
-
-  static LoyaltyRewardKind _rewardKindFor(ClientRewardItem r) =>
-      r.rewardKind ??
+bool _rewardMatchesCategory(ClientRewardItem r, LoyaltyRewardCategory c) {
+  final kind = r.rewardKind ??
       r.merchant.loyaltyProgram?.rewardKind ??
       LoyaltyRewardKind.purchaseVoucher;
+  return loyaltyRewardCategoryFromKind(kind) == c;
+}
 
-  static _FeedFilter _filterForReward(ClientRewardItem r) {
-    switch (_rewardKindFor(r)) {
-      case LoyaltyRewardKind.purchaseVoucher:
-        return _FeedFilter.purchaseVoucher;
-      case LoyaltyRewardKind.discountPercent:
-        return _FeedFilter.discountPercent;
-      case LoyaltyRewardKind.freeProduct:
-        return _FeedFilter.freeProduct;
-      case LoyaltyRewardKind.loyaltyPoints:
-        return _FeedFilter.loyaltyPoints;
-    }
+IconData _categoryIcon(LoyaltyRewardCategory c) {
+  switch (c) {
+    case LoyaltyRewardCategory.purchaseVoucher:
+      return Icons.card_giftcard_rounded;
+    case LoyaltyRewardCategory.discountPercent:
+      return Icons.percent_rounded;
+    case LoyaltyRewardCategory.freeProduct:
+      return Icons.redeem_rounded;
+    case LoyaltyRewardCategory.loyaltyPoints:
+      return Icons.stars_rounded;
   }
+}
+
+class _LoyaltyCategoryFilterBar extends StatelessWidget {
+  const _LoyaltyCategoryFilterBar({
+    required this.selected,
+    required this.feedCounts,
+    required this.rewardCounts,
+    required this.onSelected,
+  });
+
+  final LoyaltyRewardCategory selected;
+  final Map<LoyaltyRewardCategory, int> feedCounts;
+  final Map<LoyaltyRewardCategory, int> rewardCounts;
+  final ValueChanged<LoyaltyRewardCategory> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final rewardsAsync = ref.watch(availableClientRewardsProvider);
-    return rewardsAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (rewards) {
-        if (rewards.isEmpty) return const SizedBox.shrink();
-
-        final activeTabs = _FeedFilter.values
-            .where((f) => rewards.any((r) => _filterForReward(r) == f))
-            .toList();
-        final selected = _selectedTab != null &&
-                activeTabs.contains(_selectedTab)
-            ? _selectedTab!
-            : activeTabs.first;
-        final active =
-            rewards.where((r) => _filterForReward(r) == selected).toList();
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Type de fidélité',
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: MerchantColors.textLightGrey,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
             children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final f in activeTabs)
-                    _rewardTabPill(
-                      _feedFilterLabel(f),
-                      rewards.where((r) => _filterForReward(r) == f).length,
-                      selected == f,
-                      () => setState(() => _selectedTab = f),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (active.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    'Aucun bon dans cette catégorie.',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      color: MerchantColors.textLightGrey,
-                    ),
-                  ),
-                )
-              else
-                for (var i = 0; i < active.length; i++) ...[
-                  _RewardCard(reward: active[i]),
-                  if (i < active.length - 1) const SizedBox(height: 10),
-                ],
+              for (final c in kLoyaltyRewardCategories) ...[
+                _CategoryChip(
+                  category: c,
+                  label: c.labelFr,
+                  icon: _categoryIcon(c),
+                  programCount: feedCounts[c] ?? 0,
+                  rewardCount: rewardCounts[c] ?? 0,
+                  selected: selected == c,
+                  onTap: () => onSelected(c),
+                ),
+                if (c != LoyaltyRewardCategory.loyaltyPoints)
+                  const SizedBox(width: 8),
+              ],
             ],
           ),
-        );
-      },
+        ),
+      ],
     );
   }
+}
 
-  Widget _rewardTabPill(
-    String label,
-    int count,
-    bool active,
-    VoidCallback onTap,
-  ) {
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.category,
+    required this.label,
+    required this.icon,
+    required this.programCount,
+    required this.rewardCount,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final LoyaltyRewardCategory category;
+  final String label;
+  final IconData icon;
+  final int programCount;
+  final int rewardCount;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        width: 124,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
         decoration: BoxDecoration(
-          color: active
+          color: selected
               ? MerchantColors.gold
-              : MerchantColors.gold.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
+              : MerchantColors.gold.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: active
+            color: selected
                 ? MerchantColors.gold
                 : MerchantColors.gold
                     .withValues(alpha: MerchantColors.goldBorderAlpha),
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Icon(
+              icon,
+              size: 18,
+              color: selected
+                  ? MerchantColors.darkOverlay
+                  : MerchantColors.gold,
+            ),
+            const SizedBox(height: 6),
             Text(
               label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.outfit(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: active
+                height: 1.2,
+                color: selected
                     ? MerchantColors.darkOverlay
-                    : MerchantColors.textLightGrey,
+                    : Colors.white,
               ),
             ),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: active
-                    ? MerchantColors.darkOverlay.withValues(alpha: 0.2)
-                    : MerchantColors.gold.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$count',
-                style: GoogleFonts.outfit(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: active
-                      ? MerchantColors.darkOverlay
-                      : MerchantColors.gold,
-                ),
+            const SizedBox(height: 4),
+            Text(
+              programCount == 0
+                  ? category.notSubscribedHintFr
+                  : rewardCount > 0
+                      ? '$programCount commerce${programCount > 1 ? 's' : ''} · '
+                          '$rewardCount bon${rewardCount > 1 ? 's' : ''}'
+                      : '$programCount commerce${programCount > 1 ? 's' : ''}',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.outfit(
+                fontSize: 9,
+                height: 1.25,
+                color: selected
+                    ? MerchantColors.darkOverlay.withValues(alpha: 0.8)
+                    : programCount == 0
+                        ? MerchantColors.textGrey
+                        : MerchantColors.textLightGrey,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Feed (loading / empty / list) ────────────────────────────────────────────
+
+class _LoyaltyFeed extends StatelessWidget {
+  const _LoyaltyFeed({
+    required this.category,
+    required this.feedAsync,
+    this.onStoreTap,
+  });
+
+  final LoyaltyRewardCategory category;
+  final AsyncValue<List<ClientLoyaltyEntry>> feedAsync;
+  final ValueChanged<String>? onStoreTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return feedAsync.when(
+      loading: () => const _LoadingCards(),
+      error: (_, __) => const _EmptyState(
+        message: 'Impossible de charger votre fidélité pour le moment.',
+      ),
+      data: (entries) {
+        final visible = entries
+            .where((e) => category.matchesConfig(e.config))
+            .toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Mes cartes fidélité',
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              visible.isEmpty
+                  ? 'Programmes « ${category.labelFr} »'
+                  : '${visible.length} carte${visible.length > 1 ? 's' : ''} « ${category.labelFr} »',
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: MerchantColors.textGrey,
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (visible.isEmpty)
+              _LoyaltyTypeEmptyCard(
+                category: category,
+                forRewards: false,
+              )
+            else
+              for (final entry in visible) ...[
+                _MerchantLoyaltyCard(
+                  entry: entry,
+                  onStoreTap: onStoreTap,
+                ),
+                const SizedBox(height: 16),
+              ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Friendly empty placeholder when the client has no program/bon in a type.
+class _LoyaltyTypeEmptyCard extends StatelessWidget {
+  const _LoyaltyTypeEmptyCard({
+    required this.category,
+    required this.forRewards,
+  });
+
+  final LoyaltyRewardCategory category;
+  final bool forRewards;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = forRewards
+        ? 'Aucun bon pour l’instant'
+        : 'Pas encore inscrit';
+    final body = forRewards
+        ? 'Vous n’avez pas encore de bon « ${category.labelFr} ». '
+            'Continuez à cumuler chez vos commerces inscrits.'
+        : 'Vous ne suivez pas encore de commerce avec un programme '
+            '« ${category.labelFr} ». Scannez le QR d’une vitrine pour '
+            'vous inscrire et commencer à cumuler.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      decoration: BoxDecoration(
+        color: MerchantColors.navyCard.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: MerchantColors.gold.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: MerchantColors.gold.withValues(alpha: 0.1),
+            ),
+            child: Icon(
+              _categoryIcon(category),
+              color: MerchantColors.gold.withValues(alpha: 0.55),
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: MerchantColors.textLightGrey,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── "Mes avantages" — bons filtrés par type de programme ─────────────────────
+
+class _MesAvantagesShell extends StatelessWidget {
+  const _MesAvantagesShell({
+    required this.category,
+    required this.child,
+    this.rewardCount,
+  });
+
+  final LoyaltyRewardCategory category;
+  final Widget child;
+  final int? rewardCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = rewardCount;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Mes avantages',
+          style: GoogleFonts.outfit(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          count == null
+              ? 'Bons « ${category.labelFr} »'
+              : count == 0
+                  ? 'Pas encore de bon « ${category.labelFr} »'
+                  : '$count bon${count > 1 ? 's' : ''} disponible${count > 1 ? 's' : ''}',
+          style: GoogleFonts.outfit(
+            fontSize: 12,
+            color: MerchantColors.textGrey,
+          ),
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
+    );
+  }
+}
+
+class _MesAvantagesSection extends ConsumerWidget {
+  const _MesAvantagesSection({required this.category});
+
+  final LoyaltyRewardCategory category;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rewardsAsync = ref.watch(availableClientRewardsProvider);
+    return rewardsAsync.when(
+      loading: () => Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: _MesAvantagesShell(
+          category: category,
+          child: const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: MerchantColors.gold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      error: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: _MesAvantagesShell(
+          category: category,
+          child: _LoyaltyTypeEmptyCard(
+            category: category,
+            forRewards: true,
+          ),
+        ),
+      ),
+      data: (rewards) {
+        final active = rewards
+            .where((r) => _rewardMatchesCategory(r, category))
+            .toList();
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: _MesAvantagesShell(
+            category: category,
+            rewardCount: active.length,
+            child: active.isEmpty
+                ? _LoyaltyTypeEmptyCard(
+                    category: category,
+                    forRewards: true,
+                  )
+                : Column(
+                    children: [
+                      for (var i = 0; i < active.length; i++) ...[
+                        _RewardCard(reward: active[i]),
+                        if (i < active.length - 1) const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+          ),
+        );
+      },
     );
   }
 }
@@ -761,8 +864,11 @@ class _RewardDetailSheetState extends ConsumerState<_RewardDetailSheet> {
         ref.invalidate(availableClientRewardsProvider);
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bon utilisé — bonne dégustation 🎁'),
+          SnackBar(
+            content: Text(
+              'Bon utilisé — bonne dégustation 🎁',
+              style: merchantSnackBarTextOnGold(),
+            ),
             behavior: SnackBarBehavior.floating,
             backgroundColor: MerchantColors.gold,
           ),
@@ -1242,7 +1348,6 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
           showWelcomeBadge:
               progress.hasFirstVisit && welcomeGift.isNotEmpty,
           welcomeGiftText: welcomeGift,
-          pendingPassages: progress.pendingPassages,
           programEnded: entry.programEnded,
         );
       },
@@ -1256,7 +1361,12 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
           onStoreTap?.call(entry.merchantId);
         }
       },
-      child: card,
+      child: Column(
+        children: [
+          card,
+          ClientValidationBanner(merchantId: entry.merchantId),
+        ],
+      ),
     );
   }
 
@@ -1387,7 +1497,6 @@ class _MerchantLoyaltyCard extends ConsumerWidget {
     required int validatedPassages,
     required bool showWelcomeBadge,
     String welcomeGiftText = '',
-    int pendingPassages = 0,
     bool programEnded = false,
   }) {
     final gratConfig = entry.merchant.effectiveGratificationConfig;

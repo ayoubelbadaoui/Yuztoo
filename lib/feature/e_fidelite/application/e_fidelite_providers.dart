@@ -15,3 +15,9 @@ final updateMerchantLoyaltyProgramProvider =
   final repository = ref.watch(merchantRepositoryProvider);
   return UpdateMerchantLoyaltyProgram(repository);
 });
+
+/// Set when Paramètres Fidélité ON is deferred until E-Fidélité save.
+final pendingLoyaltyConfigurationProvider = StateProvider<bool>((ref) => false);
+
+/// Highest wizard step index reached in the current configuration session.
+final loyaltyWizardMaxStepVisitedProvider = StateProvider<int>((ref) => 0);

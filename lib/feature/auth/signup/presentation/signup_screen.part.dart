@@ -299,6 +299,15 @@ extension _SignupScreenUi on _SignupScreenState {
     ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
         true;
     _withSetState(() => _isSocialLoading = true);
+    // When this is true, the success path has scheduled the shell to swap
+    // away the signup screen on the next frame. The `finally` block MUST
+    // skip its own `setState(_isSocialLoading = false)` in that case —
+    // otherwise the pending rebuild on the signup screen races with the
+    // shell tearing it down and fires `_dependents.isEmpty` in
+    // framework.dart (the same red-screen assertion the previous commit
+    // tried to fix; it patched refreshAuthState but missed the loading
+    // setState that came AFTER it).
+    bool scheduledShellSwap = false;
     try {
       final result = await signIn();
       if (!mounted) return;
@@ -331,6 +340,7 @@ extension _SignupScreenUi on _SignupScreenState {
       if (hasProfile) {
         ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
             false;
+        scheduledShellSwap = true;
         // Defer to next frame so the signup screen's pending setState
         // calls finish before the shell unmounts it. Inline awaiting
         // races with the unmount and fires '_dependents.isEmpty: is
@@ -444,6 +454,7 @@ extension _SignupScreenUi on _SignupScreenState {
               photoUrl: authUser.photoUrl,
             );
       } catch (_) {}
+      scheduledShellSwap = true;
       // Defer to next frame — see same comment in the existing-user
       // branch above. Prevents the framework assertion when the shell
       // unmounts the signup screen while it's still rebuilding.
@@ -463,7 +474,15 @@ extension _SignupScreenUi on _SignupScreenState {
         await ref.read(auth_core.authControllerProvider.notifier).signOut();
       }
     } finally {
-      if (mounted) {
+      // On the success branches (`scheduledShellSwap == true`) we let the
+      // shell tear the signup screen down with `_isSocialLoading` still
+      // true — its rebuild is wasted because the screen is being unmounted
+      // anyway, and triggering one HERE races with the shell's parent-side
+      // rebuild and fires the framework assertion. The user sees the
+      // spinner for ~1 frame before the splash takes over: fine.
+      // On the error path we DO need to clear the spinner because the
+      // screen stays visible for the user to retry.
+      if (!scheduledShellSwap && mounted) {
         _withSetState(() => _isSocialLoading = false);
       }
     }
@@ -474,7 +493,21 @@ extension _SignupScreenUi on _SignupScreenState {
     final initial = (_phoneNumber != null && _phoneNumber!.trim().isNotEmpty)
         ? _phoneNumber!.trim()
         : '';
-    final controller = TextEditingController(text: initial);
+    var dialogCountryCode = _selectedCountryCode;
+    final controller = TextEditingController();
+    if (initial.isNotEmpty) {
+      if (initial.startsWith('+')) {
+        final phoneData = PhoneFormatter.extractPhoneData(initial);
+        if (phoneData != null) {
+          dialogCountryCode = phoneData['countryCode'] ?? dialogCountryCode;
+          controller.text = phoneData['localNumber'] ?? '';
+        } else {
+          controller.text = initial.replaceAll(RegExp(r'\s'), '');
+        }
+      } else {
+        controller.text = initial;
+      }
+    }
 
     final submitted = await showDialog<String>(
       context: context,
@@ -503,7 +536,8 @@ extension _SignupScreenUi on _SignupScreenState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Pour sécuriser votre compte, indiquez votre numéro de mobile (format international).',
+                      'Pour sécuriser votre compte, choisissez l\'indicatif pays '
+                      'puis saisissez votre numéro de mobile.',
                       style: GoogleFonts.outfit(
                         color: SignupConstants.textGrey,
                         fontSize: 13,
@@ -511,40 +545,106 @@ extension _SignupScreenUi on _SignupScreenState {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    TextField(
-                      controller: controller,
-                      keyboardType: TextInputType.phone,
-                      autocorrect: false,
-                      style: GoogleFonts.outfit(
-                        color: SignupConstants.textLight,
-                        fontSize: 15,
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: SignupConstants.borderColor),
+                        color: SignupConstants.bgDark1,
                       ),
-                      decoration: InputDecoration(
-                        hintText: '+33 6 12 34 56 78',
-                        hintStyle: GoogleFonts.outfit(
-                          color: SignupConstants.textGrey,
-                          fontSize: 14,
-                        ),
-                        errorText: fieldError,
-                        filled: true,
-                        fillColor: SignupConstants.bgDark1,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              const BorderSide(color: SignupConstants.borderColor),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              const BorderSide(color: SignupConstants.borderColor),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: SignupConstants.primaryGold,
-                            width: 1.5,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => CountryCodeModal.show(
+                                dialogContext,
+                                selectedCountryCode: dialogCountryCode,
+                                onCountrySelected: (code, name, flag) {
+                                  setModal(() {
+                                    dialogCountryCode = code;
+                                    fieldError = null;
+                                  });
+                                },
+                                phoneController: controller,
+                                onPhoneNumberUpdate: (_) {},
+                                onRevalidatePhone: () {},
+                                phoneFieldHasBeenValidated: false,
+                              ),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(11),
+                                bottomLeft: Radius.circular(11),
+                              ),
+                              child: Container(
+                                height: 52,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: SignupConstants.borderColor,
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      dialogCountryCode,
+                                      style: GoogleFonts.outfit(
+                                        color: SignupConstants.textLight,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.expand_more_rounded,
+                                      color: SignupConstants.primaryGold,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              keyboardType: TextInputType.phone,
+                              autocorrect: false,
+                              inputFormatters: [
+                                PhoneNumberFormatter(
+                                  countryCode: dialogCountryCode,
+                                ),
+                              ],
+                              style: GoogleFonts.outfit(
+                                color: SignupConstants.textLight,
+                                fontSize: 15,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: SignupConstants.countryPhoneHints[
+                                        dialogCountryCode] ??
+                                    '---',
+                                hintStyle: GoogleFonts.outfit(
+                                  color: SignupConstants.textGrey,
+                                  fontSize: 14,
+                                ),
+                                errorText: fieldError,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -564,7 +664,7 @@ extension _SignupScreenUi on _SignupScreenState {
                     final formatted = raw.startsWith('+')
                         ? raw.replaceAll(RegExp(r'\s'), '')
                         : PhoneFormatter.formatPhoneNumber(
-                            _selectedCountryCode,
+                            dialogCountryCode,
                             raw,
                           );
                     if (!PhoneFormatter.isValidE164(formatted)) {
@@ -573,7 +673,11 @@ extension _SignupScreenUi on _SignupScreenState {
                       });
                       return;
                     }
-                    setModal(() => fieldError = null);
+                    // Don't setModal(fieldError = null) before pop — the
+                    // dialog is being torn down on the next line, and the
+                    // pending markNeedsBuild on the StatefulBuilder racing
+                    // with the route removal is what triggers the red-screen
+                    // assertion users reported.
                     Navigator.of(dialogContext).pop(formatted);
                   },
                   child: Text(

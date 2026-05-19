@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../domain/entities/scheduled_notification.dart';
 import '../infrastructure/scheduled_notification_repository_provider.dart';
@@ -40,15 +41,20 @@ class _ScheduledNotificationsScreenState
     result.fold(
       (failure) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(failure.message, style: GoogleFonts.outfit()),
+          content: Text(
+            failure.message,
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           backgroundColor: Colors.red[400],
           behavior: SnackBarBehavior.floating,
         ),
       ),
       (_) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Programmation annulée',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+          content: Text(
+            'Programmation annulée',
+            style: merchantSnackBarTextOnDark(fontWeight: FontWeight.w600),
+          ),
           backgroundColor: MerchantColors.bgHeader,
           behavior: SnackBarBehavior.floating,
         ),

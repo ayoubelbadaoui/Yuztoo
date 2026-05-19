@@ -33,6 +33,7 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                               MaterialPageRoute<void>(
                                 builder: (_) => PersonalInformationScreen(
                                   onCreateProAccount: widget.onCreateProAccount,
+                                  isDualProfile: widget.isDualProfile,
                                 ),
                               ),
                             );
@@ -103,7 +104,8 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                                 SnackBar(
                                   content: Text(
                                     'Centre d\'aide bientôt disponible',
-                                    style: GoogleFonts.outfit(fontSize: 13),
+                                    style: merchantSnackBarTextOnDark()
+                                        .copyWith(fontSize: 13),
                                   ),
                                   backgroundColor: MerchantColors.bgHeader,
                                   behavior: SnackBarBehavior.floating,

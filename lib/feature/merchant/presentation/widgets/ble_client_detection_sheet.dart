@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/infrastructure/ble_proximity_notifier.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../loyalty/presentation/widgets/merchant_spend_amount_dialog.dart';
 import '../../../storefront/presentation/widgets/storefront_colors.dart';
 import '../../application/providers.dart' as merchant_providers;
 import '../../domain/entities/merchant.dart';
@@ -56,12 +57,18 @@ class _BleClientDetectionSheetState
   }
 
   Future<void> _confirm(Merchant merchant) async {
-    final needsAmount =
-        merchant.loyaltyProgram?.effectiveAskClientPurchaseAmount ?? false;
+    final config = merchant.loyaltyProgram;
+    final needsAmount = config?.effectiveAskClientPurchaseAmount ?? false;
+    final double? minimumPerVisitEuros = (config?.minimumPerVisitEnabled ?? false)
+        ? config?.minimumPerVisitEuros
+        : null;
 
     double? amount;
     if (needsAmount) {
-      amount = await _showAmountDialog();
+      amount = await showMerchantSpendAmountDialog(
+        context,
+        minimumPerVisitEuros: minimumPerVisitEuros,
+      );
       if (!mounted) return;
       if (amount == null) return; // cancelled — keep sheet open
     }
@@ -98,67 +105,19 @@ class _BleClientDetectionSheetState
     );
   }
 
-  Future<double?> _showAmountDialog() {
-    final ctrl = TextEditingController();
-    return showDialog<double>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: MerchantColors.navyCard,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Montant de l\'achat',
-          style: GoogleFonts.outfit(
-              color: MerchantColors.textWhite,
-              fontWeight: FontWeight.w600),
-        ),
-        content: TextField(
-          controller: ctrl,
-          keyboardType:
-              const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          style: const TextStyle(color: MerchantColors.textWhite),
-          decoration: const InputDecoration(
-            hintText: '0.00',
-            hintStyle: TextStyle(color: MerchantColors.textGrey),
-            suffixText: '€',
-            suffixStyle: TextStyle(
-                color: StorefrontColors.primaryGold,
-                fontWeight: FontWeight.w600),
-            enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: MerchantColors.gold)),
-            focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(
-                    color: StorefrontColors.primaryGold, width: 2)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Annuler',
-                style: TextStyle(color: MerchantColors.textGrey)),
-          ),
-          TextButton(
-            onPressed: () {
-              final v =
-                  double.tryParse(ctrl.text.replaceAll(',', '.'));
-              Navigator.of(ctx).pop(v);
-            },
-            child: const Text('Valider',
-                style: TextStyle(
-                    color: StorefrontColors.primaryGold,
-                    fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
+  bool _merchantLoyaltyLive(Merchant? m) {
+    if (m == null) return false;
+    return m.loyaltyEnabled &&
+        (m.loyaltyProgram?.programEnabled ?? m.loyaltyEnabled);
   }
 
   @override
   Widget build(BuildContext context) {
     final merchantAsync =
         ref.watch(merchant_providers.currentMerchantForOwnerProvider);
+    final merchant = merchantAsync.valueOrNull;
+    final loyaltyOff =
+        merchant != null && !_merchantLoyaltyLive(merchant);
 
     return Container(
       decoration: const BoxDecoration(
@@ -256,8 +215,40 @@ class _BleClientDetectionSheetState
             const SizedBox(height: 16),
           ],
 
-          // Confirm button
-          merchantAsync.when(
+          if (loyaltyOff) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                'La fidélité est désactivée pour votre commerce. Réactivez '
+                'E-Fidélité pour enregistrer des passages fidélité depuis cette '
+                'fenêtre.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  height: 1.45,
+                  color: MerchantColors.textLightGrey,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton(
+                onPressed: _isConfirming ? null : _ignore,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: MerchantColors.gold,
+                  side: const BorderSide(color: MerchantColors.gold),
+                ),
+                child: Text(
+                  'Fermer',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ] else ...[
+            // Confirm button
+            merchantAsync.when(
             data: (merchant) => SizedBox(
               width: double.infinity,
               height: 52,
@@ -331,23 +322,24 @@ class _BleClientDetectionSheetState
             ),
           ),
 
-          const SizedBox(height: 12),
+            if (!loyaltyOff) const SizedBox(height: 12),
 
-          // Ignore
-          GestureDetector(
-            onTap: _isConfirming ? null : _ignore,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'Ignorer',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  color: MerchantColors.textGrey,
+            if (!loyaltyOff)
+              GestureDetector(
+                onTap: _isConfirming ? null : _ignore,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Ignorer',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      color: MerchantColors.textGrey,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+          ],
         ],
       ),
     );

@@ -170,6 +170,13 @@ class Merchant extends Equatable {
   /// Timestamp when the merchant was last updated
   final DateTime? updatedAt;
 
+  /// Firestore has a persisted `loyalty_program` map (E-Fidélité wizard save).
+  bool get hasSavedLoyaltyProgram => loyaltyProgram != null;
+
+  /// Saved program exists and is enabled for clients.
+  bool get isLoyaltyLive =>
+      hasSavedLoyaltyProgram && loyaltyProgram!.programEnabled;
+
   /// Résumé fidélité pour vitrine marchand et fiche client. `null` si [loyaltyEnabled] est faux.
   String? get loyaltyClientSummaryForDisplay {
     if (!loyaltyEnabled) return null;

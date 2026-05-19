@@ -151,21 +151,7 @@ final rappelsAlertsProvider =
       },
     );
 
-    // ── 2. Loyalty passages waiting for manual merchant validation ─────────
-    final pendingRows = await ref
-        .read(loyalty_providers.pendingLoyaltyClientsForMerchantProvider(merchantId).future);
-    final totalPending = pendingRows.fold<int>(
-      0,
-      (s, r) => s + r.progress.pendingPassages,
-    );
-    if (totalPending > 0) {
-      alerts.add(RappelAlert(
-        type: RappelAlertType.loyaltyPendingValidation,
-        count: totalPending,
-      ));
-    }
-
-    // ── 3. Clients eligible for their loyalty reward ───────────────────────
+    // ── 2. Clients eligible for their loyalty reward ───────────────────────
     final merchantAsync =
         await ref.read(merchant_providers.currentMerchantForOwnerProvider.future);
     final loyaltyConfig = merchantAsync?.loyaltyProgram ??
@@ -173,8 +159,18 @@ final rappelsAlertsProvider =
           loyaltyEnabled: merchantAsync?.loyaltyEnabled ?? false,
         );
     if (loyaltyConfig.programEnabled) {
-      final rewardReady = pendingRows.where((r) =>
-          r.progress.validatedPassages >= loyaltyConfig.visitsRequired);
+      final isSpendBased =
+          loyaltyConfig.triggerType == LoyaltyTriggerType.purchaseTotal;
+      final rewardReady = await ref.read(
+        loyalty_providers.clientsWithRewardAvailableProvider(
+          (
+            merchantId: merchantId,
+            visitsRequired: loyaltyConfig.visitsRequired,
+            spendRequired: loyaltyConfig.cumulativeSpendRequiredEuros,
+            isSpendBased: isSpendBased,
+          ),
+        ).future,
+      );
       if (rewardReady.isNotEmpty) {
         alerts.add(RappelAlert(
           type: RappelAlertType.loyaltyRewardReady,

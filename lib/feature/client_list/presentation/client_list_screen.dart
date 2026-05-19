@@ -17,10 +17,11 @@ import '../application/providers.dart' as crm_providers;
 import '../domain/entities/merchant_client_row.dart';
 import 'widgets/client_item_card.dart';
 import 'widgets/client_qr_box.dart';
+import 'widgets/client_validation_tab.dart';
 
 part 'client_list_screen.part.dart';
 
-enum _Section { list, apercu }
+enum _Section { list, validation, apercu }
 
 enum _ApercuPeriod {
   sevenDays,
@@ -60,6 +61,7 @@ class ClientListScreen extends ConsumerStatefulWidget {
     this.isDualProfile = false,
     this.onSwitchRole,
     this.onShowQr,
+    this.onNavigate,
   });
 
   static String get path => '/merchant-clients';
@@ -69,6 +71,7 @@ class ClientListScreen extends ConsumerStatefulWidget {
   final bool isDualProfile;
   final VoidCallback? onSwitchRole;
   final VoidCallback? onShowQr;
+  final ValueChanged<String>? onNavigate;
 
   @override
   ConsumerState<ClientListScreen> createState() => _ClientListScreenState();

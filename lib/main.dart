@@ -19,6 +19,7 @@ import 'feature/auth/core/domain/entities/auth_user.dart';
 import 'theme.dart';
 import 'types.dart';
 import 'core/shared/widgets/bottom_nav.dart';
+import 'feature/client_home/application/providers.dart';
 import 'feature/client_list/application/screens.dart';
 import 'feature/splash/application/screens.dart';
 import 'feature/role_selection/application/screens.dart';
@@ -59,6 +60,11 @@ import 'feature/client_notification/infrastructure/fcm_token_service.dart';
 import 'feature/client_notification/infrastructure/notification_service.dart';
 import 'core/config/vitrine_qr_config.dart';
 import 'core/infrastructure/ble_proximity_notifier.dart';
+import 'core/infrastructure/logger_service.dart';
+import 'feature/loyalty/application/active_validation_providers.dart';
+import 'feature/loyalty/domain/entities/active_validation_request.dart';
+import 'feature/loyalty/presentation/active_validation_ui.dart';
+import 'feature/loyalty/presentation/widgets/loyalty_celebration_overlay.dart';
 import 'feature/merchant/presentation/widgets/ble_client_detection_sheet.dart';
 
 part 'main_shell_state.part.dart';
@@ -123,4 +129,3 @@ class _RootShell extends ConsumerStatefulWidget {
   @override
   ConsumerState<_RootShell> createState() => _RootShellState();
 }
-

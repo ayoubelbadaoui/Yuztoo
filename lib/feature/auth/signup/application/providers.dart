@@ -1,9 +1,12 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/infrastructure/auth_repository_provider.dart';
+import '../../../../core/domain/core/failure.dart';
+import '../../core/domain/auth_failure.dart';
 import '../../core/domain/repositories/auth_repository.dart';
+import '../../core/infrastructure/auth_repository_provider.dart';
 import '../../core/infrastructure/user_repository_provider.dart';
+import 'delete_account_exception.dart';
 import 'signup_with_email_password.dart';
 import 'send_phone_verification.dart';
 import 'verify_phone_available_for_signup.dart';
@@ -75,6 +78,22 @@ class DeleteCurrentUser {
 
   final AuthRepository _repository;
 
+  /// Auth-only delete succeeded, or user is already gone (e.g. CF removed auth).
+  Future<void> _applyAuthDeleteResult() async {
+    final result = await _repository.deleteCurrentUser();
+    result.fold(
+      (AppFailure failure) {
+        if (_authDeleteMeansAlreadySignedOut(failure)) {
+          return;
+        }
+        throw DeleteAccountException(
+          _userMessageForDeleteAuthFailure(failure),
+        );
+      },
+      (_) {},
+    );
+  }
+
   Future<void> call() async {
     try {
       // Region must match the Cloud Function's deployment region. The
@@ -83,19 +102,36 @@ class DeleteCurrentUser {
       final functions =
           FirebaseFunctions.instanceFor(region: 'europe-west1');
       await functions.httpsCallable('purgeAccount').call();
+      return;
     } on FirebaseFunctionsException catch (e) {
-      // unauthenticated → caller had no live Auth token; no point trying
-      // the local fallback either, surface as-is.
-      if (e.code == 'unauthenticated') rethrow;
-      // Any other Cloud Function error means the cascade may have
-      // partially run. We still call the local fallback so the user
-      // ends up signed out and the account is at minimum auth-less. The
-      // CF can be re-invoked manually by support if needed.
-      await _repository.deleteCurrentUser();
+      if (e.code == 'unauthenticated') {
+        throw DeleteAccountException(
+          'Session expirée. Déconnectez-vous et reconnectez-vous, puis réessayez.',
+        );
+      }
+      await _applyAuthDeleteResult();
+      return;
     } catch (_) {
-      // Network down, region misconfigured, etc. — same fallback.
-      await _repository.deleteCurrentUser();
+      await _applyAuthDeleteResult();
     }
   }
+}
+
+bool _authDeleteMeansAlreadySignedOut(AppFailure failure) {
+  return failure is AuthUnexpectedFailure &&
+      failure.message == 'Aucun utilisateur connecté';
+}
+
+bool _isRecentLoginAuthFailure(AppFailure failure) {
+  return failure is AuthUnexpectedFailure &&
+      failure.message == 'Erreur de session.';
+}
+
+String _userMessageForDeleteAuthFailure(AppFailure failure) {
+  if (_isRecentLoginAuthFailure(failure)) {
+    return 'Pour des raisons de sécurité, déconnectez-vous puis reconnectez-vous '
+        'et réessayez la suppression du compte.';
+  }
+  return failure.message;
 }
 

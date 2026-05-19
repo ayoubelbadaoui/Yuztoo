@@ -139,27 +139,15 @@ void main() {
     test('9-passage progress → soutien tier', () {
       const p = ClientMerchantLoyaltyProgress(
         validatedPassages: 9,
-        pendingPassages: 0,
         cumulativeSpendEuros: 0,
       );
       expect(ClientLoyaltyTier.fromPassages(p.validatedPassages),
           ClientLoyaltyTier.soutien);
     });
 
-    test('pendingPassages do NOT affect tier (only validated count matters)', () {
-      const p = ClientMerchantLoyaltyProgress(
-        validatedPassages: 2,
-        pendingPassages: 100, // huge pending — should NOT promote tier
-        cumulativeSpendEuros: 0,
-      );
-      expect(ClientLoyaltyTier.fromPassages(p.validatedPassages),
-          ClientLoyaltyTier.nouveau);
-    });
-
     test('isFirstVisit flag independent of tier', () {
       const p = ClientMerchantLoyaltyProgress(
         validatedPassages: 25,
-        pendingPassages: 0,
         cumulativeSpendEuros: 500,
         isFirstVisit: true,
       );

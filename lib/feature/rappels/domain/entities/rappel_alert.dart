@@ -3,9 +3,6 @@ enum RappelAlertType {
   /// One or more active promotions expire within 3 days.
   promoExpiring,
 
-  /// Clients have loyalty passages waiting for merchant validation.
-  loyaltyPendingValidation,
-
   /// Clients are eligible for their loyalty reward right now.
   loyaltyRewardReady,
 }

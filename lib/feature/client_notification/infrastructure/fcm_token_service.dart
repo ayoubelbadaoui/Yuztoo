@@ -77,6 +77,14 @@ class FcmTokenService {
       await _tokenRefreshSubscription?.cancel();
       _tokenRefreshSubscription = messaging.onTokenRefresh.listen(
         (newToken) => _persistToken(userId, newToken),
+        onError: (Object e, StackTrace st) {
+          LoggerService.logError(
+            'FCM token refresh stream error',
+            error: e,
+            stackTrace: st,
+            context: {'userId': userId},
+          );
+        },
       );
     } catch (e, st) {
       LoggerService.logError(

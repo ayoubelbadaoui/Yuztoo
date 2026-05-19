@@ -89,22 +89,23 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
         maxLines: 3,
         minLines: 2,
         maxLength: 280,
+        onTapOutside: (_) =>
+            FocusManager.instance.primaryFocus?.unfocus(),
         style: GoogleFonts.outfit(fontSize: 14, color: Colors.white, height: 1.5),
         cursorColor: MerchantColors.gold,
-        decoration: InputDecoration(
-          hintText: 'Écrivez votre message ici…',
-          hintStyle: GoogleFonts.outfit(
-            fontSize: 14,
-            color: MerchantColors.textGrey,
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          border: InputBorder.none,
-          filled: true,
-          fillColor: Colors.transparent,
-          counterStyle: GoogleFonts.outfit(
-            fontSize: 10,
-            color: MerchantColors.textGrey,
+        decoration: MerchantColors.inputDecorationOnDarkSurface(
+          InputDecoration(
+            hintText: 'Écrivez votre message ici…',
+            hintStyle: GoogleFonts.outfit(
+              fontSize: 14,
+              color: MerchantColors.textGrey,
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            counterStyle: GoogleFonts.outfit(
+              fontSize: 10,
+              color: MerchantColors.textGrey,
+            ),
           ),
         ),
         onChanged: (_) => _rebuildWith(() {}),
@@ -124,7 +125,10 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
           return Padding(
             padding: EdgeInsets.only(right: i < _QuickSendSectionState._audienceOptions.length - 1 ? 8 : 0),
             child: GestureDetector(
-          onTap: () => _rebuildWith(() => _audienceIndex = i),
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                _rebuildWith(() => _audienceIndex = i);
+              },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 padding:
@@ -212,7 +216,12 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
   Widget _buildSendButton(BuildContext context) {
     final canSend = _ctrl.text.trim().isNotEmpty && !_sending && !widget.quotaExceeded;
     return GestureDetector(
-      onTap: canSend ? _onSendTap : null,
+      onTap: canSend
+          ? () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              _onSendTap();
+            }
+          : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: double.infinity,
@@ -278,7 +287,14 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
     final scheduled = _scheduledAt;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: scheduled == null ? _toggleScheduleOn : _toggleScheduleOff,
+      onTap: () {
+        FocusManager.instance.primaryFocus?.unfocus();
+        if (scheduled == null) {
+          _toggleScheduleOn();
+        } else {
+          _toggleScheduleOff();
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
@@ -562,7 +578,12 @@ class _TemplateChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final disabled = onTap == null;
     return GestureDetector(
-      onTap: onTap,
+      onTap: onTap == null
+          ? null
+          : () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              onTap!();
+            },
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

@@ -71,7 +71,10 @@ class AudienceSection extends StatelessWidget {
               children: _segments.map((s) {
                 final isOn = targetSegments.contains(s.key);
                 return GestureDetector(
-                  onTap: () => onSegmentToggled?.call(s.key),
+                  onTap: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    onSegmentToggled?.call(s.key);
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     padding: const EdgeInsets.symmetric(
@@ -145,7 +148,10 @@ class AudienceSection extends StatelessWidget {
   Widget _audienceCard(String label, IconData icon, int index) {
     final isActive = selectedIndex == index;
     return GestureDetector(
-      onTap: () => onChanged(index),
+      onTap: () {
+        FocusManager.instance.primaryFocus?.unfocus();
+        onChanged(index);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),

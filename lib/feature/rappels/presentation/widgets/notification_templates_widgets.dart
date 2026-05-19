@@ -334,6 +334,8 @@ Future<bool> showSaveTemplateDialog({
                     GoogleFonts.outfit(fontSize: 14, color: Colors.white),
                 cursorColor: MerchantColors.gold,
                 decoration: InputDecoration(
+                  filled: true,
+                  fillColor: MerchantColors.navyCard,
                   hintText: 'ex. Promo week-end',
                   hintStyle: GoogleFonts.outfit(
                     fontSize: 14,

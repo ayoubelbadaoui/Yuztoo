@@ -69,11 +69,6 @@ class _FakeRepo implements ClientLoyaltyRepository {
       Stream.value(const ClientMerchantLoyaltyProgress.empty());
 
   @override
-  Stream<List<LoyaltyPendingClientRow>> watchPendingLoyaltyClients(
-          String merchantId) =>
-      Stream.value([]);
-
-  @override
   Stream<List<LoyaltyPendingClientRow>> watchClientsWithRewardAvailable({
     required String merchantId,
     required int visitsRequired,
@@ -87,9 +82,9 @@ class _FakeRepo implements ClientLoyaltyRepository {
     required String merchantId,
     required String clientUid,
     int validatedPassagesDelta = 0,
-    int pendingPassagesDelta = 0,
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
+    ActiveValidationCompletion? completeActiveValidation,
   }) async =>
       const Right(ClientMerchantLoyaltyProgress.empty());
 
@@ -331,7 +326,6 @@ void main() {
       repo.redeemResult = const Right(
         ClientMerchantLoyaltyProgress(
           validatedPassages: 0,
-          pendingPassages: 0,
           cumulativeSpendEuros: 0,
         ),
       );

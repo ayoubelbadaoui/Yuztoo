@@ -1,6 +1,6 @@
 {
   "@@locale": "en",
-  "appTitle": "Yuztoo",
+  "appTitle": "YuzToo",
   "@appTitle": {
     "description": "The application title"
   },
@@ -93,7 +93,7 @@
   "discount": "Discount",
   "freePastry": "Free pastry",
   "scanQRCode": "Scan the",
-  "addToYuztoo": "Add it to your Yuztoo notebook\nand receive useful information",
+  "addToYuzToo": "Add it to your YuzToo notebook\nand receive useful information",
   "scanning": "Scanning...",
   "startScan": "Start scan",
   "emailRequired": "Email address is required.",
@@ -101,7 +101,7 @@
   "emailAddress": "Email address",
   "forgotPasswordQuestion": "Forgot password?",
   "connectToShops": "Connect to your shops",
-  "yuztooForYou": "Yuztoo, concretely for you",
+  "yuztooForYou": "YuzToo, concretely for you",
   "passwordHint": "8+ characters, uppercase, lowercase and numbers",
   "socialLoginSoon": "{provider} login coming soon",
   "@socialLoginSoon": {
@@ -254,7 +254,7 @@
   "newClientsTitle": "New clients",
   "acknowledgeClient": "OK",
   "noNewClients": "No new clients",
-  "servicesYuztoo": "YUZTOO SERVICES",
+  "servicesYuzToo": "YUZTOO SERVICES",
   "pendingClientsCount": "{count} pending",
   "@pendingClientsCount": {
     "placeholders": {

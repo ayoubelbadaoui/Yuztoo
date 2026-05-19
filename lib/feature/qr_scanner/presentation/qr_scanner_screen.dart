@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/config/vitrine_qr_config.dart';
 import '../../../core/infrastructure/nfc_service.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import 'widgets/qr_scanner_debug_simulate_sheet.dart';
 
 part 'qr_scanner_screen.part.dart';
@@ -77,7 +78,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
         SnackBar(
           content: Text(
             'Ce QR code ne correspond pas à une vitrine Yuztoo.',
-            style: GoogleFonts.outfit(),
+            style: merchantSnackBarTextOnDark(),
           ),
           backgroundColor: MerchantColors.navyCard,
         ),
@@ -106,7 +107,8 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       SnackBar(
         content: Text(
           'Scan simulé — ouverture vitrine',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+          style: merchantSnackBarTextOnWarmAccent()
+              .copyWith(fontWeight: FontWeight.w600),
         ),
         backgroundColor: Colors.orange.shade800,
         behavior: SnackBarBehavior.floating,
@@ -122,8 +124,10 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
     if (!available) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('NFC non disponible sur cet appareil.',
-              style: GoogleFonts.outfit()),
+          content: Text(
+            'NFC non disponible sur cet appareil.',
+            style: merchantSnackBarTextOnDark(),
+          ),
           backgroundColor: MerchantColors.navyCard,
         ),
       );
@@ -142,8 +146,10 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Aucune vitrine Yuztoo détectée par NFC.',
-                  style: GoogleFonts.outfit()),
+              content: Text(
+                'Aucune vitrine Yuztoo détectée par NFC.',
+                style: merchantSnackBarTextOnDark(),
+              ),
               backgroundColor: MerchantColors.navyCard,
             ),
           );
@@ -151,7 +157,10 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       case NfcUnavailable():
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('NFC non disponible.', style: GoogleFonts.outfit()),
+            content: Text(
+              'NFC non disponible.',
+              style: merchantSnackBarTextOnDark(),
+            ),
             backgroundColor: MerchantColors.navyCard,
           ),
         );
@@ -159,7 +168,10 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
         if (message != 'Lecture annulée.') {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(message, style: GoogleFonts.outfit()),
+              content: Text(
+                message,
+                style: merchantSnackBarTextOnDark(),
+              ),
               backgroundColor: MerchantColors.navyCard,
             ),
           );

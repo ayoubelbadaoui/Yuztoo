@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../core/shared/widgets/cupertino_picker_sheet.dart';
 import '../../domain/entities/scheduled_notification.dart';
 import '../../domain/entities/sent_notification.dart';
@@ -140,8 +141,10 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Composez un message avant d\'enregistrer.',
-              style: GoogleFonts.outfit()),
+          content: Text(
+            'Composez un message avant d\'enregistrer.',
+            style: merchantSnackBarTextOnDark(),
+          ),
           backgroundColor: MerchantColors.bgHeader,
           behavior: SnackBarBehavior.floating,
         ),
@@ -164,8 +167,10 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
     if (!mounted || !saved) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Template enregistré ✓',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+        content: Text(
+          'Template enregistré ✓',
+          style: merchantSnackBarTextOnGold(),
+        ),
         backgroundColor: MerchantColors.gold,
         behavior: SnackBarBehavior.floating,
       ),
@@ -246,8 +251,10 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
           (failure) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(failure.message,
-                    style: GoogleFonts.outfit()),
+                content: Text(
+                  failure.message,
+                  style: merchantSnackBarTextOnWarmAccent(),
+                ),
                 backgroundColor: Colors.red[400],
                 behavior: SnackBarBehavior.floating,
               ),
@@ -256,9 +263,10 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
           (_) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Notification programmée ✓',
-                    style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.w600)),
+                content: Text(
+                  'Notification programmée ✓',
+                  style: merchantSnackBarTextOnGold(),
+                ),
                 backgroundColor: MerchantColors.gold,
                 behavior: SnackBarBehavior.floating,
               ),
@@ -286,15 +294,20 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
     result.fold(
       (failure) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(failure.message, style: GoogleFonts.outfit()),
+          content: Text(
+            failure.message,
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           backgroundColor: Colors.red[400],
           behavior: SnackBarBehavior.floating,
         ),
       ),
       (_) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Programmation annulée',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+          content: Text(
+            'Programmation annulée',
+            style: merchantSnackBarTextOnDark(fontWeight: FontWeight.w600),
+          ),
           backgroundColor: MerchantColors.bgHeader,
           behavior: SnackBarBehavior.floating,
         ),

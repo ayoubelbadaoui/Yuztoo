@@ -21,7 +21,7 @@ const _kMonthsFr = [
 int _daysInMonth(int month1Based, int year) =>
     DateTime(year, month1Based + 1, 0).day;
 
-/// iOS-style birth-date wheel (day / month / year), centered columns + gold band.
+/// iOS-style birth-date wheel (day / month / year) with one shared selection band.
 Future<DateTime?> showCupertinoDobPicker({
   required BuildContext context,
   required DateTime initial,
@@ -123,6 +123,7 @@ class _DobPickerSheetState extends State<_DobPickerSheet> {
   Widget build(BuildContext context) {
     return YuztooCupertinoPickerSheet(
       title: 'Date de naissance',
+      unifiedSelectionOverlay: true,
       onCancel: () => Navigator.of(context).pop(),
       onConfirm: () {
         final day = _day.clamp(0, _dayCount - 1) + 1;

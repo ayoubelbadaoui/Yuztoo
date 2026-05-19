@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/infrastructure/firebase_providers.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../client_notification/domain/entities/client_notification.dart';
 import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;

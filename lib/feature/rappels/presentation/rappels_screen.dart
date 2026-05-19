@@ -4,13 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
-import '../../loyalty/application/client_loyalty_providers.dart'
-    as client_loyalty_providers;
-import '../../loyalty/application/widgets.dart';
-import '../../loyalty/domain/entities/loyalty_pending_client_row.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../loyalty/presentation/widgets/reward_redemption_section.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
-import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;
 import '../../storefront/domain/entities/storefront.dart';
@@ -40,7 +36,6 @@ class RappelsScreen extends ConsumerStatefulWidget {
 }
 
 class _RappelsScreenState extends ConsumerState<RappelsScreen> {
-  final GlobalKey _pendingLoyaltySectionKey = GlobalKey();
   final GlobalKey _togglesSectionKey = GlobalKey();
 
   // One-time welcome popup per app session.
@@ -100,9 +95,10 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Retrouvez ici les clients ayant scanné votre QR code. '
-                'Les passages fidélité apparaissent dans la section '
-                '« Passages à valider » si la validation manuelle est activée.',
+                'Retrouvez ici les clients ayant scanné votre QR code et '
+                'gérez vos notifications automatiques. '
+                'Les demandes de passage fidélité se valident dans '
+                '« Vos clients » (section Validation des passages).',
                 style: GoogleFonts.outfit(
                   fontSize: 13,
                   color: MerchantColors.textLightGrey,
@@ -141,20 +137,6 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
     );
   }
 
-  void _ensurePendingLoyaltySectionVisible() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ctx = _pendingLoyaltySectionKey.currentContext;
-      if (ctx != null && mounted) {
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeOutCubic,
-          alignment: 0.05,
-        );
-      }
-    });
-  }
-
   void _scrollToToggles() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _togglesSectionKey.currentContext;
@@ -189,7 +171,10 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
     result.fold(
       (f) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur lors de l\'envoi', style: GoogleFonts.outfit()),
+          content: Text(
+            'Erreur lors de l\'envoi',
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           backgroundColor: Colors.red[400],
         ),
       ),
@@ -199,7 +184,7 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
           SnackBar(
             content: Text(
               'Notification envoyée à $sent client${sent > 1 ? 's' : ''}',
-              style: GoogleFonts.outfit(),
+              style: merchantSnackBarTextOnGold(),
             ),
             backgroundColor: MerchantColors.gold,
           ),
@@ -213,39 +198,12 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
     final storefrontAsync = ref.watch(storefront_providers.storefrontProvider);
     final merchantAsync = ref.watch(merchant_providers.currentMerchantForOwnerProvider);
     final Merchant? merchant = merchantAsync.valueOrNull;
-    final LoyaltyProgramConfig loyaltyConfig = merchant?.loyaltyProgram ??
-        LoyaltyProgramConfig.fallbackFromFlags(
-          loyaltyEnabled: merchant?.loyaltyEnabled ?? false,
-        );
-    final bool isManualPassageValidation = merchant != null &&
-        merchant.loyaltyEnabled &&
-        loyaltyConfig.programEnabled &&
-        loyaltyConfig.passageValidation == LoyaltyPassageValidation.manual;
-    final String merchantId = merchant?.id ?? '';
-    final AsyncValue<List<LoyaltyPendingClientRow>> pendingAsync =
-        merchantId.isEmpty
-            ? const AsyncValue<List<LoyaltyPendingClientRow>>.data(
-                <LoyaltyPendingClientRow>[],
-              )
-            : ref.watch(
-                client_loyalty_providers
-                    .pendingLoyaltyClientsForMerchantProvider(merchantId),
-              );
-    final int totalPendingPassages = pendingAsync.maybeWhen(
-      data: (List<LoyaltyPendingClientRow> rows) => rows.fold<int>(
-        0,
-        (int s, LoyaltyPendingClientRow r) => s + r.progress.pendingPassages,
-      ),
-      orElse: () => 0,
-    );
 
     return _buildRappelsScaffold(
       context,
       storefrontAsync: storefrontAsync,
       merchantAsync: merchantAsync,
       merchant: merchant,
-      isManualPassageValidation: isManualPassageValidation,
-      totalPendingPassages: totalPendingPassages,
     );
   }
 
@@ -269,7 +227,7 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
             SnackBar(
               content: Text(
                 'Erreur lors de l\'enregistrement',
-                style: GoogleFonts.outfit(),
+                style: merchantSnackBarTextOnWarmAccent(),
               ),
               backgroundColor: Colors.red[400],
             ),
