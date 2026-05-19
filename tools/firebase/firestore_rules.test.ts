@@ -1026,3 +1026,75 @@ describe("merchants/loyalty_clients", () => {
     );
   });
 });
+
+describe("data_export_requests", () => {
+  test("owner can CREATE a valid GDPR export request", async () => {
+    await assertSucceeds(
+      authDb("user1").collection("data_export_requests").doc("user1").set({
+        uid: "user1",
+        email: "client@example.com",
+        requestedAt: new Date(),
+        status: "pending",
+      })
+    );
+  });
+
+  test("owner can READ own export request", async () => {
+    await assertSucceeds(
+      authDb("user1").collection("data_export_requests").doc("user1").set({
+        uid: "user1",
+        email: "",
+        requestedAt: new Date(),
+        status: "pending",
+      })
+    );
+    await assertSucceeds(
+      authDb("user1").collection("data_export_requests").doc("user1").get()
+    );
+  });
+
+  test("user CANNOT write export request for another uid", async () => {
+    await assertFails(
+      authDb("user1").collection("data_export_requests").doc("user2").set({
+        uid: "user2",
+        email: "",
+        requestedAt: new Date(),
+        status: "pending",
+      })
+    );
+  });
+
+  test("user CANNOT spoof uid field on own doc path", async () => {
+    await assertFails(
+      authDb("user1").collection("data_export_requests").doc("user1").set({
+        uid: "user2",
+        email: "",
+        requestedAt: new Date(),
+        status: "pending",
+      })
+    );
+  });
+
+  test("user CANNOT add extra fields", async () => {
+    await assertFails(
+      authDb("user1").collection("data_export_requests").doc("user1").set({
+        uid: "user1",
+        email: "",
+        requestedAt: new Date(),
+        status: "pending",
+        evil: true,
+      })
+    );
+  });
+
+  test("anon CANNOT create export request", async () => {
+    await assertFails(
+      anonDb().collection("data_export_requests").doc("user1").set({
+        uid: "user1",
+        email: "",
+        requestedAt: new Date(),
+        status: "pending",
+      })
+    );
+  });
+});

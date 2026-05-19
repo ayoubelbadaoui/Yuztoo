@@ -33,7 +33,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
                 _buildHeader(),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 32),
+                    padding: EdgeInsets.only(
+                      bottom: 32 +
+                          MediaQuery.of(context).viewInsets.bottom,
+                    ),
                     child: Column(
                       children: [
                         ComposeSection(
@@ -248,8 +251,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
     if (_textCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text('Veuillez écrire un message', style: GoogleFonts.outfit()),
+          content: Text(
+            'Veuillez écrire un message',
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           backgroundColor: Colors.red[400],
         ),
       );
@@ -258,7 +263,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
     if (merchantId == null || merchantId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Commerce non chargé', style: GoogleFonts.outfit()),
+          content: Text(
+            'Commerce non chargé',
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           backgroundColor: Colors.red[400],
         ),
       );
@@ -272,7 +280,7 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           content: Text(
             'Ce déclencheur sera disponible prochainement. '
             'Choisissez un autre événement pour l’instant.',
-            style: GoogleFonts.outfit(),
+            style: merchantSnackBarTextOnWarmAccent(),
           ),
           backgroundColor: Colors.orange[800],
         ),
@@ -299,8 +307,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Erreur lors de l\'enregistrement',
-                    style: GoogleFonts.outfit()),
+                content: Text(
+                  'Erreur lors de l\'enregistrement',
+                  style: merchantSnackBarTextOnWarmAccent(),
+                ),
                 backgroundColor: Colors.red[400],
               ),
             );
@@ -317,8 +327,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Modification enregistrée',
-                    style: GoogleFonts.outfit()),
+                content: Text(
+                  'Modification enregistrée',
+                  style: merchantSnackBarTextOnGold(),
+                ),
                 backgroundColor: MerchantColors.gold,
               ),
             );
@@ -347,8 +359,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Erreur lors de l\'ajout',
-                    style: GoogleFonts.outfit()),
+                content: Text(
+                  'Erreur lors de l\'ajout',
+                  style: merchantSnackBarTextOnWarmAccent(),
+                ),
                 backgroundColor: Colors.red[400],
               ),
             );
@@ -363,8 +377,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content:
-                    Text('Notification ajoutée', style: GoogleFonts.outfit()),
+                content: Text(
+                  'Notification ajoutée',
+                  style: merchantSnackBarTextOnGold(),
+                ),
                 backgroundColor: MerchantColors.gold,
               ),
             );
@@ -414,8 +430,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Erreur lors de la mise à jour',
-                  style: GoogleFonts.outfit()),
+              content: Text(
+                'Erreur lors de la mise à jour',
+                style: merchantSnackBarTextOnWarmAccent(),
+              ),
               backgroundColor: Colors.red[400],
             ),
           );
@@ -436,8 +454,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
     if (notification.id.startsWith('dummy_')) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Données de démo — non supprimable',
-              style: GoogleFonts.outfit()),
+          content: Text(
+            'Données de démo — non supprimable',
+            style: merchantSnackBarTextOnDark(),
+          ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: MerchantColors.navyCard,
         ),
@@ -474,8 +494,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Erreur lors de la suppression',
-                            style: GoogleFonts.outfit()),
+                        content: Text(
+                          'Erreur lors de la suppression',
+                          style: merchantSnackBarTextOnWarmAccent(),
+                        ),
                         backgroundColor: Colors.red[400],
                       ),
                     );
@@ -506,7 +528,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Utilisateur non connecté', style: GoogleFonts.outfit()),
+          content: Text(
+            'Utilisateur non connecté',
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           backgroundColor: Colors.red[400],
         ),
       );
@@ -536,15 +561,19 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
     result.fold(
       (_) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text('Erreur lors de l\'envoi du test', style: GoogleFonts.outfit()),
+          content: Text(
+            'Erreur lors de l\'envoi du test',
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           backgroundColor: Colors.red[400],
         ),
       ),
       (_) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Notification test envoyée sur votre téléphone 📱',
-              style: GoogleFonts.outfit()),
+          content: Text(
+            'Notification test envoyée sur votre téléphone 📱',
+            style: merchantSnackBarTextOnGold(),
+          ),
           backgroundColor: MerchantColors.gold,
         ),
       ),

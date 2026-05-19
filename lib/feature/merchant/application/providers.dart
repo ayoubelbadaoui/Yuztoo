@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/infrastructure/firebase_providers.dart';
+import '../../../core/infrastructure/logger_service.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
 import '../infrastructure/merchant_repository_provider.dart';
@@ -83,8 +84,16 @@ final merchantProfileCacheServiceProvider =
 /// Signed-in merchant profile (from `users.merchant_id` + [MerchantRepository.getMerchantById]).
 ///
 /// `null` when not authenticated, no `merchant_id`, or merchant doc missing.
+///
+/// Network/Firestore throws are caught so screens (e.g. E-Fidélité) do not
+/// surface [AsyncError] red states on transient failures — same as a missing
+/// merchant for UX purposes; logs retain diagnostics.
 final currentMerchantForOwnerProvider =
     FutureProvider.autoDispose<Merchant?>((ref) async {
+  // Avoid aggressive refetch/dispose churn on Android when navigating
+  // (e.g. E-Fidélité) while still invalidating explicitly after saves.
+  ref.keepAlive();
+
   final authState = ref.watch(auth_providers.authStateProvider);
   if (authState is! Authenticated) {
     return null;
@@ -93,14 +102,24 @@ final currentMerchantForOwnerProvider =
   final firestore = ref.watch(firebaseFirestoreProvider);
   final merchantRepo = ref.watch(merchantRepositoryProvider);
 
-  final userDoc = await firestore.collection('users').doc(userId).get();
-  final merchantId = (userDoc.data()?['merchant_id'] as String?)?.trim();
-  if (merchantId == null || merchantId.isEmpty) {
+  try {
+    final userDoc = await firestore.collection('users').doc(userId).get();
+    final merchantId = (userDoc.data()?['merchant_id'] as String?)?.trim();
+    if (merchantId == null || merchantId.isEmpty) {
+      return null;
+    }
+
+    final result = await merchantRepo.getMerchantById(merchantId);
+    return result.fold((_) => null, (m) => m);
+  } catch (e, st) {
+    LoggerService.logError(
+      'currentMerchantForOwnerProvider: load failed',
+      error: e,
+      stackTrace: st,
+      context: <String, dynamic>{'userId': userId},
+    );
     return null;
   }
-
-  final result = await merchantRepo.getMerchantById(merchantId);
-  return result.fold((_) => null, (m) => m);
 });
 
 /// Whether the signed-in user owns a merchant (pro) profile — used for the

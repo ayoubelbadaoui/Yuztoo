@@ -44,8 +44,11 @@ final class ClientProfileReadiness {
 
   bool get isProfileDataComplete => missingForClientHome.isEmpty;
 
+  /// Dual-profile merchants can have full client data in Firestore while
+  /// `onboarding.client` still says `not_started`. The real gate is role +
+  /// required fields — do not force [ClientOnboardingScreen] on every switch.
   bool get canEnterClientHomeDirectly =>
-      hasClientRole && onboardingCompleted && isProfileDataComplete;
+      hasClientRole && isProfileDataComplete;
 
   String get missingFieldsLabelFr => missingForClientHome
       .map((f) => f.labelFr)

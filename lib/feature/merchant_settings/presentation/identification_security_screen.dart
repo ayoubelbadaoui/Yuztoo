@@ -9,6 +9,7 @@ import '../../auth/core/application/providers.dart'
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/login/application/providers.dart'
     show sendPasswordResetEmailProvider;
+import '../../auth/signup/application/delete_account_exception.dart';
 import '../../auth/signup/application/providers.dart'
     show deleteCurrentUserProvider;
 
@@ -147,13 +148,17 @@ class _IdentificationSecurityScreenState
     try {
       await ref.read(deleteCurrentUserProvider).call();
       if (mounted) widget.onAccountDeleted?.call();
+    } on DeleteAccountException catch (e) {
+      if (!mounted) return;
+      _showSnack(e.message, isError: true);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _isDeletingAccount = false);
       _showSnack(
-        'Reconnectez-vous avant de supprimer le compte',
+        'Suppression impossible. Réessayez ou contactez le support.',
         isError: true,
       );
+    } finally {
+      if (mounted) setState(() => _isDeletingAccount = false);
     }
   }
 

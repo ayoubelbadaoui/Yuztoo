@@ -1,33 +1,6 @@
 part of 'e_fidelite_screen.dart';
 
 extension _EFideliteScreenUi on _EFideliteScreenState {
-  void _initViewModeIfNeeded(Merchant merchant) {
-    if (_viewModeInitialized) return;
-    _viewModeInitialized = true;
-    final pending = ref.read(pendingLoyaltyConfigurationProvider);
-    final mode = resolveEFideliteInitialMode(
-      merchant: merchant,
-      pendingConfiguration: pending,
-    );
-    _viewMode =
-        mode == EFideliteInitialMode.recap ? _EFideliteViewMode.recap : _EFideliteViewMode.wizard;
-  }
-
-  void _openWizard({required int initialStep, bool fromRecap = false}) {
-    ref.read(loyaltyWizardMaxStepVisitedProvider.notifier).state =
-        fromRecap ? loyaltyWizardLastStepIndex : initialStep;
-    setState(() {
-      _viewMode = _EFideliteViewMode.wizard;
-      _editingFromRecap = fromRecap;
-      _wizardInitialStep = initialStep;
-    });
-  }
-
-  void _disableProgram() {
-    ref.read(loyaltyProgramEditingProvider.notifier).setProgramEnabled(false);
-    _save();
-  }
-
   Widget _buildEFideliteBody(BuildContext context) {
     final asyncMerchant = ref.watch(currentMerchantForOwnerProvider);
     final config = ref.watch(loyaltyProgramEditingProvider);
@@ -65,7 +38,7 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
       canPop: false,
       onPopInvokedWithResult: (bool didPop, Object? result) {
         if (didPop) return;
-        widget.onBack?.call();
+        _handleEfideliteBack();
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: const SystemUiOverlayStyle(
@@ -81,7 +54,7 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
           body: Column(
             children: [
               _EFideliteHeader(
-                onBack: widget.onBack,
+                onBack: _handleEfideliteBack,
                 onSave: _save,
                 showSave: !inRecap,
                 saveEnabled: saveEnabled,
@@ -197,6 +170,10 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
                           fromRecap: true,
                         ),
                         onDisable: _disableProgram,
+                        onStartNewProgram: merchant.hasSavedLoyaltyProgram &&
+                                !saved.programEnabled
+                            ? () => _confirmAndStartNewProgram(merchant)
+                            : null,
                       );
                     }
 

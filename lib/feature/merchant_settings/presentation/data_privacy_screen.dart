@@ -1,14 +1,22 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../auth/core/application/providers.dart' show authStateProvider;
 import '../../auth/core/application/state/auth_state.dart';
+import '../../auth/signup/application/delete_account_exception.dart';
 import '../../auth/signup/application/providers.dart'
     show deleteCurrentUserProvider;
+import '../application/providers.dart' show portableUserDataExportProvider;
 
 /// "Confidentialité des données" screen.
 class DataPrivacyScreen extends ConsumerStatefulWidget {
@@ -26,6 +34,7 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
   bool _loadingConsent = true;
   bool _savingConsent = false;
   bool _requestingExport = false;
+  bool _downloadingPortable = false;
   bool _isDeletingAccount = false;
 
   @override
@@ -73,6 +82,74 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
       if (mounted) setState(() => _analyticsConsent = !value);
     } finally {
       if (mounted) setState(() => _savingConsent = false);
+    }
+  }
+
+  Future<void> _downloadPortableData() async {
+    final authState = ref.read(authStateProvider);
+    if (authState is! Authenticated) return;
+    setState(() => _downloadingPortable = true);
+    try {
+      final exporter = ref.read(portableUserDataExportProvider);
+      final payload = await exporter.buildExport(
+        uid: authState.user.id,
+        authEmail: authState.user.email,
+      );
+      const encoder = JsonEncoder.withIndent('  ');
+      final json = encoder.convert(payload);
+
+      if (kIsWeb) {
+        await SharePlus.instance.share(
+          ShareParams(
+            text: json,
+            subject: 'Export de données Yuztoo (RGPD)',
+          ),
+        );
+      } else {
+        final dir = await getTemporaryDirectory();
+        final safeName = 'yuztoo_donnees_${authState.user.id}.json';
+        final file = File('${dir.path}/$safeName');
+        await file.writeAsString(json, flush: true);
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile(
+                file.path,
+                mimeType: 'application/json',
+                name: safeName,
+              ),
+            ],
+            subject: 'Export de données Yuztoo (RGPD)',
+            text:
+                'Copie structurée de vos données personnelles (portabilité, art. 20 RGPD).',
+          ),
+        );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Export prêt — enregistrez ou partagez le fichier.',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+          backgroundColor: MerchantColors.bgHeader,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Impossible de générer l’export. ${kDebugMode ? e.toString() : 'Réessayez.'}',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+          backgroundColor: Colors.red[700],
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _downloadingPortable = false);
     }
   }
 
@@ -159,24 +236,40 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
     setState(() => _isDeletingAccount = true);
     try {
       await ref.read(deleteCurrentUserProvider).call();
-      // Auth-state change may have already navigated away; only call back
-      // if the route is still active to avoid popping a deactivated context.
-      if (mounted && ModalRoute.of(context)?.isActive == true) {
+      if (!mounted) return;
+      if (ModalRoute.of(context)?.isActive == true) {
         widget.onAccountDeleted?.call();
       }
-    } catch (_) {
+    } on DeleteAccountException catch (e) {
       if (!mounted) return;
-      setState(() => _isDeletingAccount = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Reconnectez-vous avant de supprimer le compte',
-              style: GoogleFonts.outfit(color: Colors.white)),
+          content: Text(
+            e.message,
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
           backgroundColor: Colors.red[700],
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Suppression impossible. Réessayez ou contactez le support.',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+          backgroundColor: Colors.red[700],
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isDeletingAccount = false);
     }
   }
 
@@ -419,6 +512,7 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
   }
 
   Widget _buildExportCard() {
+    final busy = _downloadingPortable || _requestingExport;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -427,70 +521,126 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
         border: Border.all(
             color: MerchantColors.gold.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: MerchantColors.gold.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.download_outlined,
-                color: MerchantColors.gold, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Export de données',
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: MerchantColors.gold.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Recevez vos données par email sous 48h.',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: MerchantColors.textGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _requestingExport ? null : _requestExport,
-            child: Container(
-              height: 38,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                border: Border.all(color: MerchantColors.gold),
-                borderRadius: BorderRadius.circular(12),
+                child: const Icon(Icons.download_outlined,
+                    color: MerchantColors.gold, size: 20),
               ),
-              child: Center(
-                child: _requestingExport
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: MerchantColors.gold),
-                      )
-                    : Text(
-                        'Demander',
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: MerchantColors.gold,
-                        ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Télécharger mes données',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Droit à la portabilité (art. 20 RGPD) : recevez une copie '
+                      'structurée (fichier JSON) de vos données accessibles dans '
+                      'l’application. Vous pouvez aussi demander une copie traitée '
+                      'par email sous 48 h.',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: MerchantColors.textGrey,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: busy ? null : _downloadPortableData,
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          MerchantColors.gold,
+                          Color(0xFFD4AF37),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: _downloadingPortable
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: MerchantColors.darkOverlay,
+                              ),
+                            )
+                          : Text(
+                              'Télécharger (JSON)',
+                              style: GoogleFonts.outfit(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: MerchantColors.darkOverlay,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: busy ? null : _requestExport,
+                  child: Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: MerchantColors.gold),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: _requestingExport
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: MerchantColors.gold,
+                              ),
+                            )
+                          : Text(
+                              'Demander par email',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: MerchantColors.gold,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

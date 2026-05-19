@@ -11,6 +11,7 @@ import 'package:flutter_yuztoo/feature/loyalty/domain/entities/client_merchant_l
 import 'package:flutter_yuztoo/feature/merchant/application/providers.dart'
     as merchant_providers;
 import 'package:flutter_yuztoo/feature/merchant/application/use_cases/merchant_record_client_passage.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 import 'package:flutter_yuztoo/feature/merchant/presentation/widgets/ble_client_detection_sheet.dart';
 import 'package:flutter_yuztoo/l10n/app_localizations.dart';
@@ -43,6 +44,11 @@ const _kTestMerchant = Merchant(
   phone: '+33600000000',
   city: 'Paris',
   status: 'active',
+  // The BLE detection sheet hides the "Confirmer le passage" button when
+  // `_merchantLoyaltyLive` returns false (i.e. the merchant hasn't enabled
+  // loyalty). The test fixture needs loyalty live to exercise the confirm path.
+  loyaltyEnabled: true,
+  loyaltyProgram: LoyaltyProgramConfig(programEnabled: true),
 );
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

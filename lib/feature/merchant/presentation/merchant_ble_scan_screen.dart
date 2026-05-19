@@ -7,8 +7,11 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/infrastructure/ble_proximity_notifier.dart';
 import '../../../core/infrastructure/ble_proximity_service.dart';
+import '../../../core/infrastructure/logger_service.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../storefront/presentation/widgets/storefront_colors.dart';
 import '../application/providers.dart' as merchant_providers;
 import '../domain/entities/merchant.dart';
@@ -50,10 +53,22 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   _ScanState _state = _ScanState.waiting;
   bool _bleUnavailable = false;
 
+  /// Specific reason the screen is showing the unavailable state — surfaced
+  /// in the UI so the user (and us, when debugging) can tell apart "BT off"
+  /// from "permission denied" from "scan threw an exception".
+  String? _bleErrorReason;
+
   // Per-device consecutive hit counter for debouncing.
   final Map<DeviceIdentifier, int> _hitCount = {};
   // Prevent re-triggering after a validation attempt.
   bool _triggered = false;
+
+  /// E-Fidélité off — BLE passage validation is not offered.
+  bool _loyaltyFideliteDisabled = false;
+
+  bool _loyaltyLive(Merchant m) =>
+      m.loyaltyEnabled &&
+      (m.loyaltyProgram?.programEnabled ?? m.loyaltyEnabled);
 
   @override
   void initState() {
@@ -61,16 +76,28 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     _radarController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
-    )..repeat();
+    );
     _glowController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
-    )..repeat(reverse: true);
-    _startScan();
+    );
+
+    _loyaltyFideliteDisabled = !_loyaltyLive(widget.merchant);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await ref.read(bleProximityProvider.notifier).suspendShellMerchantScan();
+      if (!mounted) return;
+      if (_loyaltyFideliteDisabled) return;
+      _radarController.repeat();
+      _glowController.repeat(reverse: true);
+      unawaited(_startScan());
+    });
   }
 
   @override
   void dispose() {
+    unawaited(ref.read(bleProximityProvider.notifier).resumeShellMerchantScan());
     _radarController.dispose();
     _glowController.dispose();
     _scanSub?.cancel();
@@ -82,7 +109,11 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     final available = await BleProximityService.isAvailable;
     if (!mounted) return;
     if (!available) {
-      setState(() => _bleUnavailable = true);
+      setState(() {
+        _bleUnavailable = true;
+        _bleErrorReason =
+            'Le Bluetooth est désactivé ou indisponible sur ce téléphone.';
+      });
       return;
     }
 
@@ -100,33 +131,87 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     final granted = await _promptPermissionActivation(status);
     if (!mounted) return;
     if (!granted) {
-      setState(() => _bleUnavailable = true);
+      setState(() {
+        _bleUnavailable = true;
+        _bleErrorReason = _reasonForStatus(status);
+      });
       return;
     }
     _beginScan();
   }
 
+  /// Translates a [MerchantPermissionStatus] into the user-visible French
+  /// reason shown on the "BLE indisponible" state.
+  String _reasonForStatus(MerchantPermissionStatus status) {
+    switch (status) {
+      case MerchantPermissionStatus.granted:
+        return '';
+      case MerchantPermissionStatus.permanentlyDenied:
+        return 'L\'autorisation Bluetooth a été refusée. Activez-la depuis les réglages de l\'application.';
+      case MerchantPermissionStatus.restricted:
+        return 'L\'utilisation du Bluetooth est restreinte sur ce téléphone (contrôle parental ou MDM).';
+      case MerchantPermissionStatus.denied:
+        return 'L\'autorisation Bluetooth n\'a pas été accordée.';
+    }
+  }
+
   void _beginScan() {
     // Subscribe directly to flutter_blue_plus scan results so we have RSSI.
-    FlutterBluePlus.startScan(
-        withServices: [Guid(BleProximityService.serviceUuid)]);
+    try {
+      FlutterBluePlus.startScan(
+          withServices: [Guid(BleProximityService.serviceUuid)]);
+    } catch (e, st) {
+      LoggerService.logError(
+        'MerchantBleScanScreen — FlutterBluePlus.startScan threw',
+        error: e,
+        stackTrace: st,
+      );
+      if (!mounted) return;
+      setState(() {
+        _bleUnavailable = true;
+        _bleErrorReason = 'Impossible de démarrer le scan Bluetooth : $e';
+      });
+      return;
+    }
 
-    _scanSub = FlutterBluePlus.scanResults.listen((results) {
-      if (!mounted || _triggered) return;
-      for (final r in results) {
-        if (r.rssi >= _kTapRssiThreshold) {
-          final count = (_hitCount[r.device.remoteId] ?? 0) + 1;
-          _hitCount[r.device.remoteId] = count;
-          if (count >= _kRequiredHits) {
-            _onDeviceTapped(r.device);
-            return;
+    _scanSub = FlutterBluePlus.scanResults.listen(
+      (results) {
+        if (!mounted || _triggered) return;
+        for (final r in results) {
+          if (r.rssi >= _kTapRssiThreshold) {
+            final count = (_hitCount[r.device.remoteId] ?? 0) + 1;
+            _hitCount[r.device.remoteId] = count;
+            if (count >= _kRequiredHits) {
+              _onDeviceTapped(r.device);
+              return;
+            }
+          } else {
+            // Reset counter if device moved away.
+            _hitCount.remove(r.device.remoteId);
           }
-        } else {
-          // Reset counter if device moved away.
-          _hitCount.remove(r.device.remoteId);
         }
-      }
-    });
+      },
+      onError: (Object e, StackTrace st) {
+        LoggerService.logError(
+          'MerchantBleScanScreen — scan stream error',
+          error: e,
+          stackTrace: st,
+        );
+        if (!mounted) return;
+        setState(() {
+          _bleUnavailable = true;
+          _bleErrorReason = 'Erreur du flux de scan Bluetooth : $e';
+        });
+      },
+    );
+    LoggerService.logInfo(
+      'MerchantBleScanScreen — scan started',
+      context: <String, Object?>{
+        'rssiThreshold': _kTapRssiThreshold,
+        'requiredHits': _kRequiredHits,
+        'serviceUuid': BleProximityService.serviceUuid,
+      },
+    );
   }
 
   /// Shows the in-app activation prompt. Returns true once the permission
@@ -288,7 +373,10 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
         final name = displayName?.isNotEmpty == true ? displayName! : 'ce client';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Passage validé pour $name ✓'),
+            content: Text(
+              'Passage validé pour $name ✓',
+              style: merchantSnackBarTextOnGold(),
+            ),
             backgroundColor: StorefrontColors.primaryGold,
           ),
         );
@@ -301,7 +389,10 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     if (errorMessage != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(errorMessage),
+          content: Text(
+            errorMessage,
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           backgroundColor: Colors.red.shade700,
         ),
       );
@@ -312,7 +403,9 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       _triggered = false;
       _hitCount.clear();
     });
-    _startScan();
+    if (!_loyaltyFideliteDisabled) {
+      unawaited(_startScan());
+    }
   }
 
   Future<double?> _showAmountDialog(String? clientName) {
@@ -431,6 +524,42 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   }
 
   Widget _buildBody() {
+    if (_loyaltyFideliteDisabled) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.loyalty_outlined,
+              size: 56,
+              color: MerchantColors.gold.withValues(alpha: 0.45),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'E-Fidélité désactivée',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: MerchantColors.textWhite,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Réactivez le programme dans E-Fidélité pour valider des passages '
+              'fidélité en boutique avec le Bluetooth.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                height: 1.5,
+                color: MerchantColors.textGrey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     if (_bleUnavailable) return _buildUnavailable();
 
     return Column(
@@ -571,6 +700,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   }
 
   Widget _buildUnavailable() {
+    final reason = _bleErrorReason;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -599,12 +729,29 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Vérifiez les réglages de votre téléphone\n(connexion à courte portée activée).',
+              reason ??
+                  'Vérifiez les réglages de votre téléphone\n(connexion à courte portée activée).',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                   fontSize: 15,
                   color: MerchantColors.textLightGrey,
                   height: 1.5),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Quick action: go to system Settings to flip the permission.
+          // Useful when the user previously denied — iOS won't re-prompt
+          // and on Android the system permission dialog is past its
+          // "Don't ask again" point.
+          TextButton.icon(
+            onPressed: () =>
+                BleProximityService.openSystemBluetoothSettings(),
+            icon: const Icon(Icons.settings_rounded,
+                color: MerchantColors.gold, size: 18),
+            label: Text(
+              'Ouvrir les réglages',
+              style: GoogleFonts.outfit(
+                  color: MerchantColors.gold, fontWeight: FontWeight.w600),
             ),
           ),
         ],

@@ -679,8 +679,11 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                     await setMute(userId, notification.merchantId, muted: true);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Notifications désactivées'),
+                        SnackBar(
+                          content: Text(
+                            'Notifications désactivées',
+                            style: merchantSnackBarTextOnDark(),
+                          ),
                           behavior: SnackBarBehavior.floating,
                           backgroundColor: MerchantColors.bgHeader,
                         ),

@@ -5,8 +5,9 @@ import '../../domain/repositories/active_validation_repository.dart';
 ///
 /// - Merchant taps "Refuser" → flips status to 'cancelled' with the supplied
 ///   reason. The client's listener pops the waiting sheet and shows a toast.
-/// - Client taps "Annuler la demande" → flips status to 'cancelled' with
-///   reason 'client_cancelled'. The merchant's listener pops the form.
+/// - Client taps "Annuler" on the in-app banner → flips status to 'cancelled'
+///   with reason 'client_cancelled'. The merchant's validation sheet listens in
+///   real time and closes.
 class CancelActiveValidation {
   CancelActiveValidation(this._repository);
 

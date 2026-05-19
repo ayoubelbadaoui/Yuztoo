@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/snackbar.dart';
 import '../../application/e_fidelite_providers.dart';
 import '../../application/loyalty_program_editing_notifier.dart';
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
@@ -103,7 +104,7 @@ class _LoyaltyConfigurationWizardState
         SnackBar(
           content: Text(
             'Configurez votre programme, puis enregistrez.',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
+            style: merchantSnackBarTextOnDark(fontWeight: FontWeight.w500),
           ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: MerchantColors.bgHeader,

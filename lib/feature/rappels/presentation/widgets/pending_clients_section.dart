@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/snackbar.dart';
 import '../../application/providers.dart' as rappels_providers;
 import '../../domain/entities/pending_client_row.dart';
 import 'rappels_section_header.dart';
@@ -49,7 +50,10 @@ class _PendingClientsSectionState extends ConsumerState<PendingClientsSection> {
       (f) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(f.message, style: GoogleFonts.outfit()),
+            content: Text(
+              f.message,
+              style: merchantSnackBarTextOnWarmAccent(),
+            ),
             behavior: SnackBarBehavior.floating,
             backgroundColor: Colors.red[700],
           ),
@@ -60,7 +64,7 @@ class _PendingClientsSectionState extends ConsumerState<PendingClientsSection> {
           SnackBar(
             content: Text(
               '${row.displayLabel} ajouté à votre base',
-              style: GoogleFonts.outfit(),
+              style: merchantSnackBarTextOnGold(),
             ),
             behavior: SnackBarBehavior.floating,
             backgroundColor: MerchantColors.gold,
@@ -89,7 +93,7 @@ class _PendingClientsSectionState extends ConsumerState<PendingClientsSection> {
       SnackBar(
         content: Text(
           '${rows.length} nouveau${rows.length > 1 ? 'x' : ''} client${rows.length > 1 ? 's' : ''} acquitté${rows.length > 1 ? 's' : ''}',
-          style: GoogleFonts.outfit(),
+          style: merchantSnackBarTextOnGold(),
         ),
         behavior: SnackBarBehavior.floating,
         backgroundColor: MerchantColors.gold,

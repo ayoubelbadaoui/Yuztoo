@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:ble_peripheral/ble_peripheral.dart' as peripheral;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+import 'logger_service.dart';
 
 /// Carries information about a client device discovered via BLE scan.
 /// The [clientId] is read from the GATT characteristic after connecting;
@@ -66,13 +69,31 @@ class BleProximityService {
   /// Starts advertising the Yuztoo service and exposes [clientId] via a
   /// readable GATT characteristic. Returns true if advertising started OK.
   static Future<bool> startClientBroadcast(String clientId) async {
+    LoggerService.logInfo(
+      'BLE startClientBroadcast — start',
+      context: <String, Object?>{
+        'clientId': clientId,
+        'platform': Platform.operatingSystem,
+      },
+    );
     try {
-      // On Android 12+ BLUETOOTH_ADVERTISE is a dangerous permission that must
-      // be granted at runtime before startAdvertising can be called. Calling
-      // startAdvertising without it throws a SecurityException that kills the
-      // process before Dart's try/catch can handle it.
-      final advertise = await Permission.bluetoothAdvertise.request();
-      if (!advertise.isGranted) return false;
+      // Android 12+: `BLUETOOTH_ADVERTISE` is a dangerous runtime
+      // permission that must be granted before `startAdvertising` —
+      // otherwise it throws a SecurityException at the native layer that
+      // kills the isolate before Dart can catch it. iOS: skip — the
+      // `ble_peripheral` plugin instantiates `CBPeripheralManager` which
+      // triggers the system Bluetooth prompt automatically using
+      // `NSBluetoothPeripheralUsageDescription` from Info.plist. No
+      // permission_handler needed (and using it on iOS silently denies
+      // unless we ship a Podfile macro — we don't).
+      if (Platform.isAndroid) {
+        final advertise = await Permission.bluetoothAdvertise.request();
+        LoggerService.logInfo(
+          'BLE startClientBroadcast — bluetoothAdvertise result',
+          context: <String, Object?>{'status': advertise.toString()},
+        );
+        if (!advertise.isGranted) return false;
+      }
       await peripheral.BlePeripheral.initialize();
       await peripheral.BlePeripheral.clearServices();
 
@@ -115,8 +136,17 @@ class BleProximityService {
         services: [serviceUuid],
         localName: 'Yuztoo',
       );
+      LoggerService.logInfo(
+        'BLE startClientBroadcast — advertising started',
+        context: <String, Object?>{'clientId': clientId},
+      );
       return true;
-    } catch (_) {
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE startClientBroadcast — failed',
+        error: e,
+        stackTrace: st,
+      );
       return false;
     }
   }
@@ -131,51 +161,178 @@ class BleProximityService {
 
   // ─── Merchant (Central) ────────────────────────────────────────────────────
 
-  /// Reads the **current** runtime-permission status without prompting the
-  /// user. Use this before showing your own in-app activation dialog — that
-  /// way the OS permission popup doesn't appear unsolicited when the user
-  /// taps "Valider un passage".
+  /// Reads the **current** Bluetooth permission status without prompting the
+  /// user. Each platform has its own permission system:
+  ///
+  ///   - **Android 12+** uses `permission_handler` to query the dangerous
+  ///     runtime permissions `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT`.
+  ///
+  ///   - **iOS** uses `FlutterBluePlus.adapterState`, which mirrors
+  ///     CoreBluetooth's `CBManagerAuthorization` directly. We deliberately
+  ///     do NOT call `permission_handler` here — that package requires a
+  ///     compile-time macro in the Podfile (`PERMISSION_BLUETOOTH=1`) to
+  ///     work on iOS, otherwise it silently returns `denied` for every
+  ///     bluetooth permission. Talking to CoreBluetooth directly via
+  ///     flutter_blue_plus gives us the real state with no extra setup.
   static Future<MerchantPermissionStatus> merchantPermissionStatus() async {
-    final scan = await Permission.bluetoothScan.status;
-    final connect = await Permission.bluetoothConnect.status;
-    if (scan.isGranted && connect.isGranted) {
-      return MerchantPermissionStatus.granted;
-    }
-    if (scan.isPermanentlyDenied || connect.isPermanentlyDenied) {
-      return MerchantPermissionStatus.permanentlyDenied;
-    }
-    if (scan.isRestricted || connect.isRestricted) {
-      return MerchantPermissionStatus.restricted;
-    }
-    return MerchantPermissionStatus.denied;
+    if (Platform.isIOS) return _iosBluetoothStatus();
+    return _androidBluetoothStatus();
   }
 
-  /// Requests the Android 12+ runtime permissions needed for the merchant
-  /// scan flow:
-  ///   - BLUETOOTH_SCAN  — needed before `FlutterBluePlus.startScan`
-  ///   - BLUETOOTH_CONNECT — needed before `device.connect()` (GATT read)
+  static Future<MerchantPermissionStatus> _iosBluetoothStatus() async {
+    try {
+      // `adapterState` reflects CBCentralManager's authorization +
+      // power state. On iOS the relevant values are:
+      //   - on            → user granted permission + BT is powered on
+      //   - unauthorized  → user denied (or restricted by parental controls)
+      //   - off           → BT toggled off in Control Center / Settings
+      //   - unknown       → CBCentralManager hasn't initialized yet
+      final state = await FlutterBluePlus.adapterState.first
+          .timeout(const Duration(seconds: 2));
+      final MerchantPermissionStatus mapped;
+      switch (state) {
+        case BluetoothAdapterState.on:
+          mapped = MerchantPermissionStatus.granted;
+        case BluetoothAdapterState.unauthorized:
+          // iOS doesn't distinguish "denied once" from "permanently denied"
+          // — once the user denies, the only way back is via Settings.
+          mapped = MerchantPermissionStatus.permanentlyDenied;
+        default:
+          // off / turningOn / unknown / unavailable — treat as denied so
+          // the in-app dialog explains that BT needs to be activated.
+          mapped = MerchantPermissionStatus.denied;
+      }
+      LoggerService.logInfo(
+        'BLE merchantPermissionStatus (iOS)',
+        context: <String, Object?>{
+          'adapterState': state.name,
+          'mapped': mapped.name,
+        },
+      );
+      return mapped;
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE merchantPermissionStatus (iOS) adapter probe failed',
+        error: e,
+        stackTrace: st,
+      );
+      return MerchantPermissionStatus.denied;
+    }
+  }
+
+  static Future<MerchantPermissionStatus> _androidBluetoothStatus() async {
+    final scan = await Permission.bluetoothScan.status;
+    final connect = await Permission.bluetoothConnect.status;
+    final MerchantPermissionStatus mapped;
+    if (scan.isGranted && connect.isGranted) {
+      mapped = MerchantPermissionStatus.granted;
+    } else if (scan.isPermanentlyDenied || connect.isPermanentlyDenied) {
+      mapped = MerchantPermissionStatus.permanentlyDenied;
+    } else if (scan.isRestricted || connect.isRestricted) {
+      mapped = MerchantPermissionStatus.restricted;
+    } else {
+      mapped = MerchantPermissionStatus.denied;
+    }
+    LoggerService.logInfo(
+      'BLE merchantPermissionStatus (Android)',
+      context: <String, Object?>{
+        'scan': scan.toString(),
+        'connect': connect.toString(),
+        'mapped': mapped.name,
+      },
+    );
+    return mapped;
+  }
+
+  /// Triggers the OS Bluetooth permission prompt. Returns true once the
+  /// user has actually granted Bluetooth access.
   ///
-  /// This **does** pop the OS permission prompt. Only call it after the user
-  /// has explicitly agreed to activate Bluetooth in your in-app dialog —
-  /// otherwise the OS popup appears out of nowhere when they tap the
-  /// "Valider un passage" button.
+  ///   - **Android 12+**: requests `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT`
+  ///     via `permission_handler`, which surfaces the "Devices nearby"
+  ///     system dialog.
   ///
-  /// Returns true when both are granted. On iOS both calls resolve to
-  /// granted because there's no equivalent runtime gate — the global
-  /// `NSBluetoothAlwaysUsageDescription` prompt is handled when the BLE
-  /// stack is first touched.
+  ///   - **iOS**: kicks CoreBluetooth into action with a tiny throwaway
+  ///     scan. The instant `CBCentralManager` is touched, iOS surfaces
+  ///     its native Bluetooth permission prompt (using the French text
+  ///     from `NSBluetoothAlwaysUsageDescription` in Info.plist). We then
+  ///     read back the adapter state to see what the user chose. No
+  ///     Podfile macros, no `pod install`, no rebuild — works out of the
+  ///     box because we're using iOS's first-party permission flow.
   static Future<bool> requestMerchantPermissions() async {
+    if (Platform.isIOS) return _iosRequestBluetooth();
+    return _androidRequestBluetooth();
+  }
+
+  static Future<bool> _iosRequestBluetooth() async {
+    LoggerService.logInfo('BLE requestMerchantPermissions (iOS) — start');
+    try {
+      // 1) Force CBCentralManager to initialize. On iOS this triggers the
+      //    system Bluetooth permission prompt the first time, using
+      //    `NSBluetoothAlwaysUsageDescription`.
+      await FlutterBluePlus.startScan(
+        withServices: [Guid(serviceUuid)],
+        timeout: const Duration(milliseconds: 250),
+      );
+      // The startScan above carries its own timeout; calling stopScan
+      // ensures we're idle before re-reading the state.
+      await FlutterBluePlus.stopScan();
+    } catch (e, st) {
+      // startScan can throw `BluetoothUnauthorized` when the user has
+      // already denied — that's fine, we fall through to the state
+      // re-check below and report back accordingly.
+      LoggerService.logError(
+        'BLE requestMerchantPermissions (iOS) — probe scan threw '
+        '(this is normal if previously denied)',
+        error: e,
+        stackTrace: st,
+      );
+    }
+    // 2) Re-read the adapter state to see what the user just decided.
+    //    Allow a longer timeout here because the system prompt UI sits
+    //    on top of the scan path until the user taps Allow / Don't allow.
+    try {
+      final state = await FlutterBluePlus.adapterState.first
+          .timeout(const Duration(seconds: 30));
+      final granted = state == BluetoothAdapterState.on;
+      LoggerService.logInfo(
+        'BLE requestMerchantPermissions (iOS) — done',
+        context: <String, Object?>{
+          'finalAdapterState': state.name,
+          'granted': granted,
+        },
+      );
+      return granted;
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE requestMerchantPermissions (iOS) — adapter re-read failed',
+        error: e,
+        stackTrace: st,
+      );
+      return false;
+    }
+  }
+
+  static Future<bool> _androidRequestBluetooth() async {
+    LoggerService.logInfo('BLE requestMerchantPermissions (Android) — start');
     final scan = await Permission.bluetoothScan.request();
+    LoggerService.logInfo(
+      'BLE requestMerchantPermissions (Android) — bluetoothScan result',
+      context: <String, Object?>{'status': scan.toString()},
+    );
     if (!scan.isGranted) return false;
     final connect = await Permission.bluetoothConnect.request();
+    LoggerService.logInfo(
+      'BLE requestMerchantPermissions (Android) — bluetoothConnect result',
+      context: <String, Object?>{'status': connect.toString()},
+    );
     if (!connect.isGranted) return false;
     return true;
   }
 
   /// Opens the system Settings page for the app so the user can flip the
-  /// Bluetooth permission switch manually. Use this when
-  /// [merchantPermissionStatus] returns `permanentlyDenied` — `.request()`
-  /// won't help there.
+  /// Bluetooth permission switch manually. Works on both platforms — on
+  /// iOS this is the only path back when the user has previously denied,
+  /// since iOS won't re-prompt once denied.
   static Future<bool> openSystemBluetoothSettings() async {
     try {
       return await openAppSettings();
@@ -212,6 +369,11 @@ class BleProximityService {
   /// Connects to [device], reads the clientId GATT characteristic, then
   /// disconnects. Returns null on any error.
   static Future<String?> readClientId(BluetoothDevice device) async {
+    final deviceId = device.remoteId.str;
+    LoggerService.logInfo(
+      'BLE readClientId — connect',
+      context: <String, Object?>{'deviceId': deviceId},
+    );
     try {
       await device.connect(timeout: const Duration(seconds: 6));
       final services = await device.discoverServices();
@@ -220,6 +382,10 @@ class BleProximityService {
             orElse: () => null,
           );
       if (service == null) {
+        LoggerService.logError(
+          'BLE readClientId — Yuztoo service UUID not found on device',
+          error: 'expected_uuid=$serviceUuid',
+        );
         await device.disconnect();
         return null;
       }
@@ -228,13 +394,30 @@ class BleProximityService {
             orElse: () => null,
           );
       if (char == null) {
+        LoggerService.logError(
+          'BLE readClientId — clientId characteristic not found on device',
+          error: 'expected_uuid=$clientIdCharUuid',
+        );
         await device.disconnect();
         return null;
       }
       final bytes = await char.read();
       await device.disconnect();
-      return String.fromCharCodes(bytes);
-    } catch (_) {
+      final result = String.fromCharCodes(bytes);
+      LoggerService.logInfo(
+        'BLE readClientId — success',
+        context: <String, Object?>{
+          'deviceId': deviceId,
+          'clientUidLength': result.length,
+        },
+      );
+      return result;
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE readClientId — connect / read failed',
+        error: e,
+        stackTrace: st,
+      );
       try {
         await device.disconnect();
       } catch (_) {}
@@ -248,8 +431,21 @@ class BleProximityService {
       final state = await FlutterBluePlus.adapterState
           .first
           .timeout(const Duration(seconds: 3));
-      return state == BluetoothAdapterState.on;
-    } catch (_) {
+      final available = state == BluetoothAdapterState.on;
+      LoggerService.logInfo(
+        'BLE isAvailable',
+        context: <String, Object?>{
+          'adapterState': state.name,
+          'available': available,
+        },
+      );
+      return available;
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE isAvailable — adapter state probe failed',
+        error: e,
+        stackTrace: st,
+      );
       return false;
     }
   }

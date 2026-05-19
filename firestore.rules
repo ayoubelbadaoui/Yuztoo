@@ -486,6 +486,26 @@ service cloud.firestore {
       allow delete: if isMerchantOwner(merchantId);
     }
 
+    // --- /data_export_requests/{userId} ---
+    // GDPR / RGPD — queue for a human-processed email export (optional path).
+    // Owner-only; narrow schema so the collection cannot be abused as freeform storage.
+    match /data_export_requests/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'email', 'requestedAt', 'status'
+        ])
+        && request.resource.data.uid == userId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && (!('email' in request.resource.data)
+          || (request.resource.data.email is string
+            && request.resource.data.email.size() <= 320))
+        && (!('requestedAt' in request.resource.data)
+          || request.resource.data.requestedAt is timestamp);
+      allow delete: if false;
+    }
+
     // --- /reports/{reportId} ---
     // App Store guideline 1.2: any app with user-generated content needs a
     // reporting mechanism. Writes are append-only by signed-in users; the

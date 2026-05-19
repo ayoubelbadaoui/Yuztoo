@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// The application title
   ///
   /// In en, this message translates to:
-  /// **'Yuztoo'**
+  /// **'YuzToo'**
   String get appTitle;
 
   /// No description provided for @welcomeMessage.
@@ -620,11 +620,11 @@ abstract class AppLocalizations {
   /// **'Scan the'**
   String get scanQRCode;
 
-  /// No description provided for @addToYuztoo.
+  /// No description provided for @addToYuzToo.
   ///
   /// In en, this message translates to:
-  /// **'Add it to your Yuztoo notebook\nand receive useful information'**
-  String get addToYuztoo;
+  /// **'Add it to your YuzToo notebook\nand receive useful information'**
+  String get addToYuzToo;
 
   /// No description provided for @scanning.
   ///
@@ -671,7 +671,7 @@ abstract class AppLocalizations {
   /// No description provided for @yuztooForYou.
   ///
   /// In en, this message translates to:
-  /// **'Yuztoo, concretely for you'**
+  /// **'YuzToo, concretely for you'**
   String get yuztooForYou;
 
   /// No description provided for @passwordHint.
@@ -1190,11 +1190,11 @@ abstract class AppLocalizations {
   /// **'No new clients'**
   String get noNewClients;
 
-  /// No description provided for @servicesYuztoo.
+  /// No description provided for @servicesYuzToo.
   ///
   /// In en, this message translates to:
   /// **'YUZTOO SERVICES'**
-  String get servicesYuztoo;
+  String get servicesYuzToo;
 
   /// No description provided for @pendingClientsCount.
   ///

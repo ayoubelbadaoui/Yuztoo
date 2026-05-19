@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../loyalty/presentation/widgets/reward_redemption_section.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
@@ -170,7 +171,10 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
     result.fold(
       (f) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur lors de l\'envoi', style: GoogleFonts.outfit()),
+          content: Text(
+            'Erreur lors de l\'envoi',
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           backgroundColor: Colors.red[400],
         ),
       ),
@@ -180,7 +184,7 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
           SnackBar(
             content: Text(
               'Notification envoyée à $sent client${sent > 1 ? 's' : ''}',
-              style: GoogleFonts.outfit(),
+              style: merchantSnackBarTextOnGold(),
             ),
             backgroundColor: MerchantColors.gold,
           ),
@@ -223,7 +227,7 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
             SnackBar(
               content: Text(
                 'Erreur lors de l\'enregistrement',
-                style: GoogleFonts.outfit(),
+                style: merchantSnackBarTextOnWarmAccent(),
               ),
               backgroundColor: Colors.red[400],
             ),

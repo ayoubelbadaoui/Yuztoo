@@ -5,16 +5,17 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../auth/core/application/user_display_helpers.dart';
 import '../../storefront/presentation/widgets/storefront_colors.dart';
 import '../../merchant/domain/entities/loyalty_program_config.dart'
     show LoyaltyRewardKind;
 import '../application/loyalty_reward_category.dart';
 import '../application/providers.dart';
-import '../domain/entities/client_merchant_loyalty_progress.dart' show ClientLoyaltyTier;
+import '../domain/entities/client_merchant_loyalty_progress.dart'
+    show ClientLoyaltyTier;
 import 'client_ble_broadcast_screen.dart';
 import 'widgets/client_validation_banner.dart';
-import 'widgets/loyalty_celebration_overlay.dart';
 
 part 'loyalty_cards_screen.part.dart';
 
@@ -88,11 +89,6 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
         c: rewards.where((r) => _rewardMatchesCategory(r, c)).length,
     };
 
-    final followedMerchantIds = feedAsync.maybeWhen(
-      data: (list) => list.map((e) => e.merchantId).toList(),
-      orElse: () => const <String>[],
-    );
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -123,55 +119,49 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
               style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
             ),
           ),
-          body: LoyaltyCelebrationOverlay(
-            followedMerchantIds: followedMerchantIds,
-            child: Column(
-              children: [
-                _Header(
-                  onNotifications: widget.onNotifications,
-                  onSwitchToMerchant: widget.onSwitchToMerchant,
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding:
-                        EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _GreetingBlock(
-                          firstName: firstName,
-                          feedAsync: feedAsync,
-                        ),
-                        const SizedBox(height: 20),
-                        _LoyaltyCategoryFilterBar(
-                          selected: _category,
-                          feedCounts: feedAsync.isLoading
-                              ? {
-                                  for (final c in kLoyaltyRewardCategories)
-                                    c: 0,
-                                }
-                              : feedCounts,
-                          rewardCounts: rewardsAsync.isLoading
-                              ? {
-                                  for (final c in kLoyaltyRewardCategories)
-                                    c: 0,
-                                }
-                              : rewardCounts,
-                          onSelected: (c) => setState(() => _category = c),
-                        ),
-                        const SizedBox(height: 20),
-                        _MesAvantagesSection(category: _category),
-                        _LoyaltyFeed(
-                          category: _category,
-                          feedAsync: feedAsync,
-                          onStoreTap: widget.onStoreTap,
-                        ),
-                      ],
-                    ),
+          body: Column(
+            children: [
+              _Header(
+                onNotifications: widget.onNotifications,
+                onSwitchToMerchant: widget.onSwitchToMerchant,
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _GreetingBlock(
+                        firstName: firstName,
+                        feedAsync: feedAsync,
+                      ),
+                      const SizedBox(height: 20),
+                      _LoyaltyCategoryFilterBar(
+                        selected: _category,
+                        feedCounts: feedAsync.isLoading
+                            ? {
+                                for (final c in kLoyaltyRewardCategories) c: 0,
+                              }
+                            : feedCounts,
+                        rewardCounts: rewardsAsync.isLoading
+                            ? {
+                                for (final c in kLoyaltyRewardCategories) c: 0,
+                              }
+                            : rewardCounts,
+                        onSelected: (c) => setState(() => _category = c),
+                      ),
+                      const SizedBox(height: 20),
+                      _MesAvantagesSection(category: _category),
+                      _LoyaltyFeed(
+                        category: _category,
+                        feedAsync: feedAsync,
+                        onStoreTap: widget.onStoreTap,
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

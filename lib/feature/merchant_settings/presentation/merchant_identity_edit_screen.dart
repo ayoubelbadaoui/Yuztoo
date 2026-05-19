@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/cupertino_dob_picker.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/core/domain/entities/user_profile_basics.dart';
@@ -139,8 +140,11 @@ class _MerchantIdentityEditScreenState
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profil mis à jour ✓'),
+      SnackBar(
+        content: Text(
+          'Profil mis à jour ✓',
+          style: merchantSnackBarTextOnGold(),
+        ),
         backgroundColor: MerchantColors.gold,
         behavior: SnackBarBehavior.floating,
       ),
@@ -151,7 +155,7 @@ class _MerchantIdentityEditScreenState
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Text(msg, style: merchantSnackBarTextOnWarmAccent()),
         backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
       ),

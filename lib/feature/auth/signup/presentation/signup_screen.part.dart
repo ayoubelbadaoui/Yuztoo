@@ -493,7 +493,21 @@ extension _SignupScreenUi on _SignupScreenState {
     final initial = (_phoneNumber != null && _phoneNumber!.trim().isNotEmpty)
         ? _phoneNumber!.trim()
         : '';
-    final controller = TextEditingController(text: initial);
+    var dialogCountryCode = _selectedCountryCode;
+    final controller = TextEditingController();
+    if (initial.isNotEmpty) {
+      if (initial.startsWith('+')) {
+        final phoneData = PhoneFormatter.extractPhoneData(initial);
+        if (phoneData != null) {
+          dialogCountryCode = phoneData['countryCode'] ?? dialogCountryCode;
+          controller.text = phoneData['localNumber'] ?? '';
+        } else {
+          controller.text = initial.replaceAll(RegExp(r'\s'), '');
+        }
+      } else {
+        controller.text = initial;
+      }
+    }
 
     final submitted = await showDialog<String>(
       context: context,
@@ -522,7 +536,8 @@ extension _SignupScreenUi on _SignupScreenState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Pour sécuriser votre compte, indiquez votre numéro de mobile (format international).',
+                      'Pour sécuriser votre compte, choisissez l\'indicatif pays '
+                      'puis saisissez votre numéro de mobile.',
                       style: GoogleFonts.outfit(
                         color: SignupConstants.textGrey,
                         fontSize: 13,
@@ -530,40 +545,106 @@ extension _SignupScreenUi on _SignupScreenState {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    TextField(
-                      controller: controller,
-                      keyboardType: TextInputType.phone,
-                      autocorrect: false,
-                      style: GoogleFonts.outfit(
-                        color: SignupConstants.textLight,
-                        fontSize: 15,
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: SignupConstants.borderColor),
+                        color: SignupConstants.bgDark1,
                       ),
-                      decoration: InputDecoration(
-                        hintText: '+33 6 12 34 56 78',
-                        hintStyle: GoogleFonts.outfit(
-                          color: SignupConstants.textGrey,
-                          fontSize: 14,
-                        ),
-                        errorText: fieldError,
-                        filled: true,
-                        fillColor: SignupConstants.bgDark1,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              const BorderSide(color: SignupConstants.borderColor),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              const BorderSide(color: SignupConstants.borderColor),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: SignupConstants.primaryGold,
-                            width: 1.5,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => CountryCodeModal.show(
+                                dialogContext,
+                                selectedCountryCode: dialogCountryCode,
+                                onCountrySelected: (code, name, flag) {
+                                  setModal(() {
+                                    dialogCountryCode = code;
+                                    fieldError = null;
+                                  });
+                                },
+                                phoneController: controller,
+                                onPhoneNumberUpdate: (_) {},
+                                onRevalidatePhone: () {},
+                                phoneFieldHasBeenValidated: false,
+                              ),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(11),
+                                bottomLeft: Radius.circular(11),
+                              ),
+                              child: Container(
+                                height: 52,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    right: BorderSide(
+                                      color: SignupConstants.borderColor,
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      dialogCountryCode,
+                                      style: GoogleFonts.outfit(
+                                        color: SignupConstants.textLight,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.expand_more_rounded,
+                                      color: SignupConstants.primaryGold,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              keyboardType: TextInputType.phone,
+                              autocorrect: false,
+                              inputFormatters: [
+                                PhoneNumberFormatter(
+                                  countryCode: dialogCountryCode,
+                                ),
+                              ],
+                              style: GoogleFonts.outfit(
+                                color: SignupConstants.textLight,
+                                fontSize: 15,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: SignupConstants.countryPhoneHints[
+                                        dialogCountryCode] ??
+                                    '---',
+                                hintStyle: GoogleFonts.outfit(
+                                  color: SignupConstants.textGrey,
+                                  fontSize: 14,
+                                ),
+                                errorText: fieldError,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -583,7 +664,7 @@ extension _SignupScreenUi on _SignupScreenState {
                     final formatted = raw.startsWith('+')
                         ? raw.replaceAll(RegExp(r'\s'), '')
                         : PhoneFormatter.formatPhoneNumber(
-                            _selectedCountryCode,
+                            dialogCountryCode,
                             raw,
                           );
                     if (!PhoneFormatter.isValidE164(formatted)) {

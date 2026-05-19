@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/entities/auth_user.dart';
+import '../../../../core/domain/core/failure.dart';
 import '../../../../core/domain/core/result.dart';
 import 'state/auth_state.dart';
 import 'use_cases/reload_current_user_profile.dart';
@@ -53,12 +54,25 @@ class AuthController extends StateNotifier<AuthState> {
 
   void _listenToAuthStream() {
     _authSubscription?.cancel();
-    _authSubscription = _watchAuthState().listen((result) {
-      state = result.fold<AuthState>(
-        (failure) => AuthError(failure),
-        (user) => user == null ? const Unauthenticated() : Authenticated(user),
-      );
-    });
+    _authSubscription = _watchAuthState().listen(
+      (result) {
+        state = result.fold<AuthState>(
+          (failure) => AuthError(failure),
+          (user) => user == null ? const Unauthenticated() : Authenticated(user),
+        );
+      },
+      // If the auth stream itself errors (Firestore rule denial, network
+      // collapse, malformed payload), the uncaught async exception would
+      // propagate to the Zone handler and surface as Flutter's red error
+      // screen mid-session. Convert it into a soft AuthError so the shell
+      // can re-route to role selection instead of crashing.
+      onError: (Object e, StackTrace _) {
+        if (!mounted) return;
+        state = AuthError(
+          UnexpectedFailure(message: 'Auth stream error: $e'),
+        );
+      },
+    );
   }
 
   /// Manually refresh auth state by re-checking current user

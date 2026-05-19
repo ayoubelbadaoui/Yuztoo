@@ -1,6 +1,6 @@
 {
   "@@locale": "fr",
-  "appTitle": "Yuztoo",
+  "appTitle": "YuzToo",
   "welcomeMessage": "Bienvenue",
   "forThemForYou": "POUR EUX, POUR VOUS",
   "allTheShops": "Tous les commerces",
@@ -90,7 +90,7 @@
   "discount": "Réduction",
   "freePastry": "Pâtisserie offerte",
   "scanQRCode": "Scannez le code",
-  "addToYuztoo": "Ajoutez-le à votre carnet Yuztoo\net recevez ses informations utiles",
+  "addToYuzToo": "Ajoutez-le à votre carnet YuzToo\net recevez ses informations utiles",
   "scanning": "Scan en cours…",
   "startScan": "Lancer le scan",
   "emailRequired": "L'adresse e-mail est obligatoire.",
@@ -98,7 +98,7 @@
   "emailAddress": "Adresse e-mail",
   "forgotPasswordQuestion": "Mot de passe oublié ?",
   "connectToShops": "Restez proche de vos commerces",
-  "yuztooForYou": "Yuztoo, concrètement pour vous",
+  "yuztooForYou": "YuzToo, concrètement pour vous",
   "passwordHint": "8 caractères ou plus, majuscules, minuscules et chiffres",
   "socialLoginSoon": "Connexion avec {provider} bientôt disponible",
   "@socialLoginSoon": {
@@ -251,7 +251,7 @@
   "newClientsTitle": "Nouveaux clients",
   "acknowledgeClient": "OK",
   "noNewClients": "Aucun nouveau client",
-  "servicesYuztoo": "SERVICES YUZTOO",
+  "servicesYuzToo": "SERVICES YUZTOO",
   "pendingClientsCount": "{count} en attente",
   "@pendingClientsCount": {
     "placeholders": {

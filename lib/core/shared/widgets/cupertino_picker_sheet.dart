@@ -104,6 +104,9 @@ class YuztooCupertinoPickerSheet extends StatelessWidget {
     @Deprecated('Selection band is no longer custom-drawn or auto-overlaid. '
         'Flag is retained as a no-op so legacy call sites compile.')
     this.showSelectionBand = true,
+    /// One subtle highlight across the full wheel row (day/month/year). Avoids
+    /// three per-column overlays that read as duplicate yellow/gold lines.
+    this.unifiedSelectionOverlay = false,
   });
 
   final Widget picker;
@@ -117,6 +120,7 @@ class YuztooCupertinoPickerSheet extends StatelessWidget {
   final Color? backgroundColor;
   // ignore: deprecated_member_use_from_same_package
   final bool showSelectionBand;
+  final bool unifiedSelectionOverlay;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +144,7 @@ class YuztooCupertinoPickerSheet extends StatelessWidget {
             ),
             YuztooCupertinoWheelViewport(
               lightTheme: lightTheme,
+              unifiedSelectionOverlay: unifiedSelectionOverlay,
               child: picker,
             ),
           ],
@@ -239,12 +244,14 @@ class YuztooCupertinoWheelViewport extends StatelessWidget {
     this.lightTheme = false,
     @Deprecated('Selection band is no longer drawn — flag is a no-op.')
     this.showSelectionBand = true,
+    this.unifiedSelectionOverlay = false,
   });
 
   final Widget child;
   final bool lightTheme;
   // ignore: deprecated_member_use_from_same_package
   final bool showSelectionBand;
+  final bool unifiedSelectionOverlay;
 
   @override
   Widget build(BuildContext context) {
@@ -256,6 +263,21 @@ class YuztooCupertinoWheelViewport extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Positioned.fill(child: Center(child: child)),
+          if (unifiedSelectionOverlay)
+            Center(
+              child: IgnorePointer(
+                child: Container(
+                  height: kCupertinoWheelItemExtent,
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: lightTheme
+                        ? const Color(0x0D000000)
+                        : const Color(0x14FFFFFF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
           // Top and bottom fades blend the wheel into the sheet chrome.
           Positioned(
             top: 0,
@@ -379,11 +401,9 @@ class _YuztooCupertinoScrollWheelState
 
   @override
   Widget build(BuildContext context) {
-    // NO selection overlay — keeps the wheel clean. The selected row is
-    // still unambiguous because we render distance-based opacity and the
-    // 3D barrel transform foreshortens off-center rows. Empty SizedBox
-    // is required (the Cupertino default would otherwise draw hairlines).
-    const selectionOverlay = SizedBox.shrink();
+    // Null disables Cupertino's per-column overlay (avoids duplicate bands on
+    // multi-wheel pickers like date of birth). Selection is shown via text
+    // opacity + optional [YuztooCupertinoWheelViewport.unifiedSelectionOverlay].
     if (widget.looping) {
       return CupertinoPicker(
         scrollController: widget.scrollController,
@@ -394,7 +414,7 @@ class _YuztooCupertinoScrollWheelState
         useMagnifier: false,
         looping: true,
         backgroundColor: Colors.transparent,
-        selectionOverlay: selectionOverlay,
+        selectionOverlay: null,
         onSelectedItemChanged: _handleSelectionChanged,
         children: List<Widget>.generate(widget.itemCount, _buildItem),
       );
@@ -407,7 +427,7 @@ class _YuztooCupertinoScrollWheelState
       magnification: _kWheelMagnification,
       useMagnifier: false,
       backgroundColor: Colors.transparent,
-      selectionOverlay: selectionOverlay,
+      selectionOverlay: null,
       onSelectedItemChanged: _handleSelectionChanged,
       childCount: widget.itemCount,
       itemBuilder: (context, i) => _buildItem(i),

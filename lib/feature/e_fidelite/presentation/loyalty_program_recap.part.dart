@@ -6,17 +6,30 @@ class LoyaltyProgramRecap extends ConsumerWidget {
     required this.config,
     required this.onEdit,
     required this.onDisable,
+    this.onStartNewProgram,
     this.saving = false,
   });
 
   final LoyaltyProgramConfig config;
   final void Function({required int initialStep}) onEdit;
   final VoidCallback onDisable;
+  final VoidCallback? onStartNewProgram;
   final bool saving;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isActive = config.programEnabled;
+    final inactiveClientsNote = config.rewardValidityEnabled &&
+            config.rewardValidityDays != null &&
+            config.rewardValidityDays! > 0
+        ? 'Pour les clients déjà inscrits, les récompenses déjà attribuées '
+            'doivent être utilisées sous ${config.rewardValidityDays} jours '
+            '(délai défini dans ce programme). Sinon, chaque client termine '
+            'selon ses propres récompenses et échéances.'
+        : 'Pour les clients déjà inscrits, la progression et les récompenses '
+            'en cours restent valables jusqu’à utilisation. Sans validité '
+            'limitée sur les récompenses, il n’y a pas de date de fin '
+            'automatique pour tout le monde.';
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -53,8 +66,13 @@ class LoyaltyProgramRecap extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Vos clients ne voient plus d’offre fidélité sur votre vitrine. '
-                    'Réactivez ou modifiez le programme ci-dessous.',
+                    'Vos clients ne voient plus d’offre fidélité sur votre vitrine '
+                    'et ne peuvent plus lancer de demande de passage fidélité. '
+                    'Les données déjà enregistrées peuvent rester visibles pour vous '
+                    'dans « Vos clients ».\n\n'
+                    '$inactiveClientsNote\n\n'
+                    'Utilisez « Réactiver / modifier » pour réactiver ce programme, '
+                    'ou « Créer un nouveau programme » pour en définir un autre.',
                     style: GoogleFonts.outfit(
                       fontSize: 13,
                       color: MerchantColors.textLightGrey,
@@ -80,9 +98,7 @@ class LoyaltyProgramRecap extends ConsumerWidget {
           _RecapRow(label: 'Statut', value: config.recapStatusLabel),
           _RecapRow(
             label: 'Déclencheur',
-            value: config.triggerType == LoyaltyTriggerType.visitCount
-                ? '${config.recapTriggerLabel}'
-                : config.recapTriggerLabel,
+            value: config.recapTriggerLabel,
           ),
           _RecapRow(label: 'Récompense', value: config.recapRewardLabel),
           _RecapRow(label: 'Validation', value: config.recapValidationLabel),
@@ -123,6 +139,15 @@ class LoyaltyProgramRecap extends ConsumerWidget {
                 ? null
                 : () => onEdit(initialStep: isActive ? 1 : 0),
           ),
+          if (!isActive && onStartNewProgram != null) ...[
+            const SizedBox(height: 12),
+            _RecapActionButton(
+              label: 'Créer un nouveau programme',
+              icon: Icons.add_circle_outline_rounded,
+              primary: false,
+              onTap: saving ? null : onStartNewProgram,
+            ),
+          ],
           if (isActive) ...[
             const SizedBox(height: 12),
             _RecapActionButton(

@@ -864,8 +864,11 @@ class _RewardDetailSheetState extends ConsumerState<_RewardDetailSheet> {
         ref.invalidate(availableClientRewardsProvider);
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bon utilisé — bonne dégustation 🎁'),
+          SnackBar(
+            content: Text(
+              'Bon utilisé — bonne dégustation 🎁',
+              style: merchantSnackBarTextOnGold(),
+            ),
             behavior: SnackBarBehavior.floating,
             backgroundColor: MerchantColors.gold,
           ),

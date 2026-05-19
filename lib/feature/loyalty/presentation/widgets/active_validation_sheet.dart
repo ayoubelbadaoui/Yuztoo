@@ -33,8 +33,7 @@ class ActiveValidationSheet extends ConsumerStatefulWidget {
       _ActiveValidationSheetState();
 }
 
-class _ActiveValidationSheetState
-    extends ConsumerState<ActiveValidationSheet> {
+class _ActiveValidationSheetState extends ConsumerState<ActiveValidationSheet> {
   final TextEditingController _spendController = TextEditingController();
   bool _submitting = false;
   String? _error;
@@ -178,7 +177,8 @@ class _ActiveValidationSheetState
     }
     final min = _minimumPerVisitEuros;
     if (spend != null && spend > 0 && min != null && spend < min) {
-      setState(() => _error = 'Minimum ${min.toStringAsFixed(0)} € par passage.');
+      setState(
+          () => _error = 'Minimum ${min.toStringAsFixed(0)} € par passage.');
       return;
     }
     // Use the live auth uid, not widget.merchant.ownerUid. The merchant entity
@@ -230,8 +230,23 @@ class _ActiveValidationSheetState
     Navigator.of(context).pop();
   }
 
+  String get _docStreamKey =>
+      '${widget.merchant.id}|${widget.session.clientUid}';
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      activeValidationSessionForDocProvider(_docStreamKey),
+      (previous, next) {
+        next.whenData((session) {
+          if (!mounted) return;
+          if (session != null && session.isCancelled) {
+            Navigator.of(context).maybePop();
+          }
+        });
+      },
+    );
+
     return Container(
       decoration: const BoxDecoration(
         color: MerchantColors.navyCard,
@@ -331,13 +346,11 @@ class _ActiveValidationSheetState
           if (_error != null) ...[
             const SizedBox(height: 14),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.red.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: Colors.red.withValues(alpha: 0.25)),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
               ),
               child: Text(
                 _error!,

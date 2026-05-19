@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../application/active_validation_providers.dart';
 import '../../domain/entities/active_validation_request.dart';
+import '../../../auth/core/application/providers.dart' as auth_providers;
+import '../../../auth/core/application/state/auth_state.dart';
 
 /// Subtle banner shown on the client's loyalty card while their request is
 /// in-flight at the given merchant. Copy follows the session state:
@@ -33,7 +35,17 @@ class ClientValidationBanner extends ConsumerWidget {
         final copy = opened
             ? 'Le commerçant valide votre passage…'
             : 'Demande envoyée au commerçant…';
-        return _BannerBody(copy: copy);
+        return _BannerBody(
+          copy: copy,
+          onCancel: () async {
+            final auth = ref.read(auth_providers.authStateProvider);
+            if (auth is! Authenticated) return;
+            await ref.read(cancelActiveValidationProvider).byClient(
+                  merchantId: merchantId,
+                  clientUid: auth.user.id,
+                );
+          },
+        );
       },
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
@@ -42,9 +54,13 @@ class ClientValidationBanner extends ConsumerWidget {
 }
 
 class _BannerBody extends StatelessWidget {
-  const _BannerBody({required this.copy});
+  const _BannerBody({
+    required this.copy,
+    required this.onCancel,
+  });
 
   final String copy;
+  final Future<void> Function() onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -60,13 +76,17 @@ class _BannerBody extends StatelessWidget {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: MerchantColors.gold,
+            child: Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: MerchantColors.gold,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -77,6 +97,22 @@ class _BannerBody extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: MerchantColors.gold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => onCancel(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'Annuler',
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: MerchantColors.textLightGrey,
               ),
             ),
           ),

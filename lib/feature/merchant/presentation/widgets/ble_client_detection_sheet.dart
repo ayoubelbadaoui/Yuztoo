@@ -105,10 +105,19 @@ class _BleClientDetectionSheetState
     );
   }
 
+  bool _merchantLoyaltyLive(Merchant? m) {
+    if (m == null) return false;
+    return m.loyaltyEnabled &&
+        (m.loyaltyProgram?.programEnabled ?? m.loyaltyEnabled);
+  }
+
   @override
   Widget build(BuildContext context) {
     final merchantAsync =
         ref.watch(merchant_providers.currentMerchantForOwnerProvider);
+    final merchant = merchantAsync.valueOrNull;
+    final loyaltyOff =
+        merchant != null && !_merchantLoyaltyLive(merchant);
 
     return Container(
       decoration: const BoxDecoration(
@@ -206,8 +215,40 @@ class _BleClientDetectionSheetState
             const SizedBox(height: 16),
           ],
 
-          // Confirm button
-          merchantAsync.when(
+          if (loyaltyOff) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                'La fidélité est désactivée pour votre commerce. Réactivez '
+                'E-Fidélité pour enregistrer des passages fidélité depuis cette '
+                'fenêtre.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  height: 1.45,
+                  color: MerchantColors.textLightGrey,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton(
+                onPressed: _isConfirming ? null : _ignore,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: MerchantColors.gold,
+                  side: const BorderSide(color: MerchantColors.gold),
+                ),
+                child: Text(
+                  'Fermer',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ] else ...[
+            // Confirm button
+            merchantAsync.when(
             data: (merchant) => SizedBox(
               width: double.infinity,
               height: 52,
@@ -281,23 +322,24 @@ class _BleClientDetectionSheetState
             ),
           ),
 
-          const SizedBox(height: 12),
+            if (!loyaltyOff) const SizedBox(height: 12),
 
-          // Ignore
-          GestureDetector(
-            onTap: _isConfirming ? null : _ignore,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'Ignorer',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  color: MerchantColors.textGrey,
+            if (!loyaltyOff)
+              GestureDetector(
+                onTap: _isConfirming ? null : _ignore,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Ignorer',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      color: MerchantColors.textGrey,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+          ],
         ],
       ),
     );

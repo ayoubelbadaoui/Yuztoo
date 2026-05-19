@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Yuztoo';
+  String get appTitle => 'YuzToo';
 
   @override
   String get welcomeMessage => 'Welcome';
@@ -272,8 +272,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scanQRCode => 'Scan the';
 
   @override
-  String get addToYuztoo =>
-      'Add it to your Yuztoo notebook\nand receive useful information';
+  String get addToYuzToo =>
+      'Add it to your YuzToo notebook\nand receive useful information';
 
   @override
   String get scanning => 'Scanning...';
@@ -297,7 +297,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectToShops => 'Connect to your shops';
 
   @override
-  String get yuztooForYou => 'Yuztoo, concretely for you';
+  String get yuztooForYou => 'YuzToo, concretely for you';
 
   @override
   String get passwordHint => '8+ characters, uppercase, lowercase and numbers';
@@ -577,7 +577,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noNewClients => 'No new clients';
 
   @override
-  String get servicesYuztoo => 'YUZTOO SERVICES';
+  String get servicesYuzToo => 'YUZTOO SERVICES';
 
   @override
   String pendingClientsCount(int count) {

@@ -15,7 +15,7 @@ import '../domain/repositories/client_loyalty_repository.dart';
 class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   FirestoreClientLoyaltyRepository({
     required FirebaseFirestore firestore,
-    Duration passageCooldown = const Duration(hours: 1),
+    Duration passageCooldown = Duration.zero,
   })  : _firestore = firestore,
         _passageCooldown = passageCooldown;
 
@@ -27,9 +27,8 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   /// The anchor `last_passage_at` is written with `FieldValue.serverTimestamp()`,
   /// so the stored value is authoritative server time. The comparison in this
   /// SDK uses the device clock for "now", which is fine as a UX guard but is
-  /// NOT a security boundary — a tampered clock would bypass it. The real
-  /// enforcement lives in [firestore.rules] (`loyaltyClientSelfUpdateValid`),
-  /// which compares `request.time` (server time) to `resource.data.last_passage_at`.
+  /// NOT a security boundary — a tampered clock would bypass it. Server rules
+  /// may add additional constraints when configured.
   final Duration _passageCooldown;
 
   /// Tolerance applied to the client-side cooldown comparison to absorb honest
@@ -137,10 +136,9 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     }
     // Every counter increment is a new passage event now — the old
     // "resolving pending" exception is gone with the pending_passages field.
-    // Cooldown applies to all increments. The synchronous validation flow
-    // (active_validations sessions) is the canonical place where merchants
-    // record passages; double-validate races are guarded server-side by the
-    // 1-hour cooldown rule.
+    // Cooldown applies to all increments when [_passageCooldown] is non-zero.
+    // The synchronous validation flow (active_validations) is the canonical
+    // place where merchants record passages; optional cooldown reduces double-tap.
     final bool isNewPassageEvent =
         validatedPassagesDelta > 0 || cumulativeSpendEurosDelta > 0;
     try {
@@ -281,7 +279,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
           UnexpectedFailure(
             message:
-                'Votre passage vient d’être enregistré. Patientez 1 heure avant le prochain passage chez ce commerçant.',
+                'Votre passage vient d’être enregistré. Patientez un peu avant un nouveau passage chez ce commerçant.',
           ),
         );
       }

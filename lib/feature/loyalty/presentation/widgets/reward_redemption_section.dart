@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/snackbar.dart';
 import '../../application/client_loyalty_providers.dart' as loyalty_providers;
 import '../../application/providers.dart';
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
@@ -64,7 +65,10 @@ class _RewardRedemptionSectionState
     result.fold(
       (f) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(f.message),
+          content: Text(
+            f.message,
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.red[700],
         ),
@@ -73,7 +77,7 @@ class _RewardRedemptionSectionState
         SnackBar(
           content: Text(
             'Récompense accordée à ${_shortLabel(row.clientUid)} — nouveau cycle démarré !',
-            style: GoogleFonts.outfit(),
+            style: merchantSnackBarTextOnGold(),
           ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: MerchantColors.gold,

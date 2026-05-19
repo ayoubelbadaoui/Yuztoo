@@ -8,7 +8,8 @@ class _RootShellState extends ConsumerState<_RootShell>
   // Within-app navigation (discovery, messages, etc.) - manual state
   ScreenId? _nestedScreen; // null = use _authScreen
   UserRole? _role; // For bottom nav and role-based navigation
-  bool _isDualProfile = false; // true when user has both client + merchant roles
+  bool _isDualProfile =
+      false; // true when user has both client + merchant roles
   // Guard: prevents double-tap from launching two concurrent merchant switches.
   bool _isSwitchingToMerchant = false;
   bool _isSwitchingToClient = false;
@@ -58,29 +59,68 @@ class _RootShellState extends ConsumerState<_RootShell>
     });
 
     // Show banner for foreground FCM messages.
-    _fcmForegroundSub = FirebaseMessaging.onMessage.listen((message) {
-      debugPrint('[FCM] foreground message: ${message.notification?.title}');
-      if (_role == UserRole.merchant) {
-        unawaited(_tryOpenPassageValidationFromPush(message.data));
-      }
-      unawaited(NotificationService.instance.showFromRemoteMessage(message));
-    });
+    // `onError:` on every long-lived stream is non-negotiable: an unhandled
+    // stream error escapes to the Zone handler and surfaces as Flutter's
+    // red error screen. Logging is enough; the next message resubscribes.
+    _fcmForegroundSub = FirebaseMessaging.onMessage.listen(
+      (message) {
+        debugPrint('[FCM] foreground message: ${message.notification?.title}');
+        if (_role == UserRole.merchant) {
+          unawaited(_tryOpenPassageValidationFromPush(message.data));
+        }
+        unawaited(NotificationService.instance.showFromRemoteMessage(message));
+      },
+      onError: (Object e, StackTrace st) {
+        LoggerService.logError(
+          'FCM foreground stream error',
+          error: e,
+          stackTrace: st,
+        );
+      },
+    );
 
     // Open correct screen when user taps the in-app overlay banner.
-    _notifTapSub = NotificationService.instance.onNotificationTap.listen((data) {
-      if (mounted) _handleFcmTap(data);
-    });
+    _notifTapSub = NotificationService.instance.onNotificationTap.listen(
+      (data) {
+        if (mounted) _handleFcmTap(data);
+      },
+      onError: (Object e, StackTrace st) {
+        LoggerService.logError(
+          'In-app notification tap stream error',
+          error: e,
+          stackTrace: st,
+        );
+      },
+    );
 
     // Open correct screen when user taps a system push while app was in background.
     // Stored so it can be cancelled on dispose (previously leaked).
-    _fcmOpenedAppSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      if (mounted) _handleFcmTap(message.data);
-    });
+    _fcmOpenedAppSub = FirebaseMessaging.onMessageOpenedApp.listen(
+      (message) {
+        if (mounted) _handleFcmTap(message.data);
+      },
+      onError: (Object e, StackTrace st) {
+        LoggerService.logError(
+          'FCM opened-app stream error',
+          error: e,
+          stackTrace: st,
+        );
+      },
+    );
 
     // Store initial message from killed state — process once shell is mounted + auth resolved.
-    FirebaseMessaging.instance.getInitialMessage().then((message) {
-      if (message != null) _pendingInitialFcmMessage = message;
-    });
+    FirebaseMessaging.instance.getInitialMessage().then(
+      (message) {
+        if (message != null) _pendingInitialFcmMessage = message;
+      },
+      onError: (Object e, StackTrace st) {
+        LoggerService.logError(
+          'FCM getInitialMessage failed',
+          error: e,
+          stackTrace: st,
+        );
+      },
+    );
 
     // Initialize to splash screen immediately
     _authScreen = ScreenId.splash;
@@ -101,10 +141,19 @@ class _RootShellState extends ConsumerState<_RootShell>
       fireImmediately: true,
     );
 
-    _appLinkSubscription = _appLinks.uriLinkStream.listen((Uri uri) {
-      if (!mounted) return;
-      _onAppLinkUri(uri);
-    });
+    _appLinkSubscription = _appLinks.uriLinkStream.listen(
+      (Uri uri) {
+        if (!mounted) return;
+        _onAppLinkUri(uri);
+      },
+      onError: (Object e, StackTrace st) {
+        LoggerService.logError(
+          'Deep link stream error',
+          error: e,
+          stackTrace: st,
+        );
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_consumeInitialAppLink());
     });
@@ -130,7 +179,8 @@ class _RootShellState extends ConsumerState<_RootShell>
       );
       // iOS: play sound + update badge in foreground; suppress system banner
       // since the Flutter overlay (NotificationService) handles the visual.
-      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      await FirebaseMessaging.instance
+          .setForegroundNotificationPresentationOptions(
         alert: false,
         badge: true,
         sound: true,
@@ -211,6 +261,10 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// consumes [pendingStorePromotionIdProvider] on arrival and opens the
   /// promo detail sheet — so tapping a push that says "Nouvelle promo X"
   /// lands the user on X, not on the storefront's accueil.
+  ///
+  /// Dual-profile users on the **merchant** shell are switched to the client
+  /// shell first — otherwise [ScreenId.storeProfile] would render on top of
+  /// merchant bottom-nav / home, which is confusing and hides the promo context.
   void _openVitrineForMerchant(String merchantId, {String? promotionId}) {
     if (!mounted) return;
     ref
@@ -218,12 +272,32 @@ class _RootShellState extends ConsumerState<_RootShell>
         .state = merchantId;
     ref
         .read(store_profile_providers.pendingStorePromotionIdProvider.notifier)
-        .state = (promotionId == null || promotionId.isEmpty) ? null : promotionId;
-    if (_role == UserRole.client) {
+        .state = (promotionId == null ||
+            promotionId.isEmpty)
+        ? null
+        : promotionId;
+
+    final wasAlreadyClient = _role == UserRole.client;
+    if (wasAlreadyClient) {
       ref
-          .read(store_profile_providers.pendingVitrineScanIntentProvider.notifier)
+          .read(
+              store_profile_providers.pendingVitrineScanIntentProvider.notifier)
           .state = store_profile_providers.VitrineScanIntent.fromQrOrNfc;
     }
+
+    final switchToClientForVitrine =
+        _role == UserRole.merchant && _isDualProfile;
+    if (switchToClientForVitrine) {
+      setState(() {
+        _role = UserRole.client;
+        _authScreen = ScreenId.clientHome;
+        _activeTab = 'home';
+        _nestedScreen = ScreenId.storeProfile;
+      });
+      _persistSessionRole();
+      return;
+    }
+
     setState(() {
       _nestedScreen = ScreenId.storeProfile;
     });
@@ -275,12 +349,49 @@ class _RootShellState extends ConsumerState<_RootShell>
     );
   }
 
+  /// Opens the client "Mes avantages" loyalty tab when the recipient should see
+  /// it as a client: already in client shell, or dual-profile (switches role).
+  /// Merchant-only accounts fall back to the notifications inbox — same as
+  /// the FCM paths for `bon_*` and generic `loyalty` payloads.
+  void _openClientLoyaltyMesAvantagesFromNotification() {
+    if (!mounted) return;
+    if (_role == UserRole.client) {
+      setState(() {
+        _activeTab = 'loyalty';
+        _authScreen = ScreenId.loyalty;
+        _nestedScreen = null;
+      });
+      return;
+    }
+    if (_isDualProfile) {
+      final uid = ref.read(authStateProvider);
+      if (uid is Authenticated) {
+        ref.read(roleCacheServiceProvider).saveLastSelectedRole(
+              UserRole.client,
+              userId: uid.user.id,
+            );
+      }
+      setState(() {
+        _role = UserRole.client;
+        _activeTab = 'loyalty';
+        _authScreen = ScreenId.loyalty;
+        _nestedScreen = null;
+      });
+      _persistSessionRole();
+      return;
+    }
+    _openNotificationsScreen();
+  }
+
   /// Routes a notification tap to the relevant screen based on FCM data payload.
   ///
-  /// Priority:
-  ///  1. `type == promotion` + `merchant_id` → store vitrine
-  ///  2. `type` contains `loyalty` → loyalty tab
-  ///  3. Anything else → notifications tab
+  /// Priority (see [functions/src/index.ts] `onNotificationCreated` data block):
+  ///  1. `type == promotion` + `merchant_id` → vitrine (optional `promotion_id`)
+  ///  2. `bon_expiring` / `bon_expired` → loyalty tab ("Mes avantages")
+  ///  3. `type == loyalty_passage_request` + merchant → passage sheet (merchant shell)
+  ///  4. `type` contains `loyalty` → loyalty tab
+  ///  5. `type == auto` + `merchant_id` → vitrine (merchant rappel / context)
+  ///  6. Anything else → notifications inbox tab
   void _handleFcmTap(Map<String, dynamic>? data) {
     if (!mounted) return;
     if (data == null) {
@@ -288,8 +399,15 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
-    final type = (data['type'] as String? ?? '').toLowerCase();
-    final merchantId = data['merchant_id'] as String? ?? '';
+    String fcmStr(String key) {
+      final v = data[key];
+      if (v == null) return '';
+      final s = v.toString();
+      return s.trim();
+    }
+
+    final type = fcmStr('type').toLowerCase();
+    final merchantId = fcmStr('merchant_id');
 
     // 'promotion' is the type written by ClientNotificationDto.typeToString.
     // Previously stored as 'promotion_created' which never matched.
@@ -298,11 +416,16 @@ class _RootShellState extends ConsumerState<_RootShell>
       // push opens the actual promo detail instead of dumping the user
       // on the storefront's accueil to hunt for it. Field name matches
       // the CF payload (`promotion_id`).
-      final promotionId = data['promotion_id'] as String? ?? '';
+      final promotionId = fcmStr('promotion_id');
       _openVitrineForMerchant(
         merchantId,
         promotionId: promotionId.isEmpty ? null : promotionId,
       );
+      return;
+    }
+
+    if (type == 'bon_expiring' || type == 'bon_expired') {
+      _openClientLoyaltyMesAvantagesFromNotification();
       return;
     }
 
@@ -312,33 +435,15 @@ class _RootShellState extends ConsumerState<_RootShell>
     }
 
     if (type.contains('loyalty')) {
-      if (_role == UserRole.client) {
-        // Already in client shell — open loyalty tab directly.
-        setState(() {
-          _activeTab = 'loyalty';
-          _authScreen = ScreenId.loyalty;
-          _nestedScreen = null;
-        });
-        return;
-      }
-      if (_isDualProfile) {
-        // Dual-profile user currently in merchant shell: switch to client shell
-        // and open the loyalty tab so the push lands on the right screen.
-        final uid = ref.read(authStateProvider);
-        if (uid is Authenticated) {
-          ref.read(roleCacheServiceProvider).saveLastSelectedRole(
-                UserRole.client,
-                userId: uid.user.id,
-              );
-        }
-        setState(() {
-          _role = UserRole.client;
-          _activeTab = 'loyalty';
-          _authScreen = ScreenId.loyalty;
-          _nestedScreen = null;
-        });
-        return;
-      }
+      _openClientLoyaltyMesAvantagesFromNotification();
+      return;
+    }
+
+    // Merchant auto-notification (rappel) — Firestore uses type `auto` with
+    // merchant_id so the client lands on that commerce, not only the inbox.
+    if (type == 'auto' && merchantId.isNotEmpty) {
+      _openVitrineForMerchant(merchantId);
+      return;
     }
 
     _openNotificationsScreen();
@@ -529,9 +634,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       (() async {
         try {
           final patchUserDoc = ref.read(patchUserDocumentProvider);
-          await patchUserDoc
-              .call(user.id)
-              .timeout(const Duration(seconds: 10));
+          await patchUserDoc.call(user.id).timeout(const Duration(seconds: 10));
         } catch (_) {}
       })(),
     );
@@ -689,8 +792,8 @@ class _RootShellState extends ConsumerState<_RootShell>
             roles['merchant'] == true;
         var dualProfile = dualFromRoles;
         if (!dualProfile && role == UserRole.client) {
-          dualProfile =
-              await ref.read(merchant_providers.hasLinkedMerchantAccountProvider.future);
+          dualProfile = await ref
+              .read(merchant_providers.hasLinkedMerchantAccountProvider.future);
         }
         setState(() {
           _authScreen = targetScreen;
@@ -841,9 +944,8 @@ class _RootShellState extends ConsumerState<_RootShell>
     final clientUid = data['client_uid'] as String? ?? '';
     if (clientUid.isEmpty) return;
 
-    final queue =
-        ref.read(merchantActiveValidationQueueProvider).valueOrNull ??
-            const <ActiveValidationRequest>[];
+    final queue = ref.read(merchantActiveValidationQueueProvider).valueOrNull ??
+        const <ActiveValidationRequest>[];
     ActiveValidationRequest? session;
     for (final s in queue) {
       if (s.clientUid == clientUid && s.isAwaiting && !s.isExpired) {
@@ -864,8 +966,8 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// screen. Serializes overlapping requests with [_activeValidationSheetOpen].
   void _startActiveValidationListener() {
     _activeValidationSub?.close();
-    _activeValidationSub = ref.listenManual<
-        AsyncValue<List<ActiveValidationRequest>>>(
+    _activeValidationSub =
+        ref.listenManual<AsyncValue<List<ActiveValidationRequest>>>(
       merchantActiveValidationQueueProvider,
       (previous, next) {
         next.whenData(_onActiveValidationQueue);
@@ -916,9 +1018,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     _activeValidationSheetOpen = false;
     // Re-process the queue in case another request landed while the sheet
     // was open — the provider always holds the current state.
-    final next = ref
-        .read(merchantActiveValidationQueueProvider)
-        .valueOrNull;
+    final next = ref.read(merchantActiveValidationQueueProvider).valueOrNull;
     if (next != null) _onActiveValidationQueue(next);
   }
 
@@ -963,7 +1063,8 @@ class _RootShellState extends ConsumerState<_RootShell>
       if (readiness == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Impossible de vérifier votre profil client. Réessayez.'),
+            content:
+                Text('Impossible de vérifier votre profil client. Réessayez.'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1016,7 +1117,8 @@ class _RootShellState extends ConsumerState<_RootShell>
         if (completeResult.isLeft) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Impossible de finaliser le profil client. Réessayez.'),
+              content:
+                  Text('Impossible de finaliser le profil client. Réessayez.'),
               behavior: SnackBarBehavior.floating,
               backgroundColor: Colors.red,
             ),
@@ -1131,9 +1233,21 @@ class _RootShellState extends ConsumerState<_RootShell>
       final repo = ref.read(userRepositoryProvider);
 
       final completedResult = await repo.isMerchantOnboardingCompleted(uid);
-      final completed = completedResult.fold((_) => null, (v) => v);
+      var completed = completedResult.fold((_) => null, (v) => v);
 
-      if (completed == true) {
+      // `onboarding.merchant` can be missing or stale while `merchants/{id}`
+      // already exists (legacy / interrupted writes). If a storefront doc is
+      // linked, treat onboarding as done so dual users are not sent through
+      // the full wizard again on every role switch.
+      var canOpenMerchantShell = completed == true;
+      if (!canOpenMerchantShell) {
+        try {
+          canOpenMerchantShell = await ref
+              .read(merchant_providers.hasLinkedMerchantAccountProvider.future);
+        } catch (_) {}
+      }
+
+      if (canOpenMerchantShell) {
         // Already has a merchant profile — switch immediately.
         ref.read(roleCacheServiceProvider).saveLastSelectedRole(
               UserRole.merchant,
@@ -1156,8 +1270,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         if (roleFailed) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content:
-                  Text('Impossible de créer le profil pro. Réessayez.'),
+              content: Text('Impossible de créer le profil pro. Réessayez.'),
               behavior: SnackBarBehavior.floating,
               backgroundColor: Colors.red,
             ),
@@ -1251,12 +1364,14 @@ class _RootShellState extends ConsumerState<_RootShell>
     } else if (screen == 'store-preview') {
       // Preview merchant's own storefront as a client would see it
       final merchantId = ref
-          .read(merchant_providers.currentMerchantForOwnerProvider)
-          .valueOrNull
-          ?.id ?? '';
+              .read(merchant_providers.currentMerchantForOwnerProvider)
+              .valueOrNull
+              ?.id ??
+          '';
       if (merchantId.isNotEmpty) {
         ref
-            .read(store_profile_providers.selectedStoreMerchantIdProvider.notifier)
+            .read(store_profile_providers
+                .selectedStoreMerchantIdProvider.notifier)
             .state = merchantId;
         setState(() => _nestedScreen = ScreenId.storeProfile);
       }
@@ -1272,10 +1387,10 @@ class _RootShellState extends ConsumerState<_RootShell>
     final rolesResult = await ref.read(getUserRolesProvider).call(userId);
     final rolesMap = rolesResult.fold((_) => null, (m) => m);
 
-    final canClient = rolesMap?['client'] == true ||
-        firestoreRole == UserRole.client;
-    var canMerchant = rolesMap?['merchant'] == true ||
-        firestoreRole == UserRole.merchant;
+    final canClient =
+        rolesMap?['client'] == true || firestoreRole == UserRole.client;
+    var canMerchant =
+        rolesMap?['merchant'] == true || firestoreRole == UserRole.merchant;
     if (!canMerchant) {
       try {
         canMerchant = await ref
@@ -1327,7 +1442,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       if (_role == UserRole.merchant && tab == 'storefront') {
         _authScreen = ScreenId.merchantStorefront;
         _nestedScreen = null;
-        
+
         return;
       }
       if (_role == UserRole.client) {
@@ -1342,7 +1457,6 @@ class _RootShellState extends ConsumerState<_RootShell>
         // All client tabs are top-level: set auth screen and clear nested
         _authScreen = target;
         _nestedScreen = null;
-        
       } else {
         final map = <String, ScreenId>{
           'communaute': ScreenId.merchantClients,
@@ -1351,8 +1465,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           'promotions': ScreenId.merchantPromotions,
           'profile': ScreenId.merchantProfile,
         };
-        final target =
-            map[tab] ?? ScreenId.merchantStorefront;
+        final target = map[tab] ?? ScreenId.merchantStorefront;
         if (target == ScreenId.merchantClients ||
             target == ScreenId.merchantNotificationsHub ||
             target == ScreenId.merchantRappels ||
@@ -1362,7 +1475,6 @@ class _RootShellState extends ConsumerState<_RootShell>
           _authScreen = target;
           _nestedScreen = null;
         } else {
-          
           _nestedScreen = target;
         }
       }
@@ -1374,14 +1486,14 @@ class _RootShellState extends ConsumerState<_RootShell>
       setState(() {
         _authScreen = ScreenId.clientHome;
         _nestedScreen = null;
-        
+
         _activeTab = 'home';
       });
     } else {
       setState(() {
         _authScreen = ScreenId.merchantStorefront;
         _nestedScreen = null;
-        
+
         _activeTab = 'storefront';
       });
     }
@@ -1394,7 +1506,6 @@ class _RootShellState extends ConsumerState<_RootShell>
       _authScreen = ScreenId.notifications;
       _activeTab = 'notifications';
       _nestedScreen = null;
-      
     });
     _persistSessionRole();
   }
@@ -1405,7 +1516,6 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (_nestedScreen != null) {
       setState(() {
         _nestedScreen = null;
-        
       });
     } else {
       _handleBackToBase();
@@ -1530,7 +1640,7 @@ class _RootShellState extends ConsumerState<_RootShell>
 
     // Sharper transitions: key forces AnimatedSwitcher to run transition when screen changes,
     // shorter duration reduces fuzzy crossfade, no layout scaling.
-    final body = AnimatedSwitcher(
+    Widget shellBody = AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
@@ -1554,6 +1664,17 @@ class _RootShellState extends ConsumerState<_RootShell>
         child: _buildScreen(),
       ),
     );
+
+    final authStateForShell = ref.watch(authControllerProvider);
+    if (authStateForShell is Authenticated && _role == UserRole.client) {
+      final followedIds =
+          ref.watch(followedMerchantIdsForCurrentUserProvider).valueOrNull ??
+              const <String>[];
+      shellBody = LoyaltyCelebrationOverlay(
+        followedMerchantIds: followedIds,
+        child: shellBody,
+      );
+    }
     final isStorefront = currentScreen == ScreenId.merchantStorefront;
     const authBgDark =
         Color(0xFF0E2A44); // MerchantColors.bgMain – auth + discover pages
@@ -1582,11 +1703,12 @@ class _RootShellState extends ConsumerState<_RootShell>
         currentScreen == ScreenId.merchantNotificationsAuto;
     final isMerchantProfile = currentScreen == ScreenId.merchantProfile;
     final isEFidelite = currentScreen == ScreenId.merchantEFidelite;
-    final isAccountPrefs = currentScreen == ScreenId.merchantAccountPreferences ||
-        currentScreen == ScreenId.merchantSecurity ||
-        currentScreen == ScreenId.merchantDataPrivacy ||
-        currentScreen == ScreenId.merchantProfileSummary ||
-        currentScreen == ScreenId.merchantGratificationConfig;
+    final isAccountPrefs =
+        currentScreen == ScreenId.merchantAccountPreferences ||
+            currentScreen == ScreenId.merchantSecurity ||
+            currentScreen == ScreenId.merchantDataPrivacy ||
+            currentScreen == ScreenId.merchantProfileSummary ||
+            currentScreen == ScreenId.merchantGratificationConfig;
     final isMerchantClients = currentScreen == ScreenId.merchantClients;
     final isClientProfile = currentScreen == ScreenId.clientProfile;
     final isClientHome = currentScreen == ScreenId.clientHome;
@@ -1623,8 +1745,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     // are not overridden.
     final statusBarColor = isNotifications ||
             currentScreen == ScreenId.merchantGratificationConfig
-        ? const Color(
-            0xFF0B1F33) // MerchantColors.bgHeader (match dark header)
+        ? const Color(0xFF0B1F33) // MerchantColors.bgHeader (match dark header)
         : isAuthDarkScreen
             ? authBgDark
             : (isStorefront
@@ -1703,7 +1824,7 @@ class _RootShellState extends ConsumerState<_RootShell>
 
               // No bottom padding here – same as profile. Each screen adds its own scroll padding
               // so content stays above the nav. Avoids the visible square/band at the bottom.
-              final content = body;
+              final content = shellBody;
 
               return Stack(
                 children: [
@@ -1808,20 +1929,19 @@ class _RootShellState extends ConsumerState<_RootShell>
               setState(() => _authScreen = ScreenId.roleSelection);
             }
           },
-          onNext: () =>
-              setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
+          onNext: () => setState(
+              () => _authScreen = ScreenId.merchantSubcategorySelection),
         );
       case ScreenId.merchantSubcategorySelection:
         return SubcategorySelectionScreen(
           onBack: () =>
               setState(() => _authScreen = ScreenId.merchantOnboarding),
-          onNext: () =>
-              setState(() => _authScreen = ScreenId.merchantBenefits),
+          onNext: () => setState(() => _authScreen = ScreenId.merchantBenefits),
         );
       case ScreenId.merchantBenefits:
         return MerchantBenefitsScreen(
-          onBack: () =>
-              setState(() => _authScreen = ScreenId.merchantSubcategorySelection),
+          onBack: () => setState(
+              () => _authScreen = ScreenId.merchantSubcategorySelection),
           onNext: () {
             final isAuthenticated =
                 ref.read(authStateProvider) is Authenticated;
@@ -1897,7 +2017,6 @@ class _RootShellState extends ConsumerState<_RootShell>
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
             setState(() {
-              
               _nestedScreen = ScreenId.storeProfile;
             });
           },
@@ -1935,7 +2054,6 @@ class _RootShellState extends ConsumerState<_RootShell>
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
             setState(() {
-              
               _nestedScreen = ScreenId.storeProfile;
             });
           },
@@ -1992,8 +2110,8 @@ class _RootShellState extends ConsumerState<_RootShell>
             // Preserve the current merchant so that after the user logs in,
             // _tryConsumePendingVitrineLink reopens the store profile
             // automatically — no need to scan again.
-            final mid = ref.read(
-                store_profile_providers.selectedStoreMerchantIdProvider);
+            final mid = ref
+                .read(store_profile_providers.selectedStoreMerchantIdProvider);
             setState(() {
               if (mid != null && mid.isNotEmpty) {
                 _pendingVitrineMerchantId = mid;
@@ -2038,17 +2156,10 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .state = promotionId.isEmpty ? null : promotionId;
             setState(() => _nestedScreen = ScreenId.storeProfile);
           },
-          // Tapping a bon_expiring / bon_expired push lands on Mes
-          // avantages so the client can act on (or acknowledge) the
-          // bon — same behaviour as the type=='loyalty' deep-link
-          // path higher up in this file.
-          onBonTap: () {
-            setState(() {
-              _activeTab = 'loyalty';
-              _authScreen = ScreenId.loyalty;
-              _nestedScreen = null;
-            });
-          },
+          // Bon / loyalty rows and matching FCM taps land on Mes avantages
+          // (with dual-profile role switch when needed) — see
+          // [_openClientLoyaltyMesAvantagesFromNotification] / [_handleFcmTap].
+          onBonTap: _openClientLoyaltyMesAvantagesFromNotification,
         );
       case ScreenId.messages:
         return MessagesScreen(
@@ -2113,6 +2224,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         // user-reported regression.
         return PersonalInformationScreen(
           onBack: _handleBackFromNested,
+          isDualProfile: _isDualProfile,
           createOtherRoleLabel: 'Créer un carnet Yuztoo',
           onCreateProAccount: () => unawaited(_switchToClient()),
         );

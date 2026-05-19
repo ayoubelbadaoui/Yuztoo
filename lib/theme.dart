@@ -74,8 +74,11 @@ ThemeData buildTheme() {
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: const Color(0xFFF3F3F5),
+      // Default off: merchant / dark surfaces often use light text; the previous
+      // `filled: true` + pale fill made those fields look "blank" (pale fill +
+      // white text). Screens that need a filled light field should set
+      // `filled: true` and `fillColor` explicitly on their InputDecoration.
+      filled: false,
       contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),

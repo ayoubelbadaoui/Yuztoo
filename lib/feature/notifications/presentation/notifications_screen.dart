@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../../client_home/application/providers.dart';
@@ -31,9 +32,9 @@ class NotificationsScreen extends ConsumerStatefulWidget {
   /// Called when a promotion notification with a promotionId is tapped.
   final void Function(String merchantId, String promotionId)? onPromotionTap;
 
-  /// Called when a `bon_expiring` or `bon_expired` notification is tapped.
-  /// Consumers should route to "Mes avantages" so the client can act on
-  /// (or acknowledge) the affected bon.
+  /// Called when a `bon_expiring` / `bon_expired` or [ClientNotificationType.loyalty]
+  /// row is tapped. Consumers should route to "Mes avantages" (same as FCM
+  /// for those types), including dual-profile role switching when applicable.
   final VoidCallback? onBonTap;
 
   @override
@@ -62,8 +63,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return result.fold(
       (_) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Impossible de supprimer cette alerte'),
+          SnackBar(
+            content: Text(
+              'Impossible de supprimer cette alerte',
+              style: merchantSnackBarTextOnWarmAccent(),
+            ),
             behavior: SnackBarBehavior.floating,
             backgroundColor: Colors.red,
           ),
@@ -118,8 +122,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     if (!mounted) return;
     result.fold(
       (_) => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Impossible de supprimer les alertes'),
+        SnackBar(
+          content: Text(
+            'Impossible de supprimer les alertes',
+            style: merchantSnackBarTextOnWarmAccent(),
+          ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.red,
         ),
@@ -135,13 +142,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       unawaited(useCase(notification.clientId, notification.id));
     }
     // 2. Deep-link navigation. Order matters:
-    //    bon types → Mes avantages (own callback so the parent shell
-    //      can switch tabs without inventing a fake merchant id)
+    //    bon + loyalty types → Mes avantages (shell mirrors FCM routing)
     //    promotion → onPromotionTap when promotionId is set
     //    everything else → onMerchantTap to the storefront
     final isBonTap = notification.type == ClientNotificationType.bonExpiring ||
         notification.type == ClientNotificationType.bonExpired;
-    if (isBonTap && widget.onBonTap != null) {
+    final isLoyaltyTap = notification.type == ClientNotificationType.loyalty;
+    if ((isBonTap || isLoyaltyTap) && widget.onBonTap != null) {
       widget.onBonTap!();
     } else if (notification.promotionId != null &&
         widget.onPromotionTap != null) {

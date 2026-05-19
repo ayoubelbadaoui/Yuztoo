@@ -49,6 +49,8 @@ class _LoyaltyCelebrationOverlayState
   final Set<String> _seenInSession = <String>{};
   String? _persistedLastSeen;
 
+  final Set<String> _cancelledNotified = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +91,28 @@ class _LoyaltyCelebrationOverlayState
   }
 
   void _onSession(ActiveValidationRequest session) {
+    if (session.isCancelled) {
+      final k = '${session.merchantId}__${session.clientUid}__cancelled';
+      if (_cancelledNotified.contains(k)) return;
+      _cancelledNotified.add(k);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Demande de passage annulée ou refusée.',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
+      return;
+    }
     if (!session.isCompleted) return;
     final key = _sessionKey(session);
     if (_seenInSession.contains(key)) return;
@@ -246,8 +270,7 @@ class _CelebrationCard extends StatelessWidget {
                     _bodyLine,
                     style: GoogleFonts.outfit(
                       fontSize: 12,
-                      color: MerchantColors.darkOverlay
-                          .withValues(alpha: 0.85),
+                      color: MerchantColors.darkOverlay.withValues(alpha: 0.85),
                     ),
                   ),
                 ],

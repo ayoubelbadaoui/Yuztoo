@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/utils/image_crop_utils.dart';
 import '../../client_notification/application/providers.dart';
 import '../../merchant/application/providers.dart' show currentMerchantForOwnerProvider;
@@ -86,7 +87,10 @@ class _PromotionsManagementScreenState
       (failure) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(failure.message),
+            content: Text(
+              failure.message,
+              style: merchantSnackBarTextOnWarmAccent(),
+            ),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -94,8 +98,11 @@ class _PromotionsManagementScreenState
       (savedPromo) {
         ref.invalidate(merchantPromotionsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Promotion créée'),
+          SnackBar(
+            content: Text(
+              'Promotion créée',
+              style: merchantSnackBarTextOnGold(),
+            ),
             backgroundColor: MerchantColors.gold,
           ),
         );
@@ -147,14 +154,23 @@ class _PromotionsManagementScreenState
     deleteResult.fold(
       (failure) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failure.message), backgroundColor: Colors.red.shade700),
+          SnackBar(
+            content: Text(
+              failure.message,
+              style: merchantSnackBarTextOnWarmAccent(),
+            ),
+            backgroundColor: Colors.red.shade700,
+          ),
         );
       },
       (_) {
         ref.invalidate(merchantPromotionsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Promotion supprimée'),
+          SnackBar(
+            content: Text(
+              'Promotion supprimée',
+              style: merchantSnackBarTextOnGold(),
+            ),
             backgroundColor: MerchantColors.gold,
           ),
         );
@@ -170,7 +186,13 @@ class _PromotionsManagementScreenState
     result.fold(
       (failure) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failure.message), backgroundColor: Colors.red.shade700),
+          SnackBar(
+            content: Text(
+              failure.message,
+              style: merchantSnackBarTextOnWarmAccent(),
+            ),
+            backgroundColor: Colors.red.shade700,
+          ),
         );
       },
       (_) {
@@ -263,7 +285,10 @@ class _PromotionsManagementScreenState
         (failure) {
           messenger.showSnackBar(
             SnackBar(
-              content: Text(failure.message),
+              content: Text(
+                failure.message,
+                style: merchantSnackBarTextOnWarmAccent(),
+              ),
               backgroundColor: Colors.red.shade700,
             ),
           );
@@ -271,8 +296,11 @@ class _PromotionsManagementScreenState
         (_) {
           ref.invalidate(merchantPromotionsProvider);
           messenger.showSnackBar(
-            const SnackBar(
-              content: Text('Image mise à jour'),
+            SnackBar(
+              content: Text(
+                'Image mise à jour',
+                style: merchantSnackBarTextOnGold(),
+              ),
               backgroundColor: MerchantColors.gold,
             ),
           );

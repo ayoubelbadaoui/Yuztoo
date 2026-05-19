@@ -85,7 +85,7 @@ extension _ClientViewUi on _ClientViewState {
           ),
           const SizedBox(height: 6),
           Text(
-            AppLocalizations.of(context)!.addToYuztoo,
+            AppLocalizations.of(context)!.addToYuzToo,
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
               fontSize: 12,

@@ -21,5 +21,22 @@ abstract final class MerchantColors {
 
   /// Common dark background used for inputs / dark card overlays
   static const darkOverlay = Color(0xFF0B162C);
+
+  /// Use on dark merchant surfaces so [TextField] / [TextFormField] do not keep
+  /// the app theme’s pale fill behind a light [TextStyle] (unreadable text).
+  static InputDecoration inputDecorationOnDarkSurface(
+    InputDecoration base,
+  ) {
+    return base.copyWith(
+      filled: true,
+      fillColor: Colors.transparent,
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      disabledBorder: InputBorder.none,
+      errorBorder: InputBorder.none,
+      focusedErrorBorder: InputBorder.none,
+    );
+  }
 }
 

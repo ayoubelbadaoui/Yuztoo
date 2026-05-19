@@ -137,9 +137,10 @@ void main() {
   });
 
   group('production default cooldown', () {
-    test('defaults to 1 hour when no duration is passed', () async {
+    test('defaults to no cooldown: two rapid passages both succeed', () async {
+      final fs = FakeFirebaseFirestore();
       final defaultRepo = FirestoreClientLoyaltyRepository(
-        firestore: FakeFirebaseFirestore(),
+        firestore: fs,
       );
       final first = await defaultRepo.applyPassageDeltas(
         merchantId: merchantId,
@@ -153,22 +154,18 @@ void main() {
         clientUid: clientUid,
         validatedPassagesDelta: 1,
       );
-      expect(second.isLeft, isTrue,
+      expect(second.isRight, isTrue,
           reason:
-              'with the production default of 1h, a second passage seconds '
-              'after the first must be rejected — if this test fails, check '
-              'that the constructor default has not been lowered for testing.');
-      second.fold(
-        (failure) => expect(
-          failure.message.contains('1 heure'),
-          isTrue,
-          reason:
-              'production cooldown message must communicate the 1-hour wait '
-              'so users understand why a re-scan was rejected — got: '
-              '"${failure.message}"',
-        ),
-        (_) => fail('expected cooldown rejection'),
-      );
+              'default passageCooldown is Duration.zero — per-passage policy '
+              'can be reintroduced later without blocking immediate re-validation.');
+
+      final snap = await fs
+          .collection('merchants')
+          .doc(merchantId)
+          .collection('loyalty_clients')
+          .doc(clientUid)
+          .get();
+      expect(snap.data()?['validated_passages'], 2);
     });
   });
 }

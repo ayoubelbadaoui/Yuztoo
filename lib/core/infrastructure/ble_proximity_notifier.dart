@@ -5,6 +5,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'ble_proximity_service.dart';
+import 'logger_service.dart';
 
 /// RSSI threshold for "tap" proximity (~3–5 cm).
 /// BLE at ≤5 cm typically reads between -20 and -45 dBm depending on hardware.
@@ -109,6 +110,10 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
   final Map<DeviceIdentifier, int> _hitCount = {};
   bool _triggered = false;
 
+  /// When positive, the shell merchant scan is paused (e.g. [MerchantBleScanScreen]
+  /// owns the radio exclusively) — [resetAfterDetection] will not restart scan.
+  int _shellScanSuspendCount = 0;
+
   // ─── Public API ────────────────────────────────────────────────────────────
 
   /// Starts BLE advertising so nearby merchant apps can detect this client.
@@ -135,15 +140,98 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
   /// [BleProximityService.requestMerchantPermissions]). This avoids the OS
   /// permission popup appearing unsolicited when the merchant just logs in.
   Future<void> startAsMerchant() async {
+    LoggerService.logInfo('BLE notifier.startAsMerchant — begin');
     await _stopInternal();
     final available = await _isAvailable();
-    if (!mounted || !available) return;
+    if (!mounted || !available) {
+      LoggerService.logInfo(
+        'BLE notifier.startAsMerchant — abort: adapter unavailable',
+        context: <String, Object?>{'available': available, 'mounted': mounted},
+      );
+      return;
+    }
     final permitted = await _merchantPermissionsGranted();
-    if (!mounted || !permitted) return;
-    _startScan();
-    _scanSub = _scanResultsStream().listen(_onScanResult);
+    if (!mounted || !permitted) {
+      LoggerService.logInfo(
+        'BLE notifier.startAsMerchant — abort: permissions not granted (silent)',
+        context: <String, Object?>{
+          'permitted': permitted,
+          'mounted': mounted,
+        },
+      );
+      return;
+    }
+    try {
+      _startScan();
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE notifier.startAsMerchant — FlutterBluePlus.startScan threw',
+        error: e,
+        stackTrace: st,
+      );
+      return;
+    }
+    _scanSub = _scanResultsStream().listen(
+      _onScanResult,
+      onError: (Object e, StackTrace st) {
+        LoggerService.logError(
+          'BLE notifier.startAsMerchant — scanResults stream error',
+          error: e,
+          stackTrace: st,
+        );
+      },
+    );
     state = const BleProximityState(
         mode: BleProximityMode.merchant, isRunning: true);
+    LoggerService.logInfo('BLE notifier.startAsMerchant — scan running');
+  }
+
+  /// Pauses the global merchant scan while a dedicated screen (e.g.
+  /// [MerchantBleScanScreen]) runs its own [FlutterBluePlus.startScan].
+  /// Pair with [resumeShellMerchantScan] in [dispose].
+  Future<void> suspendShellMerchantScan() async {
+    _shellScanSuspendCount++;
+    if (_shellScanSuspendCount == 1) {
+      await _stopScan();
+      await _scanSub?.cancel();
+      _scanSub = null;
+      _hitCount.clear();
+      _triggered = false;
+    }
+  }
+
+  /// Resumes the shell scan after [suspendShellMerchantScan].
+  Future<void> resumeShellMerchantScan() async {
+    if (_shellScanSuspendCount > 0) {
+      _shellScanSuspendCount--;
+    }
+    if (_shellScanSuspendCount < 0) {
+      _shellScanSuspendCount = 0;
+    }
+    if (!mounted) return;
+    if (_shellScanSuspendCount != 0) return;
+    if (state.mode != BleProximityMode.merchant || !state.isRunning) return;
+    try {
+      _startScan();
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE notifier.resumeShellMerchantScan — startScan threw',
+        error: e,
+        stackTrace: st,
+      );
+      return;
+    }
+    _scanSub?.cancel();
+    _scanSub = _scanResultsStream().listen(
+      _onScanResult,
+      onError: (Object e, StackTrace st) {
+        LoggerService.logError(
+          'BLE notifier.resumeShellMerchantScan — scanResults stream error',
+          error: e,
+          stackTrace: st,
+        );
+      },
+    );
   }
 
   /// Stops all BLE activity and resets to idle.
@@ -155,10 +243,22 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
     if (!mounted) return;
     _triggered = false;
     _hitCount.clear();
-    if (state.mode == BleProximityMode.merchant) {
+    if (state.mode == BleProximityMode.merchant && _shellScanSuspendCount == 0) {
       _startScan();
       _scanSub?.cancel();
-      _scanSub = _scanResultsStream().listen(_onScanResult);
+      // Always pass `onError:` — an unhandled stream error here would
+      // bubble out to the Zone error handler and surface as Flutter's red
+      // error screen. Logging is enough; the next scan tick will try again.
+      _scanSub = _scanResultsStream().listen(
+        _onScanResult,
+        onError: (Object e, StackTrace st) {
+          LoggerService.logError(
+            'BLE notifier.resetAfterDetection — scanResults stream error',
+            error: e,
+            stackTrace: st,
+          );
+        },
+      );
     }
   }
 
@@ -166,9 +266,34 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
 
   void _onScanResult(List<ScanResult> results) {
     if (_triggered) return;
+    // Log a compact snapshot of the strongest device per emission so the
+    // user can see WHY no detection is happening: phones too far (RSSI
+    // below the -45 dBm threshold) vs. no Yuztoo devices visible at all.
+    if (results.isNotEmpty) {
+      final strongest = results
+          .reduce((a, b) => a.rssi >= b.rssi ? a : b);
+      LoggerService.logDebug(
+        'BLE scan result tick',
+        context: <String, Object?>{
+          'count': results.length,
+          'strongestRssi': strongest.rssi,
+          'strongestId': strongest.device.remoteId.str,
+          'threshold': kBleRssiThreshold,
+          'aboveThreshold': strongest.rssi >= kBleRssiThreshold,
+        },
+      );
+    }
     for (final r in results) {
       if (shouldTrigger(_hitCount, r.device.remoteId, r.rssi)) {
         _triggered = true;
+        LoggerService.logInfo(
+          'BLE notifier — proximity threshold reached, resolving device',
+          context: <String, Object?>{
+            'deviceId': r.device.remoteId.str,
+            'rssi': r.rssi,
+            'hits': _hitCount[r.device.remoteId],
+          },
+        );
         unawaited(_resolveAndEmit(r.device));
         return;
       }
@@ -211,6 +336,7 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
     _scanSub = null;
     _hitCount.clear();
     _triggered = false;
+    _shellScanSuspendCount = 0;
     if (mounted) state = const BleProximityState();
   }
 

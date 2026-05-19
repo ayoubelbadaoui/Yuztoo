@@ -30,8 +30,7 @@ final confirmActiveValidationProvider =
   );
 });
 
-final cancelActiveValidationProvider =
-    Provider<CancelActiveValidation>((ref) {
+final cancelActiveValidationProvider = Provider<CancelActiveValidation>((ref) {
   return CancelActiveValidation(
     ref.watch(activeValidationRepositoryProvider),
   );
@@ -61,6 +60,33 @@ final clientActiveValidationSessionProvider = StreamProvider.autoDispose
     clientUid: auth.user.id,
   );
 });
+
+/// Same Firestore doc as [clientActiveValidationSessionProvider], keyed by
+/// `merchantId|clientUid`. Used by the merchant validation sheet to react in
+/// real time when the client cancels while the sheet is open.
+final activeValidationSessionForDocProvider =
+    StreamProvider.autoDispose.family<ActiveValidationRequest?, String>(
+  (ref, merchantAndClientKey) {
+    final sep = merchantAndClientKey.indexOf('|');
+    if (sep <= 0 || sep >= merchantAndClientKey.length - 1) {
+      return Stream<ActiveValidationRequest?>.value(null);
+    }
+    final merchantId = merchantAndClientKey.substring(0, sep);
+    final clientUid = merchantAndClientKey.substring(sep + 1);
+    if (merchantId.isEmpty || clientUid.isEmpty) {
+      return Stream<ActiveValidationRequest?>.value(null);
+    }
+    final auth = ref.watch(auth_providers.authStateProvider);
+    if (auth is! Authenticated) {
+      return Stream<ActiveValidationRequest?>.value(null);
+    }
+    final repo = ref.watch(activeValidationRepositoryProvider);
+    return repo.watchClientSession(
+      merchantId: merchantId,
+      clientUid: clientUid,
+    );
+  },
+);
 
 /// Awaiting sessions under the currently active merchant (the one whose
 /// dashboard the user owns). Empty for non-merchants. Drives the global

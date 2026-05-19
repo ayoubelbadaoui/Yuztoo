@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/infrastructure/firebase_providers.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
+import 'portable_user_data_export.dart';
 import 'use_cases/update_service_settings.dart';
 
 export '../../auth/core/application/providers.dart' show authControllerProvider;
@@ -12,6 +14,12 @@ export '../../merchant/application/providers.dart'
 final updateServiceSettingsProvider = Provider<UpdateServiceSettings>((ref) {
   final repo = ref.watch(merchantRepositoryProvider);
   return UpdateServiceSettings(repo);
+});
+
+/// RGPD Art. 20 — portable JSON built from Firestore reads permitted to the user.
+final portableUserDataExportProvider = Provider<PortableUserDataExport>((ref) {
+  final firestore = ref.watch(firebaseFirestoreProvider);
+  return PortableUserDataExport(firestore);
 });
 
 /// Current logged-in merchant's ID (for writes). Returns null when unauthenticated.

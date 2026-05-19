@@ -443,9 +443,9 @@ async function fireAutoNotification(
       client_id: clientId,
       merchant_id: merchantId,
       merchant_name: merchantName,
-      // 'auto' type — tap routes to notifications tab (no promotion_id for deep-link).
-      // merchant_id IS included so onNotificationCreated forwards it in FCM data,
-      // allowing future routing enhancements without schema changes.
+      // 'auto' type — client app routes tap to the vitrine when `merchant_id`
+      // is present (FCM data); otherwise falls back to the notifications inbox.
+      // merchant_id is always set here so pushes can deep-link without schema churn.
       type: "auto",
       title: data.title ?? merchantName,
       body: data.text ?? "",
