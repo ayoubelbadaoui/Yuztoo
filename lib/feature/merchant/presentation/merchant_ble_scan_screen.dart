@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -155,30 +156,76 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       }
     }
 
-    final beaconOk = await BleProximityService.startMerchantBeacon(
-      widget.merchant.id,
-      onClientUidWritten: _onClientWroteUidFromTheirPhone,
-    );
+    // Start the scan FIRST — that's the screen's must-have. The merchant
+    // can validate by tapping a detected client in the list, and the radar
+    // animation tells them something is happening. Without it the screen
+    // sits visually frozen if the beacon code below fails.
+    await _beginScanSubscription();
     if (!mounted) return;
-    _merchantBeaconActive = beaconOk;
-    if (!beaconOk) {
+
+    // Merchant beacon (CBPeripheralManager via `ble_peripheral`) is a
+    // nice-to-have that lets clients pick this commerce from a list on
+    // their own phone. On iOS it has been observed to crash the app when
+    // first initialised in a session — the native exception leaks out of
+    // ble_peripheral's Dart try/catch on some iOS builds and surfaces as
+    // a hard exit. We:
+    //   • Run it in a separate microtask so any failure can't bring down
+    //     the radar / scan flow that's already up.
+    //   • Wrap in a guarded try/catch (catches Errors too, not just
+    //     Exceptions — the iOS bridge sometimes throws `Error` subtypes).
+    //   • Skip entirely on iOS for now: until the upstream crash is
+    //     pinned, the scan-only flow on the merchant side is the safer
+    //     default. The Android beacon keeps working.
+    if (!Platform.isIOS) {
+      unawaited(_startBeaconBestEffort());
+    } else {
       LoggerService.logInfo(
-        'MerchantBleScanScreen — merchant beacon did not start; '
-        'merchant→client picker may be unavailable',
+        'MerchantBleScanScreen — skipping merchant beacon on iOS '
+        '(known crash; scan-only mode active)',
       );
     }
-    await _beginScanSubscription();
+  }
+
+  Future<void> _startBeaconBestEffort() async {
+    try {
+      final beaconOk = await BleProximityService.startMerchantBeacon(
+        widget.merchant.id,
+        onClientUidWritten: _onClientWroteUidFromTheirPhone,
+      );
+      if (!mounted) return;
+      _merchantBeaconActive = beaconOk;
+      if (!beaconOk) {
+        LoggerService.logInfo(
+          'MerchantBleScanScreen — merchant beacon did not start; '
+          'merchant→client picker may be unavailable',
+        );
+      }
+    } catch (e, st) {
+      LoggerService.logError(
+        'MerchantBleScanScreen — startMerchantBeacon threw (degraded mode: '
+        'scan-only)',
+        error: e,
+        stackTrace: st,
+      );
+      _merchantBeaconActive = false;
+    }
   }
 
   Future<void> _beginScanSubscription() async {
     try {
-      await FlutterBluePlus.startScan(
-        withServices: [Guid(BleProximityService.serviceUuid)],
-        continuousUpdates: true,
-        continuousDivisor: 2,
-        removeIfGone: const Duration(seconds: 14),
-        androidScanMode: AndroidScanMode.lowLatency,
-      );
+      if (Platform.isIOS) {
+        await FlutterBluePlus.startScan(
+          withServices: [Guid(BleProximityService.serviceUuid)],
+        );
+      } else {
+        await FlutterBluePlus.startScan(
+          withServices: [Guid(BleProximityService.serviceUuid)],
+          continuousUpdates: true,
+          continuousDivisor: 2,
+          removeIfGone: const Duration(seconds: 14),
+          androidScanMode: AndroidScanMode.lowLatency,
+        );
+      }
     } catch (e, st) {
       LoggerService.logError(
         'MerchantBleScanScreen — FlutterBluePlus.startScan threw',
@@ -379,8 +426,12 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   /// to our merchant beacon — continue the same validation pipeline.
   void _onClientWroteUidFromTheirPhone(String rawUid) {
     final clientId = rawUid.trim();
-    if (clientId.isEmpty || !mounted || _triggered) return;
-    unawaited(_validateFromClientBeaconWrite(clientId));
+    if (clientId.isEmpty) return;
+    // Never call setState from a raw BLE callback stack (iOS).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _triggered) return;
+      unawaited(_validateFromClientBeaconWrite(clientId));
+    });
   }
 
   Future<void> _validateFromClientBeaconWrite(String clientId) async {
@@ -793,7 +844,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
-                  Icon(Icons.smartphone_rounded,
+                  const Icon(Icons.smartphone_rounded,
                       color: StorefrontColors.primaryGold, size: 26),
                   const SizedBox(width: 14),
                   Expanded(
@@ -819,7 +870,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded,
+                  const Icon(Icons.chevron_right_rounded,
                       color: MerchantColors.textGrey, size: 22),
                 ],
               ),

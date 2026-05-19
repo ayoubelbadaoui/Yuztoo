@@ -45,12 +45,24 @@ final viewedMerchantIdsForCurrentUserProvider = FutureProvider<Set<String>>((ref
 });
 
 /// Followers count per merchant id (all users), used for "Suivi par X personnes".
+///
+/// Reads [Merchant.publicFollowersCount] from each `merchants/{id}` document
+/// (field `public_followers_count`), maintained by Cloud Functions on follow
+/// create/delete. Avoids client-side collection-group aggregate queries that
+/// security rules deny for non-owners.
 final followersCountByMerchantIdsProvider =
     FutureProvider.family<Map<String, int>, List<String>>((ref, merchantIds) async {
   if (merchantIds.isEmpty) return const <String, int>{};
-  final repo = ref.watch(followedMerchantsRepositoryProvider);
-  final result = await repo.getFollowersCounts(merchantIds);
-  return result.fold((_) => const <String, int>{}, (map) => map);
+  final distinct = merchantIds.toSet().toList();
+  final merchantRepo = ref.watch(merchantRepositoryProvider);
+  final result = await merchantRepo.getMerchantsByIds(distinct);
+  return result.fold(
+    (_) => {for (final id in distinct) id: 0},
+    (merchants) {
+      final byId = {for (final m in merchants) m.id: m.publicFollowersCount};
+      return {for (final id in distinct) id: byId[id] ?? 0};
+    },
+  );
 });
 
 /// Single load for Accueil: **followed merchants only** (carnet) + their promotions.

@@ -221,14 +221,22 @@ class BleProximityService {
           }
           final uid = String.fromCharCodes(value);
           if (uid.isNotEmpty) {
-            try {
-              _merchantBeaconWriteHandler?.call(uid.trim());
-            } catch (e, st) {
-              LoggerService.logError(
-                'BLE startMerchantBeacon — onClientUidWritten threw',
-                error: e,
-                stackTrace: st,
-              );
+            // Native GATT write callbacks can arrive on a path that must not
+            // touch Flutter widgets synchronously (iOS hard-crash risk).
+            final trimmed = uid.trim();
+            final handler = _merchantBeaconWriteHandler;
+            if (handler != null) {
+              Future<void>.microtask(() {
+                try {
+                  handler(trimmed);
+                } catch (e, st) {
+                  LoggerService.logError(
+                    'BLE startMerchantBeacon — onClientUidWritten threw',
+                    error: e,
+                    stackTrace: st,
+                  );
+                }
+              });
             }
           }
           return peripheral.WriteRequestResult();

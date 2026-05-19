@@ -44,6 +44,7 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   String _activeTab = 'alertes'; // 'alertes' | 'promos'
+  final Map<String, GlobalKey> _notificationRowKeys = <String, GlobalKey>{};
 
   Future<void> _markAllRead() async {
     final authState = ref.read(authStateProvider);
@@ -150,7 +151,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final isLoyaltyTap = notification.type == ClientNotificationType.loyalty;
     if ((isBonTap || isLoyaltyTap) && widget.onBonTap != null) {
       widget.onBonTap!();
-    } else if (notification.promotionId != null &&
+    } else if (notification.type == ClientNotificationType.promotion &&
+        notification.promotionId != null &&
+        notification.promotionId!.isNotEmpty &&
         widget.onPromotionTap != null) {
       widget.onPromotionTap!(notification.merchantId, notification.promotionId!);
     } else if (widget.onMerchantTap != null) {
@@ -160,8 +163,53 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   void _setTab(String tab) => setState(() => _activeTab = tab);
 
+  /// Applies tab + scroll intent from [NotificationInboxDeepLink]. Caller must
+  /// clear the provider before calling, or pass a copy (FCM sets the provider
+  /// before this route mounts — [ref.listen] alone would miss that).
+  void _applyInboxDeepLink(NotificationInboxDeepLink link) {
+    final tab = link.initialTab;
+    final scrollId = link.notificationId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        if (tab == 'promos' || tab == 'alertes') {
+          _activeTab = tab;
+        }
+      });
+      if (scrollId != null && scrollId.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final ctx = _notificationRowKeys[scrollId]?.currentContext;
+          if (ctx != null) {
+            Scrollable.ensureVisible(ctx, alignment: 0.15);
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Consume a link set by the shell in the same frame *before* this widget
+    // subscribed — ref.listen only sees subsequent changes.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final pending = ref.read(notificationInboxDeepLinkProvider);
+      if (pending == null) return;
+      ref.read(notificationInboxDeepLinkProvider.notifier).state = null;
+      _applyInboxDeepLink(pending);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(notificationInboxDeepLinkProvider, (previous, next) {
+      if (next == null || !mounted) return;
+      ref.read(notificationInboxDeepLinkProvider.notifier).state = null;
+      _applyInboxDeepLink(next);
+    });
+
     final notificationsAsync = ref.watch(clientNotificationsStreamProvider);
     final authState = ref.watch(authStateProvider);
     final isGuest = authState is! Authenticated;

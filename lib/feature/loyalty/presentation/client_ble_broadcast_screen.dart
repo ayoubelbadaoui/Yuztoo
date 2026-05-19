@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -125,6 +126,10 @@ class _ClientBleBroadcastScreenState
           _broadcasting = true;
           _bleUnavailable = false;
         });
+        if (Platform.isIOS) {
+          await Future<void>.delayed(const Duration(milliseconds: 450));
+          if (!mounted) return;
+        }
         unawaited(_startListeningForNearbyMerchants());
         return;
       }
@@ -197,14 +202,24 @@ class _ClientBleBroadcastScreenState
     setState(() {
       _merchantScanPermissionDenied = false;
     });
+    if (Platform.isIOS) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      if (!mounted) return;
+    }
     try {
-      await FlutterBluePlus.startScan(
-        withServices: [Guid(BleProximityService.merchantBeaconServiceUuid)],
-        continuousUpdates: true,
-        continuousDivisor: 2,
-        removeIfGone: const Duration(seconds: 14),
-        androidScanMode: AndroidScanMode.lowLatency,
-      );
+      if (Platform.isIOS) {
+        await FlutterBluePlus.startScan(
+          withServices: [Guid(BleProximityService.merchantBeaconServiceUuid)],
+        );
+      } else {
+        await FlutterBluePlus.startScan(
+          withServices: [Guid(BleProximityService.merchantBeaconServiceUuid)],
+          continuousUpdates: true,
+          continuousDivisor: 2,
+          removeIfGone: const Duration(seconds: 14),
+          androidScanMode: AndroidScanMode.lowLatency,
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -657,7 +672,7 @@ class _ClientBleBroadcastScreenState
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.bluetooth_searching_rounded,
                       color: StorefrontColors.primaryGold,
                       size: 22,
@@ -777,7 +792,7 @@ class _ClientBleBroadcastScreenState
                             horizontal: 16, vertical: 14),
                         child: Row(
                           children: [
-                            Icon(Icons.storefront_outlined,
+                            const Icon(Icons.storefront_outlined,
                                 color: StorefrontColors.primaryGold, size: 26),
                             const SizedBox(width: 14),
                             Expanded(
@@ -803,7 +818,7 @@ class _ClientBleBroadcastScreenState
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right_rounded,
+                            const Icon(Icons.chevron_right_rounded,
                                 color: MerchantColors.textGrey, size: 22),
                           ],
                         ),

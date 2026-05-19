@@ -287,51 +287,6 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
   }
 
   @override
-  Future<Result<Map<String, int>>> getFollowersCounts(
-      List<String> merchantIds) async {
-    if (merchantIds.isEmpty) {
-      return const Right<AppFailure, Map<String, int>>(<String, int>{});
-    }
-    final distinctIds = merchantIds.toSet().toList();
-    final counts = <String, int>{for (final id in distinctIds) id: 0};
-
-    try {
-      // For each merchant, run the same collection-group query used by
-      // [getFollowerIds] but only count the results via Firestore's
-      // server-side `count()` aggregation — no document payload transferred,
-      // which keeps the storefront badge snappy. The query is covered by the
-      // existing collectionGroup=followed_merchants, merchant_id ASC index.
-      await Future.wait(distinctIds.map((id) async {
-        try {
-          final agg = await _firestore
-              .collectionGroup('followed_merchants')
-              .where('merchant_id', isEqualTo: id)
-              .count()
-              .get();
-          counts[id] = agg.count ?? 0;
-        } on FirebaseException catch (e, st) {
-          LoggerService.logError(
-            'Follower count query failed for merchant',
-            error: e,
-            stackTrace: st,
-            context: {'merchantId': id, 'code': e.code},
-          );
-          // Leave the entry at 0 rather than failing the whole batch.
-        }
-      }));
-
-      return Right<AppFailure, Map<String, int>>(counts);
-    } catch (e, st) {
-      LoggerService.logError(
-        'Error loading follower counts batch',
-        error: e,
-        stackTrace: st,
-      );
-      return Right<AppFailure, Map<String, int>>(counts);
-    }
-  }
-
-  @override
   Future<Result<List<String>>> getFollowerIds(String merchantId) async {
     if (merchantId.isEmpty) {
       return const Right<AppFailure, List<String>>([]);

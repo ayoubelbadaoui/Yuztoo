@@ -104,10 +104,14 @@ class ClientNotificationDto {
       };
 
   static ClientNotificationType _typeFromString(String s) => switch (s) {
+        'promotion' => ClientNotificationType.promotion,
         'loyalty' => ClientNotificationType.loyalty,
         'auto' => ClientNotificationType.auto,
+        'general' => ClientNotificationType.auto,
         'bon_expiring' => ClientNotificationType.bonExpiring,
         'bon_expired' => ClientNotificationType.bonExpired,
-        _ => ClientNotificationType.promotion,
+        // Unknown future wire values: treat as generic merchant alert (tap →
+        // storefront), not as promotion — mis-classifying breaks inbox routing.
+        _ => ClientNotificationType.auto,
       };
 }

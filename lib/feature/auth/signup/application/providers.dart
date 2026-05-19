@@ -1,7 +1,9 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/domain/core/failure.dart';
+import '../../../../core/infrastructure/logger_service.dart';
 import '../../core/domain/auth_failure.dart';
 import '../../core/domain/repositories/auth_repository.dart';
 import '../../core/infrastructure/auth_repository_provider.dart';
@@ -99,20 +101,90 @@ class DeleteCurrentUser {
       // Region must match the Cloud Function's deployment region. The
       // current `functions/src/index.ts` pins europe-west1; if that ever
       // moves, this constructor argument needs to follow.
-      final functions =
-          FirebaseFunctions.instanceFor(region: 'europe-west1');
-      await functions.httpsCallable('purgeAccount').call();
+      //
+      // `purgeAccount` is deployed with timeoutSeconds: 540 and may recurse
+      // large Firestore trees, collection-group deletes, and Storage cleanup.
+      // The callable client default is only 60s — hitting that aborts the HTTP
+      // call while the function may still be running, then the auth-only
+      // fallback often fails (requires-recent-login), leaving the Auth user
+      // intact. Match the server budget here.
+      final functions = FirebaseFunctions.instanceFor(
+        app: Firebase.app(),
+        region: 'europe-west1',
+      );
+      await functions
+          .httpsCallable(
+            'purgeAccount',
+            options: HttpsCallableOptions(
+              timeout: const Duration(seconds: 540),
+            ),
+          )
+          .call(<String, dynamic>{});
+      // Admin SDK already removed the Auth user. Never fail the whole flow if
+      // local sign-out throws (token already invalid, Google session, etc.).
+      await _signOutBestEffortAfterPurge();
       return;
-    } on FirebaseFunctionsException catch (e) {
+    } on FirebaseFunctionsException catch (e, st) {
+      LoggerService.logError(
+        'purgeAccount callable failed',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code, 'message': e.message, 'details': e.details},
+      );
       if (e.code == 'unauthenticated') {
         throw DeleteAccountException(
           'Session expirée. Déconnectez-vous et reconnectez-vous, puis réessayez.',
         );
       }
+      if (e.code == 'deadline-exceeded') {
+        throw DeleteAccountException(
+          'La suppression côté serveur a dépassé le délai. Attendez une minute '
+          'puis réessayez (l\'opération peut encore se terminer). Si le problème '
+          'persiste, contactez le support.',
+        );
+      }
+      if (e.code == 'unavailable' || e.code == 'resource-exhausted') {
+        throw DeleteAccountException(
+          'Service momentanément indisponible. Vérifiez votre connexion et réessayez.',
+        );
+      }
+      if (e.code == 'internal') {
+        final detail = (e.message ?? '').trim();
+        throw DeleteAccountException(
+          detail.isNotEmpty
+              ? 'Suppression impossible : $detail'
+              : 'Suppression impossible côté serveur. Réessayez dans quelques minutes '
+                  'ou contactez le support.',
+        );
+      }
+      if (e.code == 'permission-denied' || e.code == 'failed-precondition') {
+        throw DeleteAccountException(
+          'Suppression refusée par le serveur. Réessayez après vous être reconnecté(e), '
+          'ou contactez le support.',
+        );
+      }
+      // e.g. not-found if function name/region mismatch — try auth-only path.
       await _applyAuthDeleteResult();
       return;
-    } catch (_) {
+    } catch (e, st) {
+      LoggerService.logError(
+        'purgeAccount unexpected error before auth fallback',
+        error: e,
+        stackTrace: st,
+      );
       await _applyAuthDeleteResult();
+    }
+  }
+
+  Future<void> _signOutBestEffortAfterPurge() async {
+    try {
+      (await _repository.signOut()).fold((_) {}, (_) {});
+    } catch (e, st) {
+      LoggerService.logError(
+        'signOut after successful purgeAccount (ignored)',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 }

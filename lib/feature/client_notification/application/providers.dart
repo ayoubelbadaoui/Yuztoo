@@ -13,6 +13,23 @@ import 'use_cases/notify_followers_of_promotion.dart';
 export '../domain/entities/client_notification.dart';
 export '../infrastructure/client_notification_repository_provider.dart';
 
+/// One-shot target for [NotificationsScreen] when opened from FCM or shell.
+///
+/// [initialTab] is `'alertes'` or `'promos'` (matches the screen tab state).
+class NotificationInboxDeepLink {
+  const NotificationInboxDeepLink({
+    required this.initialTab,
+    this.notificationId,
+  });
+
+  final String initialTab;
+  final String? notificationId;
+}
+
+/// Cleared by [NotificationsScreen] after it applies tab / scroll intent.
+final notificationInboxDeepLinkProvider =
+    StateProvider<NotificationInboxDeepLink?>((ref) => null);
+
 /// Shared ownership verifier — reads the merchant document and checks owner_uid.
 /// Fast path: if merchantId == callerUid (MVP model), skips the Firestore read.
 Future<bool> _verifyMerchantOwnership(

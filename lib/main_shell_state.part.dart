@@ -386,12 +386,13 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// Routes a notification tap to the relevant screen based on FCM data payload.
   ///
   /// Priority (see [functions/src/index.ts] `onNotificationCreated` data block):
-  ///  1. `type == promotion` + `merchant_id` → vitrine (optional `promotion_id`)
-  ///  2. `bon_expiring` / `bon_expired` → loyalty tab ("Mes avantages")
-  ///  3. `type == loyalty_passage_request` + merchant → passage sheet (merchant shell)
-  ///  4. `type` contains `loyalty` → loyalty tab
-  ///  5. `type == auto` + `merchant_id` → vitrine (merchant rappel / context)
-  ///  6. Anything else → notifications inbox tab
+  ///  1. Promotion-like type + `merchant_id` + `promotion_id` → vitrine + promo sheet
+  ///  2. Promotion-like type + `merchant_id` without promo id → inbox "Promotions" tab
+  ///  3. `bon_expiring` / `bon_expired` → loyalty tab ("Mes avantages")
+  ///  4. `type == loyalty_passage_request` + merchant → passage sheet (merchant shell)
+  ///  5. `type` contains `loyalty` (but not passage_request) → loyalty tab
+  ///  6. `type == auto` + `merchant_id` → vitrine (merchant rappel / context)
+  ///  7. Anything else → notifications inbox (`notification_id` scroll when present)
   void _handleFcmTap(Map<String, dynamic>? data) {
     if (!mounted) return;
     if (data == null) {
@@ -402,25 +403,37 @@ class _RootShellState extends ConsumerState<_RootShell>
     String fcmStr(String key) {
       final v = data[key];
       if (v == null) return '';
-      final s = v.toString();
-      return s.trim();
+      return v.toString().trim();
+    }
+
+    bool looksLikePromotionType(String t) {
+      if (t.isEmpty) return false;
+      if (t == 'promotion' ||
+          t == 'promotion_created' ||
+          t == 'promo' ||
+          t.startsWith('promotion')) {
+        return true;
+      }
+      return false;
     }
 
     final type = fcmStr('type').toLowerCase();
     final merchantId = fcmStr('merchant_id');
+    final notificationId = fcmStr('notification_id');
 
-    // 'promotion' is the type written by ClientNotificationDto.typeToString.
-    // Previously stored as 'promotion_created' which never matched.
-    if (type == 'promotion' && merchantId.isNotEmpty) {
-      // Carry the promotion id through to the storefront so tapping the
-      // push opens the actual promo detail instead of dumping the user
-      // on the storefront's accueil to hunt for it. Field name matches
-      // the CF payload (`promotion_id`).
+    if (looksLikePromotionType(type) && merchantId.isNotEmpty) {
       final promotionId = fcmStr('promotion_id');
-      _openVitrineForMerchant(
-        merchantId,
-        promotionId: promotionId.isEmpty ? null : promotionId,
-      );
+      if (promotionId.isNotEmpty) {
+        _openVitrineForMerchant(
+          merchantId,
+          promotionId: promotionId,
+        );
+      } else {
+        _openNotificationsScreen(
+          notificationId: notificationId.isEmpty ? null : notificationId,
+          initialInboxTab: 'promos',
+        );
+      }
       return;
     }
 
@@ -439,14 +452,14 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
-    // Merchant auto-notification (rappel) — Firestore uses type `auto` with
-    // merchant_id so the client lands on that commerce, not only the inbox.
     if (type == 'auto' && merchantId.isNotEmpty) {
       _openVitrineForMerchant(merchantId);
       return;
     }
 
-    _openNotificationsScreen();
+    _openNotificationsScreen(
+      notificationId: notificationId.isEmpty ? null : notificationId,
+    );
   }
 
   /// Consumes any pending initial FCM message after the shell is ready.
@@ -1500,8 +1513,27 @@ class _RootShellState extends ConsumerState<_RootShell>
     _persistSessionRole();
   }
 
-  void _openNotificationsScreen() {
-    // Notifications is a first-class tab for clients – navigate to it as a tab.
+  void _openNotificationsScreen({
+    String? notificationId,
+    String initialInboxTab = 'alertes',
+  }) {
+    final nid = notificationId?.trim() ?? '';
+    final hasScrollTarget = nid.isNotEmpty;
+    final nonDefaultTab = initialInboxTab != 'alertes';
+    if (hasScrollTarget || nonDefaultTab) {
+      ref.read(client_notification_providers.notificationInboxDeepLinkProvider
+              .notifier)
+          .state = client_notification_providers.NotificationInboxDeepLink(
+        initialTab:
+            initialInboxTab == 'promos' ? 'promos' : 'alertes',
+        notificationId: hasScrollTarget ? nid : null,
+      );
+    } else {
+      ref
+          .read(client_notification_providers
+              .notificationInboxDeepLinkProvider.notifier)
+          .state = null;
+    }
     setState(() {
       _authScreen = ScreenId.notifications;
       _activeTab = 'notifications';

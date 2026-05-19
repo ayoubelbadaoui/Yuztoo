@@ -30,9 +30,6 @@ abstract class FollowedMerchantsRepository {
   /// Get all merchant IDs that the user has muted.
   Future<Result<Set<String>>> getMutedMerchantIds(String userId);
 
-  /// Count how many users follow each merchant id.
-  Future<Result<Map<String, int>>> getFollowersCounts(List<String> merchantIds);
-
   /// Get the list of client user IDs that follow the given merchant.
   ///
   /// Requires a Firestore collection-group index on `followed_merchants`
