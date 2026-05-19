@@ -120,7 +120,12 @@ void main() {
       expect(hitCount[id1], 1, reason: 'id1 counter must be unchanged');
       expect(hitCount.containsKey(id2), isFalse, reason: 'id2 must be cleared');
 
-      // id1 reaches threshold — triggers.
+      // id1 reaches threshold — triggers (needs [kBleRequiredHits] hits).
+      expect(
+        BleProximityNotifier.shouldTrigger(hitCount, id1, kBleRssiThreshold),
+        isFalse,
+        reason: 'second hit for id1 should not trigger yet',
+      );
       final triggered =
           BleProximityNotifier.shouldTrigger(hitCount, id1, kBleRssiThreshold);
       expect(triggered, isTrue);
