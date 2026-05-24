@@ -199,9 +199,17 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
 
   Future<Result<Unit>> signOut() async {
     try {
+      if (_auth.currentUser == null) {
+        return const Right<AuthFailure, Unit>(unit);
+      }
       await _auth.signOut();
       return const Right<AuthFailure, Unit>(unit);
     } on firebase.FirebaseAuthException catch (e, st) {
+      // After server-side account deletion the local session may be invalid;
+      // treat as signed out so the shell can route to role selection.
+      if (e.code == 'user-not-found' || e.code == 'user-token-expired') {
+        return const Right<AuthFailure, Unit>(unit);
+      }
       return Left<AuthFailure, Unit>(_mapAuthException(e, st));
     } catch (e, st) {
       return Left<AuthFailure, Unit>(

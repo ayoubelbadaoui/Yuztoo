@@ -1,16 +1,18 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
-import '../../../../core/shared/widgets/app_logo.dart';
 
-/// Spinner widget: rotating arc + static ring + logo.
+/// Spinner widget: rotating arc + static ring.
 ///
 /// Layer 1 – static ring (r=72, stroke-width 1, opacity 0.2)
 /// Layer 2 – rotating + dashing ring (3s rotation, 2s dash animation)
-/// Layer 3 – logo (fadeInScale 1s ease-out)
+///
+/// The bird-in-pin logo used to sit in the centre; it was removed per
+/// product call ("no need to show the image when opening the page, only
+/// the loading that exists already"). The ring-only spinner keeps the
+/// same brand-gold colour and timing so the splash still feels on-brand.
 class LoadingSpinner extends StatefulWidget {
   const LoadingSpinner({super.key});
 
@@ -23,9 +25,6 @@ class _LoadingSpinnerState extends State<LoadingSpinner>
   late final AnimationController _rotation;
   late final AnimationController _dash;
   late final Animation<double> _dashCurved;
-  late final AnimationController _fadeIn;
-  late final Animation<double> _fadeInOpacity;
-  late final Animation<double> _fadeInScale;
 
   @override
   void initState() {
@@ -42,22 +41,12 @@ class _LoadingSpinnerState extends State<LoadingSpinner>
     )..repeat();
     _dashCurved =
         CurvedAnimation(parent: _dash, curve: Curves.easeInOut);
-
-    _fadeIn = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..forward();
-    _fadeInOpacity = Tween(begin: 0.0, end: 1.0)
-        .animate(CurvedAnimation(parent: _fadeIn, curve: Curves.easeOut));
-    _fadeInScale = Tween(begin: 0.8, end: 1.0)
-        .animate(CurvedAnimation(parent: _fadeIn, curve: Curves.easeOut));
   }
 
   @override
   void dispose() {
     _rotation.dispose();
     _dash.dispose();
-    _fadeIn.dispose();
     super.dispose();
   }
 
@@ -92,30 +81,6 @@ class _LoadingSpinnerState extends State<LoadingSpinner>
                 ),
               );
             },
-          ),
-          // Layer 3: logo
-          AnimatedBuilder(
-            animation: _fadeIn,
-            builder: (context, child) {
-              return Opacity(
-                opacity: _fadeInOpacity.value,
-                child: Transform.scale(
-                  scale: _fadeInScale.value,
-                  child: child,
-                ),
-              );
-            },
-            child: AppLogo(
-              size: 100,
-              fallback: Text(
-                'Y',
-                style: GoogleFonts.outfit(
-                  fontSize: 56,
-                  fontWeight: FontWeight.w700,
-                  color: MerchantColors.gold,
-                ),
-              ),
-            ),
           ),
         ],
       ),

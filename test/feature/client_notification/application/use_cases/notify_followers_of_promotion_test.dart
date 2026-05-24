@@ -41,10 +41,6 @@ class _FakeFollowed implements FollowedMerchantsRepository {
           String userId, String merchantId, int heartLevel) async =>
       const Right(unit);
   @override
-  Future<Result<Map<String, int>>> getFollowersCounts(
-          List<String> merchantIds) async =>
-      const Right({});
-  @override
   Future<Result<bool>> getMuteState(String userId, String merchantId) async =>
       const Right(false);
   @override

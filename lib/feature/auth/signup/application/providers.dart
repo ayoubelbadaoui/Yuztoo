@@ -1,7 +1,11 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/domain/core/failure.dart';
+import '../../../../core/infrastructure/logger_service.dart';
+import '../../core/application/providers.dart' as auth_core;
 import '../../core/domain/auth_failure.dart';
 import '../../core/domain/repositories/auth_repository.dart';
 import '../../core/infrastructure/auth_repository_provider.dart';
@@ -56,7 +60,11 @@ final createUserDocumentProvider = Provider<CreateUserDocument>((ref) {
 
 final deleteCurrentUserProvider = Provider<DeleteCurrentUser>((ref) {
   final repository = ref.watch(authRepositoryProvider);
-  return DeleteCurrentUser(repository);
+  return DeleteCurrentUser(
+    repository,
+    onSignedOut: () =>
+        ref.read(auth_core.authControllerProvider.notifier).signOut(),
+  );
 });
 
 /// GDPR right-to-erasure entry point. Production calls the `purgeAccount`
@@ -74,9 +82,13 @@ final deleteCurrentUserProvider = Provider<DeleteCurrentUser>((ref) {
 /// In production we ALWAYS prefer the Cloud Function because the auth-only
 /// path leaves a Firestore footprint that violates GDPR Art. 17.
 class DeleteCurrentUser {
-  const DeleteCurrentUser(this._repository);
+  const DeleteCurrentUser(
+    this._repository, {
+    required Future<void> Function() onSignedOut,
+  }) : _onSignedOut = onSignedOut;
 
   final AuthRepository _repository;
+  final Future<void> Function() _onSignedOut;
 
   /// Auth-only delete succeeded, or user is already gone (e.g. CF removed auth).
   Future<void> _applyAuthDeleteResult() async {
@@ -99,20 +111,116 @@ class DeleteCurrentUser {
       // Region must match the Cloud Function's deployment region. The
       // current `functions/src/index.ts` pins europe-west1; if that ever
       // moves, this constructor argument needs to follow.
-      final functions =
-          FirebaseFunctions.instanceFor(region: 'europe-west1');
-      await functions.httpsCallable('purgeAccount').call();
+      //
+      // `purgeAccount` is deployed with timeoutSeconds: 540 and may recurse
+      // large Firestore trees, collection-group deletes, and Storage cleanup.
+      // The callable client default is only 60s — hitting that aborts the HTTP
+      // call while the function may still be running, then the auth-only
+      // fallback often fails (requires-recent-login), leaving the Auth user
+      // intact. Match the server budget here.
+      final functions = FirebaseFunctions.instanceFor(
+        app: Firebase.app(),
+        region: 'europe-west1',
+      );
+      await functions
+          .httpsCallable(
+            'purgeAccount',
+            options: HttpsCallableOptions(
+              timeout: const Duration(seconds: 540),
+            ),
+          )
+          .call(<String, dynamic>{});
+      // Admin SDK already removed the Auth user — still run the normal app
+      // sign-out so [AuthController] → [Unauthenticated] and the shell routes
+      // to role selection (push cleanup, FCM token, cached drafts).
+      await _signOutSession();
       return;
-    } on FirebaseFunctionsException catch (e) {
+    } on FirebaseFunctionsException catch (e, st) {
+      LoggerService.logError(
+        'purgeAccount callable failed',
+        error: e,
+        stackTrace: st,
+        context: {'code': e.code, 'message': e.message, 'details': e.details},
+      );
       if (e.code == 'unauthenticated') {
         throw DeleteAccountException(
           'Session expirée. Déconnectez-vous et reconnectez-vous, puis réessayez.',
         );
       }
+      if (e.code == 'deadline-exceeded') {
+        throw DeleteAccountException(
+          'La suppression côté serveur a dépassé le délai. Attendez une minute '
+          'puis réessayez (l\'opération peut encore se terminer). Si le problème '
+          'persiste, contactez le support.',
+        );
+      }
+      if (e.code == 'unavailable' || e.code == 'resource-exhausted') {
+        throw DeleteAccountException(
+          'Service momentanément indisponible. Vérifiez votre connexion et réessayez.',
+        );
+      }
+      if (e.code == 'internal') {
+        final detail = (e.message ?? '').trim();
+        throw DeleteAccountException(
+          detail.isNotEmpty
+              ? 'Suppression impossible : $detail'
+              : 'Suppression impossible côté serveur. Réessayez dans quelques minutes '
+                  'ou contactez le support.',
+        );
+      }
+      if (e.code == 'permission-denied' || e.code == 'failed-precondition') {
+        throw DeleteAccountException(
+          'Suppression refusée par le serveur. Réessayez après vous être reconnecté(e), '
+          'ou contactez le support.',
+        );
+      }
+      if (e.code == 'not-found') {
+        throw DeleteAccountException(
+          'Service de suppression indisponible. Mettez l\'application à jour et '
+          'réessayez, ou contactez le support.',
+        );
+      }
+      // Emulator / offline: auth-only delete (requires a fresh login session).
+      if (kReleaseMode) {
+        throw DeleteAccountException(
+          'Suppression impossible pour le moment. Vérifiez votre connexion et réessayez.',
+        );
+      }
       await _applyAuthDeleteResult();
+      await _signOutSession();
       return;
-    } catch (_) {
+    } catch (e, st) {
+      LoggerService.logError(
+        'purgeAccount unexpected error before auth fallback',
+        error: e,
+        stackTrace: st,
+      );
       await _applyAuthDeleteResult();
+      await _signOutSession();
+    }
+  }
+
+  Future<void> _signOutSession() async {
+    try {
+      await _onSignedOut();
+    } catch (e, st) {
+      LoggerService.logError(
+        'signOut after account deletion (controller)',
+        error: e,
+        stackTrace: st,
+      );
+    }
+    // Ensure the local Firebase session is cleared even if the controller
+    // path failed (e.g. push-token cleanup error) or Auth was already removed
+    // server-side by purgeAccount.
+    try {
+      (await _repository.signOut()).fold((_) {}, (_) {});
+    } catch (e, st) {
+      LoggerService.logError(
+        'signOut after account deletion (repository)',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 }

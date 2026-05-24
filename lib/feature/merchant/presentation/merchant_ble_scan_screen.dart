@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -18,26 +19,90 @@ import '../../../core/infrastructure/ble_proximity_notifier.dart';
 import '../../../core/infrastructure/ble_proximity_service.dart';
 import '../../../core/infrastructure/logger_service.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/proximity_list_avatar.dart';
 import '../../../core/shared/widgets/snackbar.dart';
+import '../../loyalty/application/active_validation_providers.dart';
+import '../../loyalty/domain/entities/active_validation_request.dart';
+import '../../loyalty/domain/loyalty_passage_program_policy.dart';
+import '../../loyalty/infrastructure/active_validation_repository_provider.dart';
+import '../../loyalty/presentation/merchant_passage_validation_flow.dart';
+import '../../loyalty/presentation/widgets/merchant_passage_debug_simulate_sheet.dart';
 import '../../storefront/presentation/widgets/storefront_colors.dart';
-import '../application/providers.dart' as merchant_providers;
+import '../domain/entities/loyalty_program_config.dart';
 import '../domain/entities/merchant.dart';
 
 /// Minimum RSSI to show a client in the manual list (several metres on
 /// many phones — much more forgiving than the old "phones touching" bar).
 const int _kListMinRssi = -92;
 
-/// When RSSI stays at or above this level, we auto-start validation after
-/// [_kAutoProximityHits] consecutive readings (optional shortcut).
-const int _kAutoProximityRssi = -54;
-
-const int _kAutoProximityHits = 3;
-
 class _NearbyYuztooClient {
-  _NearbyYuztooClient({required this.device, required this.rssi});
+  _NearbyYuztooClient({
+    required this.device,
+    required this.rssi,
+    this.displayName,
+    this.photoUrl,
+    this.resolvingName = false,
+    this.resolveNameFailed = false,
+  });
 
   final BluetoothDevice device;
   final int rssi;
+
+  /// Loaded from Firestore after a background GATT read of the client UID.
+  final String? displayName;
+  final String? photoUrl;
+
+  /// True while we are connecting to read the UID / fetch the profile name.
+  final bool resolvingName;
+
+  /// True when the background identification attempt failed (BLE read, etc.).
+  final bool resolveNameFailed;
+
+  _NearbyYuztooClient withUpdatedRssi(BluetoothDevice newDevice, int newRssi) =>
+      _NearbyYuztooClient(
+        device: newDevice,
+        rssi: newRssi,
+        displayName: displayName,
+        photoUrl: photoUrl,
+        resolvingName: resolvingName,
+        resolveNameFailed: resolveNameFailed,
+      );
+
+  _NearbyYuztooClient withResolvingStarted() => _NearbyYuztooClient(
+        device: device,
+        rssi: rssi,
+        displayName: displayName,
+        photoUrl: photoUrl,
+        resolvingName: true,
+        resolveNameFailed: resolveNameFailed,
+      );
+
+  _NearbyYuztooClient withResolveSucceeded({
+    String? name,
+    String? photo,
+  }) {
+    final trimmed = name?.trim();
+    final photoTrimmed = photo?.trim();
+    return _NearbyYuztooClient(
+      device: device,
+      rssi: rssi,
+      displayName: trimmed != null && trimmed.isNotEmpty ? trimmed : displayName,
+      photoUrl: photoTrimmed != null && photoTrimmed.isNotEmpty
+          ? photoTrimmed
+          : photoUrl,
+      resolvingName: false,
+      resolveNameFailed: false,
+    );
+  }
+
+  _NearbyYuztooClient withResolveFailed() => _NearbyYuztooClient(
+        device: device,
+        rssi: rssi,
+        displayName: displayName,
+        photoUrl: photoUrl,
+        resolvingName: false,
+        resolveNameFailed: true,
+      );
 }
 
 enum _ScanState { waiting, connecting, validating }
@@ -75,8 +140,9 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   /// Yuztoo client peripherals currently in range (manual pick list).
   final Map<DeviceIdentifier, _NearbyYuztooClient> _nearbyClients = {};
 
-  /// Hits for optional auto-validation when phones are very close.
-  final Map<DeviceIdentifier, int> _autoProximityHits = {};
+  /// Serializes background [BleProximityService.readClientId] work so we do
+  /// not run multiple GATT sessions at once (stack stability).
+  Future<void>? _resolveDisplayNameTail;
 
   /// True when this commerce is advertising the merchant beacon (so the
   /// client can select us from their list).
@@ -88,9 +154,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   /// E-Fidélité off — BLE passage validation is not offered.
   bool _loyaltyFideliteDisabled = false;
 
-  bool _loyaltyLive(Merchant m) =>
-      m.loyaltyEnabled &&
-      (m.loyaltyProgram?.programEnabled ?? m.loyaltyEnabled);
+  bool _blePassageAllowed(Merchant m) => isBlePassageAllowedForMerchant(m);
 
   @override
   void initState() {
@@ -104,7 +168,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       duration: const Duration(milliseconds: 800),
     );
 
-    _loyaltyFideliteDisabled = !_loyaltyLive(widget.merchant);
+    _loyaltyFideliteDisabled = !_blePassageAllowed(widget.merchant);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -119,12 +183,26 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
 
   @override
   void dispose() {
-    unawaited(ref.read(bleProximityProvider.notifier).resumeShellMerchantScan());
+    // Capture the notifier before super.dispose() — ref.read is unsafe after.
+    final bleNotifier = ref.read(bleProximityProvider.notifier);
+    _scanSub?.cancel();
+    _scanSub = null;
+    // Stop our scan/beacon first, then resume the shell scan. Doing these
+    // sequentially avoids a "restart→stop" race on iOS where the shell scan
+    // could be torn down by our stopMerchantScan microseconds after starting.
+    unawaited(() async {
+      try {
+        await BleProximityService.stopMerchantScan();
+      } catch (_) {}
+      try {
+        await BleProximityService.stopMerchantBeacon();
+      } catch (_) {}
+      try {
+        await bleNotifier.resumeShellMerchantScan();
+      } catch (_) {}
+    }());
     _radarController.dispose();
     _glowController.dispose();
-    _scanSub?.cancel();
-    unawaited(BleProximityService.stopMerchantScan());
-    unawaited(BleProximityService.stopMerchantBeacon());
     super.dispose();
   }
 
@@ -155,23 +233,78 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       }
     }
 
-    final beaconOk = await BleProximityService.startMerchantBeacon(
-      widget.merchant.id,
-      onClientUidWritten: _onClientWroteUidFromTheirPhone,
-    );
-    if (!mounted) return;
-    _merchantBeaconActive = beaconOk;
-    if (!beaconOk) {
-      LoggerService.logInfo(
-        'MerchantBleScanScreen — merchant beacon did not start; '
-        'merchant→client picker may be unavailable',
-      );
-    }
+    // Start the scan FIRST — that's the screen's must-have. The merchant
+    // can validate by tapping a detected client in the list, and the radar
+    // animation tells them something is happening. Without it the screen
+    // sits visually frozen if the beacon code below fails.
     await _beginScanSubscription();
+    if (!mounted) return;
+
+    unawaited(_startMerchantBeaconCoordinated());
   }
 
-  Future<void> _beginScanSubscription() async {
+  /// Starts the merchant beacon so clients can pick this store.
+  ///
+  /// **iOS is skipped entirely.** Running `ble_peripheral`
+  /// (CBPeripheralManager) alongside `flutter_blue_plus` (CBCentralManager)
+  /// crashes the native iOS app at peripheral init — the crash is in
+  /// CoreBluetooth, before any Dart `try/catch` gets a chance to run.
+  /// Clients on iOS pick the merchant from « Mes commerces suivis » or the
+  /// Firestore active_validations queue instead.
+  Future<void> _startMerchantBeaconCoordinated({
+    bool ensureScanAfter = false,
+  }) async {
+    if (Platform.isIOS) {
+      LoggerService.logInfo(
+        'MerchantBleScanScreen — skipping merchant beacon on iOS '
+        '(known CoreBluetooth crash; scan-only mode active)',
+      );
+      _merchantBeaconActive = false;
+      if (ensureScanAfter &&
+          mounted &&
+          !_bleUnavailable &&
+          !_loyaltyFideliteDisabled) {
+        await _beginScanSubscription();
+      }
+      return;
+    }
+
     try {
+      final beaconOk = await BleProximityService.startMerchantBeacon(
+        widget.merchant.id,
+        onClientUidWritten: _onClientWroteUidFromTheirPhone,
+      );
+      if (!mounted) return;
+      _merchantBeaconActive = beaconOk;
+      if (!beaconOk) {
+        LoggerService.logInfo(
+          'MerchantBleScanScreen — merchant beacon did not start; '
+          'clients can still use « Mes commerces suivis » or Connexions en attente',
+        );
+      }
+    } catch (e, st) {
+      LoggerService.logError(
+        'MerchantBleScanScreen — startMerchantBeacon failed',
+        error: e,
+        stackTrace: st,
+      );
+      _merchantBeaconActive = false;
+    } finally {
+      if (ensureScanAfter &&
+          mounted &&
+          !_bleUnavailable &&
+          !_loyaltyFideliteDisabled) {
+        await _beginScanSubscription();
+      }
+    }
+  }
+
+  Future<void> _startFlutterBlueScanOnly() async {
+    if (Platform.isIOS) {
+      await FlutterBluePlus.startScan(
+        withServices: [Guid(BleProximityService.serviceUuid)],
+      );
+    } else {
       await FlutterBluePlus.startScan(
         withServices: [Guid(BleProximityService.serviceUuid)],
         continuousUpdates: true,
@@ -179,6 +312,12 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
         removeIfGone: const Duration(seconds: 14),
         androidScanMode: AndroidScanMode.lowLatency,
       );
+    }
+  }
+
+  Future<void> _beginScanSubscription() async {
+    try {
+      await _startFlutterBlueScanOnly();
     } catch (e, st) {
       LoggerService.logError(
         'MerchantBleScanScreen — FlutterBluePlus.startScan threw',
@@ -212,8 +351,6 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       'MerchantBleScanScreen — scan started',
       context: <String, Object?>{
         'listMinRssi': _kListMinRssi,
-        'autoProximityRssi': _kAutoProximityRssi,
-        'autoHits': _kAutoProximityHits,
         'serviceUuid': BleProximityService.serviceUuid,
       },
     );
@@ -223,7 +360,12 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     if (next.length != _nearbyClients.length) return true;
     for (final e in next.entries) {
       final prev = _nearbyClients[e.key];
-      if (prev == null || (prev.rssi - e.value.rssi).abs() > 4) return true;
+      if (prev == null) return true;
+      if ((prev.rssi - e.value.rssi).abs() > 4) return true;
+      if (prev.displayName != e.value.displayName) return true;
+      if (prev.photoUrl != e.value.photoUrl) return true;
+      if (prev.resolvingName != e.value.resolvingName) return true;
+      if (prev.resolveNameFailed != e.value.resolveNameFailed) return true;
     }
     return false;
   }
@@ -236,6 +378,114 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     return false;
   }
 
+  Future<({String? name, String? photoUrl})> _fetchUserProfile(
+    String clientUid,
+  ) async {
+    if (clientUid.isEmpty) {
+      return (name: null, photoUrl: null);
+    }
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(clientUid)
+          .get();
+      final data = doc.data();
+      final fromCamel = (data?['displayName'] as String?)?.trim();
+      final fromSnake = (data?['display_name'] as String?)?.trim();
+      final name = (fromCamel != null && fromCamel.isNotEmpty)
+          ? fromCamel
+          : ((fromSnake != null && fromSnake.isNotEmpty) ? fromSnake : null);
+      final photo = (data?['photoUrl'] as String?)?.trim();
+      return (
+        name: name,
+        photoUrl: photo != null && photo.isNotEmpty ? photo : null,
+      );
+    } catch (_) {}
+    return (name: null, photoUrl: null);
+  }
+
+  void _enqueueResolveClientDisplayName(DeviceIdentifier id) {
+    _resolveDisplayNameTail =
+        (_resolveDisplayNameTail ?? Future<void>.value()).then((_) async {
+      try {
+        await _resolveOneClientDisplayName(id);
+      } catch (e, st) {
+        LoggerService.logError(
+          'MerchantBleScanScreen — background client name resolve failed',
+          error: e,
+          stackTrace: st,
+        );
+        if (!mounted || _triggered) return;
+        setState(() {
+          final row = _nearbyClients[id];
+          if (row == null) return;
+          _nearbyClients[id] = row.withResolveFailed();
+        });
+      }
+    });
+  }
+
+  Future<void> _resolveOneClientDisplayName(DeviceIdentifier id) async {
+    if (!mounted || _triggered) return;
+    final entry = _nearbyClients[id];
+    if (entry == null) return;
+    if (entry.displayName != null || entry.resolveNameFailed) return;
+
+    await BleProximityService.stopMerchantScan();
+    String? clientId;
+    try {
+      if (!mounted || _triggered) return;
+      final refEntry = _nearbyClients[id];
+      if (refEntry == null) return;
+      clientId = await BleProximityService.readClientId(refEntry.device);
+    } catch (e, st) {
+      LoggerService.logError(
+        'MerchantBleScanScreen — background readClientId failed',
+        error: e,
+        stackTrace: st,
+      );
+      clientId = null;
+    } finally {
+      if (mounted &&
+          !_triggered &&
+          _state == _ScanState.waiting &&
+          !_bleUnavailable &&
+          !_loyaltyFideliteDisabled) {
+        try {
+          await _startFlutterBlueScanOnly();
+        } catch (e, st) {
+          LoggerService.logError(
+            'MerchantBleScanScreen — resume scan after name resolve failed',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
+    }
+
+    if (!mounted || _triggered) return;
+
+    if (clientId == null || clientId.trim().isEmpty) {
+      setState(() {
+        final e = _nearbyClients[id];
+        if (e == null) return;
+        _nearbyClients[id] = e.withResolveFailed();
+      });
+      return;
+    }
+
+    final profile = await _fetchUserProfile(clientId.trim());
+    if (!mounted || _triggered) return;
+    setState(() {
+      final e = _nearbyClients[id];
+      if (e == null) return;
+      _nearbyClients[id] = e.withResolveSucceeded(
+        name: profile.name,
+        photo: profile.photoUrl,
+      );
+    });
+  }
+
   void _onScanResults(List<ScanResult> results) {
     if (!mounted || _triggered) return;
 
@@ -243,8 +493,20 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     for (final r in results) {
       if (!_scanResultHasYuztooClientService(r)) continue;
       if (r.rssi < _kListMinRssi) continue;
-      next[r.device.remoteId] =
-          _NearbyYuztooClient(device: r.device, rssi: r.rssi);
+      final id = r.device.remoteId;
+      final prev = _nearbyClients[id];
+      next[id] = prev == null
+          ? _NearbyYuztooClient(device: r.device, rssi: r.rssi)
+          : prev.withUpdatedRssi(r.device, r.rssi);
+    }
+
+    final idsToEnqueue = <DeviceIdentifier>[];
+    for (final id in List<DeviceIdentifier>.from(next.keys)) {
+      final c = next[id]!;
+      if (c.displayName == null && !c.resolveNameFailed && !c.resolvingName) {
+        next[id] = c.withResolvingStarted();
+        idsToEnqueue.add(id);
+      }
     }
 
     if (!_triggered && _nearbyClientsChanged(next)) {
@@ -255,21 +517,8 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       });
     }
 
-    if (_state != _ScanState.waiting || _triggered) return;
-
-    for (final r in results) {
-      if (!_scanResultHasYuztooClientService(r)) continue;
-      if (r.rssi >= _kAutoProximityRssi) {
-        final n = (_autoProximityHits[r.device.remoteId] ?? 0) + 1;
-        _autoProximityHits[r.device.remoteId] = n;
-        if (n >= _kAutoProximityHits) {
-          _autoProximityHits.clear();
-          unawaited(_onDeviceTapped(r.device));
-          return;
-        }
-      } else {
-        _autoProximityHits.remove(r.device.remoteId);
-      }
+    for (final id in idsToEnqueue) {
+      _enqueueResolveClientDisplayName(id);
     }
   }
 
@@ -379,39 +628,19 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   /// to our merchant beacon — continue the same validation pipeline.
   void _onClientWroteUidFromTheirPhone(String rawUid) {
     final clientId = rawUid.trim();
-    if (clientId.isEmpty || !mounted || _triggered) return;
-    unawaited(_validateFromClientBeaconWrite(clientId));
+    if (clientId.isEmpty) return;
+    // Never call setState from a raw BLE callback stack (iOS).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _triggered) return;
+      unawaited(_validateFromClientBeaconWrite(clientId));
+    });
   }
 
   Future<void> _validateFromClientBeaconWrite(String clientId) async {
-    if (_triggered) return;
-    _triggered = true;
     HapticFeedback.mediumImpact();
+    final profile = await _fetchUserProfile(clientId);
     if (!mounted) return;
-    setState(() => _state = _ScanState.connecting);
-
-    await BleProximityService.stopMerchantScan();
-    _scanSub?.cancel();
-    if (_merchantBeaconActive) {
-      await BleProximityService.stopMerchantBeacon();
-      _merchantBeaconActive = false;
-    }
-
-    String? displayName;
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(clientId)
-          .get();
-      final data = doc.data();
-      displayName = (data?['displayName'] as String?)?.trim().isNotEmpty == true
-          ? (data!['displayName'] as String).trim()
-          : (data?['display_name'] as String?)?.trim();
-    } catch (_) {}
-
-    if (!mounted) return;
-
-    await _completePassageAfterClientKnown(clientId, displayName);
+    await _beginValidationForClient(clientId, profile.name);
   }
 
   Future<void> _onDeviceTapped(BluetoothDevice device) async {
@@ -419,91 +648,122 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     _triggered = true;
 
     HapticFeedback.mediumImpact();
+    if (!mounted) return;
     setState(() => _state = _ScanState.connecting);
+    await _stopBleDiscoveryForValidation();
 
+    final rawClientId = await BleProximityService.readClientId(device);
+    if (!mounted) return;
+
+    if (rawClientId == null || rawClientId.isEmpty) {
+      _reset('Connexion échouée — réessayez.');
+      return;
+    }
+
+    final clientId = rawClientId.trim();
+    final cached = _nearbyClients[device.remoteId];
+    final cachedName = cached?.displayName?.trim();
+    final profile = (cachedName != null && cachedName.isNotEmpty)
+        ? (name: cachedName, photoUrl: cached?.photoUrl)
+        : await _fetchUserProfile(clientId);
+    final displayName = profile.name;
+
+    if (!mounted) return;
+
+    await _openValidationForClient(clientId, displayName);
+  }
+
+  Future<void> _onPendingBleSessionTapped(ActiveValidationRequest session) async {
+    HapticFeedback.mediumImpact();
+    await _beginValidationForClient(
+      session.clientUid,
+      session.clientDisplayName,
+    );
+  }
+
+  Future<ActiveValidationRequest?> _fetchClientSession(String clientUid) async {
+    final repo = ref.read(activeValidationRepositoryProvider);
+    return repo
+        .watchClientSession(
+          merchantId: widget.merchant.id,
+          clientUid: clientUid,
+        )
+        .first;
+  }
+
+  /// Stops BLE scan + merchant beacon while a client is being validated.
+  Future<void> _stopBleDiscoveryForValidation() async {
     await BleProximityService.stopMerchantScan();
     _scanSub?.cancel();
     if (_merchantBeaconActive) {
       await BleProximityService.stopMerchantBeacon();
       _merchantBeaconActive = false;
     }
-
-    final clientId = await BleProximityService.readClientId(device);
-    if (!mounted) return;
-
-    if (clientId == null || clientId.isEmpty) {
-      _reset('Connexion échouée — réessayez.');
-      return;
-    }
-
-    String? displayName;
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(clientId)
-          .get();
-      final data = doc.data();
-      displayName = (data?['displayName'] as String?)?.trim().isNotEmpty == true
-          ? (data!['displayName'] as String).trim()
-          : (data?['display_name'] as String?)?.trim();
-    } catch (_) {}
-
-    if (!mounted) return;
-
-    await _completePassageAfterClientKnown(clientId, displayName);
   }
 
-  Future<void> _completePassageAfterClientKnown(
+  Future<void> _beginValidationForClient(
     String clientId,
     String? displayName,
   ) async {
-    final loyaltyActive = widget.merchant.loyaltyEnabled &&
-        (widget.merchant.loyaltyProgram?.programEnabled ??
-            widget.merchant.loyaltyEnabled);
-    final needsAmount = loyaltyActive &&
-        (widget.merchant.loyaltyProgram?.effectiveAskClientPurchaseAmount ??
-            false);
+    if (_triggered) return;
+    _triggered = true;
+    if (!mounted) return;
+    setState(() => _state = _ScanState.connecting);
+    await _stopBleDiscoveryForValidation();
+    if (!mounted) return;
+    await _openValidationForClient(clientId, displayName);
+  }
 
-    double? amount;
-    if (needsAmount) {
-      amount = await _showAmountDialog(displayName);
-      if (!mounted) return;
-      if (amount == null) {
-        _reset(null);
-        return;
-      }
+  Future<void> _openValidationForClient(
+    String clientId,
+    String? displayName,
+  ) async {
+    if (!mounted) return;
+    setState(() => _state = _ScanState.connecting);
+
+    ActiveValidationRequest? session;
+    try {
+      session = await _fetchClientSession(clientId);
+    } catch (_) {
+      session = null;
     }
 
-    setState(() => _state = _ScanState.validating);
-    HapticFeedback.lightImpact();
+    if (session == null) {
+      _reset(
+        'Le client doit d\'abord confirmer la connexion sur son téléphone.',
+      );
+      return;
+    }
 
-    final useCase =
-        ref.read(merchant_providers.merchantRecordClientPassageProvider);
-    final result = await useCase.call(
-      clientUid: clientId,
+    if (!mounted) return;
+    setState(() => _state = _ScanState.validating);
+
+    final opened = await openMerchantPassageValidation(
+      ref: ref,
+      context: context,
       merchant: widget.merchant,
-      purchaseAmountEuros: amount,
+      session: session,
+      connectMerchantBle: true,
     );
 
     if (!mounted) return;
 
-    result.fold(
-      (failure) => _reset(failure.message),
-      (_) {
-        HapticFeedback.heavyImpact();
-        final name = displayName?.isNotEmpty == true ? displayName! : 'ce client';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Passage validé pour $name ✓',
-              style: merchantSnackBarTextOnGold(),
-            ),
-            backgroundColor: StorefrontColors.primaryGold,
-          ),
-        );
-        Navigator.of(context).pop();
-      },
+    if (!opened) {
+      _reset(null);
+      return;
+    }
+
+    final name = displayName?.isNotEmpty == true ? displayName! : 'ce client';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Validation terminée pour $name',
+          style: merchantSnackBarTextOnGold(),
+        ),
+        backgroundColor: StorefrontColors.primaryGold,
+      ),
     );
+    Navigator.of(context).pop();
   }
 
   void _reset(String? errorMessage) {
@@ -522,7 +782,6 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
     setState(() {
       _state = _ScanState.waiting;
       _triggered = false;
-      _autoProximityHits.clear();
       _nearbyClients.clear();
     });
     if (!_loyaltyFideliteDisabled && !_bleUnavailable) {
@@ -531,72 +790,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   }
 
   Future<void> _resumeBleAfterReset() async {
-    await BleProximityService.stopMerchantScan();
-    _scanSub?.cancel();
-    final ok = await BleProximityService.startMerchantBeacon(
-      widget.merchant.id,
-      onClientUidWritten: _onClientWroteUidFromTheirPhone,
-    );
-    if (!mounted) return;
-    _merchantBeaconActive = ok;
-    await _beginScanSubscription();
-  }
-
-  Future<double?> _showAmountDialog(String? clientName) {
-    final ctrl = TextEditingController();
-    final title = clientName?.isNotEmpty == true
-        ? 'Montant — $clientName'
-        : 'Montant de l\'achat';
-    return showDialog<double>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: MerchantColors.navyCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(title,
-            style: GoogleFonts.outfit(
-                color: MerchantColors.textWhite,
-                fontWeight: FontWeight.w600)),
-        content: TextField(
-          controller: ctrl,
-          keyboardType:
-              const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          style: const TextStyle(color: MerchantColors.textWhite),
-          decoration: const InputDecoration(
-            hintText: '0.00',
-            hintStyle: TextStyle(color: MerchantColors.textGrey),
-            suffixText: '€',
-            suffixStyle: TextStyle(
-                color: StorefrontColors.primaryGold,
-                fontWeight: FontWeight.w600),
-            enabledBorder:
-                UnderlineInputBorder(borderSide: BorderSide(color: MerchantColors.gold)),
-            focusedBorder: UnderlineInputBorder(
-                borderSide:
-                    BorderSide(color: StorefrontColors.primaryGold, width: 2)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Annuler',
-                style: TextStyle(color: MerchantColors.textGrey)),
-          ),
-          TextButton(
-            onPressed: () {
-              final v =
-                  double.tryParse(ctrl.text.replaceAll(',', '.'));
-              Navigator.of(ctx).pop(v);
-            },
-            child: const Text('Valider',
-                style: TextStyle(
-                    color: StorefrontColors.primaryGold,
-                    fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
+    await _startMerchantBeaconCoordinated(ensureScanAfter: true);
   }
 
   @override
@@ -644,14 +838,28 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
             ),
           ),
           const SizedBox(width: 16),
-          Text(
-            'Valider un passage',
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: MerchantColors.textWhite,
+          Expanded(
+            child: Text(
+              'Valider un passage',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: MerchantColors.textWhite,
+              ),
             ),
           ),
+          if (isMerchantPassageDebugEnabled)
+            IconButton(
+              tooltip: 'Simuler client BLE',
+              onPressed: () => showMerchantPassageDebugSimulateSheet(
+                context,
+                merchant: widget.merchant,
+              ),
+              icon: const Icon(
+                Icons.bug_report_outlined,
+                color: MerchantColors.gold,
+              ),
+            ),
         ],
       ),
     );
@@ -659,6 +867,9 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
 
   Widget _buildBody() {
     if (_loyaltyFideliteDisabled) {
+      final live = merchantLiveLoyaltyProgram(widget.merchant);
+      final manualMode =
+          live.passageValidation == LoyaltyPassageValidation.manual;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Column(
@@ -671,7 +882,9 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
             ),
             const SizedBox(height: 20),
             Text(
-              'E-Fidélité désactivée',
+              manualMode
+                  ? 'Validation manuelle'
+                  : 'E-Fidélité désactivée',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 20,
@@ -681,8 +894,12 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'Réactivez le programme dans E-Fidélité pour valider des passages '
-              'fidélité en boutique avec le Bluetooth.',
+              manualMode
+                  ? 'Les passages se valident depuis « Vos clients » après une '
+                      'demande sur la vitrine. Passez en mode automatique dans '
+                      'E-Fidélité pour utiliser le Bluetooth.'
+                  : 'Réactivez le programme dans E-Fidélité pour valider des '
+                      'passages fidélité en boutique avec le Bluetooth.',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 14,
@@ -695,6 +912,13 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       );
     }
     if (_bleUnavailable) return _buildUnavailable();
+
+    final pendingBle = ref
+            .watch(merchantActiveValidationQueueProvider)
+            .valueOrNull
+            ?.where((s) => s.isBle && s.isAwaiting)
+            .toList() ??
+        const <ActiveValidationRequest>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -712,6 +936,10 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
             ],
           ),
         ),
+        if (pendingBle.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildPendingBleSessions(pendingBle),
+        ],
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -741,6 +969,68 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
         const SizedBox(height: 4),
         Expanded(child: _buildNearbyClientsPanel()),
       ],
+    );
+  }
+
+  Widget _buildPendingBleSessions(List<ActiveValidationRequest> sessions) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              'Connexions BLE en attente',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: MerchantColors.gold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          ...sessions.map((session) {
+            final name = session.clientDisplayName.trim().isNotEmpty
+                ? session.clientDisplayName.trim()
+                : 'Client';
+            return Material(
+              color: MerchantColors.navyCard,
+              borderRadius: BorderRadius.circular(12),
+              child: ListTile(
+                enabled: _state == _ScanState.waiting,
+                leading: ProximityListAvatar(
+                  imageUrl: session.clientPhotoUrl,
+                  label: name,
+                  size: 44,
+                  fallbackIcon: Icons.person_outline_rounded,
+                ),
+                title: Text(
+                  name,
+                  style: GoogleFonts.outfit(
+                    color: MerchantColors.textWhite,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  'A confirmé la connexion — touchez pour valider',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: MerchantColors.textGrey,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: MerchantColors.gold,
+                ),
+                onTap: _state == _ScanState.waiting
+                    ? () => _onPendingBleSessionTapped(session)
+                    : null,
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 
@@ -783,6 +1073,18 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       separatorBuilder: (_, __) => const SizedBox(height: 6),
       itemBuilder: (context, index) {
         final e = sorted[index];
+        final title = (e.displayName != null && e.displayName!.trim().isNotEmpty)
+            ? e.displayName!.trim()
+            : 'Téléphone client';
+        String subtitle;
+        if (e.resolvingName) {
+          subtitle = 'Identification… · ${_rssiLabel(e.rssi)} · ${e.rssi} dBm';
+        } else if (e.resolveNameFailed) {
+          subtitle =
+              'Nom indisponible · ${_rssiLabel(e.rssi)} · ${e.rssi} dBm';
+        } else {
+          subtitle = '${_rssiLabel(e.rssi)} · ${e.rssi} dBm';
+        }
         return Material(
           color: MerchantColors.navyCard,
           borderRadius: BorderRadius.circular(14),
@@ -793,15 +1095,19 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
-                  Icon(Icons.smartphone_rounded,
-                      color: StorefrontColors.primaryGold, size: 26),
+                  ProximityListAvatar(
+                    imageUrl: e.photoUrl,
+                    label: title,
+                    size: 44,
+                    fallbackIcon: Icons.person_outline_rounded,
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Téléphone client',
+                          title,
                           style: GoogleFonts.outfit(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -810,7 +1116,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${_rssiLabel(e.rssi)} · ${e.rssi} dBm',
+                          subtitle,
                           style: GoogleFonts.outfit(
                             fontSize: 12,
                             color: MerchantColors.textGrey,
@@ -819,7 +1125,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded,
+                  const Icon(Icons.chevron_right_rounded,
                       color: MerchantColors.textGrey, size: 22),
                 ],
               ),

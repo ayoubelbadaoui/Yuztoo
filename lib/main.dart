@@ -63,7 +63,8 @@ import 'core/infrastructure/ble_proximity_notifier.dart';
 import 'core/infrastructure/logger_service.dart';
 import 'feature/loyalty/application/active_validation_providers.dart';
 import 'feature/loyalty/domain/entities/active_validation_request.dart';
-import 'feature/loyalty/presentation/active_validation_ui.dart';
+import 'feature/loyalty/domain/loyalty_passage_program_policy.dart';
+import 'feature/loyalty/presentation/merchant_passage_validation_flow.dart';
 import 'feature/loyalty/presentation/widgets/loyalty_celebration_overlay.dart';
 import 'feature/merchant/presentation/widgets/ble_client_detection_sheet.dart';
 

@@ -83,8 +83,30 @@ class ClientHomeScreen extends ConsumerWidget {
                           followedIds: feed.followedIds,
                           ownMerchantId: feed.ownMerchantId,
                         ),
-                        loading: () => _buildBusinessCardLoading(context),
-                        error: (e, _) => _buildBusinessCardError(context, ref),
+                        loading: () => feedAsync.valueOrNull != null
+                            ? _buildBusinessCard(
+                                context,
+                                ref,
+                                feedAsync.valueOrNull!.merchants,
+                                heartLevelsAsync.valueOrNull ??
+                                    const <String, int>{},
+                                followedIds: feedAsync.valueOrNull!.followedIds,
+                                ownMerchantId:
+                                    feedAsync.valueOrNull!.ownMerchantId,
+                              )
+                            : _buildBusinessCardLoading(context),
+                        error: (e, _) => feedAsync.valueOrNull != null
+                            ? _buildBusinessCard(
+                                context,
+                                ref,
+                                feedAsync.valueOrNull!.merchants,
+                                heartLevelsAsync.valueOrNull ??
+                                    const <String, int>{},
+                                followedIds: feedAsync.valueOrNull!.followedIds,
+                                ownMerchantId:
+                                    feedAsync.valueOrNull!.ownMerchantId,
+                              )
+                            : _buildBusinessCardError(context, ref),
                       ),
                       const SizedBox(height: 24),
                       _buildQuickActions(context),

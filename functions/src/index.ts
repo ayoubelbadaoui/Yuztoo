@@ -14,6 +14,7 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const messaging = admin.messaging();
+const FieldPath = admin.firestore.FieldPath;
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,123 @@ async function processInChunks<T>(
 ): Promise<void> {
   for (let i = 0; i < items.length; i += concurrency) {
     await Promise.all(items.slice(i, i + concurrency).map(fn));
+  }
+}
+
+/**
+ * Delete every Firestore doc in a collection group whose document id equals
+ * [uid] (e.g. path …/loyalty_clients/{uid} under any merchant). Catches merchants
+ * the user unfollowed after data was written — followed_merchants alone is incomplete.
+ */
+async function deleteCollectionGroupDocsWhereIdEquals(
+  collectionId: string,
+  uid: string
+): Promise<void> {
+  try {
+    const snap = await db
+      .collectionGroup(collectionId)
+      .where(FieldPath.documentId(), "==", uid)
+      .get();
+    await processInChunks(snap.docs, 24, async (doc) => {
+      try {
+        await doc.ref.delete();
+      } catch (e) {
+        functions.logger.warn(
+          `purgeAccount: delete ${collectionId} doc failed`,
+          { uid, path: doc.ref.path, error: e }
+        );
+      }
+    });
+  } catch (e) {
+    functions.logger.error(
+      `purgeAccount: collectionGroup ${collectionId} query/delete failed`,
+      { uid, error: e }
+    );
+  }
+}
+
+/** Merchant-scoped loyalty docs keyed by client uid (doc id = uid). */
+const MERCHANT_CLIENT_SUBCOLLECTIONS = [
+  "loyalty_clients",
+  "pending_clients",
+  "active_validations",
+  "clients",
+] as const;
+
+/**
+ * Fallback when collection-group-by-document-id queries fail (missing index).
+ * Deletes known paths for merchants the user still follows / followed.
+ */
+async function deleteMerchantClientDocsForUidViaFollows(uid: string): Promise<void> {
+  const merchantIds = new Set<string>();
+  try {
+    const followedSnap = await db
+      .collection("users")
+      .doc(uid)
+      .collection("followed_merchants")
+      .get();
+    for (const doc of followedSnap.docs) {
+      merchantIds.add(doc.id);
+    }
+  } catch (e) {
+    functions.logger.warn("purgeAccount: followed_merchants read failed", {
+      uid,
+      error: e,
+    });
+  }
+
+  try {
+    const userDoc = await db.collection("users").doc(uid).get();
+    const ownMerchantId = (userDoc.data()?.merchant_id as string | undefined)?.trim();
+    if (ownMerchantId) merchantIds.add(ownMerchantId);
+  } catch (e) {
+    functions.logger.warn("purgeAccount: user doc read for merchant_id failed", {
+      uid,
+      error: e,
+    });
+  }
+
+  await processInChunks(Array.from(merchantIds), 12, async (merchantId) => {
+    for (const sub of MERCHANT_CLIENT_SUBCOLLECTIONS) {
+      try {
+        await db
+          .collection("merchants")
+          .doc(merchantId)
+          .collection(sub)
+          .doc(uid)
+          .delete();
+      } catch (e) {
+        functions.logger.warn("purgeAccount: merchant client doc delete failed", {
+          uid,
+          merchantId,
+          sub,
+          error: e,
+        });
+      }
+    }
+  });
+}
+
+async function deleteAllMerchantClientFootprintForUid(uid: string): Promise<void> {
+  for (const collectionId of MERCHANT_CLIENT_SUBCOLLECTIONS) {
+    await deleteCollectionGroupDocsWhereIdEquals(collectionId, uid);
+  }
+  await deleteMerchantClientDocsForUidViaFollows(uid);
+}
+
+/** Best-effort wipe of all Storage objects under a path prefix. */
+async function deleteStoragePrefix(prefix: string): Promise<void> {
+  if (!prefix.endsWith("/")) {
+    prefix = `${prefix}/`;
+  }
+  try {
+    const bucket = admin.storage().bucket();
+    await bucket.deleteFiles({ prefix });
+  } catch (e) {
+    functions.logger.warn("purgeAccount: storage deleteFiles failed", {
+      prefix,
+      error: e,
+    });
   }
 }
 
@@ -643,6 +761,42 @@ export const onNotificationCreated = functions
 // ─── 2. New client followed a merchant ───────────────────────────────────────
 
 /**
+ * Adjust denormalized follower count on merchants/{merchantId}.
+ * Used for client-readable vitrine stats without collection-group reads.
+ */
+async function adjustMerchantPublicFollowersCount(
+  merchantId: string,
+  delta: 1 | -1
+): Promise<void> {
+  const ref = db.collection("merchants").doc(merchantId);
+  try {
+    if (delta === 1) {
+      await ref.set(
+        { public_followers_count: admin.firestore.FieldValue.increment(1) },
+        { merge: true }
+      );
+    } else {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return;
+        const raw = snap.data()?.public_followers_count;
+        const cur =
+          typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
+        tx.update(ref, {
+          public_followers_count: Math.max(0, cur - 1),
+        });
+      });
+    }
+  } catch (e) {
+    functions.logger.warn("adjustMerchantPublicFollowersCount failed", {
+      merchantId,
+      delta,
+      error: e,
+    });
+  }
+}
+
+/**
  * Fires when a client follows a merchant.
  * Triggers: "Nouveau client connecté"
  */
@@ -657,6 +811,72 @@ export const onFollowedMerchantCreated = functions
       AUTO_NOTIFICATION_TRIGGERS.newFollower,
       clientId
     );
+    if (clientId !== merchantId) {
+      await adjustMerchantPublicFollowersCount(merchantId, 1);
+    }
+    return null;
+  });
+
+/**
+ * When a client unfollows, decrement the public follower counter (best-effort).
+ * Uses [onWrite] (delete branch) for compatibility with firebase-functions v1
+ * test shims that do not expose [onDelete].
+ */
+export const onFollowedMerchantDeleted = functions
+  .region("europe-west1")
+  .firestore.document("users/{clientId}/followed_merchants/{merchantId}")
+  .onWrite(async (change, context) => {
+    if (!change.before.exists || change.after.exists) return null;
+    const { clientId, merchantId } = context.params;
+    if (clientId === merchantId) return null;
+    await adjustMerchantPublicFollowersCount(merchantId, -1);
+    return null;
+  });
+
+// ─── 2a. Expire stale passage-validation sessions ───────────────────────────
+
+/** Matches [ActiveValidationRequest.isExpired] in the Flutter app (15 minutes). */
+const ACTIVE_VALIDATION_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Cancels `awaiting` active_validations older than 15 minutes so merchant
+ * queues stay clean and clients are not stuck forever.
+ *
+ * Index: collection-group `active_validations` on (status, created_at).
+ */
+export const cleanupStaleActiveValidations = functions
+  .region("europe-west1")
+  .pubsub.schedule("every 15 minutes")
+  .timeZone("Europe/Paris")
+  .onRun(async () => {
+    const cutoff = admin.firestore.Timestamp.fromMillis(
+      Date.now() - ACTIVE_VALIDATION_TTL_MS
+    );
+    let total = 0;
+    for (;;) {
+      const snap = await db
+        .collectionGroup("active_validations")
+        .where("status", "==", "awaiting")
+        .where("created_at", "<", cutoff)
+        .limit(200)
+        .get();
+      if (snap.empty) break;
+
+      const batch = db.batch();
+      for (const doc of snap.docs) {
+        batch.update(doc.ref, {
+          status: "cancelled",
+          cancel_reason: "session_expired",
+          completed_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+      total += snap.size;
+      if (snap.size < 200) break;
+    }
+    if (total > 0) {
+      functions.logger.info("cleanupStaleActiveValidations", { total });
+    }
     return null;
   });
 
@@ -1855,14 +2075,15 @@ export const processScheduledNotifications = functions
 //  deletion within the app").
 //
 // This callable handles the full purge in a single privileged path:
-//   1. Read users/{uid} to discover dual-profile (merchant_id), followed
-//      merchants list, and indexed email / phone.
-//   2. For every followed merchant, delete the corresponding loyalty_clients
-//      and pending_clients documents (the user's loyalty footprint at
-//      that merchant).
+//   1. Read users/{uid} to discover dual-profile (merchant_id) and indexed
+//      email / phone.
+//   2. Delete every merchants/*/loyalty_clients|pending_clients|active_validations|clients
+//      document whose id is this uid (collection-group — includes merchants
+//      the user unfollowed after data was written).
 //   3. Recursively delete users/{uid} — wipes notifications, push_tokens,
-//      followed_merchants, blocked_merchants, and any other subcollection.
-//   4. If the user is also a merchant (owns a merchants/{uid} doc),
+//      followed_merchants, blocked_merchants, loyalty_bons, and any other
+//      subcollection.
+//   4. If the user is also a merchant (owns a merchants/{merchant_id} doc),
 //      recursively delete that document — wipes loyalty_clients of OTHER
 //      users at this merchant, partners, promotions, sent_notifications,
 //      auto_notifications. Other clients keep dangling followed_merchants
@@ -1870,7 +2091,9 @@ export const processScheduledNotifications = functions
 //      deleted merchants).
 //   5. Free the email_index and phone_index entries so the same address
 //      can be reused at re-signup.
-//   6. Delete the Firebase Auth user.
+//   6. Delete Firebase Storage prefixes users/{uid}/ and merchants/{merchant_id}/.
+//   7. Remove data_export_requests/{uid} if present.
+//   8. Delete the Firebase Auth user.
 //
 // Idempotent on a best-effort basis — a re-call after a partial failure
 // continues cleanup. Cascade errors are logged but do NOT short-circuit
@@ -1879,7 +2102,7 @@ export const processScheduledNotifications = functions
 // user out of re-signup.
 export const purgeAccount = functions
   .region("europe-west1")
-  .runWith({ timeoutSeconds: 300, memory: "512MB" })
+  .runWith({ timeoutSeconds: 540, memory: "1GB" })
   .https.onCall(async (_data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError(
@@ -1905,52 +2128,21 @@ export const purgeAccount = functions
       functions.logger.warn("purgeAccount: user doc read failed", { uid, error: e });
     }
 
-    // 2) Per-merchant loyalty footprint cleanup.
-    let followedMerchantIds: string[] = [];
+    // 2) Merchant-scoped footprint for this uid (any merchant, not only current follows).
+    await deleteAllMerchantClientFootprintForUid(uid);
+
+    // 2b) GDPR queue doc (rules disallow client delete; Admin SDK removes it here).
     try {
-      const followedSnap = await db
-        .collection("users")
-        .doc(uid)
-        .collection("followed_merchants")
-        .get();
-      followedMerchantIds = followedSnap.docs.map((d) => d.id);
+      await db.collection("data_export_requests").doc(uid).delete();
     } catch (e) {
-      functions.logger.warn("purgeAccount: followed list read failed", {
+      functions.logger.warn("purgeAccount: data_export_requests delete failed", {
         uid,
         error: e,
       });
     }
 
-    await processInChunks(followedMerchantIds, 8, async (mid) => {
-      try {
-        await db
-          .collection("merchants")
-          .doc(mid)
-          .collection("loyalty_clients")
-          .doc(uid)
-          .delete();
-      } catch (e) {
-        functions.logger.warn("purgeAccount: loyalty_clients delete failed", {
-          uid,
-          mid,
-          error: e,
-        });
-      }
-      try {
-        await db
-          .collection("merchants")
-          .doc(mid)
-          .collection("pending_clients")
-          .doc(uid)
-          .delete();
-      } catch (e) {
-        functions.logger.warn("purgeAccount: pending_clients delete failed", {
-          uid,
-          mid,
-          error: e,
-        });
-      }
-    });
+    // 2c) Profile photos etc. under users/{uid}/ (Firestore recursiveDelete does not touch GCS).
+    await deleteStoragePrefix(`users/${uid}`);
 
     // 3) Recursively delete the user's own root document and every
     //    subcollection beneath it.
@@ -1965,6 +2157,8 @@ export const purgeAccount = functions
 
     // 4) If the user is also a merchant, wipe their merchant footprint too.
     if (merchantId) {
+      // Vitrine images, promotion art, news uploads, etc.
+      await deleteStoragePrefix(`merchants/${merchantId}`);
       try {
         await db.recursiveDelete(db.collection("merchants").doc(merchantId));
       } catch (e) {
@@ -2022,7 +2216,6 @@ export const purgeAccount = functions
     functions.logger.info("purgeAccount: completed", {
       uid,
       merchantId: merchantId ?? null,
-      followedCount: followedMerchantIds.length,
     });
     return { ok: true };
   });

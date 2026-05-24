@@ -1,9 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
-import '../../client_home/application/providers.dart'
-    show followedMerchantIdsForCurrentUserProvider;
+import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
 import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
@@ -100,11 +101,18 @@ bool loyaltyProgramsDiffer(
   LoyaltyProgramConfig a,
   LoyaltyProgramConfig b,
 ) {
-  return a.rewardKind != b.rewardKind ||
+  return a.programEnabled != b.programEnabled ||
+      a.rewardKind != b.rewardKind ||
       a.triggerType != b.triggerType ||
       a.visitsRequired != b.visitsRequired ||
       (a.cumulativeSpendRequiredEuros - b.cumulativeSpendRequiredEuros).abs() >
-          0.01;
+          0.01 ||
+      a.minimumPerVisitEnabled != b.minimumPerVisitEnabled ||
+      ((a.minimumPerVisitEuros ?? 0) - (b.minimumPerVisitEuros ?? 0)).abs() >
+          0.01 ||
+      a.rewardValidityEnabled != b.rewardValidityEnabled ||
+      (a.rewardValidityDays ?? 0) != (b.rewardValidityDays ?? 0) ||
+      a.optionalAskClientPurchaseAmount != b.optionalAskClientPurchaseAmount;
 }
 
 class ClientLoyaltyEntry {
@@ -180,46 +188,12 @@ class ClientLoyaltyEntry {
   }
 }
 
-/// Followed merchants that have an active loyalty program.
-/// Used by the client Fidélité tab.
-/// When the authenticated user also owns a merchant profile (dual-role),
-/// that merchant is prepended so they can view/test their own carnet.
-final clientLoyaltyFeedProvider =
-    FutureProvider.autoDispose<List<ClientLoyaltyEntry>>((ref) async {
-  final auth = ref.watch(auth_providers.authStateProvider);
-  if (auth is! Authenticated) return <ClientLoyaltyEntry>[];
-
-  final userId = auth.user.id;
-  final merchantRepo = ref.watch(merchantRepositoryProvider);
-  final loyaltyRepo = ref.watch(clientLoyaltyRepositoryProvider);
-
-  final ownMerchantFuture = merchantRepo.getMerchantById(userId);
-  final idsFuture = ref.watch(followedMerchantIdsForCurrentUserProvider.future);
-
-  final ownMerchantResult = await ownMerchantFuture;
-  final ids = await idsFuture;
-
-  final Merchant? ownMerchant = ownMerchantResult.fold((_) => null, (m) => m);
-
-  final filteredIds = ids.where((id) => id != userId).toList();
-  final followedMerchants = filteredIds.isEmpty
-      ? <Merchant>[]
-      : (await merchantRepo.getMerchantsByIds(filteredIds))
-          .fold((_) => <Merchant>[], (list) => list);
-
-  final candidates = <Merchant>[
-    if (ownMerchant != null) ownMerchant,
-    ...followedMerchants,
-  ];
-
-  final progressByMerchant = <String, ClientMerchantLoyaltyProgress>{};
-  await Future.wait(
-    candidates.map((m) async {
-      progressByMerchant[m.id] =
-          await loyaltyRepo.readProgress(m.id, userId);
-    }),
-  );
-
+List<ClientLoyaltyEntry> _loyaltyEntriesFromCandidates({
+  required List<Merchant> candidates,
+  required Merchant? ownMerchant,
+  required List<Merchant> followedMerchants,
+  required Map<String, ClientMerchantLoyaltyProgress> progressByMerchant,
+}) {
   ClientLoyaltyEntry? toEntry(Merchant m, {required bool isOwn}) {
     final liveCfg = m.loyaltyProgram ??
         LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: m.loyaltyEnabled);
@@ -261,6 +235,109 @@ final clientLoyaltyFeedProvider =
   }
 
   return entries;
+}
+
+/// Live loyalty carnet: followed ids + per-merchant progress streams.
+final clientLoyaltyFeedProvider =
+    StreamProvider.autoDispose<List<ClientLoyaltyEntry>>((ref) {
+  final auth = ref.watch(auth_providers.authStateProvider);
+  if (auth is! Authenticated) {
+    return Stream<List<ClientLoyaltyEntry>>.value(const <ClientLoyaltyEntry>[]);
+  }
+
+  final userId = auth.user.id;
+  final merchantRepo = ref.read(merchantRepositoryProvider);
+  final loyaltyRepo = ref.read(clientLoyaltyRepositoryProvider);
+  final followedRepo = ref.read(followedMerchantsRepositoryProvider);
+
+  final controller = StreamController<List<ClientLoyaltyEntry>>.broadcast();
+  final progressSubs = <StreamSubscription<ClientMerchantLoyaltyProgress>>[];
+  StreamSubscription<List<String>>? followedSub;
+
+  void emitEntries({
+    required Merchant? ownMerchant,
+    required List<Merchant> followedMerchants,
+    required Map<String, ClientMerchantLoyaltyProgress> progressByMerchant,
+  }) {
+    if (controller.isClosed) return;
+    controller.add(
+      _loyaltyEntriesFromCandidates(
+        candidates: [
+          if (ownMerchant != null) ownMerchant,
+          ...followedMerchants,
+        ],
+        ownMerchant: ownMerchant,
+        followedMerchants: followedMerchants,
+        progressByMerchant: progressByMerchant,
+      ),
+    );
+  }
+
+  Future<void> bindProgressStreams({
+    required Merchant? ownMerchant,
+    required List<Merchant> followedMerchants,
+  }) async {
+    for (final s in progressSubs) {
+      await s.cancel();
+    }
+    progressSubs.clear();
+
+    final candidates = <Merchant>[
+      if (ownMerchant != null) ownMerchant,
+      ...followedMerchants,
+    ];
+    final progressByMerchant = <String, ClientMerchantLoyaltyProgress>{};
+    await Future.wait(
+      candidates.map((m) async {
+        progressByMerchant[m.id] =
+            await loyaltyRepo.readProgress(m.id, userId);
+      }),
+    );
+    emitEntries(
+      ownMerchant: ownMerchant,
+      followedMerchants: followedMerchants,
+      progressByMerchant: progressByMerchant,
+    );
+
+    for (final m in candidates) {
+      progressSubs.add(
+        loyaltyRepo.watchProgress(m.id, userId).listen((progress) {
+          progressByMerchant[m.id] = progress;
+          emitEntries(
+            ownMerchant: ownMerchant,
+            followedMerchants: followedMerchants,
+            progressByMerchant: Map<String, ClientMerchantLoyaltyProgress>.from(
+              progressByMerchant,
+            ),
+          );
+        }),
+      );
+    }
+  }
+
+  followedSub = followedRepo.watchFollowedIds(userId).listen((ids) async {
+    final ownMerchantResult = await merchantRepo.getMerchantById(userId);
+    final ownMerchant = ownMerchantResult.fold((_) => null, (m) => m);
+    final filteredIds = ids.where((id) => id != userId).toList();
+    final followedMerchants = filteredIds.isEmpty
+        ? <Merchant>[]
+        : (await merchantRepo.getMerchantsByIds(filteredIds))
+            .fold((_) => <Merchant>[], (list) => list);
+    await bindProgressStreams(
+      ownMerchant: ownMerchant,
+      followedMerchants: followedMerchants,
+    );
+  });
+
+  ref.onDispose(() async {
+    await followedSub?.cancel();
+    for (final s in progressSubs) {
+      await s.cancel();
+    }
+    await controller.close();
+  });
+
+  return controller.stream;
 });
 
 // ─── "Mes avantages" — aggregated rewards across followed merchants ───────────

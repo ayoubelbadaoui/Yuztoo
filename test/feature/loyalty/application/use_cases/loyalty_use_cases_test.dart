@@ -17,7 +17,7 @@ void main() {
       expect(loyaltyProgramsDiffer(a, b), isTrue);
     });
 
-    test('ignores passage validation mode', () {
+    test('ignores passage validation mode (Rappels sync field)', () {
       const a = LoyaltyProgramConfig(
         programEnabled: true,
         passageValidation: LoyaltyPassageValidation.automatic,

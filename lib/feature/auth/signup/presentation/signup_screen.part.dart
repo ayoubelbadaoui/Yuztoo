@@ -331,11 +331,25 @@ extension _SignupScreenUi on _SignupScreenState {
         return;
       }
 
-      final basicsResult = await ref
-          .read(auth_core.getUserProfileBasicsProvider)
-          .call(authUser.id);
+      // **iPad bug fix**: a transient Firestore error on the first read
+      // after OAuth sign-in used to collapse into `hasProfile = false`,
+      // routing existing dual-profile users through the "Finaliser votre
+      // inscription" / create-account flow. We retry once, and on a
+      // second error we sign out instead of silently re-onboarding.
+      final hasProfileResolved = await _resolveHasProfile(authUser.id);
       if (!mounted) return;
-      final hasProfile = basicsResult.fold((_) => false, (b) => b != null);
+      if (hasProfileResolved == null) {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+        showErrorSnackbar(
+          context,
+          'Impossible de vérifier votre compte. Vérifiez votre connexion et '
+          'réessayez.',
+        );
+        await ref.read(auth_core.authControllerProvider.notifier).signOut();
+        return;
+      }
+      final hasProfile = hasProfileResolved;
 
       if (hasProfile) {
         ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
@@ -486,6 +500,30 @@ extension _SignupScreenUi on _SignupScreenState {
         _withSetState(() => _isSocialLoading = false);
       }
     }
+  }
+
+  /// Two-attempt profile lookup with a 600 ms backoff between tries.
+  /// Returns true/false when Firestore answers definitively, `null` if both
+  /// reads errored (network blip, fresh auth token not yet propagated on
+  /// iPad cold-start). Callers MUST treat `null` as "couldn't verify" — NOT
+  /// as "new user" — to avoid silently re-onboarding an existing account.
+  Future<bool?> _resolveHasProfile(String uid) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        if (!mounted) return null;
+      }
+      final result = await ref
+          .read(auth_core.getUserProfileBasicsProvider)
+          .call(uid);
+      if (!mounted) return null;
+      final settled = result.fold<bool?>(
+        (_) => null,
+        (basics) => basics != null,
+      );
+      if (settled != null) return settled;
+    }
+    return null;
   }
 
   /// E.164 phone to attach to a new OAuth account before [CreateUserDocument].

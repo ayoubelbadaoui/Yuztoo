@@ -1098,3 +1098,249 @@ describe("data_export_requests", () => {
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// active_validations (BLE handshake)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const kProgramSnapshot = {
+  program_enabled: true,
+  trigger_type: "visit_count",
+  visits_required: 10,
+  cumulative_spend_required_euros: 100,
+  reward_kind: "purchase_voucher",
+  purchase_voucher_uses_percent: true,
+  purchase_voucher_value: 10,
+  discount_next_purchase_percent: 10,
+  points_per_euro: 1,
+  minimum_per_visit_enabled: false,
+  reward_validity_enabled: false,
+  passage_validation: "automatic",
+  optional_ask_client_purchase_amount: false,
+};
+
+function activeValidationRef(merchantId: string, clientUid: string) {
+  return authDb(clientUid)
+    .collection("merchants")
+    .doc(merchantId)
+    .collection("active_validations")
+    .doc(clientUid);
+}
+
+describe("active_validations BLE create", () => {
+  const merchantId = "merchant-ble";
+  const clientUid = "client-ble";
+
+  beforeEach(async () => {
+    await seedMerchant(merchantId, "owner-ble", { loyalty_enabled: true });
+    await seedUser(clientUid);
+  });
+
+  test("client CAN create BLE session with required fields", async () => {
+    await assertSucceeds(
+      activeValidationRef(merchantId, clientUid).set({
+        client_uid: clientUid,
+        client_display_name: "Alice",
+        created_at: new Date(),
+        status: "awaiting",
+        program_snapshot: kProgramSnapshot,
+        source: "ble",
+        client_ble_connected_at: new Date(),
+        merchant_display_name: "Café Test",
+      })
+    );
+  });
+
+  test("client CANNOT create BLE session without client_ble_connected_at", async () => {
+    await assertFails(
+      activeValidationRef(merchantId, clientUid).set({
+        client_uid: clientUid,
+        client_display_name: "Alice",
+        created_at: new Date(),
+        status: "awaiting",
+        program_snapshot: kProgramSnapshot,
+        source: "ble",
+        merchant_display_name: "Café Test",
+      })
+    );
+  });
+
+  test("client CANNOT create vitrine session with BLE-only keys", async () => {
+    await assertFails(
+      activeValidationRef(merchantId, clientUid).set({
+        client_uid: clientUid,
+        client_display_name: "Alice",
+        created_at: new Date(),
+        status: "awaiting",
+        program_snapshot: kProgramSnapshot,
+        source: "ble",
+        client_ble_connected_at: new Date(),
+      })
+    );
+  });
+
+  test("client CAN create vitrine session without BLE fields", async () => {
+    await assertSucceeds(
+      activeValidationRef(merchantId, clientUid).set({
+        client_uid: clientUid,
+        client_display_name: "Alice",
+        created_at: new Date(),
+        status: "awaiting",
+        program_snapshot: kProgramSnapshot,
+      })
+    );
+  });
+
+  test("merchant owner CAN simulate BLE session for another client uid", async () => {
+    await seedUser("owner-ble");
+    await assertSucceeds(
+      authDb("owner-ble")
+        .collection("merchants")
+        .doc(merchantId)
+        .collection("active_validations")
+        .doc(clientUid)
+        .set({
+          client_uid: clientUid,
+          client_display_name: "Alice",
+          created_at: new Date(),
+          status: "awaiting",
+          program_snapshot: kProgramSnapshot,
+          source: "ble",
+          client_ble_connected_at: new Date(),
+          merchant_display_name: "Café Test",
+        })
+    );
+  });
+
+  test("merchant owner CANNOT simulate BLE session for own uid", async () => {
+    await seedUser("owner-ble");
+    await assertFails(
+      authDb("owner-ble")
+        .collection("merchants")
+        .doc(merchantId)
+        .collection("active_validations")
+        .doc("owner-ble")
+        .set({
+          client_uid: "owner-ble",
+          client_display_name: "Self",
+          created_at: new Date(),
+          status: "awaiting",
+          program_snapshot: kProgramSnapshot,
+          source: "ble",
+          client_ble_connected_at: new Date(),
+          merchant_display_name: "Café Test",
+        })
+    );
+  });
+});
+
+describe("active_validations merchant updates", () => {
+  const merchantId = "merchant-ble-upd";
+  const clientUid = "client-ble-upd";
+  const ownerUid = "owner-ble-upd";
+
+  beforeEach(async () => {
+    await seedMerchant(merchantId, ownerUid, { loyalty_enabled: true });
+    await seedUser(clientUid);
+    await seedUser(ownerUid);
+  });
+
+  test("merchant CAN mark merchant_ble_connected_at on awaiting BLE session", async () => {
+    await activeValidationRef(merchantId, clientUid).set({
+      client_uid: clientUid,
+      client_display_name: "Alice",
+      created_at: new Date(),
+      status: "awaiting",
+      program_snapshot: kProgramSnapshot,
+      source: "ble",
+      client_ble_connected_at: new Date(),
+    });
+    await assertSucceeds(
+      authDb(ownerUid)
+        .collection("merchants")
+        .doc(merchantId)
+        .collection("active_validations")
+        .doc(clientUid)
+        .update({ merchant_ble_connected_at: new Date() })
+    );
+  });
+
+  test("merchant CANNOT complete BLE session without merchant_ble_connected_at", async () => {
+    await activeValidationRef(merchantId, clientUid).set({
+      client_uid: clientUid,
+      client_display_name: "Alice",
+      created_at: new Date(),
+      status: "awaiting",
+      program_snapshot: kProgramSnapshot,
+      source: "ble",
+      client_ble_connected_at: new Date(),
+    });
+    await assertFails(
+      authDb(ownerUid)
+        .collection("merchants")
+        .doc(merchantId)
+        .collection("active_validations")
+        .doc(clientUid)
+        .update({
+          status: "completed",
+          completed_at: new Date(),
+          result_validated_delta: 1,
+          result_spend_delta: 0,
+        })
+    );
+  });
+
+  test("merchant CAN complete BLE session after merchant_ble_connected_at", async () => {
+    await activeValidationRef(merchantId, clientUid).set({
+      client_uid: clientUid,
+      client_display_name: "Alice",
+      created_at: new Date(),
+      status: "awaiting",
+      program_snapshot: kProgramSnapshot,
+      source: "ble",
+      client_ble_connected_at: new Date(),
+    });
+    await authDb(ownerUid)
+      .collection("merchants")
+      .doc(merchantId)
+      .collection("active_validations")
+      .doc(clientUid)
+      .update({ merchant_ble_connected_at: new Date() });
+    await assertSucceeds(
+      authDb(ownerUid)
+        .collection("merchants")
+        .doc(merchantId)
+        .collection("active_validations")
+        .doc(clientUid)
+        .update({
+          status: "completed",
+          completed_at: new Date(),
+          result_validated_delta: 1,
+          result_spend_delta: 0,
+        })
+    );
+  });
+
+  test("merchant CAN complete vitrine session without BLE timestamps", async () => {
+    await activeValidationRef(merchantId, clientUid).set({
+      client_uid: clientUid,
+      client_display_name: "Alice",
+      created_at: new Date(),
+      status: "awaiting",
+      program_snapshot: kProgramSnapshot,
+    });
+    await assertSucceeds(
+      authDb(ownerUid)
+        .collection("merchants")
+        .doc(merchantId)
+        .collection("active_validations")
+        .doc(clientUid)
+        .update({
+          status: "completed",
+          completed_at: new Date(),
+          result_validated_delta: 1,
+          result_spend_delta: 0,
+        })
+    );
+  });
+});

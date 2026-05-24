@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,21 +14,77 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/infrastructure/ble_proximity_notifier.dart';
 import '../../../core/infrastructure/ble_proximity_service.dart';
+import '../../client_home/application/providers.dart' as client_home_providers;
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/proximity_list_avatar.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
-import '../../auth/core/application/state/auth_state.dart';
+import '../../followed_merchants/application/providers.dart';
+import '../../merchant/domain/entities/loyalty_program_config.dart';
+import '../../merchant/domain/entities/merchant.dart';
+import '../../merchant/infrastructure/merchant_repository_provider.dart';
+import '../application/active_validation_providers.dart';
+import '../application/client_loyalty_providers.dart';
+import 'widgets/merchant_passage_debug_simulate_sheet.dart'
+    show isMerchantPassageDebugEnabled;
+import '../domain/entities/active_validation_request.dart';
+import '../domain/failures/ble_passage_failure.dart';
+import '../domain/loyalty_passage_program_policy.dart';
 import '../../storefront/presentation/widgets/storefront_colors.dart';
 
 /// One merchant phone advertising [BleProximityService.merchantBeaconServiceUuid].
 class _NearbyMerchant {
-  _NearbyMerchant({required this.device, required this.rssi});
+  _NearbyMerchant({
+    required this.device,
+    required this.rssi,
+    this.merchantId,
+    this.displayName,
+    this.logoUrl,
+    this.resolvingName = false,
+  });
 
   final BluetoothDevice device;
   final int rssi;
+  final String? merchantId;
+  final String? displayName;
+  final String? logoUrl;
+  final bool resolvingName;
+
+  _NearbyMerchant copyWith({
+    BluetoothDevice? device,
+    int? rssi,
+    String? merchantId,
+    String? displayName,
+    String? logoUrl,
+    bool? resolvingName,
+  }) =>
+      _NearbyMerchant(
+        device: device ?? this.device,
+        rssi: rssi ?? this.rssi,
+        merchantId: merchantId ?? this.merchantId,
+        displayName: displayName ?? this.displayName,
+        logoUrl: logoUrl ?? this.logoUrl,
+        resolvingName: resolvingName ?? this.resolvingName,
+      );
 }
 
 const int _kMerchantListMinRssi = -95;
+
+/// Followed merchants the client can pick when no BLE beacon is visible (e.g.
+/// iPhone merchant without beacon or out of range).
+final bleFollowedMerchantsForPickProvider =
+    FutureProvider.autoDispose<List<Merchant>>((ref) async {
+  final ids = await ref.watch(
+    client_home_providers.followedMerchantIdsForCurrentUserProvider.future,
+  );
+  if (ids.isEmpty) return const <Merchant>[];
+  final result =
+      await ref.read(merchantRepositoryProvider).getMerchantsByIds(ids);
+  return result.fold((_) => const <Merchant>[], (merchants) {
+    return merchants.where(isBlePassageAllowedForMerchant).toList();
+  });
+});
 
 /// Actions for the client BLE scan permission dialog.
 enum _ClientBleScanPermissionAction {
@@ -68,6 +125,12 @@ class _ClientBleBroadcastScreenState
   /// Scan permission refused — show one-tap retry to reopen the permission flow.
   bool _merchantScanPermissionDenied = false;
 
+  /// Merchant id for which a BLE session was started (live status banner).
+  String? _connectedMerchantId;
+  String? _connectedMerchantLogoUrl;
+
+  Future<void>? _resolveMerchantNameTail;
+
   @override
   void initState() {
     super.initState();
@@ -82,7 +145,12 @@ class _ClientBleBroadcastScreenState
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
 
-    _startBroadcasting();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await ref.read(bleProximityProvider.notifier).suspendShellClientBroadcast();
+      if (!mounted) return;
+      await _startBroadcasting();
+    });
   }
 
   @override
@@ -90,9 +158,36 @@ class _ClientBleBroadcastScreenState
     _pulseController.dispose();
     _glowController.dispose();
     _merchantScanSub?.cancel();
-    unawaited(FlutterBluePlus.stopScan());
-    BleProximityService.stopClientBroadcast();
+    final connectedMerchantId = _connectedMerchantId;
+    if (connectedMerchantId != null) {
+      unawaited(_cancelAwaitingBleSession(connectedMerchantId));
+    }
+    unawaited(_tearDownLocalBleAndResumeShell());
     super.dispose();
+  }
+
+  Future<void> _cancelAwaitingBleSession(String merchantId) async {
+    final auth = ref.read(auth_providers.authStateProvider);
+    if (auth is! Authenticated) return;
+    final session = ref
+        .read(clientActiveValidationSessionProvider(merchantId))
+        .valueOrNull;
+    if (session == null ||
+        !session.isAwaiting ||
+        session.isExpired ||
+        session.isMerchantBleConnected) {
+      return;
+    }
+    await ref.read(cancelActiveValidationProvider).byClient(
+          merchantId: merchantId,
+          clientUid: auth.user.id,
+        );
+  }
+
+  Future<void> _tearDownLocalBleAndResumeShell() async {
+    await FlutterBluePlus.stopScan();
+    await BleProximityService.stopClientBroadcast();
+    await ref.read(bleProximityProvider.notifier).resumeShellClientBroadcast();
   }
 
   Future<void> _startBroadcasting() async {
@@ -125,6 +220,10 @@ class _ClientBleBroadcastScreenState
           _broadcasting = true;
           _bleUnavailable = false;
         });
+        if (Platform.isIOS) {
+          await Future<void>.delayed(const Duration(milliseconds: 450));
+          if (!mounted) return;
+        }
         unawaited(_startListeningForNearbyMerchants());
         return;
       }
@@ -197,14 +296,24 @@ class _ClientBleBroadcastScreenState
     setState(() {
       _merchantScanPermissionDenied = false;
     });
+    if (Platform.isIOS) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      if (!mounted) return;
+    }
     try {
-      await FlutterBluePlus.startScan(
-        withServices: [Guid(BleProximityService.merchantBeaconServiceUuid)],
-        continuousUpdates: true,
-        continuousDivisor: 2,
-        removeIfGone: const Duration(seconds: 14),
-        androidScanMode: AndroidScanMode.lowLatency,
-      );
+      if (Platform.isIOS) {
+        await FlutterBluePlus.startScan(
+          withServices: [Guid(BleProximityService.merchantBeaconServiceUuid)],
+        );
+      } else {
+        await FlutterBluePlus.startScan(
+          withServices: [Guid(BleProximityService.merchantBeaconServiceUuid)],
+          continuousUpdates: true,
+          continuousDivisor: 2,
+          removeIfGone: const Duration(seconds: 14),
+          androidScanMode: AndroidScanMode.lowLatency,
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -354,7 +463,12 @@ class _ClientBleBroadcastScreenState
     if (next.length != _nearbyMerchants.length) return true;
     for (final e in next.entries) {
       final prev = _nearbyMerchants[e.key];
-      if (prev == null || (prev.rssi - e.value.rssi).abs() > 4) return true;
+      if (prev == null) return true;
+      if ((prev.rssi - e.value.rssi).abs() > 4) return true;
+      if (prev.displayName != e.value.displayName) return true;
+      if (prev.logoUrl != e.value.logoUrl) return true;
+      if (prev.merchantId != e.value.merchantId) return true;
+      if (prev.resolvingName != e.value.resolvingName) return true;
     }
     return false;
   }
@@ -370,11 +484,20 @@ class _ClientBleBroadcastScreenState
   void _onMerchantScanResults(List<ScanResult> results) {
     if (!mounted || _pickingMerchant) return;
     final next = <DeviceIdentifier, _NearbyMerchant>{};
+    final idsToResolve = <DeviceIdentifier>[];
     for (final r in results) {
       if (!_scanHasMerchantBeacon(r)) continue;
       if (r.rssi < _kMerchantListMinRssi) continue;
-      next[r.device.remoteId] =
-          _NearbyMerchant(device: r.device, rssi: r.rssi);
+      final id = r.device.remoteId;
+      final prev = _nearbyMerchants[id];
+      var entry = prev == null
+          ? _NearbyMerchant(device: r.device, rssi: r.rssi)
+          : prev.copyWith(device: r.device, rssi: r.rssi);
+      if (entry.merchantId == null && !entry.resolvingName) {
+        entry = entry.copyWith(resolvingName: true);
+        idsToResolve.add(id);
+      }
+      next[id] = entry;
     }
     if (_merchantsNearbyChanged(next)) {
       setState(() {
@@ -383,6 +506,80 @@ class _ClientBleBroadcastScreenState
           ..addAll(next);
       });
     }
+    for (final id in idsToResolve) {
+      _enqueueResolveMerchantName(id);
+    }
+  }
+
+  void _enqueueResolveMerchantName(DeviceIdentifier id) {
+    _resolveMerchantNameTail =
+        (_resolveMerchantNameTail ?? Future<void>.value()).then((_) async {
+      await _resolveOneMerchantName(id);
+    });
+  }
+
+  Future<void> _resolveOneMerchantName(DeviceIdentifier id) async {
+    if (!mounted) return;
+    final entry = _nearbyMerchants[id];
+    if (entry == null || entry.merchantId != null) return;
+    final merchantId =
+        await BleProximityService.readMerchantIdFromBeacon(entry.device);
+    if (!mounted) return;
+    if (merchantId == null || merchantId.isEmpty) {
+      setState(() {
+        final e = _nearbyMerchants[id];
+        if (e == null) return;
+        _nearbyMerchants[id] = e.copyWith(resolvingName: false);
+      });
+      return;
+    }
+    final merchantResult =
+        await ref.read(merchantRepositoryProvider).getMerchantById(merchantId);
+    final merchant = merchantResult.fold<Merchant?>(
+      (_) => null,
+      (m) => m,
+    );
+    final name = merchant == null
+        ? null
+        : (merchant.displayName?.trim().isNotEmpty == true
+            ? merchant.displayName!.trim()
+            : merchant.name);
+    if (!mounted) return;
+    setState(() {
+      final e = _nearbyMerchants[id];
+      if (e == null) return;
+      _nearbyMerchants[id] = e.copyWith(
+        merchantId: merchantId,
+        displayName: name,
+        logoUrl: merchant?.logoUrl,
+        resolvingName: false,
+      );
+    });
+  }
+
+  String? _logoUrlForConnectedMerchant() {
+    final cached = _connectedMerchantLogoUrl?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    final id = _connectedMerchantId;
+    if (id == null) return null;
+    for (final m in _nearbyMerchants.values) {
+      final url = m.logoUrl?.trim();
+      if (m.merchantId == id && url != null && url.isNotEmpty) return url;
+    }
+    return null;
+  }
+
+  String _merchantTitleForConnected(ActiveValidationRequest? session) {
+    final fromSession = session?.merchantDisplayName?.trim();
+    if (fromSession != null && fromSession.isNotEmpty) return fromSession;
+    final id = _connectedMerchantId;
+    if (id == null) return 'Commerce';
+    for (final m in _nearbyMerchants.values) {
+      if (m.merchantId == id && m.displayName?.trim().isNotEmpty == true) {
+        return m.displayName!.trim();
+      }
+    }
+    return 'Commerce';
   }
 
   String _merchantRssiLabel(int rssi) {
@@ -398,33 +595,190 @@ class _ClientBleBroadcastScreenState
     return list;
   }
 
+  Future<bool> _showFollowRequiredDialog(FollowRequiredFailure failure) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: MerchantColors.navyCard,
+        title: Text(
+          'Suivre ce commerce',
+          style: GoogleFonts.outfit(
+            color: MerchantColors.textWhite,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Pour être éligible au système de fidélité, suivez '
+          '${failure.merchantDisplayName} avant de valider un passage.',
+          style: GoogleFonts.outfit(
+            color: MerchantColors.textLightGrey,
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Annuler',
+                style: TextStyle(color: MerchantColors.textGrey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Suivre',
+                style: TextStyle(
+                    color: StorefrontColors.primaryGold,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    return accepted == true;
+  }
+
   Future<void> _onMerchantRowTap(_NearbyMerchant m) async {
+    final merchantId = m.merchantId;
+    if (merchantId == null || merchantId.isEmpty) {
+      setState(() => _merchantActionMessage =
+          'Identification du commerce en cours — réessayez dans un instant.');
+      return;
+    }
+
+    final merchantResult =
+        await ref.read(merchantRepositoryProvider).getMerchantById(merchantId);
+    final merchant = merchantResult.fold((_) => null, (x) => x);
+    if (!mounted) return;
+    if (merchant == null) {
+      setState(() => _merchantActionMessage = 'Commerce introuvable.');
+      return;
+    }
+
+    await _connectToMerchant(
+      merchant,
+      beaconDevice: m.device,
+      logoUrl: m.logoUrl ?? merchant.logoUrl,
+    );
+  }
+
+  Future<void> _onFollowedMerchantTap(Merchant merchant) async {
+    await _connectToMerchant(merchant, logoUrl: merchant.logoUrl);
+  }
+
+  Future<void> _connectToMerchant(
+    Merchant merchant, {
+    BluetoothDevice? beaconDevice,
+    String? logoUrl,
+  }) async {
     final auth = ref.read(auth_providers.authStateProvider);
     if (auth is! Authenticated || _pickingMerchant) return;
+
     setState(() {
       _pickingMerchant = true;
       _merchantActionMessage = null;
     });
-    final ok = await BleProximityService.writeClientUidToMerchantBeacon(
-      m.device,
-      auth.user.id,
-    );
-    if (!mounted) return;
-    setState(() {
-      _pickingMerchant = false;
-      _merchantActionMessage = ok
-          ? 'Demande envoyée au commerçant. Il peut finaliser sur son téléphone.'
-          : 'Connexion impossible. Rapprochez-vous ou laissez le commerçant vous sélectionner dans sa liste.';
-    });
-    if (ok) {
-      HapticFeedback.mediumImpact();
-    } else {
-      HapticFeedback.lightImpact();
+
+    var sessionResult = await ref.read(initiateBlePassageSessionProvider).call(
+          client: auth.user,
+          merchant: merchant,
+        );
+
+    final followFailure = sessionResult.fold((f) => f, (_) => null);
+    if (followFailure is FollowRequiredFailure) {
+      final wantsFollow = await _showFollowRequiredDialog(followFailure);
+      if (!mounted) return;
+      if (!wantsFollow) {
+        setState(() => _pickingMerchant = false);
+        return;
+      }
+      await ref.read(toggleMerchantFollowProvider).call(
+            userId: auth.user.id,
+            merchantId: merchant.id,
+            currentlyFollowing: false,
+          );
+      sessionResult = await ref.read(initiateBlePassageSessionProvider).call(
+            client: auth.user,
+            merchant: merchant,
+          );
     }
+
+    if (!mounted) return;
+
+    await sessionResult.fold(
+      (failure) async {
+        setState(() {
+          _pickingMerchant = false;
+          _merchantActionMessage = failure.message;
+        });
+      },
+      (_) async {
+        var beaconOk = false;
+        if (beaconDevice != null) {
+          beaconOk = await BleProximityService.writeClientUidToMerchantBeacon(
+            beaconDevice,
+            auth.user.id,
+          );
+        }
+        if (!mounted) return;
+        setState(() {
+          _pickingMerchant = false;
+          _connectedMerchantId = merchant.id;
+          _connectedMerchantLogoUrl = logoUrl ?? merchant.logoUrl;
+          _merchantActionMessage = beaconDevice != null && beaconOk
+              ? 'Connexion envoyée. Le commerçant doit confirmer votre passage.'
+              : 'Demande envoyée. Le commerçant vous retrouve dans sa liste '
+                  '« Connexions BLE en attente ».';
+        });
+        if (beaconDevice != null && beaconOk) {
+          HapticFeedback.mediumImpact();
+        } else {
+          HapticFeedback.lightImpact();
+        }
+      },
+    );
+  }
+
+  String _sessionStatusLabel(ActiveValidationRequest? session) {
+    if (session == null) {
+      return 'En attente de la confirmation du commerçant…';
+    }
+    if (session.isCompleted) {
+      return 'Passage validé ✓';
+    }
+    if (session.isCancelled) {
+      if (session.cancelReason == 'session_expired') {
+        return 'Demande expirée — réessayez près du commerçant.';
+      }
+      return 'Demande annulée.';
+    }
+    if (session.isOpened) {
+      return 'Le commerçant valide votre passage…';
+    }
+    if (session.isMerchantBleConnected) {
+      return 'Connecté — le commerçant finalise votre passage.';
+    }
+    return 'Connecté — en attente du commerçant.';
   }
 
   @override
   Widget build(BuildContext context) {
+    final connectedId = _connectedMerchantId;
+    if (connectedId != null) {
+      ref.listen(
+        clientActiveValidationSessionProvider(connectedId),
+        (previous, next) {
+          final session = next.valueOrNull;
+          if (session?.isCompleted == true &&
+              previous?.valueOrNull?.isCompleted != true) {
+            ref.invalidate(client_home_providers.clientHomeFeedProvider);
+            ref.invalidate(clientLoyaltyFeedProvider);
+            if (mounted) {
+              setState(() {
+                _merchantActionMessage = 'Passage validé ✓';
+              });
+            }
+          }
+        },
+      );
+    }
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -478,16 +832,112 @@ class _ClientBleBroadcastScreenState
             ),
           ),
           const SizedBox(width: 16),
-          Text(
-            'Valider un passage',
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: MerchantColors.textWhite,
+          Expanded(
+            child: Text(
+              'Valider un passage',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: MerchantColors.textWhite,
+              ),
             ),
           ),
+          if (isMerchantPassageDebugEnabled)
+            IconButton(
+              tooltip: 'Simuler commerce BLE',
+              onPressed: _showClientBleDebugPicker,
+              icon: const Icon(
+                Icons.bug_report_outlined,
+                color: MerchantColors.gold,
+              ),
+            ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showClientBleDebugPicker() async {
+    final auth = ref.read(auth_providers.authStateProvider);
+    if (auth is! Authenticated) return;
+    final feed = ref.read(client_home_providers.clientHomeFeedProvider).valueOrNull;
+    final merchants = feed?.merchants ?? const <Merchant>[];
+    if (!mounted) return;
+    if (merchants.isEmpty) {
+      setState(() => _merchantActionMessage =
+          'Aucun commerce dans le carnet — suivez un commerce pour simuler.');
+      return;
+    }
+    final authId = auth.user.id;
+    final picked = await showModalBottomSheet<Merchant>(
+      context: context,
+      backgroundColor: MerchantColors.navyCard,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Simuler commerce BLE',
+                style: GoogleFonts.outfit(
+                  color: MerchantColors.textWhite,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            for (final m in merchants)
+              ListTile(
+                title: Text(
+                  m.displayName?.trim().isNotEmpty == true
+                      ? m.displayName!.trim()
+                      : m.name,
+                  style: GoogleFonts.outfit(color: MerchantColors.textWhite),
+                ),
+                subtitle: m.id == authId
+                    ? Text(
+                        'Votre commerce — utilisez un autre compte client',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: Colors.orange.shade300,
+                        ),
+                      )
+                    : null,
+                enabled: m.id != authId,
+                onTap: m.id == authId
+                    ? null
+                    : () => Navigator.of(ctx).pop(m),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    var sessionResult = await ref.read(initiateBlePassageSessionProvider).call(
+          client: auth.user,
+          merchant: picked,
+        );
+    final followFailure = sessionResult.fold((f) => f, (_) => null);
+    if (followFailure is FollowRequiredFailure) {
+      final wantsFollow = await _showFollowRequiredDialog(followFailure);
+      if (!mounted || !wantsFollow) return;
+      await ref.read(toggleMerchantFollowProvider).call(
+            userId: auth.user.id,
+            merchantId: picked.id,
+            currentlyFollowing: false,
+          );
+      sessionResult = await ref.read(initiateBlePassageSessionProvider).call(
+            client: auth.user,
+            merchant: picked,
+          );
+    }
+    if (!mounted) return;
+    sessionResult.fold(
+      (f) => setState(() => _merchantActionMessage = f.message),
+      (_) => setState(() {
+          _connectedMerchantId = picked.id;
+          _connectedMerchantLogoUrl = picked.logoUrl;
+        }),
     );
   }
 
@@ -587,7 +1037,8 @@ class _ClientBleBroadcastScreenState
         const SizedBox(height: 12),
         Text(
           'Votre téléphone est visible par le commerçant. '
-          'Choisissez son commerce dans la liste ci-dessous, ou rapprochez les deux téléphones.',
+          'Touchez un commerce pour confirmer la connexion — le commerçant '
+          'validera ensuite votre passage.',
           textAlign: TextAlign.center,
           style: GoogleFonts.outfit(
             fontSize: 16,
@@ -627,6 +1078,67 @@ class _ClientBleBroadcastScreenState
           ),
         ),
         const SizedBox(height: 28),
+        if (_connectedMerchantId != null) ...[
+          Builder(
+            builder: (context) {
+              final session = ref
+                  .watch(
+                      clientActiveValidationSessionProvider(_connectedMerchantId!))
+                  .valueOrNull;
+              final merchantTitle = _merchantTitleForConnected(session);
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: MerchantColors.navyCard,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: MerchantColors.gold
+                        .withValues(alpha: MerchantColors.goldBorderAlpha),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ProximityListAvatar(
+                      imageUrl: _logoUrlForConnectedMerchant(),
+                      label: merchantTitle,
+                      size: 44,
+                      fallbackIcon: Icons.storefront_outlined,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            merchantTitle,
+                            style: GoogleFonts.outfit(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: MerchantColors.textWhite,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _sessionStatusLabel(session),
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              height: 1.45,
+                              fontWeight: FontWeight.w500,
+                              color: MerchantColors.textLightGrey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
@@ -657,7 +1169,7 @@ class _ClientBleBroadcastScreenState
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.bluetooth_searching_rounded,
                       color: StorefrontColors.primaryGold,
                       size: 22,
@@ -744,8 +1256,9 @@ class _ClientBleBroadcastScreenState
                 ? 'Une fois l\'autorisation accordée, les commerces qui '
                     'valident un passage apparaîtront ici.'
                 : _merchantScanActive
-                    ? 'Aucun commerce détecté pour le moment. '
-                        'Le commerçant doit ouvrir « Valider un passage » sur son application.'
+                    ? 'Aucun commerce détecté à proximité. Choisissez un '
+                        'commerce suivi ci-dessous, ou demandez au commerçant '
+                        'd\'ouvrir « Valider un passage ».'
                     : 'Activation de la recherche…',
             style: GoogleFonts.outfit(
               fontSize: 13,
@@ -764,6 +1277,12 @@ class _ClientBleBroadcastScreenState
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final m = items[index];
+                  final title = (m.displayName != null &&
+                          m.displayName!.trim().isNotEmpty)
+                      ? m.displayName!.trim()
+                      : (m.resolvingName
+                          ? 'Identification…'
+                          : 'Commerce à proximité');
                   return Material(
                     color: MerchantColors.navyCard,
                     borderRadius: BorderRadius.circular(14),
@@ -777,15 +1296,19 @@ class _ClientBleBroadcastScreenState
                             horizontal: 16, vertical: 14),
                         child: Row(
                           children: [
-                            Icon(Icons.storefront_outlined,
-                                color: StorefrontColors.primaryGold, size: 26),
+                            ProximityListAvatar(
+                              imageUrl: m.logoUrl,
+                              label: title,
+                              size: 44,
+                              fallbackIcon: Icons.storefront_outlined,
+                            ),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Commerce Yuztoo',
+                                    title,
                                     style: GoogleFonts.outfit(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
@@ -794,7 +1317,7 @@ class _ClientBleBroadcastScreenState
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${_merchantRssiLabel(m.rssi)} · ${m.rssi} dBm',
+                                    '${_merchantRssiLabel(m.rssi)} · ${m.rssi} dBm · Confirmer',
                                     style: GoogleFonts.outfit(
                                       fontSize: 12,
                                       color: MerchantColors.textGrey,
@@ -803,7 +1326,7 @@ class _ClientBleBroadcastScreenState
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right_rounded,
+                            const Icon(Icons.chevron_right_rounded,
                                 color: MerchantColors.textGrey, size: 22),
                           ],
                         ),
@@ -814,7 +1337,120 @@ class _ClientBleBroadcastScreenState
               );
             },
           ),
+        _buildFollowedMerchantsPickSection(),
       ],
+    );
+  }
+
+  Widget _buildFollowedMerchantsPickSection() {
+    final nearbyIds = _nearbyMerchants.values
+        .map((m) => m.merchantId)
+        .whereType<String>()
+        .toSet();
+    final followedAsync = ref.watch(bleFollowedMerchantsForPickProvider);
+
+    return followedAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (merchants) {
+        final manual = merchants
+            .where((m) => !nearbyIds.contains(m.id))
+            .toList();
+        if (manual.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 20),
+            Text(
+              'Mes commerces suivis',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: MerchantColors.gold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Si le Bluetooth ne détecte pas le commerce (ex. iPhone commerçant), '
+              'sélectionnez-le ici — le commerçant verra la demande dans sa liste.',
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                height: 1.45,
+                color: MerchantColors.textGrey,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: manual.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final merchant = manual[index];
+                final title = merchant.displayName?.trim().isNotEmpty == true
+                    ? merchant.displayName!.trim()
+                    : merchant.name;
+                return Material(
+                  color: MerchantColors.navyCard,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: _pickingMerchant
+                        ? null
+                        : () => unawaited(_onFollowedMerchantTap(merchant)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        children: [
+                          ProximityListAvatar(
+                            imageUrl: merchant.logoUrl,
+                            label: title,
+                            size: 44,
+                            fallbackIcon: Icons.storefront_outlined,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: MerchantColors.textWhite,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Confirmer le passage',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    color: MerchantColors.textGrey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: MerchantColors.textGrey,
+                            size: 22,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 

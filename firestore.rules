@@ -323,27 +323,61 @@ service cloud.firestore {
     function activeValidationSessionPayloadValid() {
       let r = request.resource.data;
       return r.keys().hasAll(['client_uid', 'client_display_name', 'created_at', 'status', 'program_snapshot'])
-        && r.keys().hasOnly([
-            'client_uid', 'client_display_name', 'client_photo_url',
-            'created_at', 'status', 'program_snapshot'
-          ])
         && r.client_display_name is string
         && r.status == 'awaiting'
         && r.created_at is timestamp
         && r.program_snapshot is map
-        && (!r.keys().hasAll(['client_photo_url']) || r.client_photo_url is string);
+        && (!r.keys().hasAll(['client_photo_url']) || r.client_photo_url is string)
+        && (!r.keys().hasAll(['source']) || r.source in ['vitrine', 'ble'])
+        && (!r.keys().hasAll(['client_ble_connected_at']) || r.client_ble_connected_at is timestamp)
+        && (!r.keys().hasAll(['merchant_ble_connected_at']) || r.merchant_ble_connected_at is timestamp)
+        && (!r.keys().hasAll(['merchant_display_name']) || r.merchant_display_name is string);
+    }
+
+    function activeValidationCreateKeysValid() {
+      let r = request.resource.data;
+      return r.keys().hasOnly([
+            'client_uid', 'client_display_name', 'client_photo_url',
+            'created_at', 'status', 'program_snapshot',
+            'source', 'client_ble_connected_at', 'merchant_display_name'
+          ]);
+    }
+
+    function activeValidationBleCreateValid() {
+      let r = request.resource.data;
+      return activeValidationSessionPayloadValid()
+        && activeValidationCreateKeysValid()
+        && r.source == 'ble'
+        && r.keys().hasAll(['client_ble_connected_at']);
+    }
+
+    function activeValidationVitrineCreateValid() {
+      let r = request.resource.data;
+      return activeValidationSessionPayloadValid()
+        && r.keys().hasOnly([
+            'client_uid', 'client_display_name', 'client_photo_url',
+            'created_at', 'status', 'program_snapshot'
+          ]);
     }
 
     function activeValidationCreateValid() {
       let r = request.resource.data;
-      return activeValidationSessionPayloadValid()
-        && r.client_uid == request.auth.uid;
+      return r.client_uid == request.auth.uid
+        && (activeValidationVitrineCreateValid() || activeValidationBleCreateValid());
     }
 
-    // Merchant debug: simulate a client tapping « Demander un passage » on vitrine.
-    function activeValidationMerchantSimulateCreateValid(uid) {
+    // Merchant debug: simulate vitrine request (no BLE fields).
+    function activeValidationMerchantSimulateVitrineCreateValid(uid) {
       let r = request.resource.data;
-      return activeValidationSessionPayloadValid()
+      return activeValidationVitrineCreateValid()
+        && r.client_uid == uid
+        && r.client_uid != request.auth.uid;
+    }
+
+    // Merchant debug: simulate client BLE connection (source=ble + timestamps).
+    function activeValidationMerchantSimulateBleCreateValid(uid) {
+      let r = request.resource.data;
+      return activeValidationBleCreateValid()
         && r.client_uid == uid
         && r.client_uid != request.auth.uid;
     }
@@ -363,6 +397,58 @@ service cloud.firestore {
             .hasOnly(['status', 'cancel_reason']);
     }
 
+    // BLE sessions must be accepted on the merchant device before completion.
+    function activeValidationBleCompleteAllowed() {
+      return !resource.data.keys().hasAll(['source'])
+        || resource.data.source != 'ble'
+        || resource.data.keys().hasAll(['merchant_ble_connected_at']);
+    }
+
+    function merchantMarkBleConnectedValid() {
+      return resource.data.status == 'awaiting'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['merchant_ble_connected_at'])
+        && request.resource.data.merchant_ble_connected_at is timestamp;
+    }
+
+    function merchantMarkOpenedValid() {
+      return resource.data.status == 'awaiting'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['opened_at'])
+        && request.resource.data.opened_at is timestamp;
+    }
+
+    function merchantCompleteActiveValidationValid() {
+      let diff = request.resource.data.diff(resource.data).affectedKeys();
+      return resource.data.status == 'awaiting'
+        && request.resource.data.status == 'completed'
+        && request.resource.data.completed_at is timestamp
+        && diff.hasOnly([
+              'status', 'completed_at', 'result_validated_delta',
+              'result_spend_delta', 'declared_spend_euros'
+            ])
+        && activeValidationBleCompleteAllowed();
+    }
+
+    function merchantCancelActiveValidationValid() {
+      let r = request.resource.data;
+      return resource.data.status == 'awaiting'
+        && r.status == 'cancelled'
+        && r.keys().hasAll(['cancel_reason', 'completed_at'])
+        && r.cancel_reason is string
+        && r.completed_at is timestamp
+        && r.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'cancel_reason', 'completed_at']);
+    }
+
+    function merchantActiveValidationUpdateValid() {
+      let r = request.resource.data;
+      return merchantMarkBleConnectedValid()
+        || merchantMarkOpenedValid()
+        || (r.status == 'completed' && merchantCompleteActiveValidationValid())
+        || (r.status == 'cancelled' && merchantCancelActiveValidationValid());
+    }
+
     match /merchants/{merchantId}/active_validations/{clientUid} {
       allow read: if isSignedIn()
         && (request.auth.uid == clientUid || isMerchantOwner(merchantId));
@@ -370,9 +456,12 @@ service cloud.firestore {
         && (
           (request.auth.uid == clientUid && activeValidationCreateValid())
           || (isMerchantOwner(merchantId)
-              && activeValidationMerchantSimulateCreateValid(clientUid))
+              && activeValidationMerchantSimulateVitrineCreateValid(clientUid))
+          || (isMerchantOwner(merchantId)
+              && activeValidationMerchantSimulateBleCreateValid(clientUid))
         );
-      allow update: if isMerchantOwner(merchantId)
+      allow update: if (isMerchantOwner(merchantId)
+            && merchantActiveValidationUpdateValid())
         || (isSignedIn() && request.auth.uid == clientUid
             && (clientResetActiveValidation() || clientCancelActiveValidation()));
       allow delete: if isMerchantOwner(merchantId)

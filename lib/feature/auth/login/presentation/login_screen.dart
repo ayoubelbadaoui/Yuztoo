@@ -308,12 +308,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     // Check whether this is an existing or brand-new user.
-    final basicsResult = await ref
-        .read(auth_providers.getUserProfileBasicsProvider)
-        .call(authUser.id);
+    // **iPad bug** previously here: a transient Firestore error on the first
+    // read after sign-in (slow auth token propagation, offline cache miss on
+    // cold start) was collapsed into "no profile" by `fold((_) => false, ...)`
+    // — so existing dual-profile users got routed to the "Finaliser votre
+    // inscription" / create-account flow even though their Firestore doc
+    // existed. iPad triggered it consistently; iPhone/Android rarely did
+    // because their Firestore reads usually succeed on the first try.
+    //
+    // Fix: only treat a definitive `Right(null)` as "new user". A `Left`
+    // (error) means "we couldn't check" — retry once with a small backoff,
+    // and on a second failure show an error + sign out instead of silently
+    // re-onboarding the user.
+    bool? hasProfile = await _resolveHasProfile(authUser.id);
     if (!mounted) return;
-
-    final hasProfile = basicsResult.fold((_) => false, (b) => b != null);
+    if (hasProfile == null) {
+      // Both reads failed — refuse to silently treat as new user. Sign out
+      // and let the user retry; their profile is not gone, just unreachable.
+      ref
+          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
+          .state = false;
+      showErrorSnackbar(
+        context,
+        'Impossible de vérifier votre compte. Vérifiez votre connexion et '
+        'réessayez.',
+      );
+      await ref.read(auth_providers.authControllerProvider.notifier).signOut();
+      return;
+    }
     if (hasProfile) {
       // Existing user — unblock the shell and let it drive routing via the
       // auth stream (it was held back by the pending flag set in _signInWithGoogle).
@@ -440,6 +462,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             .refreshAuthState(),
       );
     });
+  }
+
+  /// Returns:
+  ///   • `true`  — Firestore says the user's profile exists (existing user).
+  ///   • `false` — Firestore says no profile (new OAuth user, needs phone).
+  ///   • `null`  — both attempts errored; we genuinely don't know. Caller
+  ///                must NOT treat this as "new user" — that's what was
+  ///                routing iPad users back through onboarding.
+  ///
+  /// Two attempts with a 600ms backoff between them. That's enough to ride
+  /// out a transient Firestore cold-start hiccup on iPad without making
+  /// the user wait noticeably longer when the first read works.
+  Future<bool?> _resolveHasProfile(String uid) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        if (!mounted) return null;
+      }
+      final result = await ref
+          .read(auth_providers.getUserProfileBasicsProvider)
+          .call(uid);
+      if (!mounted) return null;
+      final settled = result.fold<bool?>(
+        (_) => null, // error — try again
+        (basics) => basics != null,
+      );
+      if (settled != null) return settled;
+    }
+    return null;
   }
 
   /// Shows a modal dialog asking the user to enter their phone number.

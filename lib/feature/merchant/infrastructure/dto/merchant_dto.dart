@@ -42,6 +42,7 @@ class MerchantDto {
     this.categoryId,
     this.subcategoryTitle,
     this.gratificationConfigRaw,
+    this.publicFollowersCount = 0,
   });
 
   final String id;
@@ -80,6 +81,9 @@ class MerchantDto {
   final String? subcategoryTitle;
   /// Raw `gratification_config` map from Firestore (parsed in [toDomain]).
   final Map<String, dynamic>? gratificationConfigRaw;
+
+  /// Denormalized follower count (`public_followers_count` on merchant doc).
+  final int publicFollowersCount;
 
   /// Create DTO from Firestore document snapshot.
   factory MerchantDto.fromFirestore(
@@ -173,6 +177,7 @@ class MerchantDto {
           ? Map<String, dynamic>.from(
               data['gratification_config'] as Map)
           : null,
+      publicFollowersCount: nonNegativeInt(data['public_followers_count']),
     );
   }
 
@@ -215,6 +220,7 @@ class MerchantDto {
         gratificationConfig: gratificationConfigRaw != null
             ? ClientGratificationConfig.fromMap(gratificationConfigRaw!)
             : null,
+        publicFollowersCount: publicFollowersCount,
       );
   factory MerchantDto.fromDomain(Merchant merchant) => MerchantDto(
         id: merchant.id,
@@ -253,6 +259,7 @@ class MerchantDto {
         categoryId: merchant.categoryId,
         subcategoryTitle: merchant.subcategoryTitle,
         gratificationConfigRaw: merchant.gratificationConfig?.toMap(),
+        publicFollowersCount: merchant.publicFollowersCount,
       );
   /// Note: 'id' is not included as it's the Firestore document ID.
   Map<String, dynamic> toFirestore() => <String, dynamic>{

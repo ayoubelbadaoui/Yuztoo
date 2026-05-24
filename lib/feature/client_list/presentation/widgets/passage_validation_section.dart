@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../loyalty/application/active_validation_providers.dart';
 import '../../../loyalty/domain/entities/active_validation_request.dart';
-import '../../../loyalty/presentation/active_validation_ui.dart';
+import '../../../loyalty/presentation/merchant_passage_validation_flow.dart';
 import '../../../loyalty/presentation/widgets/merchant_passage_debug_simulate_sheet.dart';
 import '../../../merchant/application/providers.dart' as merchant_providers;
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
@@ -37,6 +37,9 @@ class PassageValidationSection extends ConsumerWidget {
 
     final isManual =
         config.passageValidation == LoyaltyPassageValidation.manual;
+    final awaitingVisible = isManual
+        ? awaiting
+        : awaiting.where((s) => s.isBle).toList();
     final validatedMonth = merchant.rappelsMonthlyValidatedPassages;
 
     return Padding(
@@ -115,25 +118,15 @@ class PassageValidationSection extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 10),
-            if (isManual && awaiting.isEmpty)
+            if (awaitingVisible.isEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                 child: Text(
-                  'Les demandes apparaissent ici en direct quand un client valide '
-                  'son scan sur votre vitrine. Vous recevez aussi une alerte instantanée.',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    height: 1.45,
-                    color: MerchantColors.textLightGrey,
-                  ),
-                ),
-              )
-            else if (!isManual)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                child: Text(
-                  'Validation automatique : utilisez « Valider un passage » (BLE) '
-                  'quand le client est sur place.',
+                  isManual
+                      ? 'Les demandes apparaissent ici en direct quand un client '
+                          'demande un passage sur votre vitrine.'
+                      : 'Sessions BLE en attente : ouvrez « Valider un passage » '
+                          'ou confirmez la détection à proximité.',
                   style: GoogleFonts.outfit(
                     fontSize: 12,
                     height: 1.45,
@@ -142,7 +135,7 @@ class PassageValidationSection extends ConsumerWidget {
                 ),
               )
             else
-              ...awaiting.map(
+              ...awaitingVisible.map(
                 (session) => _AwaitingPassageTile(
                   session: session,
                   merchant: merchant,
@@ -210,7 +203,7 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-class _AwaitingPassageTile extends StatelessWidget {
+class _AwaitingPassageTile extends ConsumerWidget {
   const _AwaitingPassageTile({
     required this.session,
     required this.merchant,
@@ -220,7 +213,7 @@ class _AwaitingPassageTile extends StatelessWidget {
   final Merchant merchant;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final needsSpend = session.programSnapshot.triggerType ==
             LoyaltyTriggerType.purchaseTotal ||
         session.programSnapshot.rewardKind == LoyaltyRewardKind.loyaltyPoints;
@@ -228,10 +221,12 @@ class _AwaitingPassageTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => showMerchantActiveValidationSheet(
+        onTap: () => openMerchantPassageValidation(
+          ref: ref,
           context: context,
           merchant: merchant,
           session: session,
+          connectMerchantBle: session.isBle,
         ),
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),

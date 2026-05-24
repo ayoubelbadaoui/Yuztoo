@@ -83,12 +83,12 @@ void main() {
           ClientNotificationType.bonExpired);
     });
 
-    test('unknown values fall back to promotion (defensive default)', () {
-      // A v2 type 'bon_redeemable' must not crash the v1 parser — the
-      // notification still surfaces, just routed to the storefront
-      // (the existing onMerchantTap branch).
-      expect(toDomain('mystery_future').type,
-          ClientNotificationType.promotion);
+    test('unknown wire values map to auto (generic alert → storefront tap)', () {
+      expect(toDomain('mystery_future').type, ClientNotificationType.auto);
+    });
+
+    test('general maps to auto', () {
+      expect(toDomain('general').type, ClientNotificationType.auto);
     });
   });
 }

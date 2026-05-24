@@ -184,12 +184,15 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
           child: _PromoCard(
             promo: promo,
             onTap: () {
-              // Record that the client opened this promotion.
               ref.read(recordPromoViewsProvider).call(
                     merchantId: promo.merchantId,
                     promotionIds: [promo.id],
                   );
-              widget.onMerchantTap?.call(promo.merchantId);
+              if (widget.onPromotionTap != null) {
+                widget.onPromotionTap!(promo.merchantId, promo.id);
+              } else {
+                widget.onMerchantTap?.call(promo.merchantId);
+              }
             },
           ),
         );
@@ -577,27 +580,32 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
           return _buildDateLabel(entry.label);
         }
         final n = entry as ClientNotification;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-          child: Dismissible(
-            key: ValueKey(n.id),
-            direction: DismissDirection.endToStart,
-            confirmDismiss: (_) => _deleteOne(n),
-            background: Container(
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 20),
-              decoration: BoxDecoration(
-                color: Colors.red[700],
-                borderRadius: BorderRadius.circular(14),
+        final rowKey =
+            _notificationRowKeys.putIfAbsent(n.id, GlobalKey.new);
+        return KeyedSubtree(
+          key: rowKey,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+            child: Dismissible(
+              key: ValueKey(n.id),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (_) => _deleteOne(n),
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                decoration: BoxDecoration(
+                  color: Colors.red[700],
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.delete_outline_rounded,
+                    color: Colors.white, size: 24),
               ),
-              child: const Icon(Icons.delete_outline_rounded,
-                  color: Colors.white, size: 24),
-            ),
-            child: GestureDetector(
-              onLongPress: () => _showActionSheet(context, n),
-              child: _NotificationCard(
-                notification: n,
-                onTap: () => _handleTap(n),
+              child: GestureDetector(
+                onLongPress: () => _showActionSheet(context, n),
+                child: _NotificationCard(
+                  notification: n,
+                  onTap: () => _handleTap(n),
+                ),
               ),
             ),
           ),

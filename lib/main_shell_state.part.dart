@@ -386,12 +386,13 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// Routes a notification tap to the relevant screen based on FCM data payload.
   ///
   /// Priority (see [functions/src/index.ts] `onNotificationCreated` data block):
-  ///  1. `type == promotion` + `merchant_id` → vitrine (optional `promotion_id`)
-  ///  2. `bon_expiring` / `bon_expired` → loyalty tab ("Mes avantages")
-  ///  3. `type == loyalty_passage_request` + merchant → passage sheet (merchant shell)
-  ///  4. `type` contains `loyalty` → loyalty tab
-  ///  5. `type == auto` + `merchant_id` → vitrine (merchant rappel / context)
-  ///  6. Anything else → notifications inbox tab
+  ///  1. Promotion-like type + `merchant_id` + `promotion_id` → vitrine + promo sheet
+  ///  2. Promotion-like type + `merchant_id` without promo id → inbox "Promotions" tab
+  ///  3. `bon_expiring` / `bon_expired` → loyalty tab ("Mes avantages")
+  ///  4. `type == loyalty_passage_request` + merchant → passage sheet (merchant shell)
+  ///  5. `type` contains `loyalty` (but not passage_request) → loyalty tab
+  ///  6. `type == auto` + `merchant_id` → vitrine (merchant rappel / context)
+  ///  7. Anything else → notifications inbox (`notification_id` scroll when present)
   void _handleFcmTap(Map<String, dynamic>? data) {
     if (!mounted) return;
     if (data == null) {
@@ -402,25 +403,37 @@ class _RootShellState extends ConsumerState<_RootShell>
     String fcmStr(String key) {
       final v = data[key];
       if (v == null) return '';
-      final s = v.toString();
-      return s.trim();
+      return v.toString().trim();
+    }
+
+    bool looksLikePromotionType(String t) {
+      if (t.isEmpty) return false;
+      if (t == 'promotion' ||
+          t == 'promotion_created' ||
+          t == 'promo' ||
+          t.startsWith('promotion')) {
+        return true;
+      }
+      return false;
     }
 
     final type = fcmStr('type').toLowerCase();
     final merchantId = fcmStr('merchant_id');
+    final notificationId = fcmStr('notification_id');
 
-    // 'promotion' is the type written by ClientNotificationDto.typeToString.
-    // Previously stored as 'promotion_created' which never matched.
-    if (type == 'promotion' && merchantId.isNotEmpty) {
-      // Carry the promotion id through to the storefront so tapping the
-      // push opens the actual promo detail instead of dumping the user
-      // on the storefront's accueil to hunt for it. Field name matches
-      // the CF payload (`promotion_id`).
+    if (looksLikePromotionType(type) && merchantId.isNotEmpty) {
       final promotionId = fcmStr('promotion_id');
-      _openVitrineForMerchant(
-        merchantId,
-        promotionId: promotionId.isEmpty ? null : promotionId,
-      );
+      if (promotionId.isNotEmpty) {
+        _openVitrineForMerchant(
+          merchantId,
+          promotionId: promotionId,
+        );
+      } else {
+        _openNotificationsScreen(
+          notificationId: notificationId.isEmpty ? null : notificationId,
+          initialInboxTab: 'promos',
+        );
+      }
       return;
     }
 
@@ -439,14 +452,14 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
-    // Merchant auto-notification (rappel) — Firestore uses type `auto` with
-    // merchant_id so the client lands on that commerce, not only the inbox.
     if (type == 'auto' && merchantId.isNotEmpty) {
       _openVitrineForMerchant(merchantId);
       return;
     }
 
-    _openNotificationsScreen();
+    _openNotificationsScreen(
+      notificationId: notificationId.isEmpty ? null : notificationId,
+    );
   }
 
   /// Consumes any pending initial FCM message after the shell is ready.
@@ -991,6 +1004,9 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (!mounted || _activeValidationSheetOpen) return;
     for (final session in queue) {
       if (!session.isAwaiting || session.isExpired) continue;
+      // BLE sessions require explicit merchant proximity confirmation
+      // (detection sheet or « Valider un passage »), not a shell auto-popup.
+      if (session.isBle) continue;
       final key = _activeValidationSessionKey(session);
       if (_handledActiveValidationKeys.contains(key)) continue;
       _handledActiveValidationKeys.add(key);
@@ -1009,7 +1025,8 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
     _activeValidationSheetOpen = true;
-    await showMerchantActiveValidationSheet(
+    await openMerchantPassageValidation(
+      ref: ref,
       context: context,
       merchant: merchant,
       session: session,
@@ -1026,6 +1043,12 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// top of whatever screen the merchant is currently viewing.
   void _onClientDetected(BleClientDetection detection) {
     if (!mounted) return;
+    final merchant =
+        ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
+    if (merchant == null || !isBlePassageAllowedForMerchant(merchant)) {
+      ref.read(bleProximityProvider.notifier).resetAfterDetection();
+      return;
+    }
     HapticFeedback.mediumImpact();
     showModalBottomSheet<void>(
       context: context,
@@ -1500,8 +1523,27 @@ class _RootShellState extends ConsumerState<_RootShell>
     _persistSessionRole();
   }
 
-  void _openNotificationsScreen() {
-    // Notifications is a first-class tab for clients – navigate to it as a tab.
+  void _openNotificationsScreen({
+    String? notificationId,
+    String initialInboxTab = 'alertes',
+  }) {
+    final nid = notificationId?.trim() ?? '';
+    final hasScrollTarget = nid.isNotEmpty;
+    final nonDefaultTab = initialInboxTab != 'alertes';
+    if (hasScrollTarget || nonDefaultTab) {
+      ref.read(client_notification_providers.notificationInboxDeepLinkProvider
+              .notifier)
+          .state = client_notification_providers.NotificationInboxDeepLink(
+        initialTab:
+            initialInboxTab == 'promos' ? 'promos' : 'alertes',
+        notificationId: hasScrollTarget ? nid : null,
+      );
+    } else {
+      ref
+          .read(client_notification_providers
+              .notificationInboxDeepLinkProvider.notifier)
+          .state = null;
+    }
     setState(() {
       _authScreen = ScreenId.notifications;
       _activeTab = 'notifications';
@@ -1634,9 +1676,13 @@ class _RootShellState extends ConsumerState<_RootShell>
     // Keep provider alive (listening is in initState via listenManual)
     ref.watch(authControllerProvider);
 
-    // Get current screen for key and styling
+    // Get current screen for key and styling. When [_authScreen] is null
+    // (transient [AuthLoading] — see [_handleAuthStateChange]), fall back to
+    // splash so we keep the branded loading surface instead of coercing to
+    // role selection (which broke styling and could feel like a "white" or
+    // wrong first paint during slow auth refresh).
     final currentScreen =
-        _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
+        _nestedScreen ?? _authScreen ?? ScreenId.splash;
 
     // Sharper transitions: key forces AnimatedSwitcher to run transition when screen changes,
     // shorter duration reduces fuzzy crossfade, no layout scaling.
@@ -1865,10 +1911,10 @@ class _RootShellState extends ConsumerState<_RootShell>
   }
 
   Widget _buildScreen() {
-    // Determine current screen: nested screen takes priority, then auth screen
-    // Fallback to role selection if auth screen is null (shouldn't happen, but safety)
+    // Nested wins, then auth route. Null [_authScreen] = auth loading surface
+    // (same fallback as [build] — must stay splash, not role selection).
     final currentScreen =
-        _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
+        _nestedScreen ?? _authScreen ?? ScreenId.splash;
 
     switch (currentScreen) {
       case ScreenId.splash:
@@ -2232,20 +2278,28 @@ class _RootShellState extends ConsumerState<_RootShell>
         return IdentificationSecurityScreen(
           onBack: _handleBackFromNested,
           onAccountDeleted: () {
+            if (!mounted) return;
             setState(() {
               _nestedScreen = null;
-              _authScreen = ScreenId.login;
+              _role = null;
+              _authScreen = ScreenId.roleSelection;
             });
+            unawaited(_stopMerchantRealtimeServices());
+            unawaited(_clearAuthTransientDrafts());
           },
         );
       case ScreenId.merchantDataPrivacy:
         return DataPrivacyScreen(
           onBack: _handleBackFromNested,
           onAccountDeleted: () {
+            if (!mounted) return;
             setState(() {
               _nestedScreen = null;
-              _authScreen = ScreenId.login;
+              _role = null;
+              _authScreen = ScreenId.roleSelection;
             });
+            unawaited(_stopMerchantRealtimeServices());
+            unawaited(_clearAuthTransientDrafts());
           },
         );
       case ScreenId.merchantProfileSummary:

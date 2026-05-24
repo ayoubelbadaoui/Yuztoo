@@ -44,6 +44,7 @@ class Merchant extends Equatable {
     this.categoryId,
     this.subcategoryTitle,
     this.gratificationConfig,
+    this.publicFollowersCount = 0,
   });
 
   /// Unique identifier for the merchant document
@@ -140,6 +141,9 @@ class Merchant extends Equatable {
   /// Falls back to [ClientGratificationConfig.defaults] when null.
   final ClientGratificationConfig? gratificationConfig;
 
+  /// Server-maintained: Firestore `public_followers_count` (vitrine "Suivi").
+  final int publicFollowersCount;
+
   /// Returns the effective gratification config (never null).
   ClientGratificationConfig get effectiveGratificationConfig =>
       gratificationConfig ?? ClientGratificationConfig.defaults;
@@ -221,6 +225,7 @@ class Merchant extends Equatable {
         categoryId,
         subcategoryTitle,
         gratificationConfig,
+        publicFollowersCount,
       ];
 
   /// Creates a copy of the merchant with updated fields
@@ -259,6 +264,7 @@ class Merchant extends Equatable {
     String? categoryId,
     String? subcategoryTitle,
     ClientGratificationConfig? gratificationConfig,
+    int? publicFollowersCount,
   }) {
     return Merchant(
       id: id ?? this.id,
@@ -300,6 +306,8 @@ class Merchant extends Equatable {
       categoryId: categoryId ?? this.categoryId,
       subcategoryTitle: subcategoryTitle ?? this.subcategoryTitle,
       gratificationConfig: gratificationConfig ?? this.gratificationConfig,
+      publicFollowersCount:
+          publicFollowersCount ?? this.publicFollowersCount,
     );
   }
 

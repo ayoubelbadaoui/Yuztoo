@@ -18,10 +18,15 @@ const int kBleRequiredHits = 3;
 
 /// Resolved information about a nearby client, ready for the confirmation UI.
 class BleClientDetection {
-  const BleClientDetection({required this.clientId, this.displayName});
+  const BleClientDetection({
+    required this.clientId,
+    this.displayName,
+    this.photoUrl,
+  });
 
   final String clientId;
   final String? displayName;
+  final String? photoUrl;
 }
 
 enum BleProximityMode { idle, client, merchant }
@@ -115,18 +120,62 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
   /// owns the radio exclusively) — [resetAfterDetection] will not restart scan.
   int _shellScanSuspendCount = 0;
 
+  /// Client uid last passed to [startAsClient] — used to resume after suspend.
+  String? _lastClientUid;
+
+  /// When positive, [ClientBleBroadcastScreen] owns client advertising.
+  int _shellClientBroadcastSuspendCount = 0;
+
   // ─── Public API ────────────────────────────────────────────────────────────
 
   /// Starts BLE advertising so nearby merchant apps can detect this client.
   /// Safe to call repeatedly — stops any existing mode first.
   Future<void> startAsClient(String uid) async {
     if (uid.isEmpty) return;
-    await _stopInternal();
+    _lastClientUid = uid;
+    await _stopInternal(keepClientSuspendCount: true);
     final ok = await _startBroadcast(uid);
     if (!mounted) return;
     if (ok) {
       state = const BleProximityState(
           mode: BleProximityMode.client, isRunning: true);
+    }
+  }
+
+  /// Pauses shell client advertising while [ClientBleBroadcastScreen] runs.
+  Future<void> suspendShellClientBroadcast() async {
+    _shellClientBroadcastSuspendCount++;
+    if (_shellClientBroadcastSuspendCount != 1) return;
+    if (state.mode != BleProximityMode.client) return;
+    await BleProximityService.stopClientBroadcast();
+    if (mounted) {
+      state = const BleProximityState(
+        mode: BleProximityMode.client,
+        isRunning: false,
+      );
+    }
+  }
+
+  /// Restores shell client advertising after [suspendShellClientBroadcast].
+  Future<void> resumeShellClientBroadcast() async {
+    if (_shellClientBroadcastSuspendCount > 0) {
+      _shellClientBroadcastSuspendCount--;
+    }
+    if (_shellClientBroadcastSuspendCount < 0) {
+      _shellClientBroadcastSuspendCount = 0;
+    }
+    if (_shellClientBroadcastSuspendCount != 0) return;
+    if (!mounted) return;
+    if (state.mode != BleProximityMode.client) return;
+    final uid = _lastClientUid;
+    if (uid == null || uid.isEmpty) return;
+    final ok = await _startBroadcast(uid);
+    if (!mounted) return;
+    if (ok) {
+      state = const BleProximityState(
+        mode: BleProximityMode.client,
+        isRunning: true,
+      );
     }
   }
 
@@ -314,6 +363,7 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
     }
 
     String? displayName;
+    String? photoUrl;
     try {
       final doc =
           await _firestore.collection('users').doc(clientId).get();
@@ -322,15 +372,22 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
           ? (data!['displayName'] as String).trim()
           : (data?['display_name'] as String?)?.trim();
       if (raw?.isNotEmpty == true) displayName = raw;
+      final photo = (data?['photoUrl'] as String?)?.trim();
+      if (photo != null && photo.isNotEmpty) photoUrl = photo;
     } catch (_) {}
 
     if (!_detectedController.isClosed) {
-      _detectedController
-          .add(BleClientDetection(clientId: clientId, displayName: displayName));
+      _detectedController.add(
+        BleClientDetection(
+          clientId: clientId,
+          displayName: displayName,
+          photoUrl: photoUrl,
+        ),
+      );
     }
   }
 
-  Future<void> _stopInternal() async {
+  Future<void> _stopInternal({bool keepClientSuspendCount = false}) async {
     await BleProximityService.stopClientBroadcast();
     await _stopScan();
     await _scanSub?.cancel();
@@ -338,6 +395,9 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
     _hitCount.clear();
     _triggered = false;
     _shellScanSuspendCount = 0;
+    if (!keepClientSuspendCount) {
+      _shellClientBroadcastSuspendCount = 0;
+    }
     if (mounted) state = const BleProximityState();
   }
 

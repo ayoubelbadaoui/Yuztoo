@@ -47,7 +47,10 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                               MaterialPageRoute<void>(
                                 builder: (ctx) => DataPrivacyScreen(
                                   onBack: () => Navigator.of(ctx).pop(),
-                                  onAccountDeleted: () => Navigator.of(ctx).pop(),
+                                  onAccountDeleted: () {
+                                    Navigator.of(ctx)
+                                        .popUntil((route) => route.isFirst);
+                                  },
                                 ),
                               ),
                             );

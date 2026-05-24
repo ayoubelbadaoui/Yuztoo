@@ -19,6 +19,22 @@ abstract class ActiveValidationRepository {
     required LoyaltyProgramConfig programSnapshot,
   });
 
+  /// BLE: client tapped a nearby merchant — creates session with BLE metadata.
+  Future<Result<void>> createBleSession({
+    required String merchantId,
+    required String clientUid,
+    required String clientDisplayName,
+    String? clientPhotoUrl,
+    required LoyaltyProgramConfig programSnapshot,
+    required String merchantDisplayName,
+  });
+
+  /// BLE: merchant tapped client row — stamps merchant-side connection time.
+  Future<Result<void>> markMerchantBleConnected({
+    required String merchantId,
+    required String clientUid,
+  });
+
   /// Streams the client's own session for a given merchant (null when no doc).
   /// Used by the loyalty card banner and the storefront waiting sheet.
   Stream<ActiveValidationRequest?> watchClientSession({
