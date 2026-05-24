@@ -24,13 +24,34 @@ class AppBootstrap extends ConsumerWidget {
       loading: () => const MaterialApp(
         home: LoadingScreen(),
       ),
-      error: (error, _) => MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Text('Impossible d\'initialiser Firebase : $error'),
+      error: (error, _) {
+        const bg = Color(0xFF0E2A44);
+        return MaterialApp(
+          theme: ThemeData(
+            useMaterial3: true,
+            scaffoldBackgroundColor: bg,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFFC9A227),
+              brightness: Brightness.dark,
+            ),
           ),
-        ),
-      ),
+          home: Scaffold(
+            backgroundColor: bg,
+            body: SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Impossible d\'initialiser Firebase : $error',
+                    style: const TextStyle(color: Colors.white70, fontSize: 15),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

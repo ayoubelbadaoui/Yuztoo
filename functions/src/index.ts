@@ -64,6 +64,75 @@ async function deleteCollectionGroupDocsWhereIdEquals(
   }
 }
 
+/** Merchant-scoped loyalty docs keyed by client uid (doc id = uid). */
+const MERCHANT_CLIENT_SUBCOLLECTIONS = [
+  "loyalty_clients",
+  "pending_clients",
+  "active_validations",
+  "clients",
+] as const;
+
+/**
+ * Fallback when collection-group-by-document-id queries fail (missing index).
+ * Deletes known paths for merchants the user still follows / followed.
+ */
+async function deleteMerchantClientDocsForUidViaFollows(uid: string): Promise<void> {
+  const merchantIds = new Set<string>();
+  try {
+    const followedSnap = await db
+      .collection("users")
+      .doc(uid)
+      .collection("followed_merchants")
+      .get();
+    for (const doc of followedSnap.docs) {
+      merchantIds.add(doc.id);
+    }
+  } catch (e) {
+    functions.logger.warn("purgeAccount: followed_merchants read failed", {
+      uid,
+      error: e,
+    });
+  }
+
+  try {
+    const userDoc = await db.collection("users").doc(uid).get();
+    const ownMerchantId = (userDoc.data()?.merchant_id as string | undefined)?.trim();
+    if (ownMerchantId) merchantIds.add(ownMerchantId);
+  } catch (e) {
+    functions.logger.warn("purgeAccount: user doc read for merchant_id failed", {
+      uid,
+      error: e,
+    });
+  }
+
+  await processInChunks(Array.from(merchantIds), 12, async (merchantId) => {
+    for (const sub of MERCHANT_CLIENT_SUBCOLLECTIONS) {
+      try {
+        await db
+          .collection("merchants")
+          .doc(merchantId)
+          .collection(sub)
+          .doc(uid)
+          .delete();
+      } catch (e) {
+        functions.logger.warn("purgeAccount: merchant client doc delete failed", {
+          uid,
+          merchantId,
+          sub,
+          error: e,
+        });
+      }
+    }
+  });
+}
+
+async function deleteAllMerchantClientFootprintForUid(uid: string): Promise<void> {
+  for (const collectionId of MERCHANT_CLIENT_SUBCOLLECTIONS) {
+    await deleteCollectionGroupDocsWhereIdEquals(collectionId, uid);
+  }
+  await deleteMerchantClientDocsForUidViaFollows(uid);
+}
+
 /** Best-effort wipe of all Storage objects under a path prefix. */
 async function deleteStoragePrefix(prefix: string): Promise<void> {
   if (!prefix.endsWith("/")) {
@@ -761,6 +830,53 @@ export const onFollowedMerchantDeleted = functions
     const { clientId, merchantId } = context.params;
     if (clientId === merchantId) return null;
     await adjustMerchantPublicFollowersCount(merchantId, -1);
+    return null;
+  });
+
+// ─── 2a. Expire stale passage-validation sessions ───────────────────────────
+
+/** Matches [ActiveValidationRequest.isExpired] in the Flutter app (15 minutes). */
+const ACTIVE_VALIDATION_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Cancels `awaiting` active_validations older than 15 minutes so merchant
+ * queues stay clean and clients are not stuck forever.
+ *
+ * Index: collection-group `active_validations` on (status, created_at).
+ */
+export const cleanupStaleActiveValidations = functions
+  .region("europe-west1")
+  .pubsub.schedule("every 15 minutes")
+  .timeZone("Europe/Paris")
+  .onRun(async () => {
+    const cutoff = admin.firestore.Timestamp.fromMillis(
+      Date.now() - ACTIVE_VALIDATION_TTL_MS
+    );
+    let total = 0;
+    for (;;) {
+      const snap = await db
+        .collectionGroup("active_validations")
+        .where("status", "==", "awaiting")
+        .where("created_at", "<", cutoff)
+        .limit(200)
+        .get();
+      if (snap.empty) break;
+
+      const batch = db.batch();
+      for (const doc of snap.docs) {
+        batch.update(doc.ref, {
+          status: "cancelled",
+          cancel_reason: "session_expired",
+          completed_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+      total += snap.size;
+      if (snap.size < 200) break;
+    }
+    if (total > 0) {
+      functions.logger.info("cleanupStaleActiveValidations", { total });
+    }
     return null;
   });
 
@@ -2013,10 +2129,7 @@ export const purgeAccount = functions
     }
 
     // 2) Merchant-scoped footprint for this uid (any merchant, not only current follows).
-    await deleteCollectionGroupDocsWhereIdEquals("loyalty_clients", uid);
-    await deleteCollectionGroupDocsWhereIdEquals("pending_clients", uid);
-    await deleteCollectionGroupDocsWhereIdEquals("active_validations", uid);
-    await deleteCollectionGroupDocsWhereIdEquals("clients", uid);
+    await deleteAllMerchantClientFootprintForUid(uid);
 
     // 2b) GDPR queue doc (rules disallow client delete; Admin SDK removes it here).
     try {

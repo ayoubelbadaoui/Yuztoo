@@ -10,14 +10,13 @@ import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../../merchant/domain/entities/merchant.dart';
 import '../../../storefront/presentation/widgets/storefront_colors.dart';
 import '../../application/active_validation_providers.dart';
+import '../../application/client_loyalty_providers.dart';
 import '../../domain/entities/active_validation_request.dart';
+import '../../domain/loyalty_passage_program_policy.dart';
 import '../../infrastructure/active_validation_repository_provider.dart';
 
-/// Modal bottom sheet shown on the merchant's phone the moment a client taps
-/// "Demander un passage" on the merchant's vitrine. Renders a per-program
-/// smart form (spend input or visit-only confirm) driven by the session's
-/// `programSnapshot` so an in-flight request is grandfathered against
-/// merchant config edits.
+/// Modal bottom sheet for merchant passage validation. Form rules use the same
+/// programme resolution as [ConfirmActiveValidation] (enrolled, else snapshot).
 class ActiveValidationSheet extends ConsumerStatefulWidget {
   const ActiveValidationSheet({
     super.key,
@@ -38,7 +37,23 @@ class _ActiveValidationSheetState extends ConsumerState<ActiveValidationSheet> {
   bool _submitting = false;
   String? _error;
 
-  LoyaltyProgramConfig get _config => widget.session.programSnapshot;
+  LoyaltyProgramConfig get _config {
+    final progress = ref
+        .watch(
+          merchantClientLoyaltyProgressProvider(
+            (
+              merchantId: widget.merchant.id,
+              clientUid: widget.session.clientUid,
+            ),
+          ),
+        )
+        .valueOrNull;
+    return resolveLoyaltyProgramForPassage(
+      merchant: widget.merchant,
+      session: widget.session,
+      clientProgress: progress,
+    );
+  }
 
   bool get _spendRequired =>
       _config.triggerType == LoyaltyTriggerType.purchaseTotal ||

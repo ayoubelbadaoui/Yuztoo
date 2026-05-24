@@ -7,33 +7,133 @@ import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/failure.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/core/infrastructure/ble_proximity_notifier.dart';
-import 'package:flutter_yuztoo/feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
+import 'package:flutter_yuztoo/core/shared/widgets/proximity_list_avatar.dart';
+import 'package:flutter_yuztoo/feature/loyalty/application/active_validation_providers.dart';
+import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/accept_ble_passage_as_merchant.dart';
+import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/prepare_merchant_passage_validation.dart';
+import 'package:flutter_yuztoo/feature/loyalty/presentation/merchant_passage_validation_flow.dart';
+import 'package:flutter_yuztoo/feature/loyalty/domain/entities/active_validation_request.dart';
+import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/active_validation_repository.dart';
 import 'package:flutter_yuztoo/feature/merchant/application/providers.dart'
     as merchant_providers;
-import 'package:flutter_yuztoo/feature/merchant/application/use_cases/merchant_record_client_passage.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/loyalty/domain/failures/ble_passage_failure.dart';
+import 'package:flutter_yuztoo/feature/loyalty/infrastructure/active_validation_repository_provider.dart';
 import 'package:flutter_yuztoo/feature/merchant/presentation/widgets/ble_client_detection_sheet.dart';
 import 'package:flutter_yuztoo/l10n/app_localizations.dart';
 
-// ─── Fakes ────────────────────────────────────────────────────────────────────
-
-class _FakePassageUseCase extends Fake implements MerchantRecordClientPassage {
+class _FakeAcceptBle extends Fake implements AcceptBlePassageAsMerchant {
   int callCount = 0;
   bool shouldFail = false;
 
   @override
-  Future<Result<ClientMerchantLoyaltyProgress>> call({
+  Future<Result<ActiveValidationRequest>> call({
+    required String merchantId,
     required String clientUid,
-    required Merchant merchant,
-    double? purchaseAmountEuros,
+    required ActiveValidationRequest? existingSession,
   }) async {
     callCount++;
     if (shouldFail) {
-      return const Left(UnexpectedFailure(message: 'erreur simulée'));
+      return const Left(
+        BlePassageSessionFailure('erreur simulée'),
+      );
     }
-    return const Right(ClientMerchantLoyaltyProgress.empty());
+    return Right(
+      ActiveValidationRequest(
+        merchantId: merchantId,
+        clientUid: clientUid,
+        clientDisplayName: 'Alice',
+        status: ActiveValidationStatus.awaiting,
+        programSnapshot: const LoyaltyProgramConfig(programEnabled: true),
+        source: ActiveValidationSource.ble,
+        merchantBleConnectedAt: DateTime(2026, 1, 1),
+      ),
+    );
   }
+}
+
+class _FakeActiveValidationRepo implements ActiveValidationRepository {
+  @override
+  Stream<ActiveValidationRequest?> watchClientSession({
+    required String merchantId,
+    required String clientUid,
+  }) =>
+      Stream<ActiveValidationRequest?>.value(
+        ActiveValidationRequest(
+          merchantId: merchantId,
+          clientUid: clientUid,
+          clientDisplayName: 'Alice',
+          status: ActiveValidationStatus.awaiting,
+          programSnapshot: const LoyaltyProgramConfig(programEnabled: true),
+          source: ActiveValidationSource.ble,
+          clientBleConnectedAt: DateTime(2026, 1, 1),
+        ),
+      );
+
+  @override
+  Future<Result<void>> cancelByClient({
+    required String merchantId,
+    required String clientUid,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> cancelByMerchant({
+    required String merchantId,
+    required String clientUid,
+    String? reason,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> completeSession({
+    required String merchantId,
+    required String clientUid,
+    int? resultValidatedDelta,
+    double? resultSpendDelta,
+    double? declaredSpendEuros,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> createBleSession({
+    required String merchantId,
+    required String clientUid,
+    required String clientDisplayName,
+    String? clientPhotoUrl,
+    required LoyaltyProgramConfig programSnapshot,
+    required String merchantDisplayName,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> createForClient({
+    required String merchantId,
+    required String clientUid,
+    required String clientDisplayName,
+    String? clientPhotoUrl,
+    required LoyaltyProgramConfig programSnapshot,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> markMerchantBleConnected({
+    required String merchantId,
+    required String clientUid,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> markOpened({
+    required String merchantId,
+    required String clientUid,
+  }) async =>
+      const Right(null);
+
+  @override
+  Stream<List<ActiveValidationRequest>> watchMerchantQueue(String merchantId) =>
+      Stream<List<ActiveValidationRequest>>.value(const []);
 }
 
 const _kTestMerchant = Merchant(
@@ -44,30 +144,33 @@ const _kTestMerchant = Merchant(
   phone: '+33600000000',
   city: 'Paris',
   status: 'active',
-  // The BLE detection sheet hides the "Confirmer le passage" button when
-  // `_merchantLoyaltyLive` returns false (i.e. the merchant hasn't enabled
-  // loyalty). The test fixture needs loyalty live to exercise the confirm path.
   loyaltyEnabled: true,
   loyaltyProgram: LoyaltyProgramConfig(programEnabled: true),
 );
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 Widget _buildSheet({
   required BleClientDetection detection,
   required Merchant? merchant,
-  MerchantRecordClientPassage? useCase,
+  AcceptBlePassageAsMerchant? acceptUseCase,
   VoidCallback? onDismiss,
 }) {
-  final fakeUseCase = useCase ?? _FakePassageUseCase();
+  final fakeAccept = acceptUseCase ?? _FakeAcceptBle();
 
   return ProviderScope(
     overrides: [
       merchant_providers.currentMerchantForOwnerProvider.overrideWith(
         (_) async => merchant,
       ),
-      merchant_providers.merchantRecordClientPassageProvider
-          .overrideWithValue(fakeUseCase),
+      acceptBlePassageAsMerchantProvider.overrideWithValue(fakeAccept),
+      prepareMerchantPassageValidationProvider.overrideWith(
+        (ref) => PrepareMerchantPassageValidation(fakeAccept),
+      ),
+      showMerchantPassageValidationSheetProvider.overrideWith(
+        (ref) =>
+            ({required context, required merchant, required session}) async {},
+      ),
+      activeValidationRepositoryProvider
+          .overrideWithValue(_FakeActiveValidationRepo()),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -82,12 +185,8 @@ Widget _buildSheet({
   );
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
 void main() {
   group('BleClientDetectionSheet', () {
-    // ── Rendering ───────────────────────────────────────────────────────────
-
     testWidgets('shows client display name when provided', (tester) async {
       await tester.pumpWidget(_buildSheet(
         detection: const BleClientDetection(
@@ -122,22 +221,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // "Jean Martin" → initials "JM"
-      expect(find.text('JM'), findsOneWidget);
-    });
-
-    testWidgets('shows single-letter initial for single-word name',
-        (tester) async {
-      await tester.pumpWidget(_buildSheet(
-        detection: const BleClientDetection(
-          clientId: 'uid-4',
-          displayName: 'Camille',
-        ),
-        merchant: _kTestMerchant,
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('C'), findsOneWidget);
+      expect(find.byType(ProximityListAvatar), findsOneWidget);
     });
 
     testWidgets('shows "Client à proximité" label', (tester) async {
@@ -163,8 +247,6 @@ void main() {
 
     testWidgets('shows loading indicator while merchant is loading',
         (tester) async {
-      // Completer that never completes — simulates perpetual loading without
-      // leaving a pending timer that would fail the test teardown assertion.
       final slowProvider =
           merchant_providers.currentMerchantForOwnerProvider.overrideWith(
         (_) => Completer<Merchant?>().future,
@@ -174,8 +256,17 @@ void main() {
         ProviderScope(
           overrides: [
             slowProvider,
-            merchant_providers.merchantRecordClientPassageProvider
-                .overrideWithValue(_FakePassageUseCase()),
+            acceptBlePassageAsMerchantProvider
+                .overrideWithValue(_FakeAcceptBle()),
+            prepareMerchantPassageValidationProvider.overrideWith(
+              (ref) => PrepareMerchantPassageValidation(_FakeAcceptBle()),
+            ),
+            showMerchantPassageValidationSheetProvider.overrideWith(
+              (ref) =>
+                  ({required context, required merchant, required session}) async {},
+            ),
+            activeValidationRepositoryProvider
+                .overrideWithValue(_FakeActiveValidationRepo()),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -189,12 +280,10 @@ void main() {
           ),
         ),
       );
-      await tester.pump(); // one frame — merchant not yet resolved
+      await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsWidgets);
     });
-
-    // ── Ignore path ─────────────────────────────────────────────────────────
 
     testWidgets('tapping Ignorer calls onDismiss', (tester) async {
       var dismissed = false;
@@ -212,10 +301,8 @@ void main() {
       expect(dismissed, isTrue);
     });
 
-    // ── Confirm path ────────────────────────────────────────────────────────
-
-    testWidgets('tapping Confirmer calls the passage use case', (tester) async {
-      final fakeUseCase = _FakePassageUseCase();
+    testWidgets('tapping Confirmer calls accept BLE use case', (tester) async {
+      final fakeAccept = _FakeAcceptBle();
 
       await tester.pumpWidget(_buildSheet(
         detection: const BleClientDetection(
@@ -223,28 +310,29 @@ void main() {
           displayName: 'Alice',
         ),
         merchant: _kTestMerchant,
-        useCase: fakeUseCase,
+        acceptUseCase: fakeAccept,
       ));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Confirmer le passage'));
       await tester.pumpAndSettle();
 
-      expect(fakeUseCase.callCount, 1);
+      expect(fakeAccept.callCount, 1);
     });
 
-    testWidgets('failed confirmation shows error message', (tester) async {
-      final fakeUseCase = _FakePassageUseCase()..shouldFail = true;
+    testWidgets('failed confirmation shows snackbar error', (tester) async {
+      final fakeAccept = _FakeAcceptBle()..shouldFail = true;
 
       await tester.pumpWidget(_buildSheet(
         detection: const BleClientDetection(clientId: 'uid-10'),
         merchant: _kTestMerchant,
-        useCase: fakeUseCase,
+        acceptUseCase: fakeAccept,
       ));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Confirmer le passage'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('erreur simulée'), findsOneWidget);
     });

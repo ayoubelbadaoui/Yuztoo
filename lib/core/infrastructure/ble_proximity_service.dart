@@ -203,6 +203,15 @@ class BleProximityService {
       }
       _merchantBeaconWriteHandler = onClientUidWritten;
 
+      // iOS: tear down any prior peripheral session (client broadcast or a
+      // failed beacon) before CBPeripheralManager starts — avoids native crashes
+      // when central (flutter_blue_plus) and peripheral init race each other.
+      await stopMerchantBeacon();
+      await stopClientBroadcast();
+      if (Platform.isIOS) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      }
+
       await peripheral.BlePeripheral.initialize();
       await peripheral.BlePeripheral.clearServices();
 
@@ -586,6 +595,53 @@ class BleProximityService {
     try {
       await FlutterBluePlus.stopScan();
     } catch (_) {}
+  }
+
+  /// Connects to a merchant beacon [device], reads the merchant document id
+  /// from the readable characteristic, then disconnects.
+  static Future<String?> readMerchantIdFromBeacon(BluetoothDevice device) async {
+    final deviceId = device.remoteId.str;
+    try {
+      await device.connect(timeout: const Duration(seconds: 12));
+      final services = await device.discoverServices();
+      BluetoothService? beacon;
+      for (final s in services) {
+        if (s.serviceUuid == Guid(merchantBeaconServiceUuid)) {
+          beacon = s;
+          break;
+        }
+      }
+      if (beacon == null) {
+        await device.disconnect();
+        return null;
+      }
+      BluetoothCharacteristic? merchantIdChar;
+      for (final c in beacon.characteristics) {
+        if (c.characteristicUuid == Guid(merchantBeaconMerchantIdCharUuid)) {
+          merchantIdChar = c;
+          break;
+        }
+      }
+      if (merchantIdChar == null) {
+        await device.disconnect();
+        return null;
+      }
+      final bytes = await merchantIdChar.read();
+      await device.disconnect();
+      final result = String.fromCharCodes(bytes).trim();
+      return result.isEmpty ? null : result;
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE readMerchantIdFromBeacon — failed',
+        error: e,
+        stackTrace: st,
+        context: <String, Object?>{'deviceId': deviceId},
+      );
+      try {
+        await device.disconnect();
+      } catch (_) {}
+      return null;
+    }
   }
 
   /// Connects to [device], reads the clientId GATT characteristic, then

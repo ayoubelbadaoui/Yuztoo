@@ -47,20 +47,18 @@ class _LoyaltyConfigurationWizardState
   void initState() {
     super.initState();
     final start = widget.initialStep.clamp(0, _pageCount - 1);
+    final maxVisited =
+        widget.editingFromRecap ? _pageCount - 1 : start;
     _pageIndex = start;
-    _maxStepVisited = start;
-    ref.read(loyaltyWizardMaxStepVisitedProvider.notifier).state = start;
-    if (widget.editingFromRecap) {
+    _maxStepVisited = maxVisited;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.read(loyaltyWizardMaxStepVisitedProvider.notifier).state =
-          _pageCount - 1;
-      _maxStepVisited = _pageCount - 1;
-    }
-    if (start > 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+          maxVisited;
+      if (start > 0) {
         _pageController.jumpToPage(start);
-      });
-    }
+      }
+    });
   }
 
   static const _stepTitles = [

@@ -5,7 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/infrastructure/ble_proximity_notifier.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
-import '../../../loyalty/presentation/widgets/merchant_spend_amount_dialog.dart';
+import '../../../../core/shared/widgets/proximity_list_avatar.dart';
+import '../../../loyalty/domain/entities/active_validation_request.dart';
+import '../../../loyalty/domain/loyalty_passage_program_policy.dart';
+import '../../../loyalty/infrastructure/active_validation_repository_provider.dart';
+import '../../../loyalty/presentation/merchant_passage_validation_flow.dart';
 import '../../../storefront/presentation/widgets/storefront_colors.dart';
 import '../../application/providers.dart' as merchant_providers;
 import '../../domain/entities/merchant.dart';
@@ -43,36 +47,12 @@ class _BleClientDetectionSheetState
           ? widget.detection.displayName!
           : 'Client';
 
-  String get _initials {
-    final parts = _clientName.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2) {
-      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-    }
-    return _clientName.isNotEmpty ? _clientName[0].toUpperCase() : '?';
-  }
-
   void _ignore() {
     Navigator.of(context).pop();
     widget.onDismiss();
   }
 
   Future<void> _confirm(Merchant merchant) async {
-    final config = merchant.loyaltyProgram;
-    final needsAmount = config?.effectiveAskClientPurchaseAmount ?? false;
-    final double? minimumPerVisitEuros = (config?.minimumPerVisitEnabled ?? false)
-        ? config?.minimumPerVisitEuros
-        : null;
-
-    double? amount;
-    if (needsAmount) {
-      amount = await showMerchantSpendAmountDialog(
-        context,
-        minimumPerVisitEuros: minimumPerVisitEuros,
-      );
-      if (!mounted) return;
-      if (amount == null) return; // cancelled — keep sheet open
-    }
-
     setState(() {
       _isConfirming = true;
       _errorMessage = null;
@@ -80,35 +60,51 @@ class _BleClientDetectionSheetState
 
     HapticFeedback.mediumImpact();
 
-    final useCase =
-        ref.read(merchant_providers.merchantRecordClientPassageProvider);
-    final result = await useCase.call(
-      clientUid: widget.detection.clientId,
+    ActiveValidationRequest? session;
+    try {
+      session = await ref
+          .read(activeValidationRepositoryProvider)
+          .watchClientSession(
+            merchantId: merchant.id,
+            clientUid: widget.detection.clientId,
+          )
+          .first;
+    } catch (_) {
+      session = null;
+    }
+
+    if (!mounted) return;
+
+    if (session == null) {
+      setState(() {
+        _isConfirming = false;
+        _errorMessage =
+            'Le client doit d\'abord confirmer la connexion sur son téléphone.';
+      });
+      return;
+    }
+
+    final opened = await openMerchantPassageValidation(
+      ref: ref,
+      context: context,
       merchant: merchant,
-      purchaseAmountEuros: amount,
+      session: session,
+      connectMerchantBle: true,
     );
 
     if (!mounted) return;
 
-    result.fold(
-      (failure) {
-        setState(() {
-          _isConfirming = false;
-          _errorMessage = failure.message;
-        });
-      },
-      (_) {
-        HapticFeedback.heavyImpact();
-        Navigator.of(context).pop();
-        widget.onDismiss();
-      },
-    );
+    setState(() => _isConfirming = false);
+
+    if (opened) {
+      Navigator.of(context).pop();
+      widget.onDismiss();
+    }
   }
 
-  bool _merchantLoyaltyLive(Merchant? m) {
+  bool _merchantBlePassageAllowed(Merchant? m) {
     if (m == null) return false;
-    return m.loyaltyEnabled &&
-        (m.loyaltyProgram?.programEnabled ?? m.loyaltyEnabled);
+    return isBlePassageAllowedForMerchant(m);
   }
 
   @override
@@ -117,7 +113,7 @@ class _BleClientDetectionSheetState
         ref.watch(merchant_providers.currentMerchantForOwnerProvider);
     final merchant = merchantAsync.valueOrNull;
     final loyaltyOff =
-        merchant != null && !_merchantLoyaltyLive(merchant);
+        merchant != null && !_merchantBlePassageAllowed(merchant);
 
     return Container(
       decoration: const BoxDecoration(
@@ -144,27 +140,11 @@ class _BleClientDetectionSheetState
             ),
           ),
 
-          // Avatar
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: MerchantColors.gold.withValues(alpha: 0.15),
-              border: Border.all(
-                  color: MerchantColors.gold.withValues(alpha: 0.4),
-                  width: 2),
-            ),
-            child: Center(
-              child: Text(
-                _initials,
-                style: GoogleFonts.outfit(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w700,
-                  color: MerchantColors.gold,
-                ),
-              ),
-            ),
+          ProximityListAvatar(
+            imageUrl: widget.detection.photoUrl,
+            label: _clientName,
+            size: 72,
+            fallbackIcon: Icons.person_outline_rounded,
           ),
 
           const SizedBox(height: 16),

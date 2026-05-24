@@ -7,7 +7,12 @@ import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../client_list/application/providers.dart' as crm_providers;
 import '../../../client_list/domain/entities/merchant_client_row.dart';
 import '../../../merchant/domain/entities/merchant.dart';
+import '../../../auth/core/application/providers.dart' as auth_providers;
+import '../../../auth/core/application/state/auth_state.dart';
 import '../../application/active_validation_providers.dart';
+import '../../domain/entities/active_validation_request.dart';
+import '../../infrastructure/active_validation_repository_provider.dart';
+import '../../presentation/merchant_passage_validation_flow.dart';
 
 bool get isMerchantPassageDebugEnabled =>
     kDebugMode ||
@@ -21,7 +26,7 @@ Future<void> showMerchantPassageDebugSimulateSheet(
   BuildContext context, {
   required Merchant merchant,
 }) {
-  assert(isMerchantPassageDebugEnabled);
+  if (!isMerchantPassageDebugEnabled) return Future.value();
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -43,10 +48,13 @@ class _MerchantPassageDebugSimulateSheet extends ConsumerStatefulWidget {
       _MerchantPassageDebugSimulateSheetState();
 }
 
+enum _PassageSimulateMode { vitrine, ble }
+
 class _MerchantPassageDebugSimulateSheetState
     extends ConsumerState<_MerchantPassageDebugSimulateSheet> {
   final _clientUidCtrl = TextEditingController();
   bool _busy = false;
+  _PassageSimulateMode _mode = _PassageSimulateMode.vitrine;
 
   @override
   void dispose() {
@@ -80,25 +88,81 @@ class _MerchantPassageDebugSimulateSheetState
     String? photoUrl,
   }) async {
     if (_busy) return;
+    final auth = ref.read(auth_providers.authStateProvider);
+    if (auth is Authenticated && clientUid == auth.user.id) {
+      _snack(
+        'Choisissez l\'UID d\'un autre compte client (pas le vôtre). '
+        'En solo, saisissez l\'UID d\'un second téléphone.',
+      );
+      return;
+    }
     setState(() => _busy = true);
-    final result = await ref.read(simulateClientActiveValidationProvider).call(
-          merchant: widget.merchant,
-          clientUid: clientUid,
-          clientDisplayName: displayName,
-          clientPhotoUrl: photoUrl,
-        );
+    final result = _mode == _PassageSimulateMode.ble
+        ? await ref.read(simulateBleClientPassageProvider).call(
+              merchant: widget.merchant,
+              clientUid: clientUid,
+              clientDisplayName: displayName,
+              clientPhotoUrl: photoUrl,
+            )
+        : await ref.read(simulateClientActiveValidationProvider).call(
+              merchant: widget.merchant,
+              clientUid: clientUid,
+              clientDisplayName: displayName,
+              clientPhotoUrl: photoUrl,
+            );
     if (!mounted) return;
     setState(() => _busy = false);
-    result.fold(
-      (f) => _snack(f.message),
-      (_) {
+    await result.fold(
+      (f) async => _snack(f.message),
+      (_) async {
+        if (!mounted) return;
         Navigator.of(context).pop();
-        _snack(
-          'Demande simulée — la feuille commerçant doit s\'ouvrir',
-          success: true,
+        await _openValidationAfterSimulate(
+          clientUid: clientUid,
+          displayName: displayName,
         );
       },
     );
+  }
+
+  Future<void> _openValidationAfterSimulate({
+    required String clientUid,
+    required String displayName,
+  }) async {
+    ActiveValidationRequest? session;
+    try {
+      session = await ref
+          .read(activeValidationRepositoryProvider)
+          .watchClientSession(
+            merchantId: widget.merchant.id,
+            clientUid: clientUid,
+          )
+          .first;
+    } catch (_) {
+      session = null;
+    }
+    if (!mounted || session == null) {
+      _snack('Session créée mais introuvable — réessayez.');
+      return;
+    }
+
+    final opened = await openMerchantPassageValidation(
+      ref: ref,
+      context: context,
+      merchant: widget.merchant,
+      session: session,
+    );
+    if (!mounted) return;
+    if (opened) {
+      _snack(
+        _mode == _PassageSimulateMode.ble
+            ? 'Validation BLE simulée terminée'
+            : 'Validation vitrine simulée terminée',
+        success: true,
+      );
+    }
+    if (!mounted) return;
+    _snack('Validation vitrine simulée terminée', success: true);
   }
 
   void _snack(String message, {bool success = false}) {
@@ -161,9 +225,37 @@ class _MerchantPassageDebugSimulateSheetState
                 ],
               ),
               const SizedBox(height: 8),
+              SegmentedButton<_PassageSimulateMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: _PassageSimulateMode.vitrine,
+                    label: Text('Vitrine'),
+                  ),
+                  ButtonSegment(
+                    value: _PassageSimulateMode.ble,
+                    label: Text('BLE'),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: _busy
+                    ? null
+                    : (s) => setState(() => _mode = s.first),
+                style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return MerchantColors.bgMain;
+                    }
+                    return MerchantColors.textWhite;
+                  }),
+                ),
+              ),
+              const SizedBox(height: 8),
               Text(
-                'Comme si le client avait appuyé sur « Valider » après le scan. '
-                'Vous verrez la file d\'attente, l\'alerte et la feuille de validation.',
+                _mode == _PassageSimulateMode.ble
+                    ? 'Comme si le client avait confirmé la connexion BLE. '
+                        'Puis validez depuis l\'écran BLE ou la file d\'attente.'
+                    : 'Comme si le client avait appuyé sur « Valider » après le scan. '
+                        'Vous verrez la file d\'attente, l\'alerte et la feuille de validation.',
                 style: GoogleFonts.outfit(
                   fontSize: 13,
                   color: MerchantColors.textGrey,

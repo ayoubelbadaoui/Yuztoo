@@ -27,6 +27,94 @@ class FirestoreActiveValidationRepository
   }) =>
       _collection(merchantId).doc(clientUid);
 
+  /// Replaces a stale `awaiting` doc so client `set` always succeeds as create.
+  Future<void> _replaceStaleAwaitingSession(
+    DocumentReference<Map<String, dynamic>> ref,
+  ) async {
+    final snap = await ref.get();
+    if (!snap.exists) return;
+    final status = snap.data()?['status'] as String?;
+    if (status == 'awaiting') {
+      await ref.delete();
+    }
+  }
+
+  @override
+  Future<Result<void>> createBleSession({
+    required String merchantId,
+    required String clientUid,
+    required String clientDisplayName,
+    String? clientPhotoUrl,
+    required LoyaltyProgramConfig programSnapshot,
+    required String merchantDisplayName,
+  }) async {
+    if (merchantId.isEmpty || clientUid.isEmpty) {
+      return const Left<AppFailure, void>(
+        UnexpectedFailure(message: 'Commerce ou utilisateur invalide'),
+      );
+    }
+    try {
+      final payload = ActiveValidationRequest.toFirestoreBleCreate(
+        clientUid: clientUid,
+        clientDisplayName: clientDisplayName,
+        clientPhotoUrl: clientPhotoUrl,
+        programSnapshot: programSnapshot,
+        merchantDisplayName: merchantDisplayName,
+      );
+      final ref = _docRef(merchantId: merchantId, clientUid: clientUid);
+      await _replaceStaleAwaitingSession(ref);
+      await ref.set(payload);
+      return const Right<AppFailure, void>(null);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError(
+        'Active validation createBleSession',
+        error: e,
+        stackTrace: st,
+      );
+      return Left<AppFailure, void>(
+        UnexpectedFailure(
+          message: 'Impossible d\'envoyer la demande',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> markMerchantBleConnected({
+    required String merchantId,
+    required String clientUid,
+  }) async {
+    if (merchantId.isEmpty || clientUid.isEmpty) {
+      return const Left<AppFailure, void>(
+        UnexpectedFailure(message: 'Session invalide'),
+      );
+    }
+    try {
+      await _docRef(merchantId: merchantId, clientUid: clientUid).set(
+        <String, dynamic>{
+          'merchant_ble_connected_at': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      return const Right<AppFailure, void>(null);
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError(
+        'Active validation markMerchantBleConnected',
+        error: e,
+        stackTrace: st,
+      );
+      return Left<AppFailure, void>(
+        UnexpectedFailure(
+          message: 'Impossible de confirmer la connexion',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
+  }
+
   @override
   Future<Result<void>> createForClient({
     required String merchantId,
@@ -47,9 +135,9 @@ class FirestoreActiveValidationRepository
         clientPhotoUrl: clientPhotoUrl,
         programSnapshot: programSnapshot,
       );
-      // set with merge:false → overwrite any stale completed/cancelled doc.
-      await _docRef(merchantId: merchantId, clientUid: clientUid)
-          .set(payload);
+      final ref = _docRef(merchantId: merchantId, clientUid: clientUid);
+      await _replaceStaleAwaitingSession(ref);
+      await ref.set(payload);
       return const Right<AppFailure, void>(null);
     } on FirebaseException catch (e, st) {
       LoggerService.logError(

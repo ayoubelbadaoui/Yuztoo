@@ -4,6 +4,8 @@ import '../../../../core/domain/core/result.dart';
 import '../../../auth/core/domain/entities/auth_user.dart';
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../../merchant/domain/entities/merchant.dart';
+import '../../domain/failures/ble_passage_failure.dart';
+import '../../domain/loyalty_passage_program_policy.dart';
 import '../../domain/repositories/active_validation_repository.dart';
 
 /// Client-side: opens a synchronous validation session at the merchant. The
@@ -24,21 +26,21 @@ class RequestActiveValidation {
         UnexpectedFailure(message: 'Utilisateur non connecté'),
       );
     }
-    if (!merchant.loyaltyEnabled) {
+    if (!isVitrinePassageRequestAllowedForMerchant(merchant)) {
+      if (!isMerchantLoyaltyPassageActive(merchant)) {
+        return const Left<AppFailure, void>(
+          UnexpectedFailure(message: 'Le programme de fidélité est désactivé'),
+        );
+      }
       return const Left<AppFailure, void>(
-        UnexpectedFailure(
-          message: 'La fidélité n\'est pas activée pour ce commerce',
+        BlePassageSessionFailure(
+          'Présentez-vous au comptoir : ce commerce valide les passages '
+          'en proximité (BLE).',
         ),
       );
     }
 
-    final LoyaltyProgramConfig config = merchant.loyaltyProgram ??
-        LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: true);
-    if (!config.programEnabled) {
-      return const Left<AppFailure, void>(
-        UnexpectedFailure(message: 'Le programme de fidélité est désactivé'),
-      );
-    }
+    final LoyaltyProgramConfig config = merchantLiveLoyaltyProgram(merchant);
 
     final displayName = (client.displayName?.trim().isNotEmpty == true
         ? client.displayName!.trim()

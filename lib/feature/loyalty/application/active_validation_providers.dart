@@ -8,9 +8,15 @@ import '../../merchant/application/providers.dart'
 import '../domain/entities/active_validation_request.dart';
 import '../infrastructure/active_validation_repository_provider.dart';
 import '../infrastructure/client_loyalty_repository_provider.dart';
+import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
+import 'use_cases/accept_ble_passage_as_merchant.dart';
+import 'use_cases/prepare_merchant_passage_validation.dart';
 import 'use_cases/cancel_active_validation.dart';
 import 'use_cases/confirm_active_validation.dart';
+import 'use_cases/ensure_client_follows_merchant.dart';
+import 'use_cases/initiate_ble_passage_session.dart';
 import 'use_cases/request_active_validation.dart';
+import 'use_cases/simulate_ble_client_passage.dart';
 import 'use_cases/simulate_client_active_validation.dart';
 
 // ─── Use-case providers ────────────────────────────────────────────────────────
@@ -42,6 +48,39 @@ final simulateClientActiveValidationProvider =
     ref.watch(activeValidationRepositoryProvider),
   );
 });
+
+final simulateBleClientPassageProvider = Provider<SimulateBleClientPassage>((ref) {
+  return SimulateBleClientPassage(
+    ref.watch(activeValidationRepositoryProvider),
+  );
+});
+
+final ensureClientFollowsMerchantProvider =
+    Provider<EnsureClientFollowsMerchant>((ref) {
+  return EnsureClientFollowsMerchant(
+    ref.watch(followedMerchantsRepositoryProvider),
+  );
+});
+
+final initiateBlePassageSessionProvider =
+    Provider<InitiateBlePassageSession>((ref) {
+  return InitiateBlePassageSession(
+    ref.watch(activeValidationRepositoryProvider),
+    ref.watch(ensureClientFollowsMerchantProvider),
+  );
+});
+
+final acceptBlePassageAsMerchantProvider =
+    Provider<AcceptBlePassageAsMerchant>((ref) {
+  return AcceptBlePassageAsMerchant(
+    ref.watch(activeValidationRepositoryProvider),
+  );
+});
+
+final prepareMerchantPassageValidationProvider =
+    Provider<PrepareMerchantPassageValidation>(
+  (ref) => const PrepareMerchantPassageValidation(),
+);
 
 // ─── Stream providers ──────────────────────────────────────────────────────────
 

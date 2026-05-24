@@ -1,9 +1,11 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/domain/core/failure.dart';
 import '../../../../core/infrastructure/logger_service.dart';
+import '../../core/application/providers.dart' as auth_core;
 import '../../core/domain/auth_failure.dart';
 import '../../core/domain/repositories/auth_repository.dart';
 import '../../core/infrastructure/auth_repository_provider.dart';
@@ -58,7 +60,11 @@ final createUserDocumentProvider = Provider<CreateUserDocument>((ref) {
 
 final deleteCurrentUserProvider = Provider<DeleteCurrentUser>((ref) {
   final repository = ref.watch(authRepositoryProvider);
-  return DeleteCurrentUser(repository);
+  return DeleteCurrentUser(
+    repository,
+    onSignedOut: () =>
+        ref.read(auth_core.authControllerProvider.notifier).signOut(),
+  );
 });
 
 /// GDPR right-to-erasure entry point. Production calls the `purgeAccount`
@@ -76,9 +82,13 @@ final deleteCurrentUserProvider = Provider<DeleteCurrentUser>((ref) {
 /// In production we ALWAYS prefer the Cloud Function because the auth-only
 /// path leaves a Firestore footprint that violates GDPR Art. 17.
 class DeleteCurrentUser {
-  const DeleteCurrentUser(this._repository);
+  const DeleteCurrentUser(
+    this._repository, {
+    required Future<void> Function() onSignedOut,
+  }) : _onSignedOut = onSignedOut;
 
   final AuthRepository _repository;
+  final Future<void> Function() _onSignedOut;
 
   /// Auth-only delete succeeded, or user is already gone (e.g. CF removed auth).
   Future<void> _applyAuthDeleteResult() async {
@@ -120,9 +130,10 @@ class DeleteCurrentUser {
             ),
           )
           .call(<String, dynamic>{});
-      // Admin SDK already removed the Auth user. Never fail the whole flow if
-      // local sign-out throws (token already invalid, Google session, etc.).
-      await _signOutBestEffortAfterPurge();
+      // Admin SDK already removed the Auth user — still run the normal app
+      // sign-out so [AuthController] → [Unauthenticated] and the shell routes
+      // to role selection (push cleanup, FCM token, cached drafts).
+      await _signOutSession();
       return;
     } on FirebaseFunctionsException catch (e, st) {
       LoggerService.logError(
@@ -163,8 +174,20 @@ class DeleteCurrentUser {
           'ou contactez le support.',
         );
       }
-      // e.g. not-found if function name/region mismatch — try auth-only path.
+      if (e.code == 'not-found') {
+        throw DeleteAccountException(
+          'Service de suppression indisponible. Mettez l\'application à jour et '
+          'réessayez, ou contactez le support.',
+        );
+      }
+      // Emulator / offline: auth-only delete (requires a fresh login session).
+      if (kReleaseMode) {
+        throw DeleteAccountException(
+          'Suppression impossible pour le moment. Vérifiez votre connexion et réessayez.',
+        );
+      }
       await _applyAuthDeleteResult();
+      await _signOutSession();
       return;
     } catch (e, st) {
       LoggerService.logError(
@@ -173,15 +196,28 @@ class DeleteCurrentUser {
         stackTrace: st,
       );
       await _applyAuthDeleteResult();
+      await _signOutSession();
     }
   }
 
-  Future<void> _signOutBestEffortAfterPurge() async {
+  Future<void> _signOutSession() async {
+    try {
+      await _onSignedOut();
+    } catch (e, st) {
+      LoggerService.logError(
+        'signOut after account deletion (controller)',
+        error: e,
+        stackTrace: st,
+      );
+    }
+    // Ensure the local Firebase session is cleared even if the controller
+    // path failed (e.g. push-token cleanup error) or Auth was already removed
+    // server-side by purgeAccount.
     try {
       (await _repository.signOut()).fold((_) {}, (_) {});
     } catch (e, st) {
       LoggerService.logError(
-        'signOut after successful purgeAccount (ignored)',
+        'signOut after account deletion (repository)',
         error: e,
         stackTrace: st,
       );

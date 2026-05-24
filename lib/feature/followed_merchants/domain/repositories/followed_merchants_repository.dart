@@ -12,6 +12,9 @@ abstract class FollowedMerchantsRepository {
   /// Get the list of merchant IDs the user follows.
   Future<Result<List<String>>> getFollowedIds(String userId);
 
+  /// Live list of followed merchant document ids (carnet / home).
+  Stream<List<String>> watchFollowedIds(String userId);
+
   /// Check if the user follows the given merchant.
   Future<Result<bool>> isFollowing(String userId, String merchantId);
 

@@ -237,9 +237,7 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
     try {
       await ref.read(deleteCurrentUserProvider).call();
       if (!mounted) return;
-      if (ModalRoute.of(context)?.isActive == true) {
-        widget.onAccountDeleted?.call();
-      }
+      widget.onAccountDeleted?.call();
     } on DeleteAccountException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

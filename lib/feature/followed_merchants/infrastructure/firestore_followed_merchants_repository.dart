@@ -155,6 +155,16 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
   }
 
   @override
+  Stream<List<String>> watchFollowedIds(String userId) {
+    if (userId.isEmpty) {
+      return Stream<List<String>>.value(const <String>[]);
+    }
+    return _followedRef(userId).snapshots().map(
+          (snap) => snap.docs.map((d) => d.id).toList(),
+        );
+  }
+
+  @override
   Future<Result<bool>> isFollowing(String userId, String merchantId) async {
     if (userId.isEmpty || merchantId.isEmpty) {
       return const Right<AppFailure, bool>(false);

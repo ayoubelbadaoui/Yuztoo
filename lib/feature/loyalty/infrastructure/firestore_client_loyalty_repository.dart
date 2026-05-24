@@ -168,6 +168,11 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
             if (sessionStatus != 'awaiting') {
               throw StateError('active_validation_not_awaiting');
             }
+            final source = sessionSnap.data()?['source'] as String?;
+            if (source == 'ble' &&
+                sessionSnap.data()?['merchant_ble_connected_at'] == null) {
+              throw StateError('ble_merchant_not_connected');
+            }
           }
 
           final snap = await tx.get(ref);
@@ -294,6 +299,14 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
           UnexpectedFailure(
             message: 'Cette demande a déjà été traitée.',
+          ),
+        );
+      }
+      if (e.toString().contains('ble_merchant_not_connected')) {
+        return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
+          UnexpectedFailure(
+            message:
+                'Confirmez la connexion BLE du client avant de valider le passage.',
           ),
         );
       }

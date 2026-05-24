@@ -41,52 +41,20 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "scheduled_at", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "active_validations",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
     {
       "collectionGroup": "followed_merchants",
       "fieldPath": "merchant_id",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION_GROUP"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "loyalty_clients",
-      "fieldPath": "__name__",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION_GROUP"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "pending_clients",
-      "fieldPath": "__name__",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION_GROUP"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "active_validations",
-      "fieldPath": "__name__",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION_GROUP"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "clients",
-      "fieldPath": "__name__",
       "indexes": [
         {
           "order": "ASCENDING",

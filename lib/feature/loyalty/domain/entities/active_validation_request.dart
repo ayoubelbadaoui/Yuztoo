@@ -6,6 +6,27 @@ import '../../../merchant/infrastructure/loyalty_program_firestore_mapper.dart';
 
 enum ActiveValidationStatus { awaiting, completed, cancelled }
 
+/// How the validation session was opened.
+enum ActiveValidationSource { vitrine, ble }
+
+ActiveValidationSource _sourceFromString(String? raw) {
+  switch (raw) {
+    case 'ble':
+      return ActiveValidationSource.ble;
+    default:
+      return ActiveValidationSource.vitrine;
+  }
+}
+
+String _sourceToString(ActiveValidationSource s) {
+  switch (s) {
+    case ActiveValidationSource.ble:
+      return 'ble';
+    case ActiveValidationSource.vitrine:
+      return 'vitrine';
+  }
+}
+
 ActiveValidationStatus _statusFromString(String? raw) {
   switch (raw) {
     case 'completed':
@@ -50,6 +71,10 @@ class ActiveValidationRequest extends Equatable {
     this.resultValidatedDelta,
     this.resultSpendDelta,
     this.completedAt,
+    this.source = ActiveValidationSource.vitrine,
+    this.clientBleConnectedAt,
+    this.merchantBleConnectedAt,
+    this.merchantDisplayName,
   });
 
   /// Deserializes a Firestore doc snapshot. The merchantId comes from the
@@ -79,6 +104,12 @@ class ActiveValidationRequest extends Equatable {
           (data['result_validated_delta'] as num?)?.toInt(),
       resultSpendDelta: (data['result_spend_delta'] as num?)?.toDouble(),
       completedAt: (data['completed_at'] as Timestamp?)?.toDate(),
+      source: _sourceFromString(data['source'] as String?),
+      clientBleConnectedAt:
+          (data['client_ble_connected_at'] as Timestamp?)?.toDate(),
+      merchantBleConnectedAt:
+          (data['merchant_ble_connected_at'] as Timestamp?)?.toDate(),
+      merchantDisplayName: (data['merchant_display_name'] as String?)?.trim(),
     );
   }
 
@@ -105,6 +136,29 @@ class ActiveValidationRequest extends Equatable {
     return map;
   }
 
+  /// Client BLE handshake: vitrine fields + BLE metadata.
+  static Map<String, dynamic> toFirestoreBleCreate({
+    required String clientUid,
+    required String clientDisplayName,
+    String? clientPhotoUrl,
+    required LoyaltyProgramConfig programSnapshot,
+    required String merchantDisplayName,
+  }) {
+    final map = toFirestoreCreate(
+      clientUid: clientUid,
+      clientDisplayName: clientDisplayName,
+      clientPhotoUrl: clientPhotoUrl,
+      programSnapshot: programSnapshot,
+    );
+    map['source'] = 'ble';
+    map['client_ble_connected_at'] = FieldValue.serverTimestamp();
+    final name = merchantDisplayName.trim();
+    if (name.isNotEmpty) {
+      map['merchant_display_name'] = name;
+    }
+    return map;
+  }
+
   final String merchantId;
   final String clientUid;
   final String clientDisplayName;
@@ -118,6 +172,13 @@ class ActiveValidationRequest extends Equatable {
   final int? resultValidatedDelta;
   final double? resultSpendDelta;
   final DateTime? completedAt;
+  final ActiveValidationSource source;
+  final DateTime? clientBleConnectedAt;
+  final DateTime? merchantBleConnectedAt;
+  final String? merchantDisplayName;
+
+  bool get isBle => source == ActiveValidationSource.ble;
+  bool get isMerchantBleConnected => merchantBleConnectedAt != null;
 
   bool get isAwaiting => status == ActiveValidationStatus.awaiting;
   bool get isCompleted => status == ActiveValidationStatus.completed;
@@ -145,6 +206,10 @@ class ActiveValidationRequest extends Equatable {
         resultValidatedDelta,
         resultSpendDelta,
         completedAt,
+        source,
+        clientBleConnectedAt,
+        merchantBleConnectedAt,
+        merchantDisplayName,
       ];
 
   static String statusToFirestoreString(ActiveValidationStatus s) =>

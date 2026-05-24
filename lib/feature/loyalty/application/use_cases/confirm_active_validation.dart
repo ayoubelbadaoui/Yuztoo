@@ -5,17 +5,16 @@ import '../../../client_notification/domain/repositories/client_notification_rep
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../../merchant/domain/entities/merchant.dart';
 import '../../domain/entities/active_validation_request.dart';
+import '../../domain/failures/ble_passage_failure.dart';
 import '../../domain/entities/client_merchant_loyalty_progress.dart';
+import '../../domain/loyalty_passage_program_policy.dart';
 import '../../domain/repositories/client_loyalty_repository.dart';
 import '../loyalty_passage_notification_helper.dart';
 
-/// Merchant-side: applies the loyalty deltas AND closes the active_validation
-/// session in a single Firestore transaction. The deltas are computed from
-/// the **merchant's current loyalty program** — not from the
-/// `session.programSnapshot` — so a tampered snapshot can't grandfather the
-/// client into a more favourable program. The snapshot is informational only
-/// (it's what drives the form rendering on the merchant side so the merchant
-/// sees what the client saw at request time).
+/// Merchant-side: applies loyalty deltas and closes `active_validations` in one
+/// transaction. Programme rules come from [resolveLoyaltyProgramForPassage]
+/// (enrolled snapshot, else session snapshot). Live merchant doc only gates
+/// whether fidélité is still enabled.
 ///
 /// Atomicity: the in-transaction guard in `applyPassageDeltas` reads the
 /// session doc and rejects if it's not 'awaiting'. That means a second tap
@@ -55,16 +54,24 @@ class ConfirmActiveValidation {
       );
     }
 
-    // The MERCHANT's CURRENT config is the source of truth for the database
-    // write. The session's program_snapshot is taken at request time and is
-    // used only to render the form so the merchant sees what the client saw.
-    // Using merchant.loyaltyProgram (live) here prevents a tampered client
-    // snapshot from forging favourable terms on first-visit enrollment.
-    final LoyaltyProgramConfig config = merchant.loyaltyProgram ??
-        LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: true);
-    if (!config.programEnabled) {
+    if (!isMerchantLoyaltyPassageActive(merchant)) {
       return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
         UnexpectedFailure(message: 'Programme de fidélité désactivé'),
+      );
+    }
+
+    final ClientMerchantLoyaltyProgress progress =
+        await _loyaltyRepo.readProgress(merchant.id, session.clientUid);
+    final LoyaltyProgramConfig config = resolveLoyaltyProgramForPassage(
+      merchant: merchant,
+      session: session,
+      clientProgress: progress,
+    );
+    if (session.isBle && !session.isMerchantBleConnected) {
+      return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
+        BlePassageSessionFailure(
+          'Confirmez la connexion BLE du client avant de valider le passage.',
+        ),
       );
     }
 

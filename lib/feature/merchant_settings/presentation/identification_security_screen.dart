@@ -147,7 +147,8 @@ class _IdentificationSecurityScreenState
     setState(() => _isDeletingAccount = true);
     try {
       await ref.read(deleteCurrentUserProvider).call();
-      if (mounted) widget.onAccountDeleted?.call();
+      if (!mounted) return;
+      widget.onAccountDeleted?.call();
     } on DeleteAccountException catch (e) {
       if (!mounted) return;
       _showSnack(e.message, isError: true);

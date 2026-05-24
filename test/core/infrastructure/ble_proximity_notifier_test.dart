@@ -294,4 +294,65 @@ void main() {
       notifier.dispose();
     });
   });
+
+  group('BleProximityNotifier client broadcast suspend/resume', () {
+    test('suspend pauses advertising; resume restarts with same uid', () async {
+      var broadcastCount = 0;
+      String? lastUid;
+      final notifier = BleProximityNotifier(
+        startBroadcast: (uid) async {
+          broadcastCount++;
+          lastUid = uid;
+          return true;
+        },
+        isAvailable: () async => true,
+        readClientId: (_) async => null,
+        startScan: () {},
+        scanResultsStream: () => const Stream.empty(),
+        stopScan: () async {},
+        merchantPermissionsGranted: () async => true,
+        firestore: FakeFirebaseFirestore(),
+      );
+
+      await notifier.startAsClient('client-uid-99');
+      expect(notifier.state.isRunning, isTrue);
+
+      await notifier.suspendShellClientBroadcast();
+      expect(notifier.state.mode, BleProximityMode.client);
+      expect(notifier.state.isRunning, isFalse);
+
+      await notifier.resumeShellClientBroadcast();
+      expect(notifier.state.isRunning, isTrue);
+      expect(broadcastCount, 2);
+      expect(lastUid, 'client-uid-99');
+
+      notifier.dispose();
+    });
+
+    test('nested suspend only resumes after matching resume count', () async {
+      final notifier = BleProximityNotifier(
+        startBroadcast: (_) async => true,
+        isAvailable: () async => true,
+        readClientId: (_) async => null,
+        startScan: () {},
+        scanResultsStream: () => const Stream.empty(),
+        stopScan: () async {},
+        merchantPermissionsGranted: () async => true,
+        firestore: FakeFirebaseFirestore(),
+      );
+
+      await notifier.startAsClient('uid-nested');
+      await notifier.suspendShellClientBroadcast();
+      await notifier.suspendShellClientBroadcast();
+      expect(notifier.state.isRunning, isFalse);
+
+      await notifier.resumeShellClientBroadcast();
+      expect(notifier.state.isRunning, isFalse);
+
+      await notifier.resumeShellClientBroadcast();
+      expect(notifier.state.isRunning, isTrue);
+
+      notifier.dispose();
+    });
+  });
 }

@@ -1004,6 +1004,9 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (!mounted || _activeValidationSheetOpen) return;
     for (final session in queue) {
       if (!session.isAwaiting || session.isExpired) continue;
+      // BLE sessions require explicit merchant proximity confirmation
+      // (detection sheet or « Valider un passage »), not a shell auto-popup.
+      if (session.isBle) continue;
       final key = _activeValidationSessionKey(session);
       if (_handledActiveValidationKeys.contains(key)) continue;
       _handledActiveValidationKeys.add(key);
@@ -1022,7 +1025,8 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
     _activeValidationSheetOpen = true;
-    await showMerchantActiveValidationSheet(
+    await openMerchantPassageValidation(
+      ref: ref,
       context: context,
       merchant: merchant,
       session: session,
@@ -1039,6 +1043,12 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// top of whatever screen the merchant is currently viewing.
   void _onClientDetected(BleClientDetection detection) {
     if (!mounted) return;
+    final merchant =
+        ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
+    if (merchant == null || !isBlePassageAllowedForMerchant(merchant)) {
+      ref.read(bleProximityProvider.notifier).resetAfterDetection();
+      return;
+    }
     HapticFeedback.mediumImpact();
     showModalBottomSheet<void>(
       context: context,
@@ -1666,9 +1676,13 @@ class _RootShellState extends ConsumerState<_RootShell>
     // Keep provider alive (listening is in initState via listenManual)
     ref.watch(authControllerProvider);
 
-    // Get current screen for key and styling
+    // Get current screen for key and styling. When [_authScreen] is null
+    // (transient [AuthLoading] — see [_handleAuthStateChange]), fall back to
+    // splash so we keep the branded loading surface instead of coercing to
+    // role selection (which broke styling and could feel like a "white" or
+    // wrong first paint during slow auth refresh).
     final currentScreen =
-        _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
+        _nestedScreen ?? _authScreen ?? ScreenId.splash;
 
     // Sharper transitions: key forces AnimatedSwitcher to run transition when screen changes,
     // shorter duration reduces fuzzy crossfade, no layout scaling.
@@ -1897,10 +1911,10 @@ class _RootShellState extends ConsumerState<_RootShell>
   }
 
   Widget _buildScreen() {
-    // Determine current screen: nested screen takes priority, then auth screen
-    // Fallback to role selection if auth screen is null (shouldn't happen, but safety)
+    // Nested wins, then auth route. Null [_authScreen] = auth loading surface
+    // (same fallback as [build] — must stay splash, not role selection).
     final currentScreen =
-        _nestedScreen ?? _authScreen ?? ScreenId.roleSelection;
+        _nestedScreen ?? _authScreen ?? ScreenId.splash;
 
     switch (currentScreen) {
       case ScreenId.splash:
@@ -2264,20 +2278,28 @@ class _RootShellState extends ConsumerState<_RootShell>
         return IdentificationSecurityScreen(
           onBack: _handleBackFromNested,
           onAccountDeleted: () {
+            if (!mounted) return;
             setState(() {
               _nestedScreen = null;
-              _authScreen = ScreenId.login;
+              _role = null;
+              _authScreen = ScreenId.roleSelection;
             });
+            unawaited(_stopMerchantRealtimeServices());
+            unawaited(_clearAuthTransientDrafts());
           },
         );
       case ScreenId.merchantDataPrivacy:
         return DataPrivacyScreen(
           onBack: _handleBackFromNested,
           onAccountDeleted: () {
+            if (!mounted) return;
             setState(() {
               _nestedScreen = null;
-              _authScreen = ScreenId.login;
+              _role = null;
+              _authScreen = ScreenId.roleSelection;
             });
+            unawaited(_stopMerchantRealtimeServices());
+            unawaited(_clearAuthTransientDrafts());
           },
         );
       case ScreenId.merchantProfileSummary:
