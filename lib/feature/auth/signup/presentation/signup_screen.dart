@@ -9,22 +9,16 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../legal/domain/legal_document.dart';
 import '../../../legal/presentation/legal_document_screen.dart';
 import '../application/providers.dart';
-import '../domain/signup_roles_map.dart';
-import '../../login/application/providers.dart' as login_providers;
+import '../application/state/oauth_signup_state.dart';
 import '../../core/application/auth_error_mapper.dart';
 import '../../core/domain/auth_failure.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../../../types.dart';
-import '../../../../core/domain/core/result.dart';
-import '../../core/application/oauth_identity_helpers.dart';
 import '../../../../core/presentation/responsive_scroll_body.dart';
-import '../../core/domain/entities/auth_user.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import 'constants/signup_constants.dart';
 import 'utils/phone_formatter.dart';
-import 'widgets/country_code_modal.dart';
-import 'widgets/phone_number_formatter.dart';
 import 'widgets/signup_form_fields.dart';
 import 'widgets/signup_ui_widgets.dart';
 
@@ -36,6 +30,7 @@ class SignupScreen extends ConsumerStatefulWidget {
     required this.role,
     required this.onBack,
     required this.onNavigateToOtp,
+    required this.onNavigateToOAuthCompletion,
     this.initialEmail,
     this.initialPassword,
     this.initialPhone,
@@ -45,6 +40,15 @@ class SignupScreen extends ConsumerStatefulWidget {
   final UserRole role;
   final VoidCallback onBack;
   final void Function(SignupOtpNavigation data) onNavigateToOtp;
+
+  /// Called once when the OAuth signup controller enters
+  /// [OAuthSignupNeedsCompletion] — the shell is expected to push the
+  /// dedicated [OAuthCompletionScreen] for phone (and optional name)
+  /// collection. The signup screen stays mounted in the back stack
+  /// until [OAuthSignupController.cancelCompletion] returns the flow
+  /// to idle (then the shell brings this screen back to the front).
+  final VoidCallback onNavigateToOAuthCompletion;
+
   final String? initialEmail;
   final String? initialPassword;
   final String? initialPhone;
@@ -72,11 +76,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   late FocusNode _phoneFocusNode;
 
   bool _isLoading = false;
-  bool _isSocialLoading = false;
   bool _isSubmitting = false;
   bool _isPasswordFocused = false;
   String? _phoneNumber;
   String _selectedCountryCode = '+33';
+
+  /// Tracks the most-recent OAuth signup state we've reacted to so we do
+  /// not re-trigger callbacks (`onNavigateToOAuthCompletion`, error
+  /// snackbars) on every rebuild while the controller stays in the same
+  /// state.
+  Type? _lastHandledOAuthStateType;
 
   bool _emailFieldHasBeenValidated = false;
   bool _passwordFieldHasBeenValidated = false;
@@ -121,6 +130,30 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     setState(fn);
   }
 
+  /// Listens to [oauthSignupControllerProvider] and triggers navigation /
+  /// snackbar feedback. Called from [build] (where `ref.listen` is legal).
+  void _wireOAuthListener() {
+    ref.listen<OAuthSignupState>(oauthSignupControllerProvider, (prev, next) {
+      if (!mounted) return;
+      if (next.runtimeType == _lastHandledOAuthStateType) return;
+      _lastHandledOAuthStateType = next.runtimeType;
+
+      if (next is OAuthSignupNeedsCompletion) {
+        widget.onNavigateToOAuthCompletion();
+        return;
+      }
+
+      if (next is OAuthSignupError && next.authUser == null) {
+        showErrorSnackbar(context, next.message);
+        ref.read(oauthSignupControllerProvider.notifier).dismissError();
+        return;
+      }
+    });
+  }
+
   @override
-  Widget build(BuildContext context) => _buildSignupContent(context);
+  Widget build(BuildContext context) {
+    _wireOAuthListener();
+    return _buildSignupContent(context);
+  }
 }

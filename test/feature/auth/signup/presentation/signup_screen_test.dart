@@ -313,6 +313,7 @@ void main() {
             builder: (context) => SignupScreen(
               role: UserRole.client,
               onBack: () {},
+              onNavigateToOAuthCompletion: () {},
               onNavigateToOtp: (data) {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -395,6 +396,7 @@ void main() {
               builder: (context) => SignupScreen(
                 role: UserRole.client,
                 onBack: () {},
+                onNavigateToOAuthCompletion: () {},
                 onNavigateToOtp: (_) {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -445,6 +447,7 @@ void main() {
               builder: (context) => SignupScreen(
                 role: UserRole.client,
                 onBack: () {},
+                onNavigateToOAuthCompletion: () {},
                 onNavigateToOtp: (_) {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -499,6 +502,7 @@ void main() {
               builder: (context) => SignupScreen(
                 role: UserRole.client,
                 onBack: () {},
+                onNavigateToOAuthCompletion: () {},
                 onNavigateToOtp: (_) {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -556,6 +560,7 @@ void main() {
             home: SignupScreen(
               role: UserRole.client,
               onBack: () {},
+              onNavigateToOAuthCompletion: () {},
               onNavigateToOtp: (_) {},
             ),
           ),
@@ -597,6 +602,7 @@ void main() {
             home: SignupScreen(
               role: UserRole.client,
               onBack: () {},
+              onNavigateToOAuthCompletion: () {},
               onNavigateToOtp: (_) {},
             ),
           ),
@@ -613,7 +619,16 @@ void main() {
       await tester.ensureVisible(googleTarget);
       await tester.pumpAndSettle();
       await tester.tap(googleTarget);
-      await tester.pumpAndSettle();
+      // The OAuth controller now keeps the loading overlay (with a
+      // [CircularProgressIndicator]) visible after a successful
+      // existing-user resolution until the shell unmounts the screen
+      // — so [pumpAndSettle] would never settle. A handful of bounded
+      // pumps lets the controller run its async chain (credential
+      // exchange → profile resolution → state transition + pending
+      // flag flip) without waiting for the indicator to stop spinning.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
       expect(container.read(auth_core.oauthFirestoreProfilePendingProvider),
           isFalse);

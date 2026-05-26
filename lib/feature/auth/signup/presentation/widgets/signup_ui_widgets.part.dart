@@ -259,6 +259,8 @@ extension _SocialLoginButtonsUi on SocialLoginButtons {
       children: [
         _SocialIconButton(
           iconWidget: const GoogleIcon(),
+          loading: googleLoading,
+          dimmed: isLoading && !googleLoading,
           onPressed: isLoading ? null : () => onSocialLogin('google'),
           semanticsLabel: 'Google social sign-in',
         ),
@@ -266,6 +268,8 @@ extension _SocialLoginButtonsUi on SocialLoginButtons {
         _SocialIconButton(
           icon: Icons.apple,
           iconColor: SignupConstants.textLight,
+          loading: appleLoading,
+          dimmed: isLoading && !appleLoading,
           onPressed: isLoading ? null : () => onSocialLogin('apple'),
         ),
       ],
@@ -281,6 +285,8 @@ class _SocialIconButton extends StatelessWidget {
     this.iconColor,
     this.iconWidget,
     this.semanticsLabel,
+    this.loading = false,
+    this.dimmed = false,
   });
 
   final IconData? icon;
@@ -289,16 +295,39 @@ class _SocialIconButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String? semanticsLabel;
 
+  /// When `true`, replaces the icon with a small spinner. The button is
+  /// disabled regardless of [onPressed].
+  final bool loading;
+
+  /// When `true`, draws the icon at reduced opacity to communicate
+  /// "the OTHER social button is currently busy". Press is disabled
+  /// either way (caller passes `onPressed: null`).
+  final bool dimmed;
+
   @override
   Widget build(BuildContext context) {
+    final Widget child = loading
+        ? const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                SignupConstants.primaryGold,
+              ),
+            ),
+          )
+        : Opacity(
+            opacity: dimmed ? 0.45 : 1,
+            child: iconWidget ?? Icon(icon, color: iconColor, size: 24),
+          );
+
     final inkWell = InkWell(
       customBorder: const CircleBorder(),
-      onTap: onPressed,
+      onTap: loading ? null : onPressed,
       splashColor: SignupConstants.primaryGold.withValues(alpha: 0.08),
       highlightColor: SignupConstants.primaryGold.withValues(alpha: 0.04),
-      child: Center(
-        child: iconWidget ?? Icon(icon, color: iconColor, size: 24),
-      ),
+      child: Center(child: child),
     );
 
     return Container(
@@ -308,7 +337,9 @@ class _SocialIconButton extends StatelessWidget {
         color: SignupConstants.bgDark2,
         shape: BoxShape.circle,
         border: Border.all(
-          color: SignupConstants.borderColor,
+          color: loading
+              ? SignupConstants.primaryGold.withValues(alpha: 0.55)
+              : SignupConstants.borderColor,
           width: 1.5,
         ),
       ),

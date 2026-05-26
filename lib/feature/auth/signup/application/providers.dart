@@ -10,9 +10,14 @@ import '../../core/domain/auth_failure.dart';
 import '../../core/domain/repositories/auth_repository.dart';
 import '../../core/infrastructure/auth_repository_provider.dart';
 import '../../core/infrastructure/user_repository_provider.dart';
+import '../../login/application/providers.dart' as login_providers;
 import 'delete_account_exception.dart';
+import 'finalize_oauth_signup.dart';
+import 'oauth_signup_controller.dart';
 import 'signup_with_email_password.dart';
 import 'send_phone_verification.dart';
+import 'start_oauth_signup.dart';
+import 'state/oauth_signup_state.dart';
 import 'verify_phone_available_for_signup.dart';
 import 'verify_email_available_for_signup.dart';
 import 'verify_and_link_phone.dart';
@@ -56,6 +61,49 @@ final verifyPhoneAndCreateUserProvider = Provider<VerifyPhoneAndCreateUser>((ref
 final createUserDocumentProvider = Provider<CreateUserDocument>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return CreateUserDocument(repository);
+});
+
+/// Use case provider for starting the Google / Apple signup flow.
+///
+/// Returns a pure-domain [OAuthSignupOutcome] for the controller to
+/// translate into UI state — no Riverpod / Flutter dependencies.
+final startOAuthSignupProvider = Provider<StartOAuthSignup>((ref) {
+  return StartOAuthSignup(
+    signInWithGoogle: ref.watch(login_providers.signInWithGoogleProvider),
+    signInWithApple: ref.watch(login_providers.signInWithAppleProvider),
+    userRepository: ref.watch(userRepositoryProvider),
+  );
+});
+
+/// Use case provider for finalising a brand-new OAuth signup
+/// (phone availability + `/users/{uid}` write).
+final finalizeOAuthSignupProvider = Provider<FinalizeOAuthSignup>((ref) {
+  return FinalizeOAuthSignup(
+    verifyEmail: ref.watch(verifyEmailAvailableForSignupProvider),
+    verifyPhone: ref.watch(verifyPhoneAvailableForSignupProvider),
+    createUserDocument: ref.watch(createUserDocumentProvider),
+  );
+});
+
+/// Controller for the Google / Apple signup flow. Replaces the inline
+/// orchestration in `signup_screen.part.dart` (which had silent signOut
+/// paths and an `AlertDialog` for phone collection).
+final oauthSignupControllerProvider =
+    StateNotifierProvider<OAuthSignupController, OAuthSignupState>((ref) {
+  final controller = OAuthSignupController(
+    startOAuthSignup: ref.watch(startOAuthSignupProvider),
+    finalizeOAuthSignup: ref.watch(finalizeOAuthSignupProvider),
+    signOut: ref.watch(auth_core.signOutProvider),
+    updateLastLoginAt: ref.watch(auth_core.updateLastLoginAtProvider),
+    patchUserDocument: ref.watch(auth_core.patchUserDocumentProvider),
+    authController: ref.watch(auth_core.authControllerProvider.notifier),
+    setOAuthFirestorePending: (pending) {
+      ref
+          .read(auth_core.oauthFirestoreProfilePendingProvider.notifier)
+          .state = pending;
+    },
+  );
+  return controller;
 });
 
 final deleteCurrentUserProvider = Provider<DeleteCurrentUser>((ref) {

@@ -49,12 +49,23 @@ class GoogleIcon extends StatelessWidget {
 /// Social login buttons widget
 class SocialLoginButtons extends StatelessWidget {
   final bool isLoading;
+
+  /// `true` while the Google OAuth flow is the one currently in progress.
+  /// The Google icon is replaced with a spinner; the other button is
+  /// disabled (still shows its icon, dimmed).
+  final bool googleLoading;
+
+  /// Same as [googleLoading] but for Apple.
+  final bool appleLoading;
+
   final Function(String) onSocialLogin;
 
   const SocialLoginButtons({
     super.key,
     required this.isLoading,
     required this.onSocialLogin,
+    this.googleLoading = false,
+    this.appleLoading = false,
   });
 
   @override

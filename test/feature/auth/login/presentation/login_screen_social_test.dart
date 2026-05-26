@@ -8,6 +8,9 @@ import 'package:flutter_yuztoo/feature/auth/core/domain/repositories/auth_reposi
 import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/email_address.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/value_objects/password.dart';
 import 'package:flutter_yuztoo/feature/auth/core/infrastructure/auth_repository_provider.dart';
+import 'package:flutter_yuztoo/feature/auth/core/domain/repositories/user_repository.dart';
+import 'package:flutter_yuztoo/feature/auth/core/infrastructure/user_repository_provider.dart';
+import 'package:flutter_yuztoo/feature/auth/core/domain/entities/user_profile_basics.dart';
 import 'package:flutter_yuztoo/feature/auth/login/presentation/login_screen.dart';
 import 'package:flutter_yuztoo/types.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
@@ -104,6 +107,29 @@ class _CountingSocialAuthRepository implements AuthRepository {
   Future<Result<Unit>> deleteCurrentUser() => throw UnimplementedError();
 }
 
+/// Minimal user-repo stub: the OAuth signup controller only calls into
+/// the user repo *after* a successful credential exchange. The auth repo
+/// in this test fails the credential exchange, so none of these methods
+/// actually run — but the controller still has to be constructed, which
+/// reads the provider, which crashes without a Firebase-free fake here.
+class _StubUserRepository implements UserRepository {
+  @override
+  Future<Result<UserProfileBasics?>> getUserProfileBasics(String uid) async =>
+      const Right<AuthFailure, UserProfileBasics?>(null);
+
+  @override
+  Future<Result<bool>> isEmailRegistered(String email) async =>
+      const Right<AuthFailure, bool>(false);
+
+  @override
+  Future<Result<bool>> isPhoneNumberRegistered(String phone) async =>
+      const Right<AuthFailure, bool>(false);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
 void main() {
   testWidgets(
     'Login: tapping Google calls signInWithGoogle once (not Apple)',
@@ -114,12 +140,14 @@ void main() {
         ProviderScope(
           overrides: [
             authRepositoryProvider.overrideWithValue(repo),
+            userRepositoryProvider.overrideWithValue(_StubUserRepository()),
           ],
           child: MaterialApp(
             home: LoginScreen(
               role: UserRole.client,
               onBack: () {},
               onSignup: () {},
+              onNavigateToOAuthCompletion: () {},
             ),
           ),
         ),

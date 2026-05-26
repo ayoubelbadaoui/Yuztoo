@@ -5,6 +5,7 @@ enum ScreenId {
   roleSelection,
   login,
   signup,
+  oauthCompletion,
   otp,
   clientOnboarding,
   clientHome,
