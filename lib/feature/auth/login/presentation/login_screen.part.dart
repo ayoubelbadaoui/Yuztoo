@@ -71,7 +71,8 @@ class _LoginSocialButton extends StatelessWidget {
     this.iconColor,
     this.iconWidget,
     required this.onPressed,
-    required this.isLoading,
+    required this.disabled,
+    required this.loading,
     this.semanticsLabel,
   });
 
@@ -79,20 +80,40 @@ class _LoginSocialButton extends StatelessWidget {
   final Color? iconColor;
   final Widget? iconWidget;
   final VoidCallback onPressed;
-  final bool isLoading;
+
+  /// Whole row is busy (any provider mid-OAuth) — disable all buttons.
+  final bool disabled;
+
+  /// This specific button is the one that kicked off the OAuth round-trip,
+  /// so render an inline spinner *over* its icon instead of the icon.
+  final bool loading;
+
   /// Optional accessibility / widget-test target (e.g. Google sign-in).
   final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
+    final iconChild = iconWidget ?? Icon(icon, color: iconColor, size: 24);
+    final child = loading
+        ? const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(_primaryGold),
+            ),
+          )
+        : Opacity(
+            opacity: disabled ? 0.5 : 1,
+            child: iconChild,
+          );
+
     final inkWell = InkWell(
       customBorder: const CircleBorder(),
-      onTap: isLoading ? null : onPressed,
+      onTap: disabled ? null : onPressed,
       splashColor: _primaryGold.withValues(alpha: 0.08),
       highlightColor: _primaryGold.withValues(alpha: 0.04),
-      child: Center(
-        child: iconWidget ?? Icon(icon, color: iconColor, size: 24),
-      ),
+      child: Center(child: child),
     );
 
     return Container(
@@ -120,11 +141,16 @@ class _LoginSocialButton extends StatelessWidget {
 
 class _LoginSocialLoginRow extends StatelessWidget {
   const _LoginSocialLoginRow({
-    required this.isLoading,
+    required this.disabled,
+    required this.googleLoading,
+    required this.appleLoading,
     required this.onSocial,
   });
 
-  final bool isLoading;
+  /// Disable taps while ANY provider is busy (loginFlow OR OAuth round-trip).
+  final bool disabled;
+  final bool googleLoading;
+  final bool appleLoading;
   final void Function(String provider) onSocial;
 
   @override
@@ -136,7 +162,8 @@ class _LoginSocialLoginRow extends StatelessWidget {
         _LoginSocialButton(
           iconWidget: const _LoginGoogleIcon(),
           onPressed: () => onSocial('google'),
-          isLoading: isLoading,
+          disabled: disabled,
+          loading: googleLoading,
           semanticsLabel: 'Google social sign-in',
         ),
         if (isIos) ...[
@@ -145,10 +172,69 @@ class _LoginSocialLoginRow extends StatelessWidget {
             icon: Icons.apple,
             iconColor: _textLight,
             onPressed: () => onSocial('apple'),
-            isLoading: isLoading,
+            disabled: disabled,
+            loading: appleLoading,
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Full-page loading overlay shown while the OAuth signup controller is
+/// busy with credential exchange / profile resolution / auth refresh.
+/// Mirrors the signup screen so login and signup look identical mid-OAuth.
+class _LoginOAuthLoadingOverlay extends StatelessWidget {
+  const _LoginOAuthLoadingOverlay({required this.state});
+
+  final OAuthSignupState state;
+
+  String get _copy {
+    return switch (state) {
+      OAuthSignupAuthenticating(:final provider) =>
+        provider == OAuthSignupProvider.google
+            ? 'Connexion à Google…'
+            : 'Connexion à Apple…',
+      OAuthSignupResolvingProfile() => 'Vérification de votre compte…',
+      OAuthSignupExistingUser() => 'Connexion…',
+      _ => 'Veuillez patienter…',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: AbsorbPointer(
+        child: ColoredBox(
+          color: _bgDark1.withValues(alpha: 0.85),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(_primaryGold),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  _copy,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    color: _textLight,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -692,7 +778,15 @@ class _RoleDialogTile extends StatelessWidget {
 }
 
 extension _LoginScreenUi on _LoginScreenState {
-  Widget _buildLoginContent(BuildContext context, bool isLoading) {
+  Widget _buildLoginContent(
+    BuildContext context, {
+    required bool isLoading,
+    required bool oauthBusy,
+    required OAuthSignupState oauthState,
+    required bool googleBusy,
+    required bool appleBusy,
+  }) {
+    final anyBusy = isLoading || oauthBusy;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -706,15 +800,42 @@ extension _LoginScreenUi on _LoginScreenState {
         child: PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, result) {
-            if (!didPop) widget.onBack();
+            if (!didPop && !anyBusy) widget.onBack();
           },
           child: Scaffold(
             backgroundColor: _bgDark1,
             body: SafeArea(
-              child: ResponsiveScrollBody(
-                horizontalPadding: 24,
-                verticalPadding: 0,
-                child: Column(
+              child: Stack(
+                children: [
+                  ResponsiveScrollBody(
+                    horizontalPadding: 24,
+                    verticalPadding: 0,
+                    child: _buildLoginBody(
+                      context,
+                      isLoading: anyBusy,
+                      oauthBusy: oauthBusy,
+                      googleBusy: googleBusy,
+                      appleBusy: appleBusy,
+                    ),
+                  ),
+                  if (oauthBusy) _LoginOAuthLoadingOverlay(state: oauthState),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginBody(
+    BuildContext context, {
+    required bool isLoading,
+    required bool oauthBusy,
+    required bool googleBusy,
+    required bool appleBusy,
+  }) {
+    return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // ── Top bar: back + brand mark ──────────────────────
@@ -958,7 +1079,9 @@ extension _LoginScreenUi on _LoginScreenState {
                     const _LoginSocialDivider(),
                     const SizedBox(height: 20),
                     _LoginSocialLoginRow(
-                      isLoading: isLoading,
+                      disabled: isLoading,
+                      googleLoading: googleBusy,
+                      appleLoading: appleBusy,
                       onSocial: _handleSocialLogin,
                     ),
                     const SizedBox(height: 28),
@@ -967,12 +1090,6 @@ extension _LoginScreenUi on _LoginScreenState {
                     Center(child: _LoginFooter(onSignup: widget.onSignup)),
                     const SizedBox(height: 16),
                   ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+                );
   }
 }

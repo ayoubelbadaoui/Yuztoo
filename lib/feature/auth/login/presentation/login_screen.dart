@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,13 +18,7 @@ import 'widgets/input_field.dart';
 import 'widgets/forgot_password_dialog.dart';
 import '../../../../../core/shared/constants/merchant_colors.dart';
 import '../../signup/application/providers.dart' as signup_providers;
-import '../../signup/domain/signup_roles_map.dart';
-import '../../signup/presentation/constants/signup_constants.dart';
-import '../../signup/presentation/utils/phone_formatter.dart';
-import '../../signup/presentation/widgets/country_code_modal.dart';
-import '../../signup/presentation/widgets/phone_number_formatter.dart';
-import '../../core/application/oauth_identity_helpers.dart';
-import '../../core/domain/entities/auth_user.dart';
+import '../../signup/application/state/oauth_signup_state.dart';
 
 part 'login_screen.part.dart';
 
@@ -43,11 +36,19 @@ class LoginScreen extends ConsumerStatefulWidget {
     required this.role,
     required this.onBack,
     required this.onSignup,
+    required this.onNavigateToOAuthCompletion,
   });
 
   final UserRole role;
   final VoidCallback onBack;
   final VoidCallback onSignup;
+
+  /// Called once when the OAuth signup controller enters
+  /// [OAuthSignupNeedsCompletion] — i.e. the user signed in with
+  /// Google/Apple but no Firestore profile exists yet, so the shell
+  /// must push the dedicated [OAuthCompletionScreen]. Mirrors the
+  /// signup screen's wiring so login and signup share one OAuth path.
+  final VoidCallback onNavigateToOAuthCompletion;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -61,9 +62,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordFocusNode = FocusNode();
   bool _isPasswordVisible = false;
   bool _isLoginSubmitting = false; // simple debounce to prevent rapid taps
-  bool _isSocialLoading = false; // loading state for Google / Apple sign-in
   bool _shouldValidateRequired = false; // Track if we should show "required" errors
   bool _emailHasBeenValidated = false; // Track if email field has been validated (blurred)
+
+  /// Tracks the most-recent OAuth signup state we've reacted to so we do
+  /// not re-trigger callbacks (`onNavigateToOAuthCompletion`, error
+  /// snackbars) on every rebuild while the controller stays in the same
+  /// state.
+  Type? _lastHandledOAuthStateType;
 
   @override
   void initState() {
@@ -167,10 +173,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isPasswordVisible = !_isPasswordVisible);
   }
 
+  /// Listens to [signup_providers.oauthSignupControllerProvider] and
+  /// hooks the same callbacks the signup screen uses. We deliberately
+  /// reuse one controller so the OAuth flow has exactly one code path
+  /// regardless of whether the user entered it from login or signup.
+  void _wireOAuthListener() {
+    ref.listen<OAuthSignupState>(
+      signup_providers.oauthSignupControllerProvider,
+      (prev, next) {
+        if (!mounted) return;
+        if (next.runtimeType == _lastHandledOAuthStateType) return;
+        _lastHandledOAuthStateType = next.runtimeType;
+
+        if (next is OAuthSignupNeedsCompletion) {
+          widget.onNavigateToOAuthCompletion();
+          return;
+        }
+
+        if (next is OAuthSignupError && next.authUser == null) {
+          showErrorSnackbar(context, next.message);
+          ref
+              .read(signup_providers.oauthSignupControllerProvider.notifier)
+              .dismissError();
+          return;
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loginFlowState = ref.watch(loginFlowControllerProvider);
-    final isLoading = loginFlowState is LoginFlowLoading;
+    final oauthState =
+        ref.watch(signup_providers.oauthSignupControllerProvider);
+    final isLoginLoading = loginFlowState is LoginFlowLoading;
+    final oauthBusy = oauthState is OAuthSignupAuthenticating ||
+        oauthState is OAuthSignupResolvingProfile ||
+        oauthState is OAuthSignupExistingUser;
+    final googleBusy = oauthState is OAuthSignupAuthenticating &&
+        oauthState.provider == OAuthSignupProvider.google;
+    final appleBusy = oauthState is OAuthSignupAuthenticating &&
+        oauthState.provider == OAuthSignupProvider.apple;
+
+    _wireOAuthListener();
 
     // Listen to login flow state changes (must be in build method)
     ref.listen<LoginFlowState>(
@@ -207,478 +252,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       },
     );
 
-    return _buildLoginContent(context, isLoading || _isSocialLoading);
+    return _buildLoginContent(
+      context,
+      isLoading: isLoginLoading,
+      oauthBusy: oauthBusy,
+      oauthState: oauthState,
+      googleBusy: googleBusy,
+      appleBusy: appleBusy,
+    );
   }
 
+  /// Routes the social-button taps into the OAuth signup controller —
+  /// the same controller the signup screen uses, so the existing-vs-new
+  /// user / phone collection / Firestore write / auth refresh flow lives
+  /// in exactly one place.
   Future<void> _handleSocialLogin(String provider) async {
+    final notifier = ref
+        .read(signup_providers.oauthSignupControllerProvider.notifier);
+    if (notifier.isBusy) return;
+
     switch (provider) {
       case 'google':
-        await _signInWithGoogle();
+        await notifier.startGoogle();
         return;
       case 'apple':
-        await _signInWithApple();
+        if (!Platform.isIOS) {
+          showErrorSnackbar(
+            context,
+            'Connexion Apple disponible sur iPhone et iPad.',
+          );
+          return;
+        }
+        await notifier.startApple();
         return;
       default:
-        showErrorSnackbar(context, 'Connexion avec $provider bientôt disponible');
-    }
-  }
-
-  Future<void> _signInWithGoogle() async {
-    ref.read(auth_providers.oauthFirestoreProfilePendingProvider.notifier).state =
-        true;
-    setState(() => _isSocialLoading = true);
-    try {
-      final result = await ref.read(signInWithGoogleProvider).call();
-      if (!mounted) return;
-      final failure = result.leftOrNull;
-      if (failure != null) {
-        ref
-            .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-            .state = false;
         showErrorSnackbar(
           context,
-          AuthErrorMapper.getFrenchMessage(failure) ??
-              'Une erreur s\'est produite. Veuillez réessayer.',
+          'Connexion avec $provider bientôt disponible',
         );
-        return;
-      }
-      // Turn off the spinner before showing the phone dialog so the dialog
-      // has a clean backdrop. _handleOAuthSuccess re-enables it during doc creation.
-      setState(() => _isSocialLoading = false);
-      await _handleOAuthSuccess(result.rightOrNull);
-    } catch (_) {
-      if (mounted) {
-        ref
-            .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-            .state = false;
-      }
-    } finally {
-      if (mounted) setState(() => _isSocialLoading = false);
     }
   }
 
-  Future<void> _signInWithApple() async {
-    ref.read(auth_providers.oauthFirestoreProfilePendingProvider.notifier).state =
-        true;
-    setState(() => _isSocialLoading = true);
-    try {
-      final result = await ref.read(signInWithAppleProvider).call();
-      if (!mounted) return;
-      final failure = result.leftOrNull;
-      if (failure != null) {
-        ref
-            .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-            .state = false;
-        showErrorSnackbar(
-          context,
-          AuthErrorMapper.getFrenchMessage(failure) ??
-              'Une erreur s\'est produite. Veuillez réessayer.',
-        );
-        return;
-      }
-      setState(() => _isSocialLoading = false);
-      await _handleOAuthSuccess(result.rightOrNull);
-    } catch (_) {
-      if (mounted) {
-        ref
-            .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-            .state = false;
-      }
-    } finally {
-      if (mounted) setState(() => _isSocialLoading = false);
-    }
-  }
-
-  /// Called after a successful Google or Apple sign-in.
-  ///
-  /// Two scenarios:
-  ///   • Existing user (Firestore doc exists) → clear the pending flag so the
-  ///     shell unblocks, then refresh auth state to trigger normal routing.
-  ///   • New user (no Firestore doc) → collect phone → create doc → clear flag
-  ///     → refresh auth state to trigger onboarding routing.
-  ///
-  /// Every early-return path MUST clear [oauthFirestoreProfilePendingProvider]
-  /// so the shell never stays stuck in a "blocked" state.
-  Future<void> _handleOAuthSuccess(AuthUser? authUser) async {
-    if (authUser == null) {
-      ref
-          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-          .state = false;
-      return;
-    }
-
-    // Check whether this is an existing or brand-new user.
-    // **iPad bug** previously here: a transient Firestore error on the first
-    // read after sign-in (slow auth token propagation, offline cache miss on
-    // cold start) was collapsed into "no profile" by `fold((_) => false, ...)`
-    // — so existing dual-profile users got routed to the "Finaliser votre
-    // inscription" / create-account flow even though their Firestore doc
-    // existed. iPad triggered it consistently; iPhone/Android rarely did
-    // because their Firestore reads usually succeed on the first try.
-    //
-    // Fix: only treat a definitive `Right(null)` as "new user". A `Left`
-    // (error) means "we couldn't check" — retry once with a small backoff,
-    // and on a second failure show an error + sign out instead of silently
-    // re-onboarding the user.
-    bool? hasProfile = await _resolveHasProfile(authUser.id);
-    if (!mounted) return;
-    if (hasProfile == null) {
-      // Both reads failed — refuse to silently treat as new user. Sign out
-      // and let the user retry; their profile is not gone, just unreachable.
-      ref
-          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-          .state = false;
-      showErrorSnackbar(
-        context,
-        'Impossible de vérifier votre compte. Vérifiez votre connexion et '
-        'réessayez.',
-      );
-      await ref.read(auth_providers.authControllerProvider.notifier).signOut();
-      return;
-    }
-    if (hasProfile) {
-      // Existing user — unblock the shell and let it drive routing via the
-      // auth stream (it was held back by the pending flag set in _signInWithGoogle).
-      ref
-          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-          .state = false;
-      // Defer the refresh to the next frame so the login screen's
-      // pending setState calls (e.g. _isSocialLoading = false) finish
-      // BEFORE the shell unmounts this screen. Inline awaiting created
-      // a race that fired '_dependents.isEmpty: is not true' in the
-      // Flutter framework when the inherited element disposed mid-build.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(
-          ref
-              .read(auth_providers.authControllerProvider.notifier)
-              .refreshAuthState(),
-        );
-      });
-      return;
-    }
-
-    // ── New user ── collect phone → create Firestore doc → onboard ─────────
-    final email = authUser.email?.trim();
-    if (email == null || email.isEmpty) {
-      ref
-          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-          .state = false;
-      showErrorSnackbar(
-        context,
-        'Aucune adresse e-mail n\'est associée à ce compte. Utilisez l\'inscription par e-mail.',
-      );
-      await ref.read(auth_providers.authControllerProvider.notifier).signOut();
-      return;
-    }
-
-    // Verify email is not taken by another account.
-    final emailCheck = await ref
-        .read(signup_providers.verifyEmailAvailableForSignupProvider)
-        .call(email: email);
-    if (!mounted) return;
-    if (emailCheck.isLeft) {
-      ref
-          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-          .state = false;
-      final f = emailCheck.leftOrNull;
-      showErrorSnackbar(
-        context,
-        f != null
-            ? (AuthErrorMapper.getFrenchMessage(f) ??
-                'Cette adresse e-mail est déjà utilisée.')
-            : 'Cette adresse e-mail est déjà utilisée.',
-      );
-      await ref.read(auth_providers.authControllerProvider.notifier).signOut();
-      return;
-    }
-
-    // Collect phone (no OTP needed — OAuth account is already trusted).
-    final phoneE164 = await _promptPhoneForOAuthCompletion();
-    if (!mounted) return;
-    if (phoneE164 == null || phoneE164.isEmpty) {
-      ref
-          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-          .state = false;
-      await ref.read(auth_providers.authControllerProvider.notifier).signOut();
-      return;
-    }
-
-    // Create Firestore user document with the role from this screen.
-    setState(() => _isSocialLoading = true);
-    final oauthIdentity = oauthIdentityForCreateUserDocument(authUser);
-    final createResult =
-        await ref.read(signup_providers.createUserDocumentProvider).call(
-              uid: authUser.id,
-              email: email,
-              phone: phoneE164,
-              roles: signupRolesMap(widget.role),
-              firstName: oauthIdentity.firstName,
-              lastName: oauthIdentity.lastName,
-              displayName: oauthIdentity.displayName,
-              photoUrl: oauthIdentity.photoUrl,
-            );
-    if (!mounted) return;
-    setState(() => _isSocialLoading = false);
-
-    if (createResult.isLeft) {
-      ref
-          .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-          .state = false;
-      final f = createResult.leftOrNull;
-      showErrorSnackbar(
-        context,
-        f != null
-            ? (AuthErrorMapper.getFrenchMessage(f) ??
-                'Impossible de finaliser l\'inscription.')
-            : 'Impossible de finaliser l\'inscription.',
-      );
-      return;
-    }
-
-    ref
-        .read(auth_providers.oauthFirestoreProfilePendingProvider.notifier)
-        .state = false;
-    try {
-      await ref.read(auth_providers.updateLastLoginAtProvider).call(
-            authUser.id,
-            displayName: authUser.displayName,
-            photoUrl: oauthIdentity.photoUrl,
-          );
-    } catch (_) {}
-    try {
-      final pu = oauthIdentity.photoUrl;
-      if (pu != null && pu.isNotEmpty) {
-        await firebase_auth.FirebaseAuth.instance.currentUser
-            ?.updatePhotoURL(pu);
-      }
-    } catch (_) {}
-    // Defer to next frame (see same comment in the existing-user branch
-    // above) — prevents '_dependents.isEmpty: is not true' from firing
-    // when the shell unmounts the login screen mid-build.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(
-        ref
-            .read(auth_providers.authControllerProvider.notifier)
-            .refreshAuthState(),
-      );
-    });
-  }
-
-  /// Returns:
-  ///   • `true`  — Firestore says the user's profile exists (existing user).
-  ///   • `false` — Firestore says no profile (new OAuth user, needs phone).
-  ///   • `null`  — both attempts errored; we genuinely don't know. Caller
-  ///                must NOT treat this as "new user" — that's what was
-  ///                routing iPad users back through onboarding.
-  ///
-  /// Two attempts with a 600ms backoff between them. That's enough to ride
-  /// out a transient Firestore cold-start hiccup on iPad without making
-  /// the user wait noticeably longer when the first read works.
-  Future<bool?> _resolveHasProfile(String uid) async {
-    for (var attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 600));
-        if (!mounted) return null;
-      }
-      final result = await ref
-          .read(auth_providers.getUserProfileBasicsProvider)
-          .call(uid);
-      if (!mounted) return null;
-      final settled = result.fold<bool?>(
-        (_) => null, // error — try again
-        (basics) => basics != null,
-      );
-      if (settled != null) return settled;
-    }
-    return null;
-  }
-
-  /// Shows a modal dialog asking the user to enter their phone number.
-  /// Returns the E.164 formatted number, or null if cancelled.
-  Future<String?> _promptPhoneForOAuthCompletion() async {
-    var dialogCountryCode = '+33';
-    final controller = TextEditingController();
-
-    final submitted = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        String? fieldError;
-        return StatefulBuilder(
-          builder: (ctx, setModal) => AlertDialog(
-            backgroundColor: SignupConstants.bgDark2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: SignupConstants.borderColor),
-            ),
-            title: Text(
-              'Finaliser votre inscription',
-              style: GoogleFonts.outfit(
-                color: SignupConstants.textLight,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Choisissez l\'indicatif pays puis saisissez votre numéro de '
-                    'mobile pour sécuriser votre compte.',
-                    style: GoogleFonts.outfit(
-                      color: SignupConstants.textGrey,
-                      fontSize: 13,
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: SignupConstants.borderColor),
-                      color: SignupConstants.bgDark1,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => CountryCodeModal.show(
-                              dialogContext,
-                              selectedCountryCode: dialogCountryCode,
-                              onCountrySelected: (code, name, flag) {
-                                setModal(() {
-                                  dialogCountryCode = code;
-                                  fieldError = null;
-                                });
-                              },
-                              phoneController: controller,
-                              onPhoneNumberUpdate: (_) {},
-                              onRevalidatePhone: () {},
-                              phoneFieldHasBeenValidated: false,
-                            ),
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(11),
-                              bottomLeft: Radius.circular(11),
-                            ),
-                            child: Container(
-                              height: 52,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                              ),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(
-                                    color: SignupConstants.borderColor,
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    dialogCountryCode,
-                                    style: GoogleFonts.outfit(
-                                      color: SignupConstants.textLight,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.expand_more_rounded,
-                                    color: SignupConstants.primaryGold,
-                                    size: 18,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: controller,
-                            keyboardType: TextInputType.phone,
-                            autofocus: true,
-                            autocorrect: false,
-                            inputFormatters: [
-                              PhoneNumberFormatter(
-                                countryCode: dialogCountryCode,
-                              ),
-                            ],
-                            style: GoogleFonts.outfit(
-                              color: SignupConstants.textLight,
-                              fontSize: 15,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: SignupConstants.countryPhoneHints[
-                                      dialogCountryCode] ??
-                                  '---',
-                              hintStyle: GoogleFonts.outfit(
-                                color: SignupConstants.textGrey,
-                                fontSize: 14,
-                              ),
-                              errorText: fieldError,
-                              filled: false,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text(
-                  'Annuler',
-                  style: GoogleFonts.outfit(color: SignupConstants.textGrey),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  final raw = controller.text.trim();
-                  final formatted = raw.startsWith('+')
-                      ? raw.replaceAll(RegExp(r'\s'), '')
-                      : PhoneFormatter.formatPhoneNumber(
-                          dialogCountryCode,
-                          raw,
-                        );
-                  if (!PhoneFormatter.isValidE164(formatted)) {
-                    setModal(() {
-                      fieldError = 'Numéro invalide (ex. +33 6 12 34 56 78).';
-                    });
-                    return;
-                  }
-                  Navigator.of(dialogContext).pop(formatted);
-                },
-                child: Text(
-                  'Continuer',
-                  style: GoogleFonts.outfit(
-                    color: SignupConstants.primaryGold,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    controller.dispose();
-    return submitted;
-  }
+  // Removed: _signInWithGoogle, _signInWithApple, _handleOAuthSuccess,
+  // _resolveHasProfile, _promptPhoneForOAuthCompletion. The same logic
+  // now lives in StartOAuthSignup / FinalizeOAuthSignup / OAuthSignupController
+  // so login and signup share one OAuth path.
 }

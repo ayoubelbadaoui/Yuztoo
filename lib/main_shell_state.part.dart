@@ -22,6 +22,13 @@ class _RootShellState extends ConsumerState<_RootShell>
   String? _signupPassword;
   String? _otpUnavailableMessage;
 
+  /// Tracks which screen invoked the OAuth completion flow, so a cancel
+  /// from [ScreenId.oauthCompletion] returns the user to the screen
+  /// they came from (login or signup) rather than always defaulting to
+  /// signup. Defaults to [ScreenId.signup] because the very first OAuth
+  /// flow shipped from the signup screen.
+  ScreenId _oauthCompletionReturnScreen = ScreenId.signup;
+
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _appLinkSubscription;
   StreamSubscription<RemoteMessage>? _fcmForegroundSub;
@@ -246,6 +253,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       ScreenId.roleSelection,
       ScreenId.login,
       ScreenId.signup,
+      ScreenId.oauthCompletion,
       ScreenId.otp,
       ScreenId.clientOnboarding,
       ScreenId.merchantOnboarding,
@@ -524,6 +532,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       ScreenId.roleSelection,
       ScreenId.login,
       ScreenId.signup,
+      ScreenId.oauthCompletion,
       ScreenId.otp,
     };
     if (authState is Authenticated &&
@@ -572,6 +581,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         // This prevents race conditions where userChanges() emits null briefly
         final inAuthFlow = _authScreen == ScreenId.login ||
             _authScreen == ScreenId.signup ||
+            _authScreen == ScreenId.oauthCompletion ||
             _authScreen == ScreenId.otp ||
             (_authScreen == ScreenId.splash && _isNavigatingToHome);
 
@@ -701,7 +711,14 @@ class _RootShellState extends ConsumerState<_RootShell>
             ref.read(oauthFirestoreProfilePendingProvider)) {
           _isNavigatingToHome = false;
           if (mounted) {
-            setState(() => _authScreen = ScreenId.signup);
+            // If the user is mid-OAuth-completion flow, leave them on
+            // that screen — pulling them back to the signup form would
+            // wipe the controller's authUser handle and the typed
+            // first/last name. The signup screen is the correct
+            // fallback for any other pre-auth screen (splash etc.).
+            if (_authScreen != ScreenId.oauthCompletion) {
+              setState(() => _authScreen = ScreenId.signup);
+            }
           }
           return;
         }
@@ -2013,6 +2030,12 @@ class _RootShellState extends ConsumerState<_RootShell>
           role: _role ?? UserRole.client,
           onBack: _handleBackToRole,
           onSignup: () => setState(() => _authScreen = ScreenId.signup),
+          onNavigateToOAuthCompletion: () {
+            setState(() {
+              _oauthCompletionReturnScreen = ScreenId.login;
+              _authScreen = ScreenId.oauthCompletion;
+            });
+          },
         );
       case ScreenId.signup:
         return SignupScreen(
@@ -2026,6 +2049,34 @@ class _RootShellState extends ConsumerState<_RootShell>
               _phoneNumber = data.phone;
               _authScreen = ScreenId.otp;
             });
+          },
+          onNavigateToOAuthCompletion: () {
+            setState(() {
+              _oauthCompletionReturnScreen = ScreenId.signup;
+              _authScreen = ScreenId.oauthCompletion;
+            });
+          },
+        );
+      case ScreenId.oauthCompletion:
+        return OAuthCompletionScreen(
+          role: _role ?? UserRole.client,
+          onCancelled: () {
+            // Cancel route — controller already signed the OAuth user out
+            // and reset itself to idle. Return to whichever screen
+            // invoked the flow so the user lands where they expect.
+            if (mounted) {
+              setState(() => _authScreen = _oauthCompletionReturnScreen);
+            }
+          },
+          onCompleted: () {
+            // Profile was created and the auth controller refreshed. The
+            // shell's auth-state listener will compute the right target
+            // (client onboarding, merchant profile form, …) on the next
+            // frame; show the splash in the meantime so the completion
+            // form doesn't flash empty during role lookup.
+            if (mounted) {
+              setState(() => _authScreen = ScreenId.splash);
+            }
           },
         );
       case ScreenId.otp:

@@ -267,7 +267,19 @@ extension _SignupScreenUi on _SignupScreenState {
     }
   }
 
+  /// Routes the social-login button taps into [OAuthSignupController].
+  ///
+  /// All real orchestration (credential exchange, profile resolution,
+  /// existing-vs-new-user routing, phone collection, Firestore write,
+  /// auth refresh) lives in the controller. This screen only:
+  ///   - guards Apple → iOS,
+  ///   - delegates to the controller,
+  ///   - shows a full-page overlay while the controller is busy
+  ///     (rendered in [_buildSignupContent]).
   Future<void> _handleSocialLogin(String provider) async {
+    final notifier = ref.read(oauthSignupControllerProvider.notifier);
+    if (notifier.isBusy || _isLoading) return;
+
     switch (provider) {
       case 'apple':
         if (!Platform.isIOS) {
@@ -277,464 +289,14 @@ extension _SignupScreenUi on _SignupScreenState {
           );
           return;
         }
-        await _completeOAuthSignup(
-          () => ref.read(login_providers.signInWithAppleProvider).call(),
-        );
+        await notifier.startApple();
         return;
       case 'google':
-        await _completeOAuthSignup(
-          () => ref.read(login_providers.signInWithGoogleProvider).call(),
-        );
+        await notifier.startGoogle();
         return;
       default:
         showErrorSnackbar(context, 'Connexion $provider bientôt disponible');
     }
-  }
-
-  /// Google / Apple: existing Firestore profile → same as login. New Auth user
-  /// without `/users/{uid}` → phone dialog then [CreateUserDocument].
-  Future<void> _completeOAuthSignup(
-    Future<Result<AuthUser>> Function() signIn,
-  ) async {
-    ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-        true;
-    _withSetState(() => _isSocialLoading = true);
-    // When this is true, the success path has scheduled the shell to swap
-    // away the signup screen on the next frame. The `finally` block MUST
-    // skip its own `setState(_isSocialLoading = false)` in that case —
-    // otherwise the pending rebuild on the signup screen races with the
-    // shell tearing it down and fires `_dependents.isEmpty` in
-    // framework.dart (the same red-screen assertion the previous commit
-    // tried to fix; it patched refreshAuthState but missed the loading
-    // setState that came AFTER it).
-    bool scheduledShellSwap = false;
-    try {
-      final result = await signIn();
-      if (!mounted) return;
-
-      if (result.isLeft) {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
-        final failure = result.leftOrNull;
-        final msg = failure != null
-            ? (AuthErrorMapper.getFrenchMessage(failure) ??
-                'Une erreur s\'est produite. Veuillez réessayer.')
-            : 'Une erreur s\'est produite. Veuillez réessayer.';
-        showErrorSnackbar(context, msg);
-        return;
-      }
-
-      final authUser = result.rightOrNull;
-      if (authUser == null) {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
-        return;
-      }
-
-      // **iPad bug fix**: a transient Firestore error on the first read
-      // after OAuth sign-in used to collapse into `hasProfile = false`,
-      // routing existing dual-profile users through the "Finaliser votre
-      // inscription" / create-account flow. We retry once, and on a
-      // second error we sign out instead of silently re-onboarding.
-      final hasProfileResolved = await _resolveHasProfile(authUser.id);
-      if (!mounted) return;
-      if (hasProfileResolved == null) {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
-        showErrorSnackbar(
-          context,
-          'Impossible de vérifier votre compte. Vérifiez votre connexion et '
-          'réessayez.',
-        );
-        await ref.read(auth_core.authControllerProvider.notifier).signOut();
-        return;
-      }
-      final hasProfile = hasProfileResolved;
-
-      if (hasProfile) {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
-        scheduledShellSwap = true;
-        // Defer to next frame so the signup screen's pending setState
-        // calls finish before the shell unmounts it. Inline awaiting
-        // races with the unmount and fires '_dependents.isEmpty: is
-        // not true' in framework.dart.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          unawaited(ref
-              .read(auth_core.authControllerProvider.notifier)
-              .refreshAuthState());
-        });
-        return;
-      }
-
-      final email = authUser.email?.trim();
-      if (email == null || email.isEmpty) {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
-        if (!mounted) return;
-        showErrorSnackbar(
-          context,
-          'Aucune adresse e-mail n\'est associée à ce compte. Utilisez l\'inscription par e-mail.',
-        );
-        await ref.read(auth_core.authControllerProvider.notifier).signOut();
-        return;
-      }
-
-      final emailCheck = await ref
-          .read(verifyEmailAvailableForSignupProvider)
-          .call(email: email);
-      if (!mounted) return;
-      if (emailCheck.isLeft) {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
-        final f = emailCheck.leftOrNull;
-        showErrorSnackbar(
-          context,
-          f != null
-              ? (AuthErrorMapper.getFrenchMessage(f) ??
-                  'Cette adresse e-mail ne peut pas être utilisée.')
-              : 'Cette adresse e-mail ne peut pas être utilisée.',
-        );
-        await ref.read(auth_core.authControllerProvider.notifier).signOut();
-        return;
-      }
-
-      final phoneE164 = await _promptPhoneForOAuthCompletion();
-      if (!mounted) return;
-
-      if (phoneE164 == null || phoneE164.isEmpty) {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
-        await ref.read(auth_core.authControllerProvider.notifier).signOut();
-        return;
-      }
-
-      final phoneCheck = await ref
-          .read(verifyPhoneAvailableForSignupProvider)
-          .call(phoneNumber: phoneE164);
-      if (!mounted) return;
-      if (phoneCheck.isLeft) {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
-        final f = phoneCheck.leftOrNull;
-        showErrorSnackbar(
-          context,
-          f != null
-              ? (AuthErrorMapper.getFrenchMessage(f) ??
-                  'Ce numéro ne peut pas être utilisé.')
-              : 'Ce numéro ne peut pas être utilisé.',
-        );
-        await ref.read(auth_core.authControllerProvider.notifier).signOut();
-        return;
-      }
-
-      final oauthIdentity = oauthIdentityForCreateUserDocument(authUser);
-      final createResult = await ref.read(createUserDocumentProvider).call(
-            uid: authUser.id,
-            email: email,
-            phone: phoneE164,
-            roles: signupRolesMap(widget.role),
-            firstName: oauthIdentity.firstName,
-            lastName: oauthIdentity.lastName,
-            displayName: oauthIdentity.displayName,
-            photoUrl: oauthIdentity.photoUrl,
-          );
-      if (!mounted) return;
-
-      if (createResult.isLeft) {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
-        final f = createResult.leftOrNull;
-        showErrorSnackbar(
-          context,
-          f != null
-              ? (AuthErrorMapper.getFrenchMessage(f) ??
-                  'Impossible de finaliser l\'inscription.')
-              : 'Impossible de finaliser l\'inscription.',
-        );
-        await ref.read(auth_core.authControllerProvider.notifier).signOut();
-        return;
-      }
-
-      ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-          false;
-      try {
-        await ref.read(auth_core.patchUserDocumentProvider).call(authUser.id);
-      } catch (_) {}
-      try {
-        await ref.read(auth_core.updateLastLoginAtProvider).call(
-              authUser.id,
-              displayName: authUser.displayName,
-              photoUrl: authUser.photoUrl,
-            );
-      } catch (_) {}
-      scheduledShellSwap = true;
-      // Defer to next frame — see same comment in the existing-user
-      // branch above. Prevents the framework assertion when the shell
-      // unmounts the signup screen while it's still rebuilding.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(ref
-            .read(auth_core.authControllerProvider.notifier)
-            .refreshAuthState());
-      });
-    } catch (_) {
-      ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-          false;
-      if (mounted) {
-        showErrorSnackbar(
-          context,
-          'Une erreur s\'est produite. Veuillez réessayer.',
-        );
-        await ref.read(auth_core.authControllerProvider.notifier).signOut();
-      }
-    } finally {
-      // On the success branches (`scheduledShellSwap == true`) we let the
-      // shell tear the signup screen down with `_isSocialLoading` still
-      // true — its rebuild is wasted because the screen is being unmounted
-      // anyway, and triggering one HERE races with the shell's parent-side
-      // rebuild and fires the framework assertion. The user sees the
-      // spinner for ~1 frame before the splash takes over: fine.
-      // On the error path we DO need to clear the spinner because the
-      // screen stays visible for the user to retry.
-      if (!scheduledShellSwap && mounted) {
-        _withSetState(() => _isSocialLoading = false);
-      }
-    }
-  }
-
-  /// Two-attempt profile lookup with a 600 ms backoff between tries.
-  /// Returns true/false when Firestore answers definitively, `null` if both
-  /// reads errored (network blip, fresh auth token not yet propagated on
-  /// iPad cold-start). Callers MUST treat `null` as "couldn't verify" — NOT
-  /// as "new user" — to avoid silently re-onboarding an existing account.
-  Future<bool?> _resolveHasProfile(String uid) async {
-    for (var attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 600));
-        if (!mounted) return null;
-      }
-      final result = await ref
-          .read(auth_core.getUserProfileBasicsProvider)
-          .call(uid);
-      if (!mounted) return null;
-      final settled = result.fold<bool?>(
-        (_) => null,
-        (basics) => basics != null,
-      );
-      if (settled != null) return settled;
-    }
-    return null;
-  }
-
-  /// E.164 phone to attach to a new OAuth account before [CreateUserDocument].
-  Future<String?> _promptPhoneForOAuthCompletion() async {
-    final initial = (_phoneNumber != null && _phoneNumber!.trim().isNotEmpty)
-        ? _phoneNumber!.trim()
-        : '';
-    var dialogCountryCode = _selectedCountryCode;
-    final controller = TextEditingController();
-    if (initial.isNotEmpty) {
-      if (initial.startsWith('+')) {
-        final phoneData = PhoneFormatter.extractPhoneData(initial);
-        if (phoneData != null) {
-          dialogCountryCode = phoneData['countryCode'] ?? dialogCountryCode;
-          controller.text = phoneData['localNumber'] ?? '';
-        } else {
-          controller.text = initial.replaceAll(RegExp(r'\s'), '');
-        }
-      } else {
-        controller.text = initial;
-      }
-    }
-
-    final submitted = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        String? fieldError;
-        return StatefulBuilder(
-          builder: (ctx, setModal) {
-            return AlertDialog(
-              backgroundColor: SignupConstants.bgDark2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: const BorderSide(color: SignupConstants.borderColor),
-              ),
-              title: Text(
-                'Finaliser votre inscription',
-                style: GoogleFonts.outfit(
-                  color: SignupConstants.textLight,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Pour sécuriser votre compte, choisissez l\'indicatif pays '
-                      'puis saisissez votre numéro de mobile.',
-                      style: GoogleFonts.outfit(
-                        color: SignupConstants.textGrey,
-                        fontSize: 13,
-                        height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: SignupConstants.borderColor),
-                        color: SignupConstants.bgDark1,
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => CountryCodeModal.show(
-                                dialogContext,
-                                selectedCountryCode: dialogCountryCode,
-                                onCountrySelected: (code, name, flag) {
-                                  setModal(() {
-                                    dialogCountryCode = code;
-                                    fieldError = null;
-                                  });
-                                },
-                                phoneController: controller,
-                                onPhoneNumberUpdate: (_) {},
-                                onRevalidatePhone: () {},
-                                phoneFieldHasBeenValidated: false,
-                              ),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(11),
-                                bottomLeft: Radius.circular(11),
-                              ),
-                              child: Container(
-                                height: 52,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                ),
-                                decoration: const BoxDecoration(
-                                  border: Border(
-                                    right: BorderSide(
-                                      color: SignupConstants.borderColor,
-                                      width: 1,
-                                    ),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      dialogCountryCode,
-                                      style: GoogleFonts.outfit(
-                                        color: SignupConstants.textLight,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Icon(
-                                      Icons.expand_more_rounded,
-                                      color: SignupConstants.primaryGold,
-                                      size: 18,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: TextField(
-                              controller: controller,
-                              keyboardType: TextInputType.phone,
-                              autocorrect: false,
-                              inputFormatters: [
-                                PhoneNumberFormatter(
-                                  countryCode: dialogCountryCode,
-                                ),
-                              ],
-                              style: GoogleFonts.outfit(
-                                color: SignupConstants.textLight,
-                                fontSize: 15,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: SignupConstants.countryPhoneHints[
-                                        dialogCountryCode] ??
-                                    '---',
-                                hintStyle: GoogleFonts.outfit(
-                                  color: SignupConstants.textGrey,
-                                  fontSize: 14,
-                                ),
-                                errorText: fieldError,
-                                filled: false,
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(
-                    'Annuler',
-                    style: GoogleFonts.outfit(color: SignupConstants.textGrey),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    final raw = controller.text.trim();
-                    final formatted = raw.startsWith('+')
-                        ? raw.replaceAll(RegExp(r'\s'), '')
-                        : PhoneFormatter.formatPhoneNumber(
-                            dialogCountryCode,
-                            raw,
-                          );
-                    if (!PhoneFormatter.isValidE164(formatted)) {
-                      setModal(() {
-                        fieldError = 'Numéro invalide (ex. +33 6 12 34 56 78).';
-                      });
-                      return;
-                    }
-                    // Don't setModal(fieldError = null) before pop — the
-                    // dialog is being torn down on the next line, and the
-                    // pending markNeedsBuild on the StatefulBuilder racing
-                    // with the route removal is what triggers the red-screen
-                    // assertion users reported.
-                    Navigator.of(dialogContext).pop(formatted);
-                  },
-                  child: Text(
-                    'Continuer',
-                    style: GoogleFonts.outfit(
-                      color: SignupConstants.primaryGold,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    controller.dispose();
-    return submitted;
   }
 
   void _onPasswordFieldFocusChanged(bool isFocused) {
@@ -765,6 +327,15 @@ extension _SignupScreenUi on _SignupScreenState {
   }
 
   Widget _buildSignupContent(BuildContext context) {
+    final oauthState = ref.watch(oauthSignupControllerProvider);
+    final oauthBusy = oauthState is OAuthSignupAuthenticating ||
+        oauthState is OAuthSignupResolvingProfile ||
+        oauthState is OAuthSignupExistingUser;
+    final googleBusy = oauthState is OAuthSignupAuthenticating &&
+        oauthState.provider == OAuthSignupProvider.google;
+    final appleBusy = oauthState is OAuthSignupAuthenticating &&
+        oauthState.provider == OAuthSignupProvider.apple;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: MerchantColors.bgHeader,
@@ -776,17 +347,42 @@ extension _SignupScreenUi on _SignupScreenState {
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && !_isLoading) {
+          if (!didPop && !_isLoading && !oauthBusy) {
             widget.onBack();
           }
         },
         child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
           body: SafeArea(
-            child: ResponsiveScrollBody(
-              horizontalPadding: 24,
-              verticalPadding: 8,
-              child: Column(
+            child: Stack(
+              children: [
+                ResponsiveScrollBody(
+                  horizontalPadding: 24,
+                  verticalPadding: 8,
+                  child: _buildSignupBody(
+                    context,
+                    googleBusy: googleBusy,
+                    appleBusy: appleBusy,
+                    oauthBusy: oauthBusy,
+                  ),
+                ),
+                if (oauthBusy)
+                  _OAuthLoadingOverlay(state: oauthState),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignupBody(
+    BuildContext context, {
+    required bool googleBusy,
+    required bool appleBusy,
+    required bool oauthBusy,
+  }) {
+    return Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Top bar: back arrow ← + Yuztoo brand mark →
@@ -935,7 +531,9 @@ extension _SignupScreenUi on _SignupScreenState {
                   const SocialDivider(),
                   const SizedBox(height: 16),
                   SocialLoginButtons(
-                    isLoading: _isLoading || _isSocialLoading,
+                    isLoading: _isLoading || oauthBusy,
+                    googleLoading: googleBusy,
+                    appleLoading: appleBusy,
                     onSocialLogin: _handleSocialLogin,
                   ),
                   const SizedBox(height: 24),
@@ -944,7 +542,66 @@ extension _SignupScreenUi on _SignupScreenState {
                   ),
                   const SizedBox(height: 16),
                 ],
-              ),
+              );
+  }
+}
+
+/// Full-page loading overlay shown while the OAuth signup controller is
+/// busy with credential exchange / profile resolution / auth refresh.
+///
+/// Fixes the previous "tiny social button spinner that the user could
+/// not see while the keyboard was up" UX. Disabling pointer events on
+/// the form behind this overlay also prevents double-taps and stray
+/// focus changes during the OAuth round-trip.
+class _OAuthLoadingOverlay extends StatelessWidget {
+  const _OAuthLoadingOverlay({required this.state});
+
+  final OAuthSignupState state;
+
+  String get _copy {
+    return switch (state) {
+      OAuthSignupAuthenticating(:final provider) =>
+        provider == OAuthSignupProvider.google
+            ? 'Connexion à Google…'
+            : 'Connexion à Apple…',
+      OAuthSignupResolvingProfile() => 'Vérification de votre compte…',
+      OAuthSignupExistingUser() => 'Connexion…',
+      _ => 'Veuillez patienter…',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: AbsorbPointer(
+        child: ColoredBox(
+          color: MerchantColors.bgMain.withValues(alpha: 0.85),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      SignupConstants.primaryGold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  _copy,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    color: SignupConstants.textLight,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    height: 1.35,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
