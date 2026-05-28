@@ -292,6 +292,28 @@ service cloud.firestore {
             || r.program_status == o.get('program_status', null));
     }
 
+    // Server-side cooldown enforcement — defence-in-depth alongside the
+    // SDK-level check in [FirestoreClientLoyaltyRepository]. The merchant
+    // path is the only path that bumps validated_passages /
+    // cumulative_spend_euros (clients are blocked by
+    // loyaltyClientSelfUpdateValid above), so this rule only kicks in when
+    // a tampered merchant clock or a hand-rolled REST call tries to log a
+    // second passage less than 1 hour after the previous one. Tracks the
+    // Dart constant `kPassageCooldown` (1 hour); update both together.
+    function loyaltyClientPassageCooldownPasses() {
+      let r = request.resource.data;
+      let o = resource.data;
+      // No prior anchor → first additive write for this client/merchant
+      // pair, allow.
+      return o.get('last_passage_at', null) == null
+        // Anchor unchanged → other field updated (e.g. enrolment, manual
+        // segment), not an additive passage write.
+        || r.get('last_passage_at', null) == o.last_passage_at
+        // 1 hour elapsed since the previous additive write — server time,
+        // not client. Tampered clocks cannot bypass.
+        || request.time >= o.last_passage_at + duration.value(1, 'h');
+    }
+
     match /merchants/{merchantId}/loyalty_clients/{userId} {
       allow read: if isSignedIn()
         && (request.auth.uid == userId || isMerchantOwner(merchantId));
@@ -300,7 +322,8 @@ service cloud.firestore {
       allow create: if isMerchantOwner(merchantId)
         && loyaltyClientMerchantCreateValid();
 
-      allow update: if isMerchantOwner(merchantId)
+      allow update: if (isMerchantOwner(merchantId)
+          && loyaltyClientPassageCooldownPasses())
         || (isSignedIn()
           && request.auth.uid == userId
           && loyaltyClientSelfUpdateValid());
@@ -475,6 +498,51 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['view_count']);
+    }
+
+    // --- /merchants/{merchantId}/profile_views/{viewId} ---
+    //
+    // Per-(merchant, viewer, UTC day) marker doc, written by the client
+    // app when a signed-in user opens the storefront. Used to count
+    // distinct profile views over a 7-day sliding window for the
+    // merchant dashboard ("VUES / SEMAINE" KPI).
+    //
+    // Document id is "{YYYY-MM-DD}_{viewerUid}" — both the date prefix
+    // and the trailing uid are validated against the payload + auth so a
+    // viewer cannot impersonate someone else or manipulate the date
+    // field to inflate or deflate counters.
+    //
+    // Reads: merchant-only (the viewer-uid list is private analytics).
+    // Writes: signed-in viewer can create/update only their own marker
+    //         for the current day, with a strict shape; merchant owner
+    //         can clean up.
+    // Helper functions live OUTSIDE the `match` block: in Firestore
+    // Rules, functions defined at this scope cannot capture path
+    // variables from a `match` block (they evaluate to `null` and the
+    // whole rule errors out). All path bindings must therefore be
+    // passed in as arguments — same pattern as `isMerchantOwner`.
+    function profileViewWriteValid(merchantId, viewId) {
+      let r = request.resource.data;
+      return isSignedIn()
+        && r.viewer_uid == request.auth.uid
+        // Block the merchant owner from inflating their own dashboard
+        // by previewing their own vitrine. `isMerchantOwner` resolves
+        // the storefront's `owner_uid` and compares against
+        // `request.auth.uid`, which is the only reliable identity here
+        // (the doc id `merchantId` is rarely equal to the owner's uid).
+        && !isMerchantOwner(merchantId)
+        // Date string must be 'YYYY-MM-DD' and match the doc id prefix.
+        && r.date is string
+        && r.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && viewId == r.date + '_' + r.viewer_uid
+        // Tight shape — no piggy-backed fields can sneak in.
+        && r.keys().hasOnly(['date', 'viewer_uid', 'updated_at']);
+    }
+
+    match /merchants/{merchantId}/profile_views/{viewId} {
+      allow read: if isMerchantOwner(merchantId);
+      allow create, update: if profileViewWriteValid(merchantId, viewId);
+      allow delete: if isMerchantOwner(merchantId);
     }
 
     // --- /merchants/{merchantId}/pending_clients/{clientId} ---
