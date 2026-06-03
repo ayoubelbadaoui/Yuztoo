@@ -88,7 +88,7 @@ class EmailField extends StatelessWidget {
               size: 18,
             ),
             filled: true,
-            fillColor: SignupConstants.bgDark2,
+            fillColor: MerchantColors.inputFill,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 15,
@@ -194,7 +194,7 @@ class _PasswordFieldState extends State<PasswordField> {
                   : null,
             ),
             filled: true,
-            fillColor: SignupConstants.bgDark2,
+            fillColor: MerchantColors.inputFill,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 15,
@@ -332,7 +332,7 @@ class _ConfirmPasswordFieldState extends State<ConfirmPasswordField> {
                   : null,
             ),
             filled: true,
-            fillColor: SignupConstants.bgDark2,
+            fillColor: MerchantColors.inputFill,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 15,

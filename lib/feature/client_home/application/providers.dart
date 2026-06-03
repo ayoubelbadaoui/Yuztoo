@@ -103,7 +103,14 @@ Future<ClientHomeFeed> _buildClientHomeFeed({
   required FollowedMerchantsRepository followedRepo,
   required PromotionRepository promoRepo,
 }) async {
-  final ownFuture = merchantRepo.getMerchantById(userId);
+  // Resolve the merchant doc for this user via `owner_uid`. The legacy
+  // path used `getMerchantById(userId)` which assumed the merchant doc
+  // id was the same as the user id — true only for very early accounts.
+  // Modern merchants have a UUID merchant id with `owner_uid == userId`,
+  // so the legacy lookup returned null and the carnet failed to load on
+  // a brand-new merchant→client switch (until the user followed at
+  // least one shop, which bypassed the empty short-circuit below).
+  final ownFuture = merchantRepo.getMerchantByOwnerUid(userId);
   final heartLevelsFuture = followedRepo.getFollowedHeartLevels(userId);
   final sortIndexesFuture = followedRepo.getFollowedSortIndexes(userId);
 
@@ -111,7 +118,15 @@ Future<ClientHomeFeed> _buildClientHomeFeed({
   final heartLevelsResult = await heartLevelsFuture;
   final sortIndexesResult = await sortIndexesFuture;
 
-  final Merchant? ownMerchant = ownResult.fold((_) => null, (m) => m);
+  Merchant? ownMerchant = ownResult.fold((_) => null, (m) => m);
+  // Defensive fallback for very legacy accounts where the merchant doc
+  // id literally was the user id (no `owner_uid` field). Keeps the
+  // carnet working through the Firestore migration without forcing a
+  // backfill.
+  if (ownMerchant == null) {
+    final legacyResult = await merchantRepo.getMerchantById(userId);
+    ownMerchant = legacyResult.fold((_) => null, (m) => m);
+  }
   final followedIds = rawFollowedIds
       .where((id) => id != userId && !blockedIds.contains(id))
       .toList();

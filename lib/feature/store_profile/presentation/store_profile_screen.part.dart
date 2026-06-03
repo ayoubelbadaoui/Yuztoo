@@ -1800,30 +1800,26 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     Merchant merchant,
     String userId,
   ) {
+    // First-scan UX: the goal of the first interaction is discovery —
+    // show the welcome gift if any, then stop. Auto-opening the passage
+    // sheet right after the follow tile makes Yuztoo feel like a
+    // punch-card POS and confused users who only meant to subscribe
+    // ("au premier scan de connexion on propose de valider un passage
+    // alors qu'on doit proposer de suivre la boutique et voir cadeau
+    // de bienvenu"). Passage validation is for subsequent visits — it
+    // is reachable from the storefront CTA and from a re-scan.
     final welcomeGift = merchant.welcomeGiftDescription?.trim() ?? '';
     final merchantName = merchant.displayName?.isNotEmpty == true
         ? merchant.displayName!
         : merchant.name;
 
-    void offerPassage() {
-      if (!context.mounted) return;
-      _openRecordPassageSheet(
-        context,
-        merchant,
-        userId,
-        isFollowing: true,
-        skipWelcomeOnPassage: _welcomeShownForMerchantId == merchant.id,
-        visitOnly: !_merchantLoyaltyActive(merchant),
-      );
-    }
-
     if (welcomeGift.isEmpty) {
-      offerPassage();
+      // No welcome gift configured — silent success is fine. Storefront
+      // already paints the followed state in the background.
       return;
     }
 
     if (_welcomeShownForMerchantId == merchant.id) {
-      offerPassage();
       return;
     }
 
@@ -1837,9 +1833,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
         welcomeGift: welcomeGift,
         subtitle: 'Merci de nous suivre ! Le commerçant vous offre :',
       ),
-    ).then((_) {
-      Future.delayed(const Duration(milliseconds: 300), offerPassage);
-    });
+    );
   }
 
   void _openRecordPassageSheet(

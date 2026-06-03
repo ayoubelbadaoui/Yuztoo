@@ -524,33 +524,31 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                   ],
                 ),
               ),
-              // Right: "Tout lire" when there are unread alerts
+              // Right: mark-all-read icon — visible only on alertes tab
+              // when there are unread alerts. Designed to mirror the
+              // trash icon on the left (44×44 tap target, no pill chip)
+              // so the header reads as a clean, symmetric toolbar
+              // instead of fighting the title for visual weight.
               SizedBox(
                 width: 68,
                 height: 44,
                 child: (unreadCount > 0 && isAlertes)
-                    ? GestureDetector(
-                        onTap: _markAllRead,
-                        behavior: HitTestBehavior.opaque,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: MerchantColors.gold.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: MerchantColors.gold.withValues(
-                                    alpha: MerchantColors.goldBorderStronger),
-                              ),
-                            ),
-                            child: Text(
-                              'Tout lire',
-                              style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                    ? Align(
+                        alignment: Alignment.centerRight,
+                        child: Tooltip(
+                          message: 'Tout marquer comme lu',
+                          child: GestureDetector(
+                            onTap: _markAllRead,
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.done_all_rounded,
                                 color: MerchantColors.gold,
+                                size: 22,
+                                semanticLabel: 'Tout marquer comme lu',
                               ),
                             ),
                           ),

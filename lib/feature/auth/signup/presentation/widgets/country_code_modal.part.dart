@@ -85,7 +85,7 @@ class _CountryCodePickerSheetState extends State<_CountryCodePickerSheet> {
                       prefixIcon: const Icon(Icons.search,
                           color: SignupConstants.primaryGold),
                       filled: true,
-                      fillColor: SignupConstants.bgDark1,
+                      fillColor: MerchantColors.inputFill,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 12,

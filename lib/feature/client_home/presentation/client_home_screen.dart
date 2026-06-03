@@ -13,6 +13,7 @@ import '../../followed_merchants/infrastructure/followed_merchants_repository_pr
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../promotions/domain/entities/promotion.dart';
+import '../../loyalty/presentation/widgets/welcome_bons_highlight.dart';
 
 
 part 'client_home_screen.part.dart';
@@ -82,6 +83,7 @@ class ClientHomeScreen extends ConsumerWidget {
                           heartLevelsAsync.valueOrNull ?? const <String, int>{},
                           followedIds: feed.followedIds,
                           ownMerchantId: feed.ownMerchantId,
+                          showYuztooBrandTile: hasProAccount,
                         ),
                         loading: () => feedAsync.valueOrNull != null
                             ? _buildBusinessCard(
@@ -93,6 +95,7 @@ class ClientHomeScreen extends ConsumerWidget {
                                 followedIds: feedAsync.valueOrNull!.followedIds,
                                 ownMerchantId:
                                     feedAsync.valueOrNull!.ownMerchantId,
+                                showYuztooBrandTile: hasProAccount,
                               )
                             : _buildBusinessCardLoading(context),
                         error: (e, _) => feedAsync.valueOrNull != null
@@ -105,12 +108,19 @@ class ClientHomeScreen extends ConsumerWidget {
                                 followedIds: feedAsync.valueOrNull!.followedIds,
                                 ownMerchantId:
                                     feedAsync.valueOrNull!.ownMerchantId,
+                                showYuztooBrandTile: hasProAccount,
                               )
                             : _buildBusinessCardError(context, ref),
                       ),
                       const SizedBox(height: 24),
                       _buildQuickActions(context),
                       const SizedBox(height: 24),
+                      // Welcome bons surface here as a separate, prominent
+                      // section because they used to be buried in "Mes
+                      // avantages" and clients missed them.
+                      WelcomeBonsHighlight(
+                        onTapBon: (_) => onNavigate('loyalty'),
+                      ),
                       feedAsync.when(
                         data: (feed) => _buildPromotionsContent(
                           context,

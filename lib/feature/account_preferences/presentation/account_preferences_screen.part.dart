@@ -4,14 +4,19 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
   Widget _buildAccountPreferencesBody(BuildContext context) {
     final authState = ref.watch(authStateProvider);
     final storefrontAsync = ref.watch(storefrontProvider);
-    final isMerchant =
-        authState is Authenticated && authState.user.isMerchant;
+    final user =
+        authState is Authenticated ? authState.user : null;
 
-    // ignore: avoid_dynamic_calls
-    final merchantId = isMerchant ? authState.user.id : '';
+    // [isMerchant] short-circuits on primary_role and so cannot tell us
+    // whether a "primary client" already created a merchant account on
+    // top — which is exactly the case where the "Créer un compte pro"
+    // CTA must disappear. Use the canonical role flags instead.
+    final hasMerchantRole = user?.hasMerchantRole ?? false;
+
+    final merchantId = hasMerchantRole ? (user?.id ?? '') : '';
     final followerCountAsync =
         ref.watch(merchantFollowerCountProvider(merchantId));
-    final partnerCount = isMerchant
+    final partnerCount = hasMerchantRole
         ? (followerCountAsync.valueOrNull ?? 0)
         : 0;
 
@@ -49,7 +54,13 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
                           storefrontAsync.valueOrNull?.profileCompletionPercentage ??
                               0),
                       _buildInfoSection(),
-                      if (!isMerchant) _buildCreateAccountButton(),
+                      // Hide the "Créer un compte pro" CTA the moment
+                      // the user already holds the merchant role.
+                      // Previously gated by `!isMerchant`, which is
+                      // primary-role-derived and so leaks the CTA to a
+                      // primary-client user who already created their
+                      // pro account (the user-reported regression).
+                      if (!hasMerchantRole) _buildCreateAccountButton(),
                       const SizedBox(height: 24),
                     ],
                   ),

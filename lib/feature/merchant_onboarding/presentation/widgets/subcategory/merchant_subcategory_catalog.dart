@@ -1,5 +1,9 @@
 import '../../../domain/entities/merchant_subcategory.dart';
+import 'beauty_subcategories.dart';
+import 'fitness_subcategories.dart';
 import 'restaurant_subcategories.dart';
+import 'retail_subcategories.dart';
+import 'services_subcategories.dart';
 
 /// Lookup of subcategory lists keyed by the top-level merchant category id.
 ///
@@ -21,10 +25,18 @@ class MerchantSubcategoryCatalog {
     switch (categoryId) {
       case 'restaurant':
         return RestaurantSubcategories.all;
-      // Other categories (retail, beauty, fitness, services, other) do not
-      // yet have curated subcategories. Returning an empty list signals
-      // the UI to skip the subcategory step — better than showing
-      // restaurant subcategories to a beauty salon merchant.
+      case 'retail':
+        return RetailSubcategories.all;
+      case 'beauty':
+        return BeautySubcategories.all;
+      case 'fitness':
+        return FitnessSubcategories.all;
+      case 'services':
+        return ServicesSubcategories.all;
+      // "other" intentionally has no curated list — by definition the
+      // merchant does not fit any of our buckets, so forcing them through
+      // a refinement step would be friction without value. The wizard
+      // auto-skips when this returns empty.
       default:
         return const [];
     }

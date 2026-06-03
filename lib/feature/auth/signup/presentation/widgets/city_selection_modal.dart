@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../../core/infrastructure/city_catalog_repository.dart';
+import '../../../../../core/shared/constants/merchant_colors.dart';
 import '../constants/signup_constants.dart';
 
 class CitySelectionModal {
@@ -196,7 +197,7 @@ class _CitySelectionSheetState extends State<_CitySelectionSheet> {
                         color: SignupConstants.primaryGold,
                       ),
                       filled: true,
-                      fillColor: SignupConstants.bgDark1,
+                      fillColor: MerchantColors.inputFill,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 12,

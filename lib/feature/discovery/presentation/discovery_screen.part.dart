@@ -174,7 +174,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                 )
               : null,
           filled: true,
-          fillColor: MerchantColors.navyCard,
+          fillColor: MerchantColors.inputFill,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           border: OutlineInputBorder(

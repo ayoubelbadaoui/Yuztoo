@@ -89,6 +89,22 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
         c: rewards.where((r) => _rewardMatchesCategory(r, c)).length,
     };
 
+    // Defer the "Type de fidélité" filter until the carnet has actual
+    // diversity. New clients (zero cards or all cards in one type) get
+    // a single, undivided list of merchants — the user feedback was
+    // exactly "trop tôt … les clients se perdent … qu'ils voient tous
+    // leurs commerçants au début". The filter chips reappear naturally
+    // the moment the carnet contains 2+ reward kinds.
+    final stillLoading = feedAsync.isLoading || rewardsAsync.isLoading;
+    final representedCategoryCount = stillLoading
+        ? 0
+        : kLoyaltyRewardCategories
+            .where((c) =>
+                (feedCounts[c] ?? 0) > 0 || (rewardCounts[c] ?? 0) > 0)
+            .length;
+    final showCategoryFilter = representedCategoryCount >= 2;
+    final effectiveCategory = showCategoryFilter ? _category : null;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -136,24 +152,26 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
                         feedAsync: feedAsync,
                       ),
                       const SizedBox(height: 20),
-                      _LoyaltyCategoryFilterBar(
-                        selected: _category,
-                        feedCounts: feedAsync.isLoading
-                            ? {
-                                for (final c in kLoyaltyRewardCategories) c: 0,
-                              }
-                            : feedCounts,
-                        rewardCounts: rewardsAsync.isLoading
-                            ? {
-                                for (final c in kLoyaltyRewardCategories) c: 0,
-                              }
-                            : rewardCounts,
-                        onSelected: (c) => setState(() => _category = c),
-                      ),
-                      const SizedBox(height: 20),
-                      _MesAvantagesSection(category: _category),
+                      if (showCategoryFilter) ...[
+                        _LoyaltyCategoryFilterBar(
+                          selected: _category,
+                          feedCounts: feedAsync.isLoading
+                              ? {
+                                  for (final c in kLoyaltyRewardCategories) c: 0,
+                                }
+                              : feedCounts,
+                          rewardCounts: rewardsAsync.isLoading
+                              ? {
+                                  for (final c in kLoyaltyRewardCategories) c: 0,
+                                }
+                              : rewardCounts,
+                          onSelected: (c) => setState(() => _category = c),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                      _MesAvantagesSection(category: effectiveCategory),
                       _LoyaltyFeed(
-                        category: _category,
+                        category: effectiveCategory,
                         feedAsync: feedAsync,
                         onStoreTap: widget.onStoreTap,
                       ),

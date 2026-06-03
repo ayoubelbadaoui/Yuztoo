@@ -255,3 +255,46 @@ export function compareNotificationsBySpecificity<
   const bSpec = isSegmentSpecificAudience(b.data()) ? 0 : 1;
   return aSpec - bSpec;
 }
+
+/**
+ * Resolve the public-facing merchant name to surface in notifications.
+ *
+ * Why this exists:
+ * - The merchant document carries TWO name fields:
+ *     • `name`         — legal / registration name set at signup. Never
+ *                        edited from the merchant settings UI, so it
+ *                        keeps the value entered the day the account
+ *                        was created.
+ *     • `display_name` — public-facing trading name ("Nom commercial")
+ *                        edited from the merchant identity screen.
+ * - Notifications historically read `name`, which is why a merchant
+ *   that renamed their commerce kept seeing the OLD name in
+ *   automatic / promotion / quick-send notifications (the user's
+ *   "le nouveau nom n'est pas indiqué" report).
+ *
+ * Resolution order:
+ *   1. `display_name` when non-empty → public-facing, always current.
+ *   2. `name` as a fallback → covers very old accounts where
+ *      `display_name` was never written.
+ *   3. The "Votre commerce" generic literal as the last resort, so
+ *      pushes never go out with an empty merchant prefix.
+ *
+ * Pure (no Firestore I/O) so it can be unit-tested. Trims to defend
+ * against whitespace-only values that would otherwise pass the
+ * truthiness check.
+ */
+export function resolveMerchantPublicName(
+  data: Record<string, unknown> | undefined
+): string {
+  if (data) {
+    const displayName = data["display_name"];
+    if (typeof displayName === "string" && displayName.trim().length > 0) {
+      return displayName.trim();
+    }
+    const legalName = data["name"];
+    if (typeof legalName === "string" && legalName.trim().length > 0) {
+      return legalName.trim();
+    }
+  }
+  return "Votre commerce";
+}

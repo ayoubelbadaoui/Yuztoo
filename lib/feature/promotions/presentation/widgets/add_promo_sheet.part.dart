@@ -396,7 +396,7 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
             hintStyle:
                 GoogleFonts.outfit(color: MerchantColors.textGrey, fontSize: 14),
             filled: true,
-            fillColor: MerchantColors.navyCard,
+            fillColor: MerchantColors.inputFill,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(

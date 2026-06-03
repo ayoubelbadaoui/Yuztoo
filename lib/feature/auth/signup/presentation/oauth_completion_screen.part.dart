@@ -373,7 +373,7 @@ extension _OAuthCompletionScreenUi on _OAuthCompletionScreenState {
               fontSize: 11,
             ),
             filled: true,
-            fillColor: SignupConstants.bgDark2,
+            fillColor: MerchantColors.inputFill,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 15,

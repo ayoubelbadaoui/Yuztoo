@@ -6,6 +6,7 @@ import {
   compareNotificationsBySpecificity,
   filterEnabledNotificationsForTrigger,
   isMerchantAutoNotificationsEnabled,
+  resolveMerchantPublicName,
   shouldSendBirthdayThisYear,
   shouldSendConnectionAnniversary,
   shouldSendInactiveReturn,
@@ -663,7 +664,10 @@ async function fireAutoNotification(
 ): Promise<void> {
   const data = notifDoc.data();
   const merchantSnap = await db.collection("merchants").doc(merchantId).get();
-  const merchantName: string = merchantSnap.data()?.name ?? "Votre commerce";
+  // Resolve the public name (display_name → name → "Votre commerce")
+  // at SEND time, not at template creation. Ensures merchants who
+  // updated their commercial name see the new value in pushes.
+  const merchantName: string = resolveMerchantPublicName(merchantSnap.data());
 
   await db
     .collection("users")
@@ -1275,7 +1279,9 @@ export const onPromotionCreated = functions
     if (promoData.is_online === false) return null;
 
     const merchantSnap = await db.collection("merchants").doc(merchantId).get();
-    const merchantName: string = merchantSnap.data()?.name ?? "Votre commerce";
+    // Resolve at fan-out time so a renamed commerce surfaces the
+    // current name in the promotion push.
+    const merchantName: string = resolveMerchantPublicName(merchantSnap.data());
     const promoTitle: string = promoData.title ?? "Nouvelle promotion";
     const clientType: string = promoData.client_type ?? "gratuit";
     const targetSegments: string[] = Array.isArray(promoData.target_segments)
@@ -2046,8 +2052,9 @@ export const processScheduledNotifications = functions
           .doc(merchantId)
           .get();
         const merchantData = merchantSnap.data() ?? {};
-        const merchantName: string =
-          merchantData.name ?? "Votre commerce";
+        // Resolve at quick-send time too — same root reason as
+        // [fireAutoNotification].
+        const merchantName: string = resolveMerchantPublicName(merchantData);
         const weeklyCount: number =
           Number(merchantData.weekly_notif_sent_count ?? 0);
         const resetAt = merchantData.weekly_notif_reset_at;

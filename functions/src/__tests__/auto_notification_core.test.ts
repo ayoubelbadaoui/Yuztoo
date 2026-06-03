@@ -7,6 +7,7 @@ import {
   isMerchantAutoNotificationsEnabled,
   isSegmentSpecificAudience,
   parseDobToMD,
+  resolveMerchantPublicName,
   shouldSendBirthdayThisYear,
   shouldSendConnectionAnniversary,
   shouldSendInactiveReturn,
@@ -334,6 +335,55 @@ describe("auto_notification_core — audience specificity", () => {
     expect(sorted[1]).toBe(b);
     expect(sorted[2]).toBe(c);
     expect(sorted[3]).toBe(d);
+  });
+});
+
+describe("resolveMerchantPublicName — name resolution at send time", () => {
+  test("prefers display_name over legal name (the rename bug)", () => {
+    expect(
+      resolveMerchantPublicName({
+        name: "Old Boulangerie SAS",
+        display_name: "Boulangerie Dupont",
+      })
+    ).toBe("Boulangerie Dupont");
+  });
+
+  test("falls back to legal name when display_name is missing", () => {
+    expect(
+      resolveMerchantPublicName({ name: "Mon Commerce SARL" })
+    ).toBe("Mon Commerce SARL");
+  });
+
+  test("falls back to legal name when display_name is empty / whitespace", () => {
+    expect(
+      resolveMerchantPublicName({ name: "Boulangerie", display_name: "" })
+    ).toBe("Boulangerie");
+    expect(
+      resolveMerchantPublicName({ name: "Boulangerie", display_name: "   " })
+    ).toBe("Boulangerie");
+  });
+
+  test("trims surrounding whitespace from the resolved name", () => {
+    expect(
+      resolveMerchantPublicName({ display_name: "  Mon commerce  " })
+    ).toBe("Mon commerce");
+  });
+
+  test("returns generic fallback for missing / empty data", () => {
+    expect(resolveMerchantPublicName(undefined)).toBe("Votre commerce");
+    expect(resolveMerchantPublicName({})).toBe("Votre commerce");
+    expect(
+      resolveMerchantPublicName({ name: "", display_name: "" })
+    ).toBe("Votre commerce");
+  });
+
+  test("ignores non-string values and falls through gracefully", () => {
+    expect(
+      resolveMerchantPublicName({
+        name: 42 as unknown as string,
+        display_name: null as unknown as string,
+      })
+    ).toBe("Votre commerce");
   });
 });
 

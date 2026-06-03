@@ -263,7 +263,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
                 )
               : null,
           filled: true,
-          fillColor: MerchantColors.navyCard,
+          fillColor: MerchantColors.inputFill,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           border: OutlineInputBorder(

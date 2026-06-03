@@ -272,7 +272,7 @@ class _MerchantPassageDebugSimulateSheetState
                   labelStyle:
                       GoogleFonts.outfit(color: MerchantColors.textGrey),
                   filled: true,
-                  fillColor: MerchantColors.bgHeader,
+                  fillColor: MerchantColors.inputFill,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
