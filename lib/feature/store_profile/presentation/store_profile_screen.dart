@@ -16,6 +16,7 @@ import '../../merchant/domain/entities/merchant.dart';
 import '../../promotions/application/providers.dart'
     show recordPromoViewsProvider;
 import '../../promotions/domain/entities/promotion.dart';
+import '../../storefront/application/profile_view_providers.dart';
 import '../../storefront/domain/entities/business_hours.dart';
 import '../../storefront/application/widgets.dart';
 import '../../loyalty/application/client_loyalty_providers.dart'
@@ -214,6 +215,13 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   /// Avoids showing the welcome-gift modal twice (follow-then-passage).
   String? _welcomeShownForMerchantId;
 
+  /// "viewerUid::merchantId" of the last (viewer, merchant) pair for which
+  /// we have already fired a profile-view record. Prevents re-firing on
+  /// every rebuild of the same screen instance — the repo is also
+  /// idempotent server-side (1 doc per viewer/UTC day), but this avoids
+  /// even the no-op network round-trip on each frame.
+  String? _profileViewRecordedFor;
+
   @override
   Widget build(BuildContext context) {
     final pageAsync = ref.watch(storeProfilePageDataProvider);
@@ -252,6 +260,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                 merchant.logoUrl,
                 ...?merchant.newsImageUrls,
               ]);
+              _recordProfileViewIfNeeded(merchant.id);
             });
             return _buildContent(context, merchant, data.promotions);
           },
@@ -268,6 +277,131 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
 
   void _setFollowToggling(bool value) {
     setState(() => _isFollowToggling = value);
+  }
+
+  /// Fire-and-forget profile-view recording. Called from the post-frame
+  /// callback of [build] so it runs once per frame after the storefront
+  /// is actually painted. Multiple guards keep the write footprint
+  /// minimal and align with the user's expectation that "vues de profil"
+  /// counts genuine inbound traffic:
+  ///
+  /// * skip when [merchantId] is empty,
+  /// * skip anonymous / guest visitors (no Firestore auth → no rule
+  ///   match anyway),
+  /// * skip the merchant viewing their own preview (would inflate),
+  /// * skip if we've already recorded this (viewer, merchant) pair for
+  ///   the current screen instance — the repo is also day-idempotent,
+  ///   but this avoids even the no-op round-trip on every rebuild.
+  void _recordProfileViewIfNeeded(String merchantId) {
+    if (merchantId.isEmpty) return;
+    final viewerId = ref.read(currentUserIdProvider);
+    if (viewerId == null || viewerId.isEmpty) return;
+    if (viewerId == merchantId) return;
+    final key = '$viewerId::$merchantId';
+    if (_profileViewRecordedFor == key) return;
+    _profileViewRecordedFor = key;
+    final record = ref.read(recordProfileViewProvider);
+    unawaited(record(merchantId: merchantId, viewerId: viewerId));
+  }
+
+  /// Single source of truth for the follow / unfollow toggle. Used by both
+  /// the top "Suivre" CTA AND the discreet bottom "Ne plus suivre" link, so
+  /// the auth-gate, snackbar, and undo flow stay identical regardless of
+  /// which entry point the user tapped.
+  Future<void> _handleFollowToggle({
+    required BuildContext context,
+    required Merchant merchant,
+    required bool currentlyFollowing,
+  }) async {
+    final userId = ref.read(currentUserIdProvider);
+    final merchantId = merchant.id;
+    if (userId == null) {
+      final merchantName = merchant.displayName?.isNotEmpty == true
+          ? merchant.displayName!
+          : merchant.name;
+      _showAuthGateSheet(
+        context,
+        merchant,
+        message:
+            'Connectez-vous pour suivre $merchantName et rester informé de ses actualités et promotions.',
+      );
+      return;
+    }
+    _setFollowToggling(true);
+    final toggleFollow = ref.read(toggleMerchantFollowProvider);
+    final result = await toggleFollow.call(
+      userId: userId,
+      merchantId: merchantId,
+      currentlyFollowing: currentlyFollowing,
+    );
+    if (!context.mounted) return;
+    _setFollowToggling(false);
+    if (result.isLeft) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Échec de la sauvegarde'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+    ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
+    ref.invalidate(clientHomeFeedProvider);
+    ref.invalidate(discoveryMerchantsProvider);
+    ref.invalidate(discoveryRecommendedMerchantsProvider);
+    ref.invalidate(discoveryFollowedMerchantsProvider);
+    // Refresh the "X abonnés" pill on this vitrine so the count reflects
+    // the new follow/unfollow immediately.
+    ref.invalidate(followersCountByMerchantIdsProvider(<String>[merchantId]));
+    if (!context.mounted) return;
+    // `currentlyFollowing` is the state BEFORE the toggle, so when it was
+    // true we just unfollowed. Offer a 5-second undo on the unfollow path —
+    // fat-finger taps are the most common support ticket on this button
+    // and a re-follow round-trip is otherwise friction-heavy (it also
+    // re-fires the welcome bon flow on some merchants).
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: currentlyFollowing
+            ? const Duration(seconds: 5)
+            : const Duration(seconds: 2),
+        content: Text(
+          currentlyFollowing
+              ? 'Commerce retiré de votre carnet'
+              : 'Commerce ajouté à votre carnet ✓',
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: StorefrontColors.primaryGold,
+        action: currentlyFollowing
+            ? SnackBarAction(
+                label: 'Annuler',
+                textColor: StorefrontColors.navyDark,
+                onPressed: () async {
+                  if (!context.mounted) return;
+                  _setFollowToggling(true);
+                  final undo = await toggleFollow.call(
+                    userId: userId,
+                    merchantId: merchantId,
+                    // Currently NOT following (we just unfollowed), so re-follow.
+                    currentlyFollowing: false,
+                  );
+                  if (!context.mounted) return;
+                  _setFollowToggling(false);
+                  if (undo.isRight) {
+                    ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+                    ref.invalidate(
+                        followedMerchantHeartLevelsForCurrentUserProvider);
+                    ref.invalidate(clientHomeFeedProvider);
+                    ref.invalidate(followersCountByMerchantIdsProvider(
+                        <String>[merchantId]));
+                  }
+                },
+              )
+            : null,
+      ),
+    );
   }
 
   Future<void> _setHeartLevel(

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/utils/image_crop_utils.dart';
+import '../application/profile_view_providers.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
 import 'widgets/banner_section.dart';

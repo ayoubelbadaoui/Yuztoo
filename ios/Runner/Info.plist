@@ -42,7 +42,7 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Yuztoo a besoin de la caméra pour scanner les QR codes des commerces.</string>
+	<string>Yuztoo utilise la caméra pour scanner les QR codes des commerces et pour prendre votre photo de profil ou le logo et la couverture de votre commerce.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>Yuztoo utilise le NFC pour se connecter instantanément à un commerce en approchant votre téléphone.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>

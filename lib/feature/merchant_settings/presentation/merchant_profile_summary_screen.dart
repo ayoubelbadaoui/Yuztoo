@@ -14,6 +14,7 @@ import '../../client_list/application/providers.dart' as crm_providers;
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant_partners/application/providers.dart' as partners_providers;
+import '../../storefront/application/profile_view_providers.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;
 import '../../storefront/domain/entities/storefront.dart';
 
@@ -120,6 +121,17 @@ class _MerchantProfileSummaryScreenState
 
     final linkedProviders = ref.watch(auth_providers.linkedProvidersProvider);
 
+    // Live 7-day sliding window count from
+    // [profileViewWeeklyStatsProvider] — replaces the now-deprecated
+    // `storefront.weeklyViews` stub which always returned 0.
+    final weeklyViews = merchantId.isEmpty
+        ? 0
+        : ref
+                .watch(profileViewWeeklyStatsProvider(merchantId))
+                .valueOrNull
+                ?.weeklyViews ??
+            0;
+
     return _buildScaffold(
       context,
       merchant: merchant,
@@ -127,7 +139,7 @@ class _MerchantProfileSummaryScreenState
       clientCount: clients.length,
       partnerCount: partners.length,
       cityCount: cities.length,
-      weeklyViews: storefront?.weeklyViews ?? 0,
+      weeklyViews: weeklyViews,
       completionPct: storefront?.profileCompletionPercentage ?? 0,
       linkedProviders: linkedProviders,
     );

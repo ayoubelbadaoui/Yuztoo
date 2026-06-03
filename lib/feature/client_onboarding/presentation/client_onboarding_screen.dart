@@ -13,7 +13,7 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/cupertino_dob_picker.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/utils/cities.dart';
-import '../../../core/utils/image_crop_utils.dart';
+import '../../../core/utils/image_pick_with_source.dart';
 import '../../../core/utils/oauth_profile_photo.dart';
 import '../../auth/core/application/oauth_identity_helpers.dart';
 import '../../auth/core/application/providers.dart';
@@ -155,59 +155,17 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
   }
 
   Future<void> _pickPhoto() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final path = await pickImageWithSourceChoice(
       context: context,
-      backgroundColor: MerchantColors.bgMain,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Choisir une photo',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: MerchantColors.textWhite,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.camera_alt_outlined,
-                    color: MerchantColors.gold),
-                title: Text(
-                  'Prendre une photo',
-                  style: GoogleFonts.outfit(color: MerchantColors.textWhite),
-                ),
-                onTap: () => Navigator.pop(ctx, ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined,
-                    color: MerchantColors.gold),
-                title: Text(
-                  'Choisir depuis la galerie',
-                  style: GoogleFonts.outfit(color: MerchantColors.textWhite),
-                ),
-                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (source == null || !mounted) return;
-    final picked = await _picker.pickImage(
-      source: source,
+      picker: _picker,
+      sheetTitle: 'Photo de profil',
       maxWidth: 800,
-      imageQuality: 85,
+      cropRatioX: 1,
+      cropRatioY: 1,
+      cropCircleShape: true,
     );
-    if (picked == null || !mounted) return;
-    final cropped = await cropImage(picked.path, ratioX: 1, ratioY: 1);
-    if (mounted) setState(() => _localImagePath = cropped ?? picked.path);
+    if (path == null || !mounted) return;
+    setState(() => _localImagePath = path);
   }
 
   Future<String?> _uploadProfilePhoto(String uid) async {

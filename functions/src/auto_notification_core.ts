@@ -93,9 +93,26 @@ export function isMerchantAutoNotificationsEnabled(
   return true;
 }
 
-export function parseDobToMD(dob: string): string {
-  const trimmed = dob.trim();
-  return trimmed.length >= 5 ? trimmed.slice(trimmed.length - 5) : trimmed;
+/**
+ * Extracts the MM-DD suffix from an ISO `YYYY-MM-DD[ T... ]` date string.
+ *
+ * Returns `null` when the input does not match the strict ISO calendar
+ * format. Earlier versions blindly sliced the last 5 chars, which made
+ * birthday matching ambiguous: any string accidentally ending in today's
+ * `MM-DD` would have triggered the "Bon anniversaire" notification, and
+ * any DOB stored in a non-ISO format (`DD/MM/YYYY`, `1990-05-07T00:00:00`,
+ * etc.) silently disabled birthday matching for that user. We now refuse
+ * to guess — only writes that go through the canonical Flutter/Firestore
+ * path (always `YYYY-MM-DD`) are honoured.
+ */
+export function parseDobToMD(dob: string): string | null {
+  const match = dob.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/);
+  if (!match) return null;
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > 31) return null;
+  return `${match[2]}-${match[3]}`;
 }
 
 export function isLeapYear(year: number): boolean {
@@ -103,16 +120,24 @@ export function isLeapYear(year: number): boolean {
 }
 
 /**
- * Birthday match for daily job (Europe/Paris calendar day).
- * Feb 29 DOBs also match on Feb 28 in non-leap years.
+ * Birthday match for the daily job (Europe/Paris calendar day).
+ *
+ * Returns `true` ONLY when the user's DOB resolves to today's `MM-DD`.
+ * Defensive properties:
+ *   • `dob` must be a strict ISO calendar date — anything else returns
+ *     `false` rather than risking a false positive.
+ *   • A `02-29` DOB also matches `02-28` in a non-leap year so leap-day
+ *     babies still receive their notification.
+ *   • Empty / undefined / malformed inputs all return `false`.
  */
 export function isBirthdayToday(
   dob: string | undefined,
   todayMD: string,
   today: Date
 ): boolean {
-  if (!dob || dob.trim().length === 0) return false;
+  if (!dob) return false;
   const dobMD = parseDobToMD(dob);
+  if (dobMD === null) return false;
   if (dobMD === todayMD) return true;
   if (
     dobMD === "02-29" &&
@@ -195,4 +220,38 @@ export function filterEnabledNotificationsForTrigger<
     const stored = String(data.trigger ?? "");
     return triggersMatch(stored, canonicalTrigger);
   });
+}
+
+/**
+ * True when the notification's audience explicitly targets specific
+ * client segments — "Certains clients" with a non-empty target_segments
+ * list. Used to prefer narrow templates over broadcast ones when a
+ * merchant has multiple birthday templates active for the same day.
+ */
+export function isSegmentSpecificAudience(
+  data: Record<string, unknown>
+): boolean {
+  if (data.audience !== "Certains clients") return false;
+  const segs = data.target_segments;
+  return Array.isArray(segs) && segs.length > 0;
+}
+
+/**
+ * Comparator that orders auto-notification docs from most specific
+ * audience to broadest. Stable, total — accepts any doc with a `.data()`
+ * accessor.
+ *
+ * Cap-at-one-per-client semantics: once a merchant has multiple birthday
+ * templates configured, the daily job sorts with this comparator and
+ * keeps the FIRST template that passes the per-client segment filter.
+ * Without this, a VIP client matching both a "Certains clients (vip)"
+ * template and a "Tous mes clients" template would receive two
+ * birthday messages from the same merchant on the same day.
+ */
+export function compareNotificationsBySpecificity<
+  T extends { data: () => Record<string, unknown> }
+>(a: T, b: T): number {
+  const aSpec = isSegmentSpecificAudience(a.data()) ? 0 : 1;
+  const bSpec = isSegmentSpecificAudience(b.data()) ? 0 : 1;
+  return aSpec - bSpec;
 }

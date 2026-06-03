@@ -32,18 +32,21 @@ class PersonalInformationScreen extends ConsumerStatefulWidget {
   /// contexts. Single-role users do not see this block.
   final bool isDualProfile;
 
-  /// Tapped when the user wants to add their secondary role. The label of the
-  /// button is controlled by [createOtherRoleLabel] — defaults to
-  /// "Créer un compte pro" (the original client-side CTA wording).
+  /// Tapped when the user wants to add their secondary role.
   ///
-  /// Merchant callers should pass `'Créer un carnet Yuztoo'` and wire this
-  /// callback to the create-client-carnet flow, otherwise a merchant viewing
-  /// their personal info sees a "compte pro" button that makes no sense for
-  /// them (they already have one) — the regression the user reported.
+  /// The button label auto-adapts to the current role:
+  ///  • merchant viewer → "Créer un carnet Yuztoo" (start the client carnet)
+  ///  • client viewer   → "Créer un compte pro"    (start merchant onboarding)
+  ///
+  /// Callers can still override the label via [createOtherRoleLabel] when
+  /// they need a specific wording, but the default derivation is the source
+  /// of truth — earlier code relied on every caller remembering to pass an
+  /// override, which silently regressed the merchant button to "compte pro"
+  /// (the user-reported bug) whenever someone added a new entry point.
   final VoidCallback? onCreateProAccount;
 
-  /// Override label for the secondary-role CTA. Defaults to
-  /// "Créer un compte pro" when null.
+  /// Optional explicit override for the secondary-role CTA. When null, the
+  /// label is derived from the signed-in user's role (see [onCreateProAccount]).
   final String? createOtherRoleLabel;
 
   /// When provided, the back button uses this callback instead of
@@ -211,6 +214,14 @@ class _PersonalInformationScreenState
     if (hasPhoto) completionPercent += 20;
 
     final uid = user?.id;
+    // Derive the secondary-role CTA label from the current user when no
+    // explicit override was provided. A merchant viewing this screen always
+    // wants "Créer un carnet Yuztoo" (their secondary role is client),
+    // a client always wants "Créer un compte pro". This makes the screen
+    // robust to new callers that might forget to pass the override.
+    final isMerchant = user?.isMerchant ?? false;
+    final resolvedLabel = widget.createOtherRoleLabel ??
+        (isMerchant ? 'Créer un carnet Yuztoo' : 'Créer un compte pro');
     return _buildScaffold(
       context,
       uid: uid,
@@ -227,7 +238,7 @@ class _PersonalInformationScreenState
           ? () => _pickAndUploadPhoto(uid)
           : null,
       onCreateProAccount: widget.onCreateProAccount,
-      createOtherRoleLabel: widget.createOtherRoleLabel,
+      createOtherRoleLabel: resolvedLabel,
       isDualProfile: widget.isDualProfile,
     );
   }

@@ -859,83 +859,81 @@ class _IdentificationSecurityScreenState
   }
 
   // ── delete card ────────────────────────────────────────────────────────────
+  // Calm entry-point. Destructive styling (red icon, red confirm button,
+  // "irréversible" copy) is reserved for [_DeleteConfirmSheet] — at the
+  // moment the user commits, never before. The previous all-red row read
+  // as a "danger zone" and scared users away from a legitimate action.
   Widget _buildDeleteCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.red.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.delete_forever_rounded,
-                color: Colors.red.shade400, size: 20),
+    return GestureDetector(
+      onTap: _isDeletingAccount ? null : _confirmDeleteAccount,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: MerchantColors.navyCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: MerchantColors.gold.withValues(alpha: 0.2),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Supprimer le compte',
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.red.shade300,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Définitif — toutes les données seront perdues',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: MerchantColors.textGrey,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _isDeletingAccount ? null : _confirmDeleteAccount,
-            child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.red.shade400),
-                borderRadius: BorderRadius.circular(12),
+                color: MerchantColors.gold.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
               ),
-              child: Center(
-                child: _isDeletingAccount
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.red.shade400,
-                        ),
-                      )
-                    : Text(
-                        'Supprimer',
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.red.shade400,
-                        ),
-                      ),
+              child: const Icon(
+                Icons.no_accounts_outlined,
+                color: MerchantColors.textGrey,
+                size: 20,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Supprimer mon compte',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Effacer mes données et fermer mon compte.',
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: MerchantColors.textGrey,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (_isDeletingAccount)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: MerchantColors.gold,
+                ),
+              )
+            else
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: MerchantColors.textGrey,
+                size: 22,
+              ),
+          ],
+        ),
       ),
     );
   }

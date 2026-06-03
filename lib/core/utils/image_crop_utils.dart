@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:image_cropper/image_cropper.dart';
 import '../shared/constants/merchant_colors.dart';
 
@@ -10,8 +12,14 @@ import '../shared/constants/merchant_colors.dart';
 /// Pass [circleShape] = true for profile-photo flows — uCrop shows a circle
 /// guide (output is still a square file, ready for circular clipping in Flutter).
 ///
-/// Returns the cropped file path on success, or `null` if the user cancels
-/// or an error occurs.
+/// Returns the cropped file path on success, or `null` if the user cancels.
+///
+/// **Error handling:** any exception thrown by uCrop / iOS image cropper (e.g.
+/// uCrop fails on certain Android device GPUs, file path resolution race on
+/// iOS, OOM during decode) is caught here and a `null` is returned instead
+/// — so the caller can fall back to the un-cropped path without an
+/// unhandled async exception bubbling up to the framework. The error is
+/// emitted via `dart:developer.log` so it's still observable in dev tools.
 Future<String?> cropImage(
   String sourcePath, {
   double? ratioX,
@@ -39,29 +47,39 @@ Future<String?> cropImage(
   // In image_cropper v12, cropStyle is set per-platform via uiSettings.
   final style = circleShape ? CropStyle.circle : CropStyle.rectangle;
 
-  final cropped = await ImageCropper().cropImage(
-    sourcePath: sourcePath,
-    aspectRatio: aspectRatio,
-    uiSettings: [
-      AndroidUiSettings(
-        toolbarTitle: 'Recadrer',
-        toolbarColor: MerchantColors.bgHeader,
-        toolbarWidgetColor: MerchantColors.gold,
-        activeControlsWidgetColor: MerchantColors.gold,
-        initAspectRatio: initPreset(),
-        lockAspectRatio: hasRatio,
-        hideBottomControls: false,
-        cropStyle: style,
-      ),
-      IOSUiSettings(
-        title: 'Recadrer',
-        doneButtonTitle: 'Valider',
-        cancelButtonTitle: 'Annuler',
-        aspectRatioLockEnabled: hasRatio,
-        resetAspectRatioEnabled: !hasRatio,
-        cropStyle: style,
-      ),
-    ],
-  );
-  return cropped?.path;
+  try {
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: sourcePath,
+      aspectRatio: aspectRatio,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Recadrer',
+          toolbarColor: MerchantColors.bgHeader,
+          toolbarWidgetColor: MerchantColors.gold,
+          activeControlsWidgetColor: MerchantColors.gold,
+          initAspectRatio: initPreset(),
+          lockAspectRatio: hasRatio,
+          hideBottomControls: false,
+          cropStyle: style,
+        ),
+        IOSUiSettings(
+          title: 'Recadrer',
+          doneButtonTitle: 'Valider',
+          cancelButtonTitle: 'Annuler',
+          aspectRatioLockEnabled: hasRatio,
+          resetAspectRatioEnabled: !hasRatio,
+          cropStyle: style,
+        ),
+      ],
+    );
+    return cropped?.path;
+  } catch (error, stackTrace) {
+    developer.log(
+      'cropImage failed — falling back to source path',
+      name: 'image_crop_utils',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    return null;
+  }
 }

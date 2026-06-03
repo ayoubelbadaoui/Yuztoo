@@ -469,6 +469,174 @@ describe("merchants/promotions", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 5b. merchants/{id}/profile_views — storefront view counters
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("merchants/profile_views", () => {
+  // The path is intentionally "{date}_{uid}" so the rule can derive both
+  // the calendar day and the writer identity from the doc id alone.
+  const today = "2026-05-26";
+  const docFor = (uid: string, date: string = today) => `${date}_${uid}`;
+  const okPayload = (uid: string, date: string = today) => ({
+    date,
+    viewer_uid: uid,
+    updated_at: new Date(),
+  });
+
+  test("signed-in viewer can CREATE their own marker for today", async () => {
+    await seedMerchant("merch1", "owner1");
+    await assertSucceeds(
+      authDb("alice")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("alice"))
+        .set(okPayload("alice"))
+    );
+  });
+
+  test("repeated set on the same marker is idempotent (allowed)", async () => {
+    await seedMerchant("merch1", "owner1");
+    const ref = authDb("alice")
+      .collection("merchants")
+      .doc("merch1")
+      .collection("profile_views")
+      .doc(docFor("alice"));
+    await assertSucceeds(ref.set(okPayload("alice")));
+    await assertSucceeds(ref.set(okPayload("alice")));
+  });
+
+  test("anonymous CANNOT write a profile-view marker", async () => {
+    await seedMerchant("merch1", "owner1");
+    await assertFails(
+      anonDb()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("ghost"))
+        .set(okPayload("ghost"))
+    );
+  });
+
+  test("viewer CANNOT impersonate another uid in the doc id", async () => {
+    await seedMerchant("merch1", "owner1");
+    await assertFails(
+      authDb("alice")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        // Writer is alice but the doc id claims bob's marker.
+        .doc(docFor("bob"))
+        .set(okPayload("bob"))
+    );
+  });
+
+  test("viewer CANNOT spoof a different viewer_uid in the payload", async () => {
+    await seedMerchant("merch1", "owner1");
+    await assertFails(
+      authDb("alice")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("alice"))
+        .set({ ...okPayload("alice"), viewer_uid: "bob" })
+    );
+  });
+
+  test("merchant owner CANNOT inflate their own counter (self-view)", async () => {
+    await seedMerchant("merch1", "owner1");
+    await assertFails(
+      authDb("owner1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("owner1"))
+        .set(okPayload("owner1"))
+    );
+  });
+
+  test("malformed date string is rejected", async () => {
+    await seedMerchant("merch1", "owner1");
+    await assertFails(
+      authDb("alice")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc("26-05-2026_alice")
+        .set({
+          date: "26-05-2026",
+          viewer_uid: "alice",
+          updated_at: new Date(),
+        })
+    );
+  });
+
+  test("extra unexpected field is rejected (tight shape)", async () => {
+    await seedMerchant("merch1", "owner1");
+    await assertFails(
+      authDb("alice")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("alice"))
+        .set({ ...okPayload("alice"), is_admin: true })
+    );
+  });
+
+  test("merchant owner can READ profile_views (analytics)", async () => {
+    await seedMerchant("merch1", "owner1");
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("alice"))
+        .set(okPayload("alice"));
+    });
+    await assertSucceeds(
+      authDb("owner1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("alice"))
+        .get()
+    );
+  });
+
+  test("non-owner CANNOT READ profile_views (privacy)", async () => {
+    await seedMerchant("merch1", "owner1");
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("alice"))
+        .set(okPayload("alice"));
+    });
+    // Even alice (the viewer who wrote the marker) is not allowed to
+    // read it back — the analytics audience is the merchant only.
+    await assertFails(
+      authDb("alice")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("alice"))
+        .get()
+    );
+    await assertFails(
+      anonDb()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("profile_views")
+        .doc(docFor("alice"))
+        .get()
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 6. merchants/{id}/pending_clients
 // ─────────────────────────────────────────────────────────────────────────────
 

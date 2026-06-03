@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Colors;
+import 'package:flutter/material.dart' show Colors, Material, MaterialType;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -124,30 +124,49 @@ class YuztooCupertinoPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _bgFor(lightTheme),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _Toolbar(
-              title: title,
-              cancelLabel: cancelLabel,
-              confirmLabel: confirmLabel,
-              onCancel: onCancel,
-              onConfirm: onConfirm,
-              lightTheme: lightTheme,
-            ),
-            YuztooCupertinoWheelViewport(
-              lightTheme: lightTheme,
-              unifiedSelectionOverlay: unifiedSelectionOverlay,
-              child: picker,
-            ),
-          ],
+    // The sheet is mounted via `showCupertinoModalPopup`, whose
+    // `CupertinoModalPopupRoute` does **not** wrap children in a [Material]
+    // ancestor (unlike `MaterialPageRoute`). Without a Material ancestor,
+    // any bare [Text] inside the sheet falls back to
+    // [DefaultTextStyle.fallback], which Flutter intentionally renders with
+    // a yellow double underline (`decorationStyle: double`,
+    // `decorationColor: yellow`) as a debug warning. That's the "deux
+    // lignes jaunes" we were seeing around the title `Date de naissance`
+    // (Cancel/Confirm escape it because [CupertinoButton] supplies its own
+    // [DefaultTextStyle] internally; the wheel items escape it because
+    // [CupertinoPicker] does too).
+    //
+    // Wrapping in `Material(type: MaterialType.transparency)` is the
+    // canonical fix: it provides the Material ambient (proper
+    // [DefaultTextStyle], ink targets, etc.) without painting any
+    // background, so our custom dark-navy chrome is preserved.
+    return Material(
+      type: MaterialType.transparency,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _bgFor(lightTheme),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _Toolbar(
+                title: title,
+                cancelLabel: cancelLabel,
+                confirmLabel: confirmLabel,
+                onCancel: onCancel,
+                onConfirm: onConfirm,
+                lightTheme: lightTheme,
+              ),
+              YuztooCupertinoWheelViewport(
+                lightTheme: lightTheme,
+                unifiedSelectionOverlay: unifiedSelectionOverlay,
+                child: picker,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -483,6 +502,21 @@ const _kSystemPickerTextStyleLight = TextStyle(
 TextStyle _systemPickerTextStyleFor(bool light) =>
     light ? _kSystemPickerTextStyleLight : _kSystemPickerTextStyleDark;
 
+/// Returns `null` from every column so [CupertinoDatePicker] does **not**
+/// paint its per-column [CupertinoPickerDefaultSelectionOverlay]. With 2–3
+/// columns, the default per-column overlays stack at column seams and read
+/// as duplicate horizontal "bands" — visually noisy and inconsistent with
+/// our custom 3-column DOB wheel which uses a single unified overlay.
+///
+/// We rely on [YuztooCupertinoWheelViewport.unifiedSelectionOverlay] to
+/// paint exactly one subtle highlight rect across the full row instead.
+Widget? _noPerColumnOverlay(
+  BuildContext context, {
+  required int columnCount,
+  required int selectedIndex,
+}) =>
+    null;
+
 /// Date + time wheel (merchant notifications schedule, etc.). Dark by
 /// default — used inside onboarding and merchant tools.
 Future<DateTime?> showYuztooCupertinoDateTimePicker({
@@ -501,6 +535,7 @@ Future<DateTime?> showYuztooCupertinoDateTimePicker({
       builder: (ctx) => YuztooCupertinoPickerSheet(
         title: title,
         lightTheme: lightTheme,
+        unifiedSelectionOverlay: true,
         onCancel: () => Navigator.of(ctx).pop(),
         onConfirm: () => Navigator.of(ctx).pop(temp),
         picker: CupertinoTheme(
@@ -520,6 +555,7 @@ Future<DateTime?> showYuztooCupertinoDateTimePicker({
               initialDateTime: initial,
               minimumDate: minimumDate,
               maximumDate: maximumDate,
+              selectionOverlayBuilder: _noPerColumnOverlay,
               onDateTimeChanged: (d) {
                 HapticFeedback.selectionClick();
                 temp = d;
@@ -548,6 +584,7 @@ Future<DateTime?> showYuztooCupertinoDatePicker({
       builder: (ctx) => YuztooCupertinoPickerSheet(
         title: title,
         lightTheme: lightTheme,
+        unifiedSelectionOverlay: true,
         onCancel: () => Navigator.of(ctx).pop(),
         onConfirm: () => Navigator.of(ctx).pop(temp),
         picker: CupertinoTheme(
@@ -565,6 +602,7 @@ Future<DateTime?> showYuztooCupertinoDatePicker({
               initialDateTime: initial,
               minimumDate: minimumDate,
               maximumDate: maximumDate,
+              selectionOverlayBuilder: _noPerColumnOverlay,
               onDateTimeChanged: (d) {
                 HapticFeedback.selectionClick();
                 temp = d;
@@ -595,6 +633,7 @@ Future<DateTime?> showYuztooCupertinoTimePicker({
       builder: (ctx) => YuztooCupertinoPickerSheet(
         title: title,
         lightTheme: lightTheme,
+        unifiedSelectionOverlay: true,
         onCancel: () => Navigator.of(ctx).pop(),
         onConfirm: () => Navigator.of(ctx).pop(temp),
         picker: CupertinoTheme(
@@ -612,6 +651,7 @@ Future<DateTime?> showYuztooCupertinoTimePicker({
               use24hFormat: true,
               minuteInterval: minuteInterval,
               initialDateTime: initial,
+              selectionOverlayBuilder: _noPerColumnOverlay,
               onDateTimeChanged: (d) {
                 HapticFeedback.selectionClick();
                 temp = d;

@@ -944,26 +944,28 @@ class _StepImage extends StatelessWidget {
   final VoidCallback onNext;
   final ImagePicker picker;
 
-  Future<void> _pickLogoFromGallery(BuildContext context) async {
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
+  Future<void> _pickLogo(BuildContext context) async {
+    final path = await pickImageWithSourceChoice(
+      context: context,
+      picker: picker,
+      sheetTitle: 'Logo de votre commerce',
       maxWidth: 800,
-      imageQuality: 85,
+      cropRatioX: 1,
+      cropRatioY: 1,
     );
-    if (picked == null || !context.mounted) return;
-    final cropped = await cropImage(picked.path, ratioX: 1, ratioY: 1);
-    if (context.mounted) onPickedLogo(cropped ?? picked.path);
+    if (path != null) onPickedLogo(path);
   }
 
-  Future<void> _pickBannerFromGallery(BuildContext context) async {
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
+  Future<void> _pickBanner(BuildContext context) async {
+    final path = await pickImageWithSourceChoice(
+      context: context,
+      picker: picker,
+      sheetTitle: 'Image de couverture',
       maxWidth: 1400,
-      imageQuality: 85,
+      cropRatioX: 16,
+      cropRatioY: 9,
     );
-    if (picked == null || !context.mounted) return;
-    final cropped = await cropImage(picked.path, ratioX: 16, ratioY: 9);
-    if (context.mounted) onPickedBanner(cropped ?? picked.path);
+    if (path != null) onPickedBanner(path);
   }
 
   @override
@@ -979,7 +981,7 @@ class _StepImage extends StatelessWidget {
           // Logo picker
           _StepEntrance(
             child: GestureDetector(
-              onTap: () => _pickLogoFromGallery(context),
+              onTap: () => _pickLogo(context),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 width: 96,
@@ -1056,7 +1058,7 @@ class _StepImage extends StatelessWidget {
           _StepEntrance(
             delayMs: 100,
             child: GestureDetector(
-              onTap: () => _pickLogoFromGallery(context),
+              onTap: () => _pickLogo(context),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1075,7 +1077,7 @@ class _StepImage extends StatelessWidget {
                     Icon(
                       hasLogo
                           ? Icons.check_circle_rounded
-                          : Icons.photo_library_rounded,
+                          : Icons.add_a_photo_rounded,
                       color: MerchantOnboardingColors.primaryGold,
                       size: 20,
                     ),
@@ -1084,7 +1086,7 @@ class _StepImage extends StatelessWidget {
                       child: Text(
                         hasLogo
                             ? 'Logo sélectionné — appuyez pour changer'
-                            : 'Choisir le logo dans la galerie',
+                            : 'Caméra ou galerie',
                         style: GoogleFonts.outfit(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -1143,7 +1145,7 @@ class _StepImage extends StatelessWidget {
           _StepEntrance(
             delayMs: 150,
             child: GestureDetector(
-              onTap: () => _pickBannerFromGallery(context),
+              onTap: () => _pickBanner(context),
               child: Container(
                 width: double.infinity,
                 height: 108,
@@ -1418,8 +1420,7 @@ class _StepAddressState extends State<_StepAddress> {
                       controller: widget.phoneController,
                       keyboardType: TextInputType.phone,
                       inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(9),
+                        PhoneNumberFormatter(countryCode: '+33'),
                       ],
                       cursorColor: MerchantOnboardingColors.primaryGold,
                       style: GoogleFonts.outfit(

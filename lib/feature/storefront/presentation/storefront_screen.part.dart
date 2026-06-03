@@ -388,12 +388,28 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                           },
                         ),
                         const SizedBox(height: 24),
-                        // Stats cards
-                        StatsCards(
-                          profileCompletionPercentage:
-                              storefront.profileCompletionPercentage,
-                          weeklyViews: storefront.weeklyViews,
-                          weeklyViewsChange: storefront.weeklyViewsChange,
+                        // Stats cards. The "VUES / SEMAINE" KPI is no
+                        // longer read from [storefront] (which only ever
+                        // exposes a stub `0`); instead we resolve it from
+                        // [profileViewWeeklyStatsProvider] which counts
+                        // distinct (viewer, UTC day) pairs over a 7-day
+                        // sliding window. While the aggregation loads we
+                        // show 0 — same UI affordance as "no views yet",
+                        // and a refresh of the dashboard re-fetches.
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final stats = ref
+                                .watch(profileViewWeeklyStatsProvider(
+                                    storefront.id))
+                                .valueOrNull;
+                            return StatsCards(
+                              profileCompletionPercentage:
+                                  storefront.profileCompletionPercentage,
+                              weeklyViews: stats?.weeklyViews ?? 0,
+                              weeklyViewsChange:
+                                  stats?.weeklyChangePercent ?? 0.0,
+                            );
+                          },
                         ),
                         const SizedBox(height: 24),
                         // Quick-action row (notifications hub, clients, store preview)

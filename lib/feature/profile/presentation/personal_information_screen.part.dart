@@ -182,7 +182,10 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     bool photoUploading = false,
     VoidCallback? onPhotoTap,
     VoidCallback? onCreateProAccount,
-    String? createOtherRoleLabel,
+    // Always non-null when called from `build()` — the parent now resolves
+    // the role-aware default (merchant ⇒ "Créer un carnet Yuztoo",
+    // client ⇒ "Créer un compte pro") before passing it down.
+    required String createOtherRoleLabel,
     bool isDualProfile = false,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -302,7 +305,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                         ),
                         child: Center(
                           child: Text(
-                            createOtherRoleLabel ?? 'Créer un compte pro',
+                            createOtherRoleLabel,
                             style: GoogleFonts.outfit(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,

@@ -561,6 +561,61 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
       ),
     );
   }
+
+  // Surfaced when the merchant types a personalised birthday wish
+  // ("Joyeux anniversaire …") and broadcasts it to "Tous mes clients".
+  // Most of the time they meant the per-DOB auto-trigger, not a blast.
+  // The dialog explains the difference and lets them either bail out
+  // (so they can switch to the auto-notification screen) or confirm
+  // they really meant a broadcast.
+  Future<bool?> _confirmPersonalBirthdayBroadcast() {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: MerchantColors.bgHeader,
+        title: Text(
+          'Envoyer ce message à tous ?',
+          style: GoogleFonts.outfit(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        content: Text(
+          'Ce message ressemble à un souhait d\'anniversaire personnel. '
+          'Envoyé à tous vos clients, il sera reçu par des personnes dont '
+          'ce n\'est pas l\'anniversaire.\n\n'
+          'Pour souhaiter automatiquement l\'anniversaire à chaque client '
+          'le bon jour, utilisez plutôt une notification automatique '
+          '(déclencheur "Date anniversaire client").',
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            color: MerchantColors.textLightGrey,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Annuler',
+              style: GoogleFonts.outfit(color: MerchantColors.textGrey),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Envoyer quand même',
+              style: GoogleFonts.outfit(
+                color: MerchantColors.gold,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _TemplateChip extends StatelessWidget {

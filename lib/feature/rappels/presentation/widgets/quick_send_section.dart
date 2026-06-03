@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../core/shared/widgets/cupertino_picker_sheet.dart';
+import '../../application/personal_birthday_broadcast_detector.dart';
 import '../../domain/entities/scheduled_notification.dart';
 import '../../domain/entities/sent_notification.dart';
 import '../../infrastructure/scheduled_notification_repository_provider.dart';
@@ -220,13 +221,28 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
 
   Future<void> _onSendTap() async {
     if (_ctrl.text.trim().isEmpty || widget.quotaExceeded) return;
-    setState(() => _sending = true);
 
     final option = _audienceOptions[_audienceIndex];
     final audience =
         _audienceIndex == 0 ? 'Tous mes clients' : 'Certains clients';
     final segments =
         _audienceIndex == 0 ? const <String>[] : [option.segmentKey];
+
+    // Guard a common misuse: typing "Joyeux anniversaire 🎂" and blasting
+    // it to every follower bypasses the per-client birthday auto-trigger
+    // and pushes a personal wish to people whose birthday isn't today.
+    // We only surface a soft confirmation — the merchant can still send
+    // through (e.g. for a "anniversaire de notre commerce" broadcast).
+    final isBroadcast = audience == 'Tous mes clients';
+    if (isLikelyPersonalBirthdayBroadcast(
+      text: _ctrl.text,
+      isBroadcastAudience: isBroadcast,
+    )) {
+      final confirmed = await _confirmPersonalBirthdayBroadcast();
+      if (!mounted || confirmed != true) return;
+    }
+
+    setState(() => _sending = true);
 
     try {
       final scheduled = _scheduledAt;

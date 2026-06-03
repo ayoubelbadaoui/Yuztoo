@@ -3,6 +3,7 @@ import * as functions from "firebase-functions";
 import {
   AUTO_NOTIFICATION_TRIGGERS,
   autoNotificationSegmentMatches,
+  compareNotificationsBySpecificity,
   filterEnabledNotificationsForTrigger,
   isMerchantAutoNotificationsEnabled,
   shouldSendBirthdayThisYear,
@@ -177,6 +178,117 @@ async function getFollowerIds(merchantId: string): Promise<string[]> {
   return snap.docs
     .map((d) => d.ref.parent.parent?.id ?? "")
     .filter((id) => id !== "");
+}
+
+// ─── auto-notification idempotency log ────────────────────────────────────────
+//
+// Per-merchant stable record of which auto-notifications already fired for a
+// given client this year. The legacy idempotency was stored on the follow doc
+// (`users/{uid}/followed_merchants/{merchantId}.last_birthday_auto_year`),
+// which got wiped whenever a client unfollowed and re-followed — letting them
+// receive the same birthday notif twice the same year by toggling the follow.
+//
+// Schema (admin-only, no client rule needed since rules-v2 deny-by-default):
+//   /merchants/{merchantId}/auto_notification_log/{clientId}
+//     {
+//       last_birthday_year:               number,
+//       last_birthday_at:                 Timestamp,
+//       last_connection_anniversary_year: number,
+//       last_connection_anniversary_at:   Timestamp,
+//     }
+//
+// Reads always consider BOTH the new log doc AND the legacy follow-doc field
+// and take the max — so existing data survives the migration with zero loss
+// and an in-flight retry doesn't double-send.
+
+function autoNotificationLogRef(
+  merchantId: string,
+  clientId: string
+): admin.firestore.DocumentReference {
+  return db
+    .collection("merchants")
+    .doc(merchantId)
+    .collection("auto_notification_log")
+    .doc(clientId);
+}
+
+async function getLastBirthdayYearSent(
+  merchantId: string,
+  clientId: string,
+  followData: Record<string, unknown>
+): Promise<number | undefined> {
+  const legacyYear = followData.last_birthday_auto_year as number | undefined;
+  const logSnap = await autoNotificationLogRef(merchantId, clientId).get();
+  const logYear = logSnap.exists
+    ? (logSnap.data()?.last_birthday_year as number | undefined)
+    : undefined;
+  if (legacyYear === undefined && logYear === undefined) return undefined;
+  if (legacyYear === undefined) return logYear;
+  if (logYear === undefined) return legacyYear;
+  return Math.max(legacyYear, logYear);
+}
+
+async function recordBirthdaySent(
+  merchantId: string,
+  clientId: string,
+  year: number,
+  followRef: admin.firestore.DocumentReference
+): Promise<void> {
+  // Mirror the year to the stable log doc + the legacy follow-doc field so
+  // any code path still reading the legacy location continues to work.
+  await Promise.all([
+    autoNotificationLogRef(merchantId, clientId).set(
+      {
+        last_birthday_year: year,
+        last_birthday_at: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    ),
+    followRef.set(
+      { last_birthday_auto_year: year },
+      { merge: true }
+    ),
+  ]);
+}
+
+async function getLastConnectionAnniversaryYearSent(
+  merchantId: string,
+  clientId: string,
+  followData: Record<string, unknown>
+): Promise<number | undefined> {
+  const legacyYear = followData.last_connection_anniversary_year as
+    | number
+    | undefined;
+  const logSnap = await autoNotificationLogRef(merchantId, clientId).get();
+  const logYear = logSnap.exists
+    ? (logSnap.data()?.last_connection_anniversary_year as number | undefined)
+    : undefined;
+  if (legacyYear === undefined && logYear === undefined) return undefined;
+  if (legacyYear === undefined) return logYear;
+  if (logYear === undefined) return legacyYear;
+  return Math.max(legacyYear, logYear);
+}
+
+async function recordConnectionAnniversarySent(
+  merchantId: string,
+  clientId: string,
+  year: number,
+  followRef: admin.firestore.DocumentReference
+): Promise<void> {
+  await Promise.all([
+    autoNotificationLogRef(merchantId, clientId).set(
+      {
+        last_connection_anniversary_year: year,
+        last_connection_anniversary_at:
+          admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    ),
+    followRef.set(
+      { last_connection_anniversary_year: year },
+      { merge: true }
+    ),
+  ]);
 }
 
 // ─── Loyalty bon helpers ─────────────────────────────────────────────────────
@@ -1456,11 +1568,24 @@ export const dailyScheduledTriggers = functions
               const followData = followedMerchantSnap.data() ?? {};
 
               // Birthday trigger — once per calendar year per client/merchant.
+              //
+              // Idempotency reads from BOTH the legacy follow-doc field and
+              // the stable per-merchant log doc — the legacy location was
+              // wiped on unfollow + re-follow, which let a client receive
+              // the same birthday notif twice the same year.
+              //
+              // When the merchant has multiple birthday templates, we sort
+              // narrow-audience templates first (e.g. "Certains clients
+              // (vip)") and break after the first match — a client can only
+              // ever receive ONE birthday message from a given merchant per
+              // year, even if they would qualify for several templates.
               if (birthdayNotifs.length > 0) {
                 const dob = userData.date_of_birth as string | undefined;
-                const lastBirthdayYear = followData.last_birthday_auto_year as
-                  | number
-                  | undefined;
+                const lastBirthdayYear = await getLastBirthdayYearSent(
+                  merchantId,
+                  clientId,
+                  followData
+                );
                 if (
                   shouldSendBirthdayThisYear(
                     dob,
@@ -1469,8 +1594,11 @@ export const dailyScheduledTriggers = functions
                     lastBirthdayYear
                   )
                 ) {
+                  const sortedBirthdayNotifs = [...birthdayNotifs].sort(
+                    compareNotificationsBySpecificity
+                  );
                   let sentBirthday = false;
-                  for (const notifDoc of birthdayNotifs) {
+                  for (const notifDoc of sortedBirthdayNotifs) {
                     const allowed = await shouldSendToClient(
                       notifDoc,
                       clientId,
@@ -1485,17 +1613,22 @@ export const dailyScheduledTriggers = functions
                       functions.logger.warn("Birthday notif error", { e })
                     );
                     sentBirthday = true;
+                    break; // cap at one birthday notif per client/merchant/year
                   }
                   if (sentBirthday) {
-                    await followRef.set(
-                      { last_birthday_auto_year: now.getFullYear() },
-                      { merge: true }
+                    await recordBirthdaySent(
+                      merchantId,
+                      clientId,
+                      now.getFullYear(),
+                      followRef
                     );
                   }
                 }
               }
 
               // Anniversary of first connection — once per calendar year.
+              // Same idempotency + cap-at-one-per-merchant guarantees as the
+              // birthday branch above.
               if (anniversaryNotifs.length > 0 && followedMerchantSnap.exists) {
                 const followedAt: FirebaseFirestore.Timestamp | undefined =
                   followData.followed_at;
@@ -1506,9 +1639,11 @@ export const dailyScheduledTriggers = functions
                     "0"
                   )}-${String(followDate.getDate()).padStart(2, "0")}`;
                   const lastAnniversaryYear =
-                    followData.last_connection_anniversary_year as
-                      | number
-                      | undefined;
+                    await getLastConnectionAnniversaryYearSent(
+                      merchantId,
+                      clientId,
+                      followData
+                    );
                   if (
                     shouldSendConnectionAnniversary(
                       followMD,
@@ -1518,8 +1653,11 @@ export const dailyScheduledTriggers = functions
                       lastAnniversaryYear
                     )
                   ) {
+                    const sortedAnniversaryNotifs = [...anniversaryNotifs].sort(
+                      compareNotificationsBySpecificity
+                    );
                     let sentAnniversary = false;
-                    for (const notifDoc of anniversaryNotifs) {
+                    for (const notifDoc of sortedAnniversaryNotifs) {
                       const allowed = await shouldSendToClient(
                         notifDoc,
                         clientId,
@@ -1536,13 +1674,14 @@ export const dailyScheduledTriggers = functions
                         })
                       );
                       sentAnniversary = true;
+                      break; // cap at one anniversary notif per client/merchant/year
                     }
                     if (sentAnniversary) {
-                      await followRef.set(
-                        {
-                          last_connection_anniversary_year: now.getFullYear(),
-                        },
-                        { merge: true }
+                      await recordConnectionAnniversarySent(
+                        merchantId,
+                        clientId,
+                        now.getFullYear(),
+                        followRef
                       );
                     }
                   }
