@@ -990,6 +990,12 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                     ),
                   ],
 
+                  // Discreet unfollow link sits at the absolute bottom of
+                  // the storefront, after every tab content block. Only
+                  // visible to signed-in followers — see
+                  // [_buildBottomUnfollowLink] for design rationale.
+                  _buildBottomUnfollowLink(context, merchant),
+
                   const SizedBox(height: 32),
                 ],
               ),
@@ -1265,6 +1271,19 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   }
 
   // ── Follow / Unfollow button ───────────────────────────────────────────────
+  //
+  // Top-of-vitrine action row. Two distinct visual states by design:
+  //
+  //   * Not following → big gold primary CTA "Suivre ce commerce". This is
+  //     the single most important action on the storefront for visitors,
+  //     so it stays full-width and prominent.
+  //
+  //   * Already following → NO unfollow button here. Only the mute bell.
+  //     Unfollow has been demoted to a small text link rendered at the very
+  //     bottom of the scroll content (see [_buildBottomUnfollowLink]) so
+  //     it does not compete with the primary content nor scare the user
+  //     into accidental taps. Direct response to the feedback "Le bouton
+  //     ne plus suivre est trop gros et doit être tout en bas".
 
   Widget _buildActionRow(BuildContext context, Merchant merchant) {
     final merchantId = merchant.id;
@@ -1273,190 +1292,123 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     final isFollowing =
         followedAsync.valueOrNull?.contains(merchantId) ?? false;
 
-    Widget buttonChild;
-    if (_isFollowToggling) {
-      buttonChild = const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: StorefrontColors.primaryGold,
-        ),
-      );
-    } else if (isFollowing) {
-      buttonChild = Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.check_rounded,
-              size: 18, color: StorefrontColors.primaryGold),
-          const SizedBox(width: 6),
-          Text(
-            'Ne plus suivre',
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: StorefrontColors.primaryGold,
-            ),
-          ),
-        ],
-      );
-    } else {
-      buttonChild = Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.add_rounded,
-              size: 18, color: StorefrontColors.navyDark),
-          const SizedBox(width: 6),
-          Text(
-            'Suivre ce commerce',
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: StorefrontColors.navyDark,
-            ),
-          ),
-        ],
+    if (isFollowing) {
+      // Followed: hide the big "Ne plus suivre" button entirely. Surface
+      // only the mute bell here — the unfollow lives at the bottom now.
+      if (userId == null) return const SizedBox.shrink();
+      return Align(
+        alignment: Alignment.centerRight,
+        child: _MuteBellButton(userId: userId, merchantId: merchantId),
       );
     }
 
+    // Not following → primary "Suivre ce commerce" CTA, full-width gold.
+    final Widget buttonChild = _isFollowToggling
+        ? const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: StorefrontColors.navyDark,
+            ),
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.add_rounded,
+                  size: 18, color: StorefrontColors.navyDark),
+              const SizedBox(width: 6),
+              Text(
+                'Suivre ce commerce',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: StorefrontColors.navyDark,
+                ),
+              ),
+            ],
+          );
+
     return SizedBox(
       width: double.infinity,
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              onTap: _isFollowToggling
-                  ? null
-                  : () async {
-                      if (userId == null) {
-                        final merchantName =
-                            merchant.displayName?.isNotEmpty == true
-                                ? merchant.displayName!
-                                : merchant.name;
-                        _showAuthGateSheet(
-                          context,
-                          merchant,
-                          message:
-                              'Connectez-vous pour suivre $merchantName et rester informé de ses actualités et promotions.',
-                        );
-                        return;
-                      }
-                      _setFollowToggling(true);
-                      final toggleFollow =
-                          ref.read(toggleMerchantFollowProvider);
-                      final result = await toggleFollow.call(
-                        userId: userId,
-                        merchantId: merchantId,
-                        currentlyFollowing: isFollowing,
-                      );
-                      if (!context.mounted) return;
-                      _setFollowToggling(false);
-                      if (result.isLeft) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Échec de la sauvegarde'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                        return;
-                      }
-                      ref.invalidate(followedMerchantIdsForCurrentUserProvider);
-                      ref.invalidate(
-                          followedMerchantHeartLevelsForCurrentUserProvider);
-                      ref.invalidate(clientHomeFeedProvider);
-                      ref.invalidate(discoveryMerchantsProvider);
-                      ref.invalidate(discoveryRecommendedMerchantsProvider);
-                      ref.invalidate(discoveryFollowedMerchantsProvider);
-                      // Refresh the "X abonnés" pill on this vitrine so the
-                      // count reflects the new follow/unfollow immediately.
-                      ref.invalidate(followersCountByMerchantIdsProvider(
-                          <String>[merchantId]));
-                      if (context.mounted) {
-                        // `isFollowing` here is the state BEFORE the toggle,
-                        // so when it was true we just unfollowed. Offer a
-                        // 5-second undo on the unfollow path — fat-finger
-                        // taps are the most common support ticket on this
-                        // button and a re-follow round-trip is otherwise
-                        // friction-heavy (it also re-fires the welcome bon
-                        // flow on some merchants).
-                        final messenger = ScaffoldMessenger.of(context);
-                        messenger.hideCurrentSnackBar();
-                        messenger.showSnackBar(
-                          SnackBar(
-                            duration: isFollowing
-                                ? const Duration(seconds: 5)
-                                : const Duration(seconds: 2),
-                            content: Text(
-                              isFollowing
-                                  ? 'Commerce retiré de votre carnet'
-                                  : 'Commerce ajouté à votre carnet ✓',
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: StorefrontColors.primaryGold,
-                            action: isFollowing
-                                ? SnackBarAction(
-                                    label: 'Annuler',
-                                    textColor: StorefrontColors.navyDark,
-                                    onPressed: () async {
-                                      if (!context.mounted) return;
-                                      _setFollowToggling(true);
-                                      final undo = await toggleFollow.call(
-                                        userId: userId,
-                                        merchantId: merchantId,
-                                        // Currently NOT following (we just
-                                        // unfollowed), so re-follow.
-                                        currentlyFollowing: false,
-                                      );
-                                      if (!context.mounted) return;
-                                      _setFollowToggling(false);
-                                      if (undo.isRight) {
-                                        ref.invalidate(
-                                            followedMerchantIdsForCurrentUserProvider);
-                                        ref.invalidate(
-                                            followedMerchantHeartLevelsForCurrentUserProvider);
-                                        ref.invalidate(clientHomeFeedProvider);
-                                        ref.invalidate(
-                                            followersCountByMerchantIdsProvider(
-                                                <String>[merchantId]));
-                                      }
-                                    },
-                                  )
-                                : null,
-                          ),
-                        );
-                      }
-                    },
-              borderRadius: BorderRadius.circular(14),
-              // The follow button is the primary CTA — keep it tall and
-              // filled. The unfollow button (post-follow) is a secondary
-              // affordance and should NOT compete visually with the
-              // primary actions on the vitrine: smaller vertical padding,
-              // outlined-only. Matches the user feedback "le bouton ne
-              // plus suivre est trop gros".
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                padding: EdgeInsets.symmetric(vertical: isFollowing ? 10 : 14),
-                decoration: BoxDecoration(
-                  color: isFollowing
-                      ? Colors.transparent
-                      : StorefrontColors.primaryGold,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: StorefrontColors.primaryGold,
-                    width: isFollowing ? 1.5 : 0,
+      child: InkWell(
+        onTap: _isFollowToggling
+            ? null
+            : () => _handleFollowToggle(
+                  context: context,
+                  merchant: merchant,
+                  currentlyFollowing: false,
+                ),
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: StorefrontColors.primaryGold,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          alignment: Alignment.center,
+          child: buttonChild,
+        ),
+      ),
+    );
+  }
+
+  // ── Bottom unfollow link ───────────────────────────────────────────────────
+  //
+  // Discreet text-only link rendered at the very bottom of the storefront
+  // scroll. Only visible when the user is currently following AND signed in.
+  //
+  // Intentionally low-key (small font, secondary colour, no background or
+  // border) so it cannot be tapped by accident and does not pull attention
+  // away from the merchant's actualités, promos, and loyalty content. Keeps
+  // the same toggle + 5s undo flow as before via [_handleFollowToggle].
+
+  Widget _buildBottomUnfollowLink(BuildContext context, Merchant merchant) {
+    final userId = ref.watch(currentUserIdProvider);
+    final followedAsync = ref.watch(followedMerchantIdsForCurrentUserProvider);
+    final isFollowing =
+        followedAsync.valueOrNull?.contains(merchant.id) ?? false;
+    if (!isFollowing || userId == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Center(
+        child: TextButton(
+          onPressed: _isFollowToggling
+              ? null
+              : () => _handleFollowToggle(
+                    context: context,
+                    merchant: merchant,
+                    currentlyFollowing: true,
+                  ),
+          style: TextButton.styleFrom(
+            foregroundColor: StorefrontColors.textSecondary,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            minimumSize: const Size(0, 0),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: _isFollowToggling
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: StorefrontColors.textSecondary,
+                  ),
+                )
+              : Text(
+                  'Ne plus suivre',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: StorefrontColors.textSecondary,
+                    decoration: TextDecoration.underline,
                   ),
                 ),
-                alignment: Alignment.center,
-                child: buttonChild,
-              ),
-            ),
-          ),
-          if (isFollowing && userId != null) ...[
-            const SizedBox(width: 10),
-            _MuteBellButton(userId: userId, merchantId: merchantId),
-          ],
-        ],
+        ),
       ),
     );
   }

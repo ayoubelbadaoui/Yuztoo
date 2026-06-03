@@ -1,9 +1,11 @@
 import {
   AUTO_NOTIFICATION_TRIGGERS,
   autoNotificationSegmentMatches,
+  compareNotificationsBySpecificity,
   filterEnabledNotificationsForTrigger,
   isBirthdayToday,
   isMerchantAutoNotificationsEnabled,
+  isSegmentSpecificAudience,
   parseDobToMD,
   shouldSendBirthdayThisYear,
   shouldSendConnectionAnniversary,
@@ -120,6 +122,96 @@ describe("auto_notification_core — birthday", () => {
   });
 });
 
+// Birthday notifications must be guarded against ambiguous DOB strings — see
+// the parseDobToMD docs in auto_notification_core.ts. Every shape the wild
+// could throw at us belongs in this table so the property "Bon anniversaire
+// ne doit être envoyée qu'aux gens dont c'est l'anniversaire" stays bullet-
+// proof against future schema drift.
+describe("auto_notification_core — birthday strict format", () => {
+  const may7 = new Date("2026-05-07T12:00:00+02:00");
+
+  test("parseDobToMD strict: YYYY-MM-DD only", () => {
+    expect(parseDobToMD("1990-05-07")).toBe("05-07");
+  });
+
+  test("parseDobToMD strict: ISO timestamp with T accepted", () => {
+    expect(parseDobToMD("1990-05-07T00:00:00")).toBe("05-07");
+    expect(parseDobToMD("1990-05-07T00:00:00.000Z")).toBe("05-07");
+  });
+
+  test("parseDobToMD strict: ISO date with space separator accepted", () => {
+    expect(parseDobToMD("1990-05-07 00:00:00")).toBe("05-07");
+  });
+
+  test("parseDobToMD strict: trims surrounding whitespace", () => {
+    expect(parseDobToMD("  1990-05-07  ")).toBe("05-07");
+  });
+
+  test("parseDobToMD strict: rejects DD/MM/YYYY", () => {
+    expect(parseDobToMD("07/05/1990")).toBeNull();
+  });
+
+  test("parseDobToMD strict: rejects bare MM-DD (no year)", () => {
+    expect(parseDobToMD("05-07")).toBeNull();
+  });
+
+  test("parseDobToMD strict: rejects junk ending in today's MM-DD", () => {
+    // The ambiguous-suffix bug — a corrupted string accidentally ending in
+    // today's MM-DD must NOT trigger a birthday notification.
+    expect(parseDobToMD("garbage05-07")).toBeNull();
+    expect(parseDobToMD("197905-07")).toBeNull();
+  });
+
+  test("parseDobToMD strict: rejects empty / whitespace", () => {
+    expect(parseDobToMD("")).toBeNull();
+    expect(parseDobToMD("   ")).toBeNull();
+  });
+
+  test("parseDobToMD strict: rejects out-of-range month/day", () => {
+    expect(parseDobToMD("1990-13-07")).toBeNull();
+    expect(parseDobToMD("1990-00-07")).toBeNull();
+    expect(parseDobToMD("1990-05-32")).toBeNull();
+    expect(parseDobToMD("1990-05-00")).toBeNull();
+  });
+
+  test("isBirthdayToday: ISO timestamp DOB still matches", () => {
+    expect(isBirthdayToday("1990-05-07T00:00:00", "05-07", may7)).toBe(true);
+  });
+
+  test("isBirthdayToday: junk DOB ending in today's MD does NOT match", () => {
+    expect(isBirthdayToday("garbage05-07", "05-07", may7)).toBe(false);
+    expect(isBirthdayToday("05-07", "05-07", may7)).toBe(false);
+  });
+
+  test("isBirthdayToday: DD/MM/YYYY does NOT accidentally match", () => {
+    // Even when the day/month happen to spell today's MD, the format is
+    // rejected because we never want to guess.
+    expect(isBirthdayToday("07/05/1990", "05-07", may7)).toBe(false);
+  });
+
+  test("isBirthdayToday: empty / whitespace DOB → false", () => {
+    expect(isBirthdayToday("", "05-07", may7)).toBe(false);
+    expect(isBirthdayToday("   ", "05-07", may7)).toBe(false);
+  });
+
+  test("isBirthdayToday: invalid month/day → false (safe default)", () => {
+    expect(isBirthdayToday("1990-13-07", "05-07", may7)).toBe(false);
+    expect(isBirthdayToday("1990-05-32", "05-07", may7)).toBe(false);
+  });
+
+  test("shouldSendBirthdayThisYear: malformed DOB never sends", () => {
+    expect(
+      shouldSendBirthdayThisYear("garbage05-07", "05-07", may7, undefined)
+    ).toBe(false);
+    expect(
+      shouldSendBirthdayThisYear("07/05/1990", "05-07", may7, undefined)
+    ).toBe(false);
+    expect(
+      shouldSendBirthdayThisYear("", "05-07", may7, undefined)
+    ).toBe(false);
+  });
+});
+
 describe("auto_notification_core — connection anniversary", () => {
   test("same MD after first year", () => {
     expect(
@@ -177,6 +269,71 @@ describe("auto_notification_core — segment filter (Soutien parity)", () => {
 
   test("legacy abonne → nouveau", () => {
     expect(autoNotificationSegmentMatches("nouveau", ["abonne"])).toBe(true);
+  });
+});
+
+describe("auto_notification_core — audience specificity", () => {
+  test("isSegmentSpecificAudience: 'Certains clients' with segments → true", () => {
+    expect(
+      isSegmentSpecificAudience({
+        audience: "Certains clients",
+        target_segments: ["vip"],
+      })
+    ).toBe(true);
+  });
+
+  test("isSegmentSpecificAudience: 'Certains clients' with empty segments → false", () => {
+    expect(
+      isSegmentSpecificAudience({
+        audience: "Certains clients",
+        target_segments: [],
+      })
+    ).toBe(false);
+  });
+
+  test("isSegmentSpecificAudience: 'Certains clients' with undefined segments → false", () => {
+    expect(
+      isSegmentSpecificAudience({ audience: "Certains clients" })
+    ).toBe(false);
+  });
+
+  test("isSegmentSpecificAudience: 'Tous mes clients' with segments still → false", () => {
+    // Defensive: even if a malformed doc lists segments, broadcast wins.
+    expect(
+      isSegmentSpecificAudience({
+        audience: "Tous mes clients",
+        target_segments: ["vip"],
+      })
+    ).toBe(false);
+  });
+
+  test("compareNotificationsBySpecificity: narrow before broad", () => {
+    const broad = { data: () => ({ audience: "Tous mes clients" }) };
+    const narrow = {
+      data: () => ({ audience: "Certains clients", target_segments: ["vip"] }),
+    };
+    const sorted = [broad, narrow].sort(compareNotificationsBySpecificity);
+    expect(sorted[0]).toBe(narrow);
+    expect(sorted[1]).toBe(broad);
+  });
+
+  test("compareNotificationsBySpecificity: stable for equal specificity", () => {
+    const a = {
+      data: () => ({ audience: "Certains clients", target_segments: ["vip"] }),
+    };
+    const b = {
+      data: () => ({
+        audience: "Certains clients",
+        target_segments: ["habitue"],
+      }),
+    };
+    const c = { data: () => ({ audience: "Tous mes clients" }) };
+    const d = { data: () => ({ audience: "Tous mes clients" }) };
+    const sorted = [c, a, d, b].sort(compareNotificationsBySpecificity);
+    expect(sorted[0]).toBe(a);
+    expect(sorted[1]).toBe(b);
+    expect(sorted[2]).toBe(c);
+    expect(sorted[3]).toBe(d);
   });
 });
 

@@ -27,8 +27,11 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
   /// The anchor `last_passage_at` is written with `FieldValue.serverTimestamp()`,
   /// so the stored value is authoritative server time. The comparison in this
   /// SDK uses the device clock for "now", which is fine as a UX guard but is
-  /// NOT a security boundary — a tampered clock would bypass it. Server rules
-  /// may add additional constraints when configured.
+  /// NOT the security boundary — the authoritative enforcement is the
+  /// matching rule in `firestore.rules`
+  /// (`loyaltyClientPassageCooldownPasses`), which compares `request.time`
+  /// (server) to `last_passage_at`. A tampered local clock is bypassed by
+  /// the SDK guard but caught by the rule.
   final Duration _passageCooldown;
 
   /// Tolerance applied to the client-side cooldown comparison to absorb honest
@@ -266,6 +269,19 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         error: e,
         stackTrace: st,
       );
+      // The server-side cooldown rule rejects with permission-denied when
+      // the merchant tries to bump `last_passage_at` < 1h after the
+      // previous one. The SDK guard usually catches this earlier, but a
+      // tampered local clock would bypass the SDK and surface here. Route
+      // it to the same friendly message instead of the generic fallback.
+      if (e.code == 'permission-denied' && isNewPassageEvent) {
+        return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
+          UnexpectedFailure(
+            message:
+                'Votre passage vient d’être enregistré. Patientez 1 heure avant un nouveau passage chez ce commerçant.',
+          ),
+        );
+      }
       return Left<AppFailure, ClientMerchantLoyaltyProgress>(
         UnexpectedFailure(
           message: 'Impossible d’enregistrer le passage',
@@ -278,13 +294,13 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
         // Surfaced verbatim to the UI — the parent layer keys off the words
         // "passage" and either "patientez" or "enregistré" to render the
         // friendly "déjà été enregistré" sheet rather than a generic toast.
-        // The exact duration is mentioned for transparency: clients have
-        // asked support why a re-scan was rejected, and a vague "patientez"
-        // sent them through the merchant validation flow unnecessarily.
+        // The exact duration is spelled out so the merchant + client know
+        // when they can retry; a vague "patientez" was sending users back
+        // through the validation flow unnecessarily.
         return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
           UnexpectedFailure(
             message:
-                'Votre passage vient d’être enregistré. Patientez un peu avant un nouveau passage chez ce commerçant.',
+                'Votre passage vient d’être enregistré. Patientez 1 heure avant un nouveau passage chez ce commerçant.',
           ),
         );
       }

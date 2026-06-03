@@ -39,6 +39,21 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
                     ),
                     child: Column(
                       children: [
+                        // Live diagnostic of the auto-notification pipeline.
+                        // Surfaces every gate (push permission, token, merchant
+                        // flag, active templates) and offers a one-tap end-to-
+                        // end test, so the merchant can SEE whether the system
+                        // works on their device — no log access needed.
+                        if (merchantId != null)
+                          AutoNotificationHealthPanel(
+                            merchantId: merchantId,
+                            merchantName: ref
+                                    .watch(storefront_providers
+                                        .storefrontProvider)
+                                    .valueOrNull
+                                    ?.merchantName ??
+                                'Votre commerce',
+                          ),
                         ComposeSection(
                           controller: _textCtrl,
                           isEditing: _editingIndex != null,

@@ -1,7 +1,16 @@
 part of 'news_section.dart';
 
 extension _NewsSectionUi on _NewsSectionState {
-  Widget _portraitImageTile(String imageUrl) {
+  /// One thumbnail in the actualité gallery.
+  ///
+  /// Tapping the tile opens a full-screen, pinch-to-zoom, swipe-between
+  /// gallery viewer (see [_openFullscreenViewer]) — the user feedback was
+  /// "dans actualité les clients doivent pouvoir agrandir les vignettes
+  /// en cliquant dessus". The merchant's red X delete overlay sits on top
+  /// of the tile in the Stack, so its hit region wins over the underlying
+  /// tap handler — tapping the X still triggers the delete confirmation,
+  /// tapping anywhere else on the tile opens the viewer.
+  Widget _portraitImageTile(String imageUrl, {VoidCallback? onTap}) {
     final image = ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: Image.network(
@@ -40,11 +49,19 @@ extension _NewsSectionUi on _NewsSectionState {
       ),
     );
 
-    if (widget.onDeleteImage == null) return image;
+    final tappable = onTap == null
+        ? image
+        : GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: image,
+          );
+
+    if (widget.onDeleteImage == null) return tappable;
 
     return Stack(
       children: [
-        image,
+        tappable,
         Positioned(
           top: 8,
           right: 8,
@@ -69,6 +86,27 @@ extension _NewsSectionUi on _NewsSectionState {
           ),
         ),
       ],
+    );
+  }
+
+  /// Pushes a full-screen image viewer on top of the storefront. Uses a
+  /// fade transition so the tap feels like an "expand" rather than a
+  /// route change.
+  void _openFullscreenViewer(List<String> urls, int initialIndex) {
+    Navigator.of(context).push<void>(
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierColor: Colors.black,
+        transitionDuration: const Duration(milliseconds: 220),
+        reverseTransitionDuration: const Duration(milliseconds: 180),
+        pageBuilder: (_, animation, __) => FadeTransition(
+          opacity: animation,
+          child: _FullscreenGalleryViewer(
+            imageUrls: urls,
+            initialIndex: initialIndex,
+          ),
+        ),
+      ),
     );
   }
 
@@ -128,14 +166,20 @@ extension _NewsSectionUi on _NewsSectionState {
                   SizedBox(
                     width: tileW,
                     height: tileH,
-                    child: _portraitImageTile(urls[i0]),
+                    child: _portraitImageTile(
+                      urls[i0],
+                      onTap: () => _openFullscreenViewer(urls, i0),
+                    ),
                   ),
                   const SizedBox(width: _NewsSectionState._pairGap),
                   SizedBox(
                     width: tileW,
                     height: tileH,
                     child: i1 < urls.length
-                        ? _portraitImageTile(urls[i1])
+                        ? _portraitImageTile(
+                            urls[i1],
+                            onTap: () => _openFullscreenViewer(urls, i1),
+                          )
                         : _emptyPortraitSlot(),
                   ),
                   if (hasMultiplePages)
@@ -380,6 +424,141 @@ class _UploadContentButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Fullscreen gallery viewer ─────────────────────────────────────────────
+//
+// Tapping a thumbnail in the news/actualité gallery pushes this viewer over
+// the storefront. It exposes:
+//
+//   * pinch-to-zoom + pan via [InteractiveViewer] (1× → 4×),
+//   * horizontal swipe between images via [PageView] (when more than one),
+//   * close button + page counter overlays on a black backdrop,
+//   * BoxFit.contain so portrait shots are never cropped.
+//
+// Lives next to [NewsSection] because it is tightly coupled to the gallery
+// layout above it; promoting to a shared widget can come later if other
+// surfaces (promos, banners) need the same affordance.
+
+class _FullscreenGalleryViewer extends StatefulWidget {
+  const _FullscreenGalleryViewer({
+    required this.imageUrls,
+    required this.initialIndex,
+  });
+
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  @override
+  State<_FullscreenGalleryViewer> createState() =>
+      _FullscreenGalleryViewerState();
+}
+
+class _FullscreenGalleryViewerState extends State<_FullscreenGalleryViewer> {
+  late final PageController _controller =
+      PageController(initialPage: widget.initialIndex);
+  late int _currentIndex = widget.initialIndex;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final urls = widget.imageUrls;
+    final hasMultiple = urls.length > 1;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _controller,
+              itemCount: urls.length,
+              physics: hasMultiple
+                  ? const PageScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              onPageChanged: (i) => setState(() => _currentIndex = i),
+              itemBuilder: (_, index) {
+                return InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Center(
+                    child: Image.network(
+                      urls[index],
+                      fit: BoxFit.contain,
+                      loadingBuilder: (_, child, progress) {
+                        if (progress == null) return child;
+                        return const Center(
+                          child: SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: StorefrontColors.primaryGold,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: Colors.white54,
+                          size: 56,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: Material(
+                color: Colors.black.withValues(alpha: 0.4),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Fermer',
+                ),
+              ),
+            ),
+            if (hasMultiple)
+              Positioned(
+                top: 16,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${_currentIndex + 1} / ${urls.length}',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

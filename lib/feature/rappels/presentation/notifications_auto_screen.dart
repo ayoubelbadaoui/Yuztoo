@@ -14,6 +14,7 @@ import '../domain/auto_notification_triggers.dart';
 import '../domain/entities/active_notification.dart';
 import 'widgets/active_notifications_list.dart';
 import 'widgets/audience_section.dart';
+import 'widgets/auto_notification_health_panel.dart';
 import 'widgets/compose_section.dart';
 import 'widgets/step_header.dart';
 import 'widgets/trigger_grid.dart';

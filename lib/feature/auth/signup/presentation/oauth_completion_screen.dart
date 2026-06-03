@@ -13,7 +13,7 @@ import '../application/state/oauth_signup_state.dart';
 import 'constants/signup_constants.dart';
 import 'utils/phone_formatter.dart';
 import 'widgets/country_code_modal.dart';
-import 'widgets/phone_number_formatter.dart';
+import '../../../../core/utils/phone_number_formatter.dart';
 
 part 'oauth_completion_screen.part.dart';
 

@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/feature/auth/signup/presentation/constants/signup_constants.dart';
-import 'package:flutter_yuztoo/feature/auth/signup/presentation/widgets/phone_number_formatter.dart';
+import 'package:flutter_yuztoo/core/utils/phone_number_formatter.dart';
 
 void main() {
   group('PhoneNumberFormatter', () {

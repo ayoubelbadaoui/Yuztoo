@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../constants/signup_constants.dart';
 import '../utils/signup_validators.dart';
 import '../utils/phone_formatter.dart';
-import 'phone_number_formatter.dart';
+import '../../../../../core/utils/phone_number_formatter.dart';
 import 'country_code_modal.dart';
 import 'city_selection_modal.dart';
 import '../../../../../core/utils/cities.dart';
