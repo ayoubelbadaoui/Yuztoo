@@ -7,8 +7,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../../firebase_options.dart';
-
 // Web OAuth 2.0 Client ID (type 3) — required by google_sign_in v7+ for idToken on Android.
 const _kGoogleWebClientId =
     '20266054150-bhrvh3cj1fnkgc6vhu7h340pr2j32ans.apps.googleusercontent.com';
@@ -19,9 +17,7 @@ const _kGoogleIosClientId =
 
 /// Initializes Firebase and Google Sign-In once and exposes them as a FutureProvider.
 final firebaseInitializationProvider = FutureProvider<void>((ref) async {
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp();
   // Crashlytics — wired right after Firebase init so any error during the
   // remaining bootstrap (Google Sign-In init, FCM token registration, …)
   // is captured. Collection is disabled in debug so iterating locally

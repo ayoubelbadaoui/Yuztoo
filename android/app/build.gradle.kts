@@ -22,6 +22,7 @@ android {
     namespace = "com.yuztoo.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+    flavorDimensions += "env"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -49,6 +50,19 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appName"] = "Yuztoo Dev"
+        }
+        create("prod") {
+            dimension = "env"
+            manifestPlaceholders["appName"] = "YuzToo"
+        }
     }
 
     buildTypes {
