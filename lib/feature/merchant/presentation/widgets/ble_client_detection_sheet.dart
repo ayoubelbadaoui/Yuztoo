@@ -104,7 +104,7 @@ class _BleClientDetectionSheetState
 
   bool _merchantBlePassageAllowed(Merchant? m) {
     if (m == null) return false;
-    return isBlePassageAllowedForMerchant(m);
+    return isAutomaticPassageAllowedForMerchant(m);
   }
 
   @override

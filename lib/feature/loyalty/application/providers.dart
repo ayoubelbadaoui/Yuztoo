@@ -14,4 +14,19 @@ export 'client_loyalty_providers.dart'
         ClientLoyaltyEntry,
         clientLoyaltyProgressForMerchantProvider,
         availableClientRewardsProvider,
-        claimWelcomeBonProvider;
+        claimWelcomeBonProvider,
+        processVitrineScanVisitProvider,
+        pendingDirectVisitCelebrationProvider;
+
+export 'use_cases/process_vitrine_scan_visit.dart'
+    show
+        ProcessVitrineScanVisit,
+        ScanVisitResult,
+        ScanVisitGuest,
+        ScanVisitFollowListNotReady,
+        ScanVisitNotFollowing,
+        ScanVisitLoyaltyInactive,
+        ScanVisitVisitRecorded,
+        ScanVisitAwaitingMerchant,
+        ScanVisitCooldownBlocked,
+        ScanVisitError;

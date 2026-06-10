@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -8,7 +9,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:gal/gal.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
@@ -16,12 +16,16 @@ import '../../../core/config/vitrine_qr_config.dart';
 import '../../../core/infrastructure/nfc_service.dart';
 import '../../merchant/application/providers.dart';
 
-/// NFC plaque programming is Android-only — Apple does not allow third-party
-/// apps to write NDEF records to NFC tags from iOS. Reading already works on
-/// both platforms (iOS reader entitlement is in place), so clients on any
-/// device can tap a badge programmed by an Android merchant or shipped
-/// pre-programmed by Yuztoo.
-final bool _kEnableNfcPlaquePrograming = Platform.isAndroid;
+/// NFC plaque programming is enabled on **both** Android and iOS. Apple
+/// allows third-party apps to write NDEF records via the Core NFC tag
+/// reader session (`com.apple.developer.nfc.readersession.formats = TAG`);
+/// the entitlement is already configured in Runner.entitlements and
+/// flutter_nfc_kit's `writeNDEFRecords` works on both platforms.
+///
+/// Defensive checks (`ndefAvailable`, `ndefWritable`, `ndefCapacity`)
+/// live in [NfcService.writeVitrineUrl] so locked or non-NDEF tags
+/// surface a clear French message rather than a stack trace.
+const bool _kEnableNfcPlaquePrograming = true;
 
 /// Merchant QR Code screen — real QR backed by the merchant's Firestore ID.
 /// Merchants scan this to let clients follow their store.

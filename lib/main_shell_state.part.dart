@@ -43,6 +43,18 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
   String? _pendingVitrineMerchantId;
 
+  /// Persisted store of [_pendingVitrineMerchantId] so the deep-link
+  /// survives a cold start that interrupts onboarding (the user kills
+  /// the app while signing up, the merchantId would otherwise be lost
+  /// when the next launch goes through splash → onboarding without
+  /// flushing the pending intent). 24h TTL keeps stale taps from
+  /// hijacking a future scan.
+  static const String _pendingVitrinePrefsKey =
+      'yuztoo.pending_vitrine_merchant_id';
+  static const String _pendingVitrineTimestampKey =
+      'yuztoo.pending_vitrine_recorded_at_ms';
+  static const Duration _pendingVitrineTtl = Duration(hours: 24);
+
   /// FCM message received via getInitialMessage() before the auth state resolved.
   RemoteMessage? _pendingInitialFcmMessage;
 
@@ -225,6 +237,11 @@ class _RootShellState extends ConsumerState<_RootShell>
   }
 
   Future<void> _consumeInitialAppLink() async {
+    // Replay any deep-link queued before a cold restart (user killed
+    // the app mid-onboarding, etc.). Does nothing when the prefs are
+    // empty or expired.
+    await _restorePendingVitrineMerchantIdIfFresh();
+
     try {
       final uri = await _appLinks.getInitialLink();
       if (!mounted || uri == null) return;
@@ -240,7 +257,48 @@ class _RootShellState extends ConsumerState<_RootShell>
       _openVitrineForMerchant(merchantId);
     } else {
       _pendingVitrineMerchantId = merchantId;
+      unawaited(_persistPendingVitrineMerchantId(merchantId));
     }
+  }
+
+  Future<void> _persistPendingVitrineMerchantId(String merchantId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_pendingVitrinePrefsKey, merchantId);
+      await prefs.setInt(
+        _pendingVitrineTimestampKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+    } catch (_) {
+      // Best-effort: in-memory fallback is still set, so the live session
+      // path keeps working even if disk persistence fails.
+    }
+  }
+
+  Future<void> _clearPersistedPendingVitrineMerchantId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_pendingVitrinePrefsKey);
+      await prefs.remove(_pendingVitrineTimestampKey);
+    } catch (_) {}
+  }
+
+  Future<void> _restorePendingVitrineMerchantIdIfFresh() async {
+    if (_pendingVitrineMerchantId != null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getString(_pendingVitrinePrefsKey);
+      if (id == null || id.isEmpty) return;
+      final ts = prefs.getInt(_pendingVitrineTimestampKey) ?? 0;
+      final age = DateTime.now()
+          .difference(DateTime.fromMillisecondsSinceEpoch(ts));
+      if (age.isNegative || age > _pendingVitrineTtl) {
+        await prefs.remove(_pendingVitrinePrefsKey);
+        await prefs.remove(_pendingVitrineTimestampKey);
+        return;
+      }
+      _pendingVitrineMerchantId = id;
+    } catch (_) {}
   }
 
   bool _canApplyVitrineDeepLinkNow() {
@@ -316,6 +374,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (id == null || id.isEmpty) return;
     if (!_canApplyVitrineDeepLinkNow()) return;
     _pendingVitrineMerchantId = null;
+    unawaited(_clearPersistedPendingVitrineMerchantId());
     _openVitrineForMerchant(id);
   }
 
@@ -1062,7 +1121,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (!mounted) return;
     final merchant =
         ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
-    if (merchant == null || !isBlePassageAllowedForMerchant(merchant)) {
+    if (merchant == null || !isAutomaticPassageAllowedForMerchant(merchant)) {
       ref.read(bleProximityProvider.notifier).resetAfterDetection();
       return;
     }

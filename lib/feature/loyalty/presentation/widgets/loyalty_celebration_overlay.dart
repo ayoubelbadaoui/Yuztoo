@@ -11,6 +11,7 @@ import '../../../auth/core/application/providers.dart' as auth_providers;
 import '../../../auth/core/application/state/auth_state.dart';
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../application/active_validation_providers.dart';
+import '../../application/client_loyalty_providers.dart';
 import '../../domain/entities/active_validation_request.dart';
 
 /// Wraps a body widget and listens for the client's session transitioning to
@@ -46,6 +47,7 @@ class _LoyaltyCelebrationOverlayState
   late final Animation<Offset> _slide;
   Timer? _autoDismiss;
   ActiveValidationRequest? _activeCelebration;
+  String? _directCelebrationMerchantId;
   final Set<String> _seenInSession = <String>{};
   String? _persistedLastSeen;
 
@@ -128,11 +130,34 @@ class _LoyaltyCelebrationOverlayState
     _markSeen(session);
   }
 
+  /// Direct visit (NFC tag tap, deep link, in-app QR) — the use case
+  /// records the passage without an `active_validations` doc, so we
+  /// celebrate from a one-shot provider signal instead of a Firestore
+  /// session transition. Idempotent: the same merchantId from the same
+  /// scan only fires once.
+  void _onDirectVisit(String merchantId) {
+    if (merchantId.isEmpty) return;
+    if (_directCelebrationMerchantId == merchantId) return;
+    setState(() {
+      _directCelebrationMerchantId = merchantId;
+      _activeCelebration = null;
+    });
+    HapticFeedback.heavyImpact();
+    _controller.forward(from: 0);
+    _autoDismiss?.cancel();
+    _autoDismiss = Timer(const Duration(seconds: 4), _dismiss);
+  }
+
   void _dismiss() {
     _autoDismiss?.cancel();
     if (!mounted) return;
     _controller.reverse().then((_) {
-      if (mounted) setState(() => _activeCelebration = null);
+      if (mounted) {
+        setState(() {
+          _activeCelebration = null;
+          _directCelebrationMerchantId = null;
+        });
+      }
     });
   }
 
@@ -147,6 +172,25 @@ class _LoyaltyCelebrationOverlayState
   Widget build(BuildContext context) {
     final auth = ref.watch(auth_providers.authStateProvider);
     final isAuthed = auth is Authenticated;
+
+    // One-shot direct-visit celebration. The store_profile flow sets the
+    // merchantId after [ProcessVitrineScanVisit] returns
+    // [ScanVisitVisitRecorded]; we consume + clear it inside a post-frame
+    // callback so the same scan doesn't re-fire on rebuild.
+    ref.listen<String?>(pendingDirectVisitCelebrationProvider,
+        (previous, next) {
+      if (next == null || next.isEmpty) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _onDirectVisit(next);
+        ref.read(pendingDirectVisitCelebrationProvider.notifier).state = null;
+      });
+    });
+
+    final showSessionCard = _activeCelebration != null;
+    final showDirectCard =
+        !showSessionCard && _directCelebrationMerchantId != null;
+
     return Stack(
       children: [
         widget.child,
@@ -156,7 +200,7 @@ class _LoyaltyCelebrationOverlayState
               merchantId: merchantId,
               onSession: _onSession,
             ),
-        if (_activeCelebration != null)
+        if (showSessionCard)
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
             left: 16,
@@ -169,6 +213,24 @@ class _LoyaltyCelebrationOverlayState
                   child: GestureDetector(
                     onTap: _dismiss,
                     child: _CelebrationCard(session: _activeCelebration!),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (showDirectCard)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            left: 16,
+            right: 16,
+            child: SafeArea(
+              child: SlideTransition(
+                position: _slide,
+                child: FadeTransition(
+                  opacity: _opacity,
+                  child: GestureDetector(
+                    onTap: _dismiss,
+                    child: const _DirectVisitCelebrationCard(),
                   ),
                 ),
               ),
@@ -219,6 +281,27 @@ class _CelebrationCard extends StatelessWidget {
   }
 
   @override
+  Widget build(BuildContext context) =>
+      _CelebrationCardChrome(bodyLine: _bodyLine);
+}
+
+/// Card variant for direct visits (scan / NFC tap / deep link). The
+/// merchant validation mode for these is by definition `automatic`, so
+/// the body line is fixed.
+class _DirectVisitCelebrationCard extends StatelessWidget {
+  const _DirectVisitCelebrationCard();
+
+  @override
+  Widget build(BuildContext context) =>
+      const _CelebrationCardChrome(bodyLine: '+1 passage validé.');
+}
+
+class _CelebrationCardChrome extends StatelessWidget {
+  const _CelebrationCardChrome({required this.bodyLine});
+
+  final String bodyLine;
+
+  @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
@@ -267,7 +350,7 @@ class _CelebrationCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _bodyLine,
+                    bodyLine,
                     style: GoogleFonts.outfit(
                       fontSize: 12,
                       color: MerchantColors.darkOverlay.withValues(alpha: 0.85),

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B1F33" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no" />
+
+  <title>Yuztoo — Découvrez ce commerce</title>
+  <meta name="description" content="Suivez ce commerce sur Yuztoo et profitez des avantages fidélité." />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Découvrez ce commerce sur Yuztoo" />
+  <meta property="og:description" content="Téléchargez Yuztoo pour rejoindre cette boutique et accéder à votre carnet de commerces préférés." />
+  <meta property="og:image" content="/og-cover.svg" />
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <style>
+    :root {
+      --navy: #0B1F33;
+      --navy-2: #102C49;
+      --gold: #C9A352;
+      --gold-2: #B8860B;
+      --cream: #F4EDDD;
+      --text-light: rgba(244, 237, 221, 0.72);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: var(--navy);
+      color: var(--cream);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 32px 20px calc(env(safe-area-inset-bottom) + 32px);
+    }
+    .stack { display: flex; flex-direction: column; align-items: center; gap: 28px; max-width: 420px; width: 100%; }
+    .logo {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: var(--gold); color: var(--navy);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 30px; letter-spacing: 1px;
+    }
+    h1 {
+      margin: 0; text-align: center;
+      font-size: 28px; line-height: 1.2; font-weight: 700;
+      color: var(--cream);
+    }
+    p.lede {
+      margin: 0; text-align: center; font-size: 16px; line-height: 1.5;
+      color: var(--text-light);
+    }
+    .cta-row {
+      display: flex; flex-direction: column; gap: 12px; width: 100%;
+    }
+    a.cta {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 16px 20px; border-radius: 14px;
+      background: var(--gold); color: var(--navy);
+      font-weight: 700; font-size: 16px; text-decoration: none;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+    a.cta.secondary { background: transparent; color: var(--gold); border: 1.5px solid var(--gold); }
+    a.cta:active { transform: scale(0.98); opacity: 0.9; }
+    .badges { display: flex; gap: 12px; width: 100%; }
+    .badges a { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; border-radius: 12px; background: var(--navy-2); color: var(--cream); text-decoration: none; font-size: 14px; border: 1px solid rgba(201, 163, 82, 0.25); }
+    footer {
+      margin-top: 24px; font-size: 12px; color: var(--text-light); text-align: center;
+    }
+    footer a { color: var(--gold); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main class="stack">
+    <div class="logo">Y</div>
+    <h1>Ce commerce vous invite sur Yuztoo</h1>
+    <p class="lede">
+      Téléchargez l'app Yuztoo pour rejoindre cette boutique, recevoir ses
+      actualités et profiter de son programme de fidélité.
+    </p>
+
+    <div class="cta-row">
+      <a id="open-app" class="cta" href="#">Ouvrir dans Yuztoo</a>
+
+      <div class="badges">
+        <a id="appstore" href="https://apps.apple.com/app/yuztoo/" rel="noopener noreferrer">App Store</a>
+        <a id="playstore" href="https://play.google.com/store/apps/details?id=com.yuztoo.app" rel="noopener noreferrer">Google Play</a>
+      </div>
+    </div>
+
+    <footer>
+      <span>Yuztoo, le carnet de vos commerces préférés.</span><br />
+      <a href="https://yuztoo.app">yuztoo.app</a>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      // Resolve the merchantId from a path that looks like /vitrine/{id}
+      // (rewritten by Firebase Hosting). Fall back to the query string
+      // for local previews.
+      var path = window.location.pathname || '';
+      var match = path.match(/\/vitrine\/([^\/?#]+)/i);
+      var merchantId = match ? decodeURIComponent(match[1])
+        : new URLSearchParams(window.location.search).get('id') || '';
+
+      var appLink = merchantId
+        ? 'yuztoo://vitrine/' + encodeURIComponent(merchantId)
+        : 'yuztoo://';
+
+      var openApp = document.getElementById('open-app');
+      openApp.addEventListener('click', function (event) {
+        event.preventDefault();
+        // Fire the custom scheme; if the OS doesn't handle it within
+        // ~1.2s, fall back to the relevant store CTA based on UA.
+        var ua = navigator.userAgent || '';
+        var isIOS = /iPhone|iPad|iPod/i.test(ua);
+        var isAndroid = /Android/i.test(ua);
+
+        var fallback = isIOS
+          ? document.getElementById('appstore').href
+          : isAndroid
+            ? document.getElementById('playstore').href
+            : 'https://yuztoo.app';
+
+        var t = setTimeout(function () { window.location.href = fallback; }, 1200);
+        window.addEventListener('blur', function () { clearTimeout(t); });
+
+        window.location.href = appLink;
+      });
+
+      // On Android, prefer the intent:// scheme so the OS can offer the
+      // installed Yuztoo app even without app links being verified.
+      if (/Android/i.test(navigator.userAgent || '') && merchantId) {
+        var intentUrl = 'intent://vitrine/' + encodeURIComponent(merchantId)
+          + '#Intent;scheme=yuztoo;package=com.yuztoo.app;end';
+        openApp.setAttribute('href', intentUrl);
+      } else {
+        openApp.setAttribute('href', appLink);
+      }
+    })();
+  </script>
+</body>
+</html>

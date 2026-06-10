@@ -17,12 +17,24 @@ bool isMerchantLoyaltyPassageActive(Merchant merchant) {
   return merchantLiveLoyaltyProgram(merchant).programEnabled;
 }
 
-/// BLE + scan automatique : mode [LoyaltyPassageValidation.automatic] uniquement.
-bool isBlePassageAllowedForMerchant(Merchant merchant) {
+/// Mode automatique : un scan (NFC, QR, deep-link) ou une connexion BLE
+/// déclenche un passage validé sans confirmation côté commerçant.
+///
+/// Renommé depuis `isBlePassageAllowedForMerchant` parce que le BLE n'est
+/// qu'un des transports possibles — le NFC est désormais la voie principale
+/// (cf. NFC MVP). La sémantique de la règle (`passageValidation == automatic`)
+/// est inchangée : seul le nom suit la nouvelle réalité produit.
+bool isAutomaticPassageAllowedForMerchant(Merchant merchant) {
   if (!isMerchantLoyaltyPassageActive(merchant)) return false;
   return merchantLiveLoyaltyProgram(merchant).passageValidation ==
       LoyaltyPassageValidation.automatic;
 }
+
+/// Alias historique. Conservé le temps que les écrans BLE existants migrent
+/// vers [isAutomaticPassageAllowedForMerchant]. Ne rien y ajouter.
+@Deprecated('Use isAutomaticPassageAllowedForMerchant')
+bool isBlePassageAllowedForMerchant(Merchant merchant) =>
+    isAutomaticPassageAllowedForMerchant(merchant);
 
 /// Demande vitrine (file « Vos clients ») : mode manuel uniquement.
 bool isVitrinePassageRequestAllowedForMerchant(Merchant merchant) {

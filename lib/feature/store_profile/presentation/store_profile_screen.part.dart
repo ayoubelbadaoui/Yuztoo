@@ -1562,6 +1562,11 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   }
 
   /// QR/NFC scan while logged out — follow-the-store framing, not passage-first.
+  ///
+  /// **Legacy.** No longer called by [_handleVitrineScanArrival] in the
+  /// NFC MVP — guests now land on the storefront with no forced modal.
+  /// Kept compiled so flipping the funnel back is a one-line change.
+  // ignore: unused_element
   void _showScanGuestConnectSheet(
     BuildContext context,
     Merchant merchant,
@@ -1672,6 +1677,12 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   }
 
   /// Logged-in client scanned but does not follow yet — follow before passage.
+  ///
+  /// **Legacy.** No longer called by [_handleVitrineScanArrival] in the
+  /// NFC MVP — non-followers land on the storefront and tap the regular
+  /// Suivre CTA, which surfaces the welcome gift through
+  /// [_handleFollowToggle] → [_afterScanFollowSuccess].
+  // ignore: unused_element
   Future<void> _showScanFollowFirstSheet(
     BuildContext context,
     Merchant merchant,
@@ -1836,6 +1847,12 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     );
   }
 
+  /// **Legacy.** No longer auto-opened by [_handleVitrineScanArrival] in
+  /// the NFC MVP — automatic-mode merchants get a silent visit + gold
+  /// celebration overlay, manual-mode merchants get an
+  /// `active_validations` session. Kept compiled so the manual "tap to
+  /// validate" sheet stays one call away if a future flow re-needs it.
+  // ignore: unused_element
   void _openRecordPassageSheet(
     BuildContext context,
     Merchant merchant,
@@ -1886,8 +1903,14 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 
   /// Consumes [pendingVitrineScanIntentProvider] once per screen visit.
   ///
-  /// Funnel: guest → connect to store; logged-in non-follower → follow +
-  /// welcome → passage; already following → passage sheet.
+  /// MVP funnel (post-NFC re-architecture):
+  ///   * Guest or non-follower → profile only, no forced modal.
+  ///   * Follower + automatic loyalty → silent visit + celebration overlay.
+  ///   * Follower + manual loyalty → `active_validations` session (live banner).
+  ///   * Cooldown blocked → friendly info snackbar.
+  ///
+  /// All branching is delegated to [ProcessVitrineScanVisit] so the in-app
+  /// QR scanner, the deep link path, and the OS NFC tap behave identically.
   void _handleVitrineScanArrival({
     required BuildContext context,
     required Merchant merchant,
@@ -1902,33 +1925,71 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     }
 
     final loggedIn = userId != null && userId.isNotEmpty;
-    // Wait until follow state is loaded so existing followers skip follow-first.
+    // Wait until follow state is loaded so existing followers skip the
+    // "not following" branch on a stale snapshot.
     if (loggedIn && !isFollowListReady) return;
 
     _scanArrivalHandled = true;
+    _clearVitrineScanIntent();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
-      if (!loggedIn) {
-        _showScanGuestConnectSheet(context, merchant);
-        return;
-      }
+      final auth = ref.read(authStateProvider);
+      final client = auth is Authenticated ? auth.user : null;
 
-      _clearVitrineScanIntent();
-
-      if (!isFollowing) {
-        unawaited(_showScanFollowFirstSheet(context, merchant, userId));
-        return;
-      }
-
-      _openRecordPassageSheet(
-        context,
-        merchant,
-        userId,
-        isFollowing: true,
-        visitOnly: !_merchantLoyaltyActive(merchant),
+      final useCase = ref.read(processVitrineScanVisitProvider);
+      final result = await useCase(
+        client: client,
+        merchant: merchant,
+        isFollowing: isFollowing,
+        isFollowListReady: isFollowListReady,
       );
+
+      if (!mounted || !context.mounted) return;
+
+      switch (result) {
+        case ScanVisitGuest():
+        case ScanVisitFollowListNotReady():
+        case ScanVisitNotFollowing():
+        case ScanVisitLoyaltyInactive():
+          // Profile only — the storefront already exposes follow + visit CTAs.
+          break;
+        case ScanVisitVisitRecorded():
+          ref.invalidate(
+              clientLoyaltyProgressForMerchantProvider(merchant.id));
+          ref
+              .read(pendingDirectVisitCelebrationProvider.notifier)
+              .state = merchant.id;
+          break;
+        case ScanVisitAwaitingMerchant():
+          // The session listener (clientActiveValidationSessionProvider)
+          // surfaces the live banner — no extra UI needed here.
+          break;
+        case ScanVisitCooldownBlocked(:final userMessage):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                userMessage,
+                style: GoogleFonts.outfit(color: Colors.white),
+              ),
+              backgroundColor: StorefrontColors.primaryGold,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        case ScanVisitError(:final userMessage):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                userMessage,
+                style: GoogleFonts.outfit(color: Colors.white),
+              ),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
     });
   }
 

@@ -22,7 +22,7 @@ const _merchant = Merchant(
 );
 
 void main() {
-  group('isBlePassageAllowedForMerchant', () {
+  group('isAutomaticPassageAllowedForMerchant', () {
     test('false when manual validation mode', () {
       const manual = Merchant(
         id: 'm1',
@@ -37,8 +37,27 @@ void main() {
           passageValidation: LoyaltyPassageValidation.manual,
         ),
       );
-      expect(isBlePassageAllowedForMerchant(manual), isFalse);
+      expect(isAutomaticPassageAllowedForMerchant(manual), isFalse);
       expect(isVitrinePassageRequestAllowedForMerchant(manual), isTrue);
+    });
+
+    test('legacy alias still resolves to the same answer', () {
+      const auto = Merchant(
+        id: 'm1',
+        ownerUid: 'o1',
+        name: 'Shop',
+        email: 'a@b.c',
+        phone: '+33600000000',
+        city: 'Paris',
+        loyaltyEnabled: true,
+        loyaltyProgram: LoyaltyProgramConfig(
+          programEnabled: true,
+          passageValidation: LoyaltyPassageValidation.automatic,
+        ),
+      );
+      // ignore: deprecated_member_use_from_same_package
+      expect(isBlePassageAllowedForMerchant(auto),
+          isAutomaticPassageAllowedForMerchant(auto));
     });
   });
 

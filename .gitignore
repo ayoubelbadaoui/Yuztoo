@@ -1,6 +1,9 @@
 # Firebase tooling (optional; npm install in tools/firebase)
 tools/firebase/node_modules/
 
+# Firebase CLI deploy cache
+.firebase/
+
 # Emulator debug logs
 firestore-debug.log
 ui-debug.log

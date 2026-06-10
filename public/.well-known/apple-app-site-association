@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["R6RNJK4C87.com.yuztoo.app"],
+        "components": [
+          {
+            "/": "/vitrine/*",
+            "comment": "Yuztoo storefront deep links"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["R6RNJK4C87.com.yuztoo.app"]
+  }
+}

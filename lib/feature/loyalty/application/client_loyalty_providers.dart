@@ -13,7 +13,9 @@ import '../domain/entities/client_merchant_loyalty_progress.dart';
 import '../domain/entities/client_reward_item.dart';
 import '../infrastructure/client_bon_repository_provider.dart';
 import '../infrastructure/client_loyalty_repository_provider.dart';
+import 'active_validation_providers.dart';
 import 'use_cases/claim_welcome_bon.dart';
+import 'use_cases/process_vitrine_scan_visit.dart';
 import 'use_cases/record_client_visit_passage.dart';
 import 'use_cases/redeem_loyalty_reward.dart';
 import '../domain/entities/loyalty_pending_client_row.dart';
@@ -36,6 +38,30 @@ final redeemLoyaltyRewardProvider = Provider<RedeemLoyaltyReward>((ref) {
 final claimWelcomeBonProvider = Provider<ClaimWelcomeBon>((ref) {
   return ClaimWelcomeBon(ref.watch(clientLoyaltyRepositoryProvider));
 });
+
+/// Application use case that orchestrates a vitrine scan (NFC, QR,
+/// universal link) and returns a [ScanVisitResult] the UI consumes
+/// uniformly. See [ProcessVitrineScanVisit] for the branching rules.
+final processVitrineScanVisitProvider =
+    Provider<ProcessVitrineScanVisit>((ref) {
+  return ProcessVitrineScanVisit(
+    recordVisit: ref.watch(recordClientVisitPassageProvider),
+    requestValidation: ref.watch(requestActiveValidationProvider),
+  );
+});
+
+/// One-shot signal: a passage was just recorded directly via scan
+/// (NFC tag, QR, deep link), without going through `active_validations`.
+///
+/// The [LoyaltyCelebrationOverlay] watches this provider so it can fire
+/// the gold celebration immediately, instead of waiting for an
+/// active_validations doc that the automatic flow never creates.
+///
+/// Set the value to the merchantId on a successful direct visit. The
+/// overlay clears the state to null after celebrating, so the same
+/// merchant scan can re-trigger on the next cycle.
+final pendingDirectVisitCelebrationProvider =
+    StateProvider<String?>((ref) => null);
 
 // ─── Per-merchant progress stream ─────────────────────────────────────────────
 

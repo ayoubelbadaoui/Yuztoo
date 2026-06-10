@@ -355,6 +355,14 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     // the new follow/unfollow immediately.
     ref.invalidate(followersCountByMerchantIdsProvider(<String>[merchantId]));
     if (!context.mounted) return;
+
+    // Fresh follow → reveal the merchant's welcome gift, scan-or-no-scan.
+    // The post-scan modal that used to do this was removed in the NFC MVP
+    // (see [_showScanFollowFirstSheet] legacy comment), so the only
+    // remaining trigger for the welcome sheet is the regular Suivre CTA.
+    if (!currentlyFollowing) {
+      _afterScanFollowSuccess(context, merchant, userId);
+    }
     // `currentlyFollowing` is the state BEFORE the toggle, so when it was
     // true we just unfollowed. Offer a 5-second undo on the unfollow path —
     // fat-finger taps are the most common support ticket on this button

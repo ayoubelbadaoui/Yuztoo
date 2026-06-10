@@ -17,5 +17,12 @@
 	<array>
 		<string>TAG</string>
 	</array>
+	<!-- Universal Links: maps https://yuztoo.app to the app via the
+	     apple-app-site-association file at the root of yuztoo.app. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:yuztoo.app</string>
+		<string>webcredentials:yuztoo.app</string>
+	</array>
 </dict>
 </plist>
