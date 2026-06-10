@@ -302,14 +302,17 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
         return const Right<AuthFailure, bool>(false);
       }
 
-      // Check required fields
+      // Required identity fields written at signup time.
+      // City is intentionally NOT part of completeness: it is optional at
+      // signup (set during onboarding for merchants and via the
+      // `LoginFlowCityRequired` city picker for clients). Including it
+      // here would short-circuit the city picker branch and surface
+      // "Profil incomplet" to users who simply haven't onboarded yet.
       final hasUid = data['uid'] != null && (data['uid'] as String).isNotEmpty;
       final hasEmail =
           data['email'] != null && (data['email'] as String).isNotEmpty;
       final hasPhone =
           data['phone'] != null && (data['phone'] as String).isNotEmpty;
-      final hasCity =
-          data['city'] != null && (data['city'] as String).isNotEmpty;
 
       // Roles: canonical `roles` map, or legacy `role` string until patched on login.
       final hasRoles = data['roles'] != null ||
@@ -327,7 +330,6 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
       final isComplete = hasUid &&
           hasEmail &&
           hasPhone &&
-          hasCity &&
           hasRoles &&
           hasOnboarding &&
           hasStatus &&

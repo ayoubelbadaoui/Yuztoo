@@ -89,16 +89,40 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
           throw const DuplicatePhoneIndexException();
         }
 
+        // For phone_index / email_index: any existing doc means the slot is
+        // claimed. We must treat orphan rows (uid missing or empty) as
+        // claimed too — silently letting them through used to create a user
+        // whose phone_index / email_index pointed nowhere, allowing a third
+        // party to subsequently re-claim the same identifier. The
+        // upstream `verifyPhoneAvailableForSignup` / `verifyEmailAvailableForSignup`
+        // calls block these cases at the form layer; this in-transaction
+        // check is the second line of defence.
         if (phoneSnap.exists) {
-          final existingUid = phoneSnap.data()?['uid'] as String?;
-          if (existingUid != null && existingUid != uid) {
+          final existingUid = (phoneSnap.data()?['uid'] as String?)?.trim();
+          if (existingUid == null || existingUid.isEmpty) {
+            LoggerService.logError(
+              'createUserDocument: orphan phone_index detected (uid missing); '
+              'treating as duplicate to avoid silent re-claim',
+              context: {'phone': normalizedPhone, 'requestUid': uid},
+            );
+            throw const DuplicatePhoneIndexException();
+          }
+          if (existingUid != uid) {
             throw const DuplicatePhoneIndexException();
           }
         }
 
         if (emailSnap.exists) {
-          final existingUid = emailSnap.data()?['uid'] as String?;
-          if (existingUid != null && existingUid != uid) {
+          final existingUid = (emailSnap.data()?['uid'] as String?)?.trim();
+          if (existingUid == null || existingUid.isEmpty) {
+            LoggerService.logError(
+              'createUserDocument: orphan email_index detected (uid missing); '
+              'treating as duplicate to avoid silent re-claim',
+              context: {'email': normalizedEmail, 'requestUid': uid},
+            );
+            throw const DuplicateEmailIndexException();
+          }
+          if (existingUid != uid) {
             throw const DuplicateEmailIndexException();
           }
         }
