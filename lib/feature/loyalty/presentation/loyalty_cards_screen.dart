@@ -14,7 +14,6 @@ import '../application/loyalty_reward_category.dart';
 import '../application/providers.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart'
     show ClientLoyaltyTier;
-import 'client_ble_broadcast_screen.dart';
 import 'widgets/client_validation_banner.dart';
 
 part 'loyalty_cards_screen.part.dart';
@@ -25,6 +24,7 @@ class LoyaltyCardsScreen extends ConsumerStatefulWidget {
     super.key,
     required this.onBack,
     required this.onNotifications,
+    required this.onScan,
     this.onSwitchToMerchant,
     this.onStoreTap,
   });
@@ -33,6 +33,12 @@ class LoyaltyCardsScreen extends ConsumerStatefulWidget {
 
   final VoidCallback onBack;
   final VoidCallback onNotifications;
+
+  /// Opens the QR/NFC scanner. Passage validation is scan-only ("cela ne
+  /// doit pas être possible de valider un passage sans avoir scanné le code
+  /// ou le NFC du commerçant") — the FAB therefore routes to the scanner
+  /// instead of the legacy BLE broadcast path.
+  final VoidCallback onScan;
 
   /// Non-null when the user has both client and merchant roles.
   /// Shown as a storefront icon in the header so dual-profile users can
@@ -121,17 +127,12 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
         child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const ClientBleBroadcastScreen(),
-                fullscreenDialog: true,
-              ),
-            ),
+            onPressed: widget.onScan,
             backgroundColor: StorefrontColors.primaryGold,
             foregroundColor: StorefrontColors.navyDark,
-            icon: const Icon(Icons.nfc_rounded),
+            icon: const Icon(Icons.qr_code_scanner_rounded),
             label: Text(
-              'Valider',
+              'Scanner',
               style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
             ),
           ),

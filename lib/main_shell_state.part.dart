@@ -458,8 +458,8 @@ class _RootShellState extends ConsumerState<_RootShell>
   ///  3. `bon_expiring` / `bon_expired` → loyalty tab ("Mes avantages")
   ///  4. `type == loyalty_passage_request` + merchant → passage sheet (merchant shell)
   ///  5. `type` contains `loyalty` (but not passage_request) → loyalty tab
-  ///  6. `type == auto` + `merchant_id` → vitrine (merchant rappel / context)
-  ///  7. Anything else → notifications inbox (`notification_id` scroll when present)
+  ///  6. Anything else (incl. `auto`) → notifications inbox
+  ///     (`notification_id` scroll when present) — never the bare vitrine.
   void _handleFcmTap(Map<String, dynamic>? data) {
     if (!mounted) return;
     if (data == null) {
@@ -519,11 +519,11 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
-    if (type == 'auto' && merchantId.isNotEmpty) {
-      _openVitrineForMerchant(merchantId);
-      return;
-    }
-
+    // Auto notifications (rappels, anniversaires…) intentionally fall through
+    // to the inbox: "quand un client clique sur une notification … il veut
+    // voir la notification, pas repartir sur la vitrine". The inbox scrolls
+    // to the row when `notification_id` is present, and the row's detail
+    // sheet keeps the storefront one tap away.
     _openNotificationsScreen(
       notificationId: notificationId.isEmpty ? null : notificationId,
     );
@@ -1194,7 +1194,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         }
       }
 
-      if (readiness.isProfileDataComplete) {
+      // Identity (first name, last name, DOB) is what onboarding enforces.
+      // When it's already on file we finalize the client profile silently
+      // and enter — photo / city being empty must NOT re-trigger the wizard.
+      if (readiness.hasRequiredIdentityData) {
         final authStateNow = ref.read(authStateProvider);
         final displayName = buildClientDisplayName(
           firstName: readiness.firstName,
@@ -2246,6 +2249,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         return LoyaltyCardsScreen(
           onBack: _handleBackToBase,
           onNotifications: _openNotificationsScreen,
+          // Scan-only passage validation: the FAB opens the QR/NFC scanner
+          // (which routes through the vitrine scan funnel) instead of the
+          // legacy BLE broadcast screen.
+          onScan: () => _handleNavigate('qr-scanner'),
           onSwitchToMerchant:
               _isDualProfile ? () => unawaited(_switchToMerchant()) : null,
           onStoreTap: (merchantId) {

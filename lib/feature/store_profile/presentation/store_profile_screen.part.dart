@@ -1563,10 +1563,9 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 
   /// QR/NFC scan while logged out — follow-the-store framing, not passage-first.
   ///
-  /// **Legacy.** No longer called by [_handleVitrineScanArrival] in the
-  /// NFC MVP — guests now land on the storefront with no forced modal.
-  /// Kept compiled so flipping the funnel back is a one-line change.
-  // ignore: unused_element
+  /// Opened by [_handleVitrineScanArrival] on [ScanVisitGuest]: proposes
+  /// login-to-follow with a "Continuer sans compte" escape hatch so the
+  /// storefront stays browsable.
   void _showScanGuestConnectSheet(
     BuildContext context,
     Merchant merchant,
@@ -1678,11 +1677,10 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 
   /// Logged-in client scanned but does not follow yet — follow before passage.
   ///
-  /// **Legacy.** No longer called by [_handleVitrineScanArrival] in the
-  /// NFC MVP — non-followers land on the storefront and tap the regular
-  /// Suivre CTA, which surfaces the welcome gift through
-  /// [_handleFollowToggle] → [_afterScanFollowSuccess].
-  // ignore: unused_element
+  /// Opened by [_handleVitrineScanArrival] on [ScanVisitNotFollowing]:
+  /// "Suivre ce commerce" follows and then surfaces the welcome gift via
+  /// [_afterScanFollowSuccess]; "Plus tard" leaves the storefront browsable
+  /// (the regular Suivre CTA goes through [_handleFollowToggle]).
   Future<void> _showScanFollowFirstSheet(
     BuildContext context,
     Merchant merchant,
@@ -1904,7 +1902,9 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   /// Consumes [pendingVitrineScanIntentProvider] once per screen visit.
   ///
   /// MVP funnel (post-NFC re-architecture):
-  ///   * Guest or non-follower → profile only, no forced modal.
+  ///   * Guest → connect sheet ("Se connecter pour suivre", dismissible).
+  ///   * Non-follower → follow-first sheet ("Suivre ce commerce" → welcome
+  ///     gift via [_afterScanFollowSuccess]); never passage-first.
   ///   * Follower + automatic loyalty → silent visit + celebration overlay.
   ///   * Follower + manual loyalty → `active_validations` session (live banner).
   ///   * Cooldown blocked → friendly info snackbar.
@@ -1950,10 +1950,18 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 
       switch (result) {
         case ScanVisitGuest():
-        case ScanVisitFollowListNotReady():
+          // "au premier scan ... on doit proposer de suivre la boutique":
+          // guests get a dismissible connect sheet — they can still browse
+          // the storefront via "Continuer sans compte".
+          _showScanGuestConnectSheet(context, merchant);
         case ScanVisitNotFollowing():
+          // Logged-in non-follower → invite to follow. On success the sheet
+          // routes through _afterScanFollowSuccess, which surfaces the
+          // welcome gift — never a passage validation on first scan.
+          _showScanFollowFirstSheet(context, merchant, userId!);
+        case ScanVisitFollowListNotReady():
         case ScanVisitLoyaltyInactive():
-          // Profile only — the storefront already exposes follow + visit CTAs.
+          // Profile only — nothing actionable to propose.
           break;
         case ScanVisitVisitRecorded():
           ref.invalidate(

@@ -32,6 +32,21 @@ final class ClientProfileReadiness {
     this.displayName,
   });
 
+  /// Fields the client onboarding wizard itself hard-requires
+  /// (see ClientOnboardingScreen._finish: first name, last name and
+  /// date of birth block the finish button; the photo step is skippable
+  /// and city can stay empty).
+  ///
+  /// The re-entry gate below MUST stay in sync with this set: requiring
+  /// more here than onboarding does means a valid, completed client
+  /// account gets bounced back into the wizard on every role switch —
+  /// "le compte existe déjà mais on me redemande mes infos".
+  static const Set<ClientProfileMissingField> requiredFields = {
+    ClientProfileMissingField.firstName,
+    ClientProfileMissingField.lastName,
+    ClientProfileMissingField.dateOfBirth,
+  };
+
   final bool hasClientRole;
   final bool onboardingCompleted;
   final List<ClientProfileMissingField> missingForClientHome;
@@ -42,15 +57,31 @@ final class ClientProfileReadiness {
   final String? photoUrl;
   final String? displayName;
 
+  /// Strict completeness — every field including the optional ones
+  /// (photo, city). Useful for profile-completion nudges, NOT for
+  /// gating access to the client home.
   bool get isProfileDataComplete => missingForClientHome.isEmpty;
+
+  /// Required identity gaps only. Photo and city never appear here.
+  List<ClientProfileMissingField> get missingRequiredFields =>
+      missingForClientHome.where(requiredFields.contains).toList();
+
+  /// True when the identity data onboarding enforces is present —
+  /// the client account is usable even if photo / city were skipped.
+  bool get hasRequiredIdentityData => missingRequiredFields.isEmpty;
 
   /// Dual-profile merchants can have full client data in Firestore while
   /// `onboarding.client` still says `not_started`. The real gate is role +
-  /// required fields — do not force [ClientOnboardingScreen] on every switch.
+  /// the fields onboarding actually requires — never the optional ones,
+  /// and do not force [ClientOnboardingScreen] on every switch.
   bool get canEnterClientHomeDirectly =>
-      hasClientRole && isProfileDataComplete;
+      hasClientRole && hasRequiredIdentityData;
 
-  String get missingFieldsLabelFr => missingForClientHome
+  /// French list of the missing REQUIRED fields, for the confirmation
+  /// dialog. Optional gaps (photo, city) are deliberately not announced:
+  /// telling the user "il nous manque : photo de profil" for an account
+  /// that already works reads as a bug.
+  String get missingFieldsLabelFr => missingRequiredFields
       .map((f) => f.labelFr)
       .join(', ');
 }

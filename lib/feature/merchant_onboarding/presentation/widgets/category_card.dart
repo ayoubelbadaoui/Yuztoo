@@ -6,11 +6,22 @@ import '../../domain/entities/merchant_category.dart';
 /// Maps a category id to a meaningful icon — presentation layer only.
 IconData _iconForCategory(String id) {
   return switch (id) {
-    'restaurant' => Icons.restaurant_rounded,
-    'retail' => Icons.store_rounded,
-    'beauty' => Icons.spa_rounded,
-    'fitness' => Icons.fitness_center_rounded,
-    'services' => Icons.handyman_rounded,
+    // Particuliers (B2C)
+    'bouche' => Icons.restaurant_rounded,
+    'commerce' => Icons.storefront_rounded,
+    'beaute' => Icons.spa_rounded,
+    'sante' => Icons.medical_services_rounded,
+    'services_particuliers' => Icons.home_repair_service_rounded,
+    'loisirs' => Icons.attractions_rounded,
+    'association' => Icons.groups_rounded,
+    // Professionnels (B2B)
+    'artisan_btp' => Icons.construction_rounded,
+    'services_pro' => Icons.business_center_rounded,
+    'grossiste' => Icons.warehouse_rounded,
+    'immobilier' => Icons.apartment_rounded,
+    'finance_juridique' => Icons.account_balance_rounded,
+    'livraison' => Icons.local_shipping_rounded,
+    'independants' => Icons.badge_rounded,
     _ => Icons.apps_rounded,
   };
 }

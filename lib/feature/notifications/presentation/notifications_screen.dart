@@ -145,7 +145,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     // 2. Deep-link navigation. Order matters:
     //    bon + loyalty types → Mes avantages (shell mirrors FCM routing)
     //    promotion → onPromotionTap when promotionId is set
-    //    everything else → onMerchantTap to the storefront
+    //    everything else → detail sheet (full content), storefront one tap away
     final isBonTap = notification.type == ClientNotificationType.bonExpiring ||
         notification.type == ClientNotificationType.bonExpired;
     final isLoyaltyTap = notification.type == ClientNotificationType.loyalty;
@@ -156,9 +156,111 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         notification.promotionId!.isNotEmpty &&
         widget.onPromotionTap != null) {
       widget.onPromotionTap!(notification.merchantId, notification.promotionId!);
-    } else if (widget.onMerchantTap != null) {
-      widget.onMerchantTap!(notification.merchantId);
+    } else {
+      // "quand un client clique sur une notification il veut voir la
+      // notification, pas repartir sur la vitrine" — generic rows (rappels
+      // auto, anniversaires…) open the full content in place. The list rows
+      // truncate title/body, so this sheet is where the message is actually
+      // readable; the storefront remains reachable via the secondary CTA.
+      _showNotificationDetailSheet(notification);
     }
+  }
+
+  /// Full-content detail for a generic notification. Mirrors the inbox's
+  /// dark visual language; "Voir la boutique" is the secondary action so
+  /// reading the message stays the primary outcome of the tap.
+  void _showNotificationDetailSheet(ClientNotification notification) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: MerchantColors.bgHeader,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: MerchantColors.gold.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                notification.merchantName,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.gold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                notification.title,
+                style: GoogleFonts.outfit(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  color: MerchantColors.textWhite,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Text(
+                    notification.body,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: MerchantColors.textLightGrey,
+                      height: 1.55,
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.onMerchantTap != null &&
+                  notification.merchantId.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      widget.onMerchantTap!(notification.merchantId);
+                    },
+                    child: Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: MerchantColors.gold,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Voir la boutique',
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: MerchantColors.bgMain,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _setTab(String tab) => setState(() => _activeTab = tab);
