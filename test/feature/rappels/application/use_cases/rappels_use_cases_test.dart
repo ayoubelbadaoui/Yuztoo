@@ -47,6 +47,9 @@ class _FakeFollowedRepo implements FollowedMerchantsRepository {
   Future<Result<List<String>>> getFollowedIds(String userId) async =>
       const Right([]);
   @override
+  Stream<List<String>> watchFollowedIds(String userId) =>
+      Stream.value(followerIds);
+  @override
   Future<Result<Map<String, int>>> getFollowedHeartLevels(
           String userId) async =>
       const Right({});
@@ -82,6 +85,7 @@ class _FakeFollowedRepo implements FollowedMerchantsRepository {
 class _FakeClientNotifRepo implements ClientNotificationRepository {
   int createCallCount = 0;
   bool shouldFail;
+  ClientNotification? lastCreated;
   _FakeClientNotifRepo({this.shouldFail = false});
 
   @override
@@ -91,7 +95,9 @@ class _FakeClientNotifRepo implements ClientNotificationRepository {
     if (shouldFail) {
       return const Left(UnexpectedFailure(message: 'Firestore error'));
     }
-    return Right(notification.copyWith(id: 'notif_$createCallCount'));
+    final created = notification.copyWith(id: 'notif_$createCallCount');
+    lastCreated = created;
+    return Right(created);
   }
 
   @override
@@ -146,6 +152,7 @@ class _FakeLoyaltyRepoForSend implements ClientLoyaltyRepository {
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
     ActiveValidationCompletion? completeActiveValidation,
+    bool enforcePassageCooldown = true,
   }) async =>
       throw UnimplementedError();
 
@@ -205,6 +212,20 @@ class _FakeSentNotifRepo implements ISentNotificationRepository {
 
   @override
   Future<void> incrementWeeklyNotifCount(String merchantId) async {}
+
+  @override
+  Future<void> updateSentCount(
+    String merchantId,
+    String sentNotificationId,
+    int sentCount,
+  ) async {
+    if (lastCreated != null) {
+      lastCreated = lastCreated!.copyWith(sentCount: sentCount);
+    }
+  }
+
+  @override
+  Future<void> recordOpen(String merchantId, String sentNotificationId) async {}
 }
 
 // ── Fake: IRappelsPendingClientRepository ────────────────────────────────────
@@ -399,6 +420,25 @@ void main() {
       expect(sentNotifRepo.lastCreated!.text, 'Hello');
       expect(sentNotifRepo.lastCreated!.merchantId, 'm1');
       expect(sentNotifRepo.lastCreated!.segments, ['vip']);
+    });
+
+    test('links each client inbox doc to the sent_notification record', () async {
+      followedRepo = _FakeFollowedRepo(followerIds: ['c1']);
+      useCase = SendMerchantNotification(
+        followedRepo: followedRepo,
+        notificationRepo: clientNotifRepo,
+        sentNotifRepo: sentNotifRepo,
+        loyaltyRepo: loyaltyRepo,
+        isOwner: _sendMockOwnershipOk,
+      );
+      await useCase.call(
+        merchantId: 'm1',
+        merchantName: 'Boutique',
+        text: 'Hello',
+        audience: 'Tous mes clients',
+        callerUid: 'caller_m1',
+      );
+      expect(clientNotifRepo.lastCreated?.sentNotificationId, 'record_1');
     });
 
     test('partial failure: still records how many succeeded', () async {

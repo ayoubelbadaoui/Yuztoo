@@ -95,6 +95,11 @@ final oauthSignupControllerProvider =
           .read(auth_core.oauthFirestoreProfilePendingProvider.notifier)
           .state = pending;
     },
+    setFreshProfileRole: (role) {
+      ref.read(auth_core.oauthSignupFreshProfileRoleProvider.notifier).state =
+          role;
+    },
+    clearRoutingHints: () => auth_core.clearOAuthSignupRoutingHints(ref),
   );
   return controller;
 });

@@ -57,6 +57,10 @@ class _FakeFollowed implements FollowedMerchantsRepository {
       const Right({});
 
   @override
+  Stream<List<String>> watchFollowedIds(String userId) =>
+      Stream.value(followerIds);
+
+  @override
   Future<Result<Unit>> updateSortOrder(
           String userId, Map<String, int> sortIndexes) async =>
       const Right(unit);
@@ -116,6 +120,7 @@ class _FakeLoyalty implements ClientLoyaltyRepository {
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
     ActiveValidationCompletion? completeActiveValidation,
+    bool enforcePassageCooldown = true,
   }) async =>
       throw UnimplementedError();
 

@@ -31,16 +31,21 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
               // ── Tab pills ──────────────────────────────────────────────────
               _buildTabBar(),
               Expanded(
-                child: _activeTab == 'alertes'
-                    ? notificationsAsync.when(
-                        data: (list) =>
-                            list.isEmpty ? _buildEmpty(context) : _buildList(list),
-                        loading: _buildShimmer,
-                        error: (_, __) => _buildEmpty(context),
-                      )
-                    : isGuest
-                        ? _buildGuestLocked(context)
-                        : _buildPromosTab(context),
+                child: YuztooPullRefresh(
+                  onRefresh: _onPullRefresh,
+                  child: _activeTab == 'alertes'
+                      ? notificationsAsync.when(
+                          data: (list) => list.isEmpty
+                              ? yuztooRefreshableEmpty(_buildEmpty(context))
+                              : _buildList(list),
+                          loading: () => yuztooRefreshableEmpty(_buildShimmer()),
+                          error: (_, __) =>
+                              yuztooRefreshableEmpty(_buildEmpty(context)),
+                        )
+                      : isGuest
+                          ? yuztooRefreshableEmpty(_buildGuestLocked(context))
+                          : _buildPromosTab(context),
+                ),
               ),
             ],
           ),
@@ -165,16 +170,20 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
   Widget _buildPromosTab(BuildContext context) {
     final promosAsync = ref.watch(clientHomePromotionsProvider);
     return promosAsync.when(
-      loading: _buildShimmer,
-      error: (_, __) => _buildPromoEmpty(context),
-      data: (promos) =>
-          promos.isEmpty ? _buildPromoEmpty(context) : _buildPromoList(context, promos),
+      loading: () => yuztooRefreshableEmpty(_buildShimmer()),
+      error: (_, __) => yuztooRefreshableEmpty(_buildPromoEmpty(context)),
+      data: (promos) => promos.isEmpty
+          ? yuztooRefreshableEmpty(_buildPromoEmpty(context))
+          : _buildPromoList(context, promos),
     );
   }
 
   Widget _buildPromoList(BuildContext context, List<Promotion> promos) {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 88;
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding),
       itemCount: promos.length,
       itemBuilder: (context, index) {
@@ -570,6 +579,9 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 88;
 
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: EdgeInsets.only(top: 8, bottom: bottomPadding),
       itemCount: groups.length,
       itemBuilder: (context, index) {

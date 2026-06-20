@@ -701,16 +701,12 @@ extension _ClientListScreenUi on _ClientListScreenState {
       List<MerchantClientRow> allClients,
       String merchantId) {
     final isFiltered = _segmentFilter != null || _searchQuery.isNotEmpty;
-    return RefreshIndicator(
-      color: MerchantColors.gold,
-      backgroundColor: MerchantColors.navyCard,
-      onRefresh: () async {
-        ref.invalidate(crm_providers.merchantClientsProvider(merchantId));
-        await Future.delayed(const Duration(milliseconds: 400));
-      },
+    return YuztooPullRefresh(
+      onRefresh: () => _refreshClients(merchantId),
       child: ListView.builder(
         physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics()),
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).padding.bottom + 80,
         ),
@@ -803,10 +799,15 @@ extension _ClientListScreenUi on _ClientListScreenState {
           allClients.where((c) => c.segment == ClientSegment.inactif).length,
     };
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-          16, 16, 16, MediaQuery.of(context).padding.bottom + 32),
-      child: Column(
+    return YuztooPullRefresh(
+      onRefresh: () => _refreshClients(merchantId),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, MediaQuery.of(context).padding.bottom + 32),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── period filter ─────────────────────────────────────────────────
@@ -873,6 +874,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
           _buildSegmentChart(segCounts),
         ],
       ),
+    ),
     );
   }
 

@@ -127,6 +127,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
     ActiveValidationCompletion? completeActiveValidation,
+    bool enforcePassageCooldown = true,
   }) async {
     if (merchantId.isEmpty || clientUid.isEmpty) {
       return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
@@ -188,7 +189,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           // server-written `last_passage_at`. A tampered clock would bypass
           // this — the authoritative enforcement is in firestore.rules,
           // which compares `request.time` (server) to `last_passage_at`.
-          if (isNewPassageEvent) {
+          if (isNewPassageEvent && enforcePassageCooldown) {
             final lastPassageAt = snap.data()?['last_passage_at'];
             if (lastPassageAt is Timestamp) {
               final since = DateTime.now()

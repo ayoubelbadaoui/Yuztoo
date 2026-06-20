@@ -89,6 +89,13 @@ class _CountingValidationRepo implements ActiveValidationRepository {
       Stream<ActiveValidationRequest?>.value(null);
 
   @override
+  Future<Result<ActiveValidationRequest?>> getClientSession({
+    required String merchantId,
+    required String clientUid,
+  }) async =>
+      const Right(null);
+
+  @override
   Stream<List<ActiveValidationRequest>> watchMerchantQueue(String merchantId) =>
       Stream<List<ActiveValidationRequest>>.value(const []);
 }
@@ -112,6 +119,7 @@ class _NoopLoyaltyRepo implements ClientLoyaltyRepository {
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
     ActiveValidationCompletion? completeActiveValidation,
+    bool enforcePassageCooldown = true,
   }) async =>
       Right(
         ClientMerchantLoyaltyProgress(

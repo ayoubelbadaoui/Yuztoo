@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -13,7 +14,10 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/config/vitrine_qr_config.dart';
+import '../../../core/debug/nfc_debug_flags.dart';
+import '../../../core/debug/nfc_debug_ui_helpers.dart';
 import '../../../core/infrastructure/nfc_service.dart';
+import '../../qr_scanner/presentation/widgets/nfc_debug_emulator_sheet.dart';
 import '../../merchant/application/providers.dart';
 
 /// NFC plaque programming is enabled on **both** Android and iOS. Apple
@@ -44,6 +48,14 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
   bool _isSaving = false;
   bool _isSharing = false;
   bool _isWritingNfc = false;
+
+  @override
+  void dispose() {
+    if (_isWritingNfc) {
+      unawaited(NfcService.cancelActiveSession());
+    }
+    super.dispose();
+  }
 
   /// Captures the QR widget as PNG bytes.
   Future<Uint8List?> _captureQr() async {
@@ -104,24 +116,28 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
   }
 
   Future<void> _writeNfc(String merchantId) async {
-    final available = await NfcService.isAvailable();
+    if (_isWritingNfc) return;
+    final blocked = await NfcService.unavailableReason();
     if (!mounted) return;
-    if (!available) {
-      _showSnack('NFC non disponible sur cet appareil');
+    if (blocked != null) {
+      _showSnack(blocked);
       return;
     }
     setState(() => _isWritingNfc = true);
     final result = await NfcService.writeVitrineUrl(merchantId);
     if (!mounted) return;
     setState(() => _isWritingNfc = false);
-    switch (result) {
-      case NfcSuccess():
-        _showSnack('Badge NFC programmé avec succès !', isSuccess: true);
-      case NfcUnavailable():
-        _showSnack('NFC non disponible sur cet appareil');
-      case NfcError(:final message):
-        _showSnack(message);
-    }
+    applyNfcWriteResult(context, result);
+  }
+
+  void _openNfcDebugEmulator(String merchantId) {
+    if (!kNfcDebugEnabled) return;
+    showNfcDebugEmulatorSheet(
+      context,
+      initialMerchantId: merchantId,
+      initialTabIndex: 1,
+      onNavigateToVitrine: (_) {},
+    );
   }
 
   void _showSnack(String msg, {bool isSuccess = false}) {    if (!mounted) return;
@@ -410,6 +426,37 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
                 ),
               ),
             ),
+            if (kNfcDebugEnabled) ...[
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => _openNfcDebugEmulator(merchantId),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade900.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.orange.shade400),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.bug_report_outlined,
+                          color: Colors.orange.shade100, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'DEBUG — Emulateur NFC (ecriture + funnel)',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.orange.shade50,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 28),
           ],
 

@@ -10,7 +10,9 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
           merchant.loyaltyEnabled,
           merchant.notificationsAutoEnabled,
           merchant.galerieEnabled,
+          merchant.passageCooldownEnabled ?? true,
         );
+        _scheduleControlPopupOnce(merchant.id);
       }
     });
 
@@ -44,17 +46,31 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
     final fidelite = _fidelite ?? false;
     final notifications = _notificationsAuto ?? true;
     final galerie = _galerie ?? true;
+    final passageCooldown = _passageCooldown ?? true;
     final merchantAsync = ref.watch(currentMerchantForOwnerProvider);
     final merchant = merchantAsync.valueOrNull;
 
-    return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
+    return YuztooPullRefresh(
+      onRefresh: () async {
+        ref.invalidate(currentMerchantForOwnerProvider);
+        ref.invalidate(storefrontProvider);
+        await ref
+            .read(currentMerchantForOwnerProvider.future)
+            .catchError((_) => null);
+      },
+      child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).padding.bottom + 80,
       ),
       child: Column(
         children: [
           if (merchant != null) _buildMerchantMiniHeader(merchant.name),
+          SettingsStorefrontSection(
+            onNavigate: widget.onNavigate,
+          ),
           SettingsPreferencesSection(
             onNavigate: widget.onNavigate,
           ),
@@ -66,6 +82,13 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
                 onChanged: _setFidelite,
                 onTap: () => widget.onNavigate?.call('e-fidelite'),
               ),
+              if (fidelite)
+                ServiceToggle(
+                  label: 'Délai d\'1 h entre passages',
+                  icon: Icons.timer_outlined,
+                  value: passageCooldown,
+                  onChanged: _setPassageCooldown,
+                ),
               ServiceToggle(
                 label: 'Gratification client',
                 icon: Icons.workspace_premium_rounded,
@@ -90,6 +113,7 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
           _buildLogoutSection(),
         ],
       ),
+    ),
     );
   }
 

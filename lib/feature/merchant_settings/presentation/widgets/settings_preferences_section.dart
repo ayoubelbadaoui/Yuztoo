@@ -51,14 +51,14 @@ class SettingsPreferencesSection extends StatelessWidget {
             onTap: () => onNavigate?.call('security'),
           ),
           _settingsItem(
-            icon: Icons.shield_rounded,
-            label: 'Confidentialité des données',
-            onTap: () => onNavigate?.call('data-privacy'),
-          ),
-          _settingsItem(
             icon: Icons.schedule_send_rounded,
             label: 'Notifications programmées',
             onTap: () => onNavigate?.call('scheduled-notifications'),
+          ),
+          _settingsItem(
+            icon: Icons.shield_rounded,
+            label: 'Confidentialité des données',
+            onTap: () => onNavigate?.call('data-privacy'),
             isLast: true,
           ),
         ],

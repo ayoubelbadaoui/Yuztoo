@@ -4,6 +4,7 @@ import '../../../../core/domain/core/result.dart';
 import '../../../client_notification/domain/repositories/client_notification_repository.dart';
 import '../../../loyalty/application/loyalty_passage_notification_helper.dart';
 import '../../../loyalty/domain/entities/client_merchant_loyalty_progress.dart';
+import '../../../loyalty/domain/loyalty_passage_program_policy.dart';
 import '../../../loyalty/domain/repositories/client_loyalty_repository.dart';
 import '../../domain/entities/loyalty_program_config.dart';
 import '../../domain/entities/merchant.dart';
@@ -33,11 +34,14 @@ class MerchantRecordClientPassage {
     final loyaltyActive = merchant.loyaltyEnabled &&
         (merchant.loyaltyProgram?.programEnabled ?? merchant.loyaltyEnabled);
 
+    final enforceCooldown = merchantPassageCooldownEnabled(merchant);
+
     if (!loyaltyActive) {
       return _loyaltyRepo.applyPassageDeltas(
         merchantId: merchant.id,
         clientUid: clientUid,
         validatedPassagesDelta: 1,
+        enforcePassageCooldown: enforceCooldown,
       );
     }
 
@@ -64,6 +68,7 @@ class MerchantRecordClientPassage {
         clientUid: clientUid,
         validatedPassagesDelta: 1,
         enrollProgram: config,
+        enforcePassageCooldown: enforceCooldown,
       );
       await result.fold(
         (_) async {},
@@ -91,6 +96,7 @@ class MerchantRecordClientPassage {
       clientUid: clientUid,
       cumulativeSpendEurosDelta: spend,
       enrollProgram: config,
+      enforcePassageCooldown: enforceCooldown,
     );
     await result.fold(
       (_) async {},

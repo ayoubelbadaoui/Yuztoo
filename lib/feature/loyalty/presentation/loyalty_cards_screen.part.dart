@@ -105,21 +105,14 @@ class _GreetingBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = feedAsync.valueOrNull ?? [];
-    // Own merchant (isOwnMerchant=true) is not a "followed" merchant.
-    final followedCount = entries.where((e) => !e.isOwnMerchant).length;
-    final hasOwnMerchant = entries.any((e) => e.isOwnMerchant);
-    final totalCount = entries.length;
+    final followedCount = entries.length;
 
     String subtitle;
-    if (totalCount == 0) {
+    if (followedCount == 0) {
       subtitle = 'Scannez votre premier commerce pour commencer';
-    } else if (followedCount == 0 && hasOwnMerchant) {
-      subtitle = 'Votre commerce est actif — suivez d\'autres commerces pour cumuler des avantages';
-    } else if (followedCount > 0) {
+    } else {
       subtitle =
           '$followedCount commerce${followedCount > 1 ? 's' : ''} suivi${followedCount > 1 ? 's' : ''}';
-    } else {
-      subtitle = 'Scannez votre premier commerce pour commencer';
     }
 
     return Column(
@@ -148,7 +141,7 @@ class _GreetingBlock extends StatelessWidget {
             color: MerchantColors.textGrey,
           ),
         ),
-        if (totalCount > 0) ...[
+        if (followedCount > 0) ...[
           const SizedBox(height: 10),
           Text(
             'Récompense prête : repérez « Dispo ! » sur une carte, puis '

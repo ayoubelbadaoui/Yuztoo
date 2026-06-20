@@ -690,8 +690,13 @@ extension _OAuthCompletionScreenUi on _OAuthCompletionScreenState {
   }
 
   void unawaitedSubmit(String phoneE164, String? firstName, String? lastName) {
+    final intendedRole = ref.read(oauthSignupIntendedRoleProvider);
+    final role = resolveOAuthCompletionRole(
+      shellRole: widget.role,
+      intendedRole: intendedRole,
+    );
     ref.read(oauthSignupControllerProvider.notifier).submitCompletion(
-          role: widget.role,
+          role: role,
           phoneE164: phoneE164,
           firstName: firstName,
           lastName: lastName,

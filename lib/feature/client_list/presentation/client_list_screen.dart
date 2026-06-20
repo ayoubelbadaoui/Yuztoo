@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../merchant/presentation/merchant_ble_scan_screen.dart';
@@ -110,6 +111,15 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen>
     _shimmerController.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshClients(String merchantId) async {
+    ref.invalidate(crm_providers.merchantClientsProvider(merchantId));
+    ref.invalidate(merchantTotalPromoViewsProvider(merchantId));
+    ref.invalidate(merchant_providers.currentMerchantForOwnerProvider);
+    await ref
+        .read(crm_providers.merchantClientsProvider(merchantId).future)
+        .catchError((_) => <MerchantClientRow>[]);
   }
 
   List<MerchantClientRow> _applyFilters(List<MerchantClientRow> all) {

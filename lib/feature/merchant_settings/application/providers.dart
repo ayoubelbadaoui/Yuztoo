@@ -5,6 +5,7 @@ import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import 'portable_user_data_export.dart';
+import 'use_cases/update_merchant_storefront_links.dart';
 import 'use_cases/update_service_settings.dart';
 
 export '../../auth/core/application/providers.dart' show authControllerProvider;
@@ -14,6 +15,12 @@ export '../../merchant/application/providers.dart'
 final updateServiceSettingsProvider = Provider<UpdateServiceSettings>((ref) {
   final repo = ref.watch(merchantRepositoryProvider);
   return UpdateServiceSettings(repo);
+});
+
+final updateMerchantStorefrontLinksProvider =
+    Provider<UpdateMerchantStorefrontLinks>((ref) {
+  final repo = ref.watch(merchantRepositoryProvider);
+  return UpdateMerchantStorefrontLinks(repo);
 });
 
 /// RGPD Art. 20 — portable JSON built from Firestore reads permitted to the user.

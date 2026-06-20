@@ -40,6 +40,8 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
     required PatchUserDocument patchUserDocument,
     required AuthController authController,
     required void Function(bool pending) setOAuthFirestorePending,
+    required void Function(UserRole role) setFreshProfileRole,
+    required void Function() clearRoutingHints,
   })  : _startOAuthSignup = startOAuthSignup,
         _finalizeOAuthSignup = finalizeOAuthSignup,
         _signOut = signOut,
@@ -47,6 +49,8 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
         _patchUserDocument = patchUserDocument,
         _authController = authController,
         _setOAuthFirestorePending = setOAuthFirestorePending,
+        _setFreshProfileRole = setFreshProfileRole,
+        _clearRoutingHints = clearRoutingHints,
         super(const OAuthSignupIdle());
 
   final StartOAuthSignup _startOAuthSignup;
@@ -56,6 +60,8 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
   final PatchUserDocument _patchUserDocument;
   final AuthController _authController;
   final void Function(bool pending) _setOAuthFirestorePending;
+  final void Function(UserRole role) _setFreshProfileRole;
+  final void Function() _clearRoutingHints;
 
   /// Guard against double-tap on the Google / Apple buttons.
   bool get isBusy =>
@@ -88,6 +94,7 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
 
     if (outcome is OAuthSignupOutcomeFailure) {
       _setOAuthFirestorePending(false);
+      _clearRoutingHints();
       if (outcome.cancelled) {
         // Sheet dismissed — silently return to the signup form. No error
         // banner: cancellation is not a failure.
@@ -190,6 +197,7 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
       );
     } catch (_) {}
 
+    _setFreshProfileRole(role);
     _setOAuthFirestorePending(false);
     state = const OAuthSignupCompleted();
     unawaited(_authController.refreshAuthState());
@@ -201,6 +209,7 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
   /// the same email/password provider.
   Future<void> cancelCompletion() async {
     _setOAuthFirestorePending(false);
+    _clearRoutingHints();
     state = const OAuthSignupIdle();
     try {
       await _signOut.call();
@@ -230,6 +239,7 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
   /// state does not bleed into the next mount.
   void reset() {
     _setOAuthFirestorePending(false);
+    _clearRoutingHints();
     state = const OAuthSignupIdle();
   }
 }

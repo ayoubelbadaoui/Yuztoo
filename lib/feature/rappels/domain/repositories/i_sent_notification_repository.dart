@@ -11,6 +11,16 @@ abstract class ISentNotificationRepository {
   /// Persists a record after a batch send (id is empty — repo assigns one).
   Future<Result<SentNotification>> create(SentNotification notification);
 
+  /// Finalizes [sentCount] after fan-out (record may be created with 0 first).
+  Future<void> updateSentCount(
+    String merchantId,
+    String sentNotificationId,
+    int sentCount,
+  );
+
+  /// Best-effort: client opened the notification in their inbox.
+  Future<void> recordOpen(String merchantId, String sentNotificationId);
+
   /// Increments the rolling weekly quota counter on the merchant doc.
   /// Resets the counter to 1 + updates [weekly_notif_reset_at] if 7+ days
   /// have passed since the last reset (or if never set).

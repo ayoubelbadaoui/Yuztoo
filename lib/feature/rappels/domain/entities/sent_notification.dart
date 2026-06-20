@@ -12,6 +12,7 @@ class SentNotification extends Equatable {
     required this.sentCount,
     required this.sentAt,
     this.segments = const [],
+    this.openCount = 0,
   });
 
   final String id;
@@ -27,6 +28,9 @@ class SentNotification extends Equatable {
   /// Number of clients who received the notification.
   final int sentCount;
 
+  /// Inbox opens (client marked as read) — mirrors promotion [viewCount].
+  final int openCount;
+
   final DateTime sentAt;
 
   SentNotification copyWith({
@@ -36,6 +40,7 @@ class SentNotification extends Equatable {
     String? audience,
     List<String>? segments,
     int? sentCount,
+    int? openCount,
     DateTime? sentAt,
   }) =>
       SentNotification(
@@ -45,10 +50,11 @@ class SentNotification extends Equatable {
         audience: audience ?? this.audience,
         segments: segments ?? this.segments,
         sentCount: sentCount ?? this.sentCount,
+        openCount: openCount ?? this.openCount,
         sentAt: sentAt ?? this.sentAt,
       );
 
   @override
   List<Object?> get props =>
-      [id, merchantId, text, audience, segments, sentCount, sentAt];
+      [id, merchantId, text, audience, segments, sentCount, openCount, sentAt];
 }

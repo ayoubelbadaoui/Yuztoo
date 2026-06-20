@@ -134,6 +134,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool? passageCooldownEnabled,
     LoyaltyProgramConfig? loyaltyProgram,
     bool? messagingEnabled,
     bool? notificationsAutoEnabled,

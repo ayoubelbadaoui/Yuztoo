@@ -7,6 +7,7 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../auth/core/application/user_display_helpers.dart';
+import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../storefront/presentation/widgets/storefront_colors.dart';
 import '../../merchant/domain/entities/loyalty_program_config.dart'
     show LoyaltyRewardKind;
@@ -143,9 +144,20 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
                 onSwitchToMerchant: widget.onSwitchToMerchant,
               ),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),
-                  child: Column(
+                child: YuztooPullRefresh(
+                  onRefresh: () async {
+                    ref.invalidate(clientLoyaltyFeedProvider);
+                    ref.invalidate(availableClientRewardsProvider);
+                    await ref
+                        .read(clientLoyaltyFeedProvider.future)
+                        .catchError((_) => const <ClientLoyaltyEntry>[]);
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 88),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _GreetingBlock(
@@ -178,6 +190,7 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
                       ),
                     ],
                   ),
+                ),
                 ),
               ),
             ],

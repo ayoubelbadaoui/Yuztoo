@@ -191,7 +191,7 @@ class _SubcategorySelectionScreenState
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    childAspectRatio: 0.78,
+                    childAspectRatio: 0.66,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                   ),

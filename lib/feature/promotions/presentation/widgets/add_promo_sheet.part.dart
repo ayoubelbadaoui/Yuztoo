@@ -291,23 +291,11 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
                 fontWeight: FontWeight.w600,
                 color: Colors.white)),
         const SizedBox(height: 4),
-        Text('Qui recevra cette promotion ?',
+        Text('Envoyée à vos clients abonnés à votre vitrine.',
             style: GoogleFonts.outfit(
                 fontSize: 11,
                 color: MerchantColors.textGrey)),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            _chip('Mes clients', ClientType.gratuit, Icons.people_outline_rounded,
-                subtitle: 'Gratuit'),
-            const SizedBox(width: 8),
-            _chip('Ciblés', ClientType.premium, Icons.tune_rounded,
-                subtitle: '5 € HT'),
-            const SizedBox(width: 8),
-            _chip('Yuztoo', ClientType.payant, Icons.public_rounded,
-                subtitle: '0.10 €/client'),
-          ],
-        ),
       ],
     );
   }
@@ -482,63 +470,6 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: isError ? Colors.redAccent : MerchantColors.darkOverlay,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _chip(String label, ClientType type, IconData icon,
-      {required String subtitle}) {
-    final isActive = _clientType == type;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _onClientTypeSelected(type),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-          decoration: BoxDecoration(
-            color: isActive ? MerchantColors.gold : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isActive
-                  ? MerchantColors.gold
-                  : MerchantColors.textGrey.withValues(alpha: 0.5),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isActive
-                    ? MerchantColors.darkOverlay
-                    : MerchantColors.textLightGrey,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: isActive
-                      ? MerchantColors.darkOverlay
-                      : MerchantColors.textLightGrey,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: GoogleFonts.outfit(
-                  fontSize: 9,
-                  color: isActive
-                      ? MerchantColors.darkOverlay.withValues(alpha: 0.65)
-                      : MerchantColors.textGrey,
-                ),
-              ),
-            ],
           ),
         ),
       ),

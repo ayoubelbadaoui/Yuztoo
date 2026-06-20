@@ -9,11 +9,13 @@ import 'package:flutter_yuztoo/feature/merchant/application/providers.dart'
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
 import 'package:flutter_yuztoo/feature/merchant/infrastructure/merchant_repository_provider.dart';
 import 'package:flutter_yuztoo/feature/merchant_settings/application/providers.dart';
 import 'package:flutter_yuztoo/feature/merchant_settings/presentation/merchant_settings_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _RecordingMerchantRepository implements MerchantRepository {
   int loyaltyStandaloneWrites = 0;
@@ -47,6 +49,7 @@ class _RecordingMerchantRepository implements MerchantRepository {
     String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool? passageCooldownEnabled,
     LoyaltyProgramConfig? loyaltyProgram,
     bool? messagingEnabled,
     bool? notificationsAutoEnabled,
@@ -54,7 +57,7 @@ class _RecordingMerchantRepository implements MerchantRepository {
     bool? loyaltyEnabledStandalone,
     String? merchantType,
     bool clearCityField = false,
-    ClientGratificationConfig? gratificationConfig,
+    List<MerchantStorefrontLink>? storefrontLinks,
   }) async {
     if (loyaltyEnabledStandalone != null) {
       loyaltyStandaloneWrites++;
@@ -67,6 +70,12 @@ class _RecordingMerchantRepository implements MerchantRepository {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({
+      'merchant_settings.control_popup_seen.m1': true,
+    });
+  });
+
   testWidgets(
     'Fidélité ON without saved program navigates to E-Fidélité without persist',
     (tester) async {
@@ -97,25 +106,22 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      if (find.text('Compris !').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Compris !'));
-        await tester.pumpAndSettle();
-      }
-
       final fideliteLabel = find.text('Fidélité');
       expect(fideliteLabel, findsOneWidget);
 
-      final toggleFinder = find.descendant(
-        of: find.ancestor(
-          of: fideliteLabel,
-          matching: find.byType(GestureDetector),
-        ),
-        matching: find.byType(AnimatedContainer),
+      final fideliteRow = find.ancestor(
+        of: fideliteLabel,
+        matching: find.byType(Row),
       );
-      expect(toggleFinder, findsOneWidget);
+      final toggleGesture = find.descendant(
+        of: fideliteRow,
+        matching: find.byType(GestureDetector),
+      );
+      expect(toggleGesture, findsOneWidget);
 
-      await tester.tap(toggleFinder);
-      await tester.pump();
+      await tester.ensureVisible(toggleGesture);
+      await tester.tap(toggleGesture);
+      await tester.pumpAndSettle();
 
       expect(repo.loyaltyStandaloneWrites, 0);
       expect(navigated, 'e-fidelite');

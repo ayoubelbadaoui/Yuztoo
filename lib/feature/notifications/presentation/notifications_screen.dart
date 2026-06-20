@@ -9,6 +9,7 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
+import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../client_home/application/providers.dart';
 import '../../client_notification/application/providers.dart';
 import '../../followed_merchants/application/providers.dart'
@@ -45,6 +46,13 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   String _activeTab = 'alertes'; // 'alertes' | 'promos'
   final Map<String, GlobalKey> _notificationRowKeys = <String, GlobalKey>{};
+
+  Future<void> _onPullRefresh() async {
+    ref.invalidate(clientNotificationsStreamProvider);
+    ref.invalidate(clientHomePromotionsProvider);
+    ref.invalidate(clientHomeFeedProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+  }
 
   Future<void> _markAllRead() async {
     final authState = ref.read(authStateProvider);

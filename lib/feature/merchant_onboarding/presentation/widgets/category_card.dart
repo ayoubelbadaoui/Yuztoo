@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/shared/widgets/overflow_scroll_text.dart';
 import 'merchant_onboarding_colors.dart';
 import '../../domain/entities/merchant_category.dart';
 
@@ -123,28 +124,26 @@ class CategoryCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            category.title,
+                          OverflowScrollText(
+                            text: category.title,
+                            maxLines: 2,
                             style: GoogleFonts.outfit(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: MerchantOnboardingColors.textLight,
                               height: 1.2,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            category.description,
+                          OverflowScrollText(
+                            text: category.description,
+                            maxLines: 2,
                             style: GoogleFonts.outfit(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
                               color: MerchantOnboardingColors.textGrey,
                               height: 1.4,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),

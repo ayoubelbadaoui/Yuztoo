@@ -11,6 +11,22 @@ LoyaltyProgramConfig merchantLiveLoyaltyProgram(Merchant merchant) {
       );
 }
 
+/// Rappels toggles are the live merchant control; loyalty_program may lag.
+bool merchantPassageValidationIsAutomatic(Merchant merchant) {
+  final toggle = merchant.rappelsAutoPassageValidation;
+  if (toggle != null) return toggle;
+  return merchantLiveLoyaltyProgram(merchant).passageValidation ==
+      LoyaltyPassageValidation.automatic;
+}
+
+bool merchantPassageCooldownEnabled(Merchant merchant) {
+  return merchant.passageCooldownEnabled ?? true;
+}
+
+bool merchantAutoClientValidationEnabled(Merchant merchant) {
+  return merchant.rappelsAutoClientValidation ?? true;
+}
+
 /// Programme fidélité actif pour ce commerce (switch + `programEnabled`).
 bool isMerchantLoyaltyPassageActive(Merchant merchant) {
   if (!merchant.loyaltyEnabled) return false;
@@ -26,8 +42,7 @@ bool isMerchantLoyaltyPassageActive(Merchant merchant) {
 /// est inchangée : seul le nom suit la nouvelle réalité produit.
 bool isAutomaticPassageAllowedForMerchant(Merchant merchant) {
   if (!isMerchantLoyaltyPassageActive(merchant)) return false;
-  return merchantLiveLoyaltyProgram(merchant).passageValidation ==
-      LoyaltyPassageValidation.automatic;
+  return merchantPassageValidationIsAutomatic(merchant);
 }
 
 /// Alias historique. Conservé le temps que les écrans BLE existants migrent
@@ -39,8 +54,7 @@ bool isBlePassageAllowedForMerchant(Merchant merchant) =>
 /// Demande vitrine (file « Vos clients ») : mode manuel uniquement.
 bool isVitrinePassageRequestAllowedForMerchant(Merchant merchant) {
   if (!isMerchantLoyaltyPassageActive(merchant)) return false;
-  return merchantLiveLoyaltyProgram(merchant).passageValidation ==
-      LoyaltyPassageValidation.manual;
+  return !merchantPassageValidationIsAutomatic(merchant);
 }
 
 /// Rules applied when recording a passage (sheet + [ConfirmActiveValidation]).

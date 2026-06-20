@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../application/providers.dart';
 import '../domain/carnet_merchant_order.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
@@ -58,9 +59,7 @@ class ClientHomeScreen extends ConsumerWidget {
           children: [
             _buildHeader(context, showMerchantSwitch: hasProAccount),
             Expanded(
-              child: RefreshIndicator(
-                color: MerchantColors.gold,
-                backgroundColor: MerchantColors.bgHeader,
+              child: YuztooPullRefresh(
                 onRefresh: () async {
                   ref.invalidate(clientHomeFeedProvider);
                   ref.invalidate(followedMerchantIdsForCurrentUserProvider);
@@ -68,7 +67,9 @@ class ClientHomeScreen extends ConsumerWidget {
                   await ref.read(clientHomeFeedProvider.future);
                 },
                 child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
                   padding: EdgeInsets.only(
                     bottom: MediaQuery.of(context).padding.bottom + 80,
                   ),

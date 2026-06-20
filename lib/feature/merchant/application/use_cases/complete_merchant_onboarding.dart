@@ -55,8 +55,8 @@ class CompleteMerchantOnboarding {
       merchantType: cleanType ?? 'b2c',
       categoryId: categoryId,
       subcategoryTitle: subcategoryTitle,
-      // Visible in Découvrir / listMerchants (query expects discoverable merchants).
-      status: 'active',
+      // New stores start offline; merchant publishes from the vitrine when ready.
+      status: 'inactive',
     );
 
     // Create merchant and link to user (atomic batch write).

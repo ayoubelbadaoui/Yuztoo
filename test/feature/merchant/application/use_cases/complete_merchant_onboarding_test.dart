@@ -6,6 +6,7 @@ import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
 
 class _FakeMerchantRepository implements MerchantRepository {
@@ -105,6 +106,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool? passageCooldownEnabled,
     LoyaltyProgramConfig? loyaltyProgram,
     bool? messagingEnabled,
     bool? notificationsAutoEnabled,
@@ -112,6 +114,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     bool? loyaltyEnabledStandalone,
     String? merchantType,
     bool clearCityField = false,
+    List<MerchantStorefrontLink>? storefrontLinks,
   }) async {
     final current = _createdMerchant;
     if (current == null || current.id != merchantId) {
@@ -177,7 +180,7 @@ void main() {
           expect(merchant.email, 'test@business.com');
           expect(merchant.phone, '+33123456789');
           expect(merchant.city, 'Paris');
-          expect(merchant.status, 'active');
+          expect(merchant.status, 'inactive');
           expect(repository.getLinkedUserId(), 'user-123');
         },
       );

@@ -1140,6 +1140,8 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
                 onShowHelp: _showHelpDialog,
               ),
               const SizedBox(height: 14),
+              const _CustomLinksEntry(),
+              const SizedBox(height: 14),
               _AddressField(
                 label: 'Adresse',
                 controller: _addrCtrl,
@@ -1864,6 +1866,92 @@ class _AddImageButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomLinksEntry extends ConsumerWidget {
+  const _CustomLinksEntry();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final merchantAsync = ref.watch(merchant_providers.currentMerchantForOwnerProvider);
+    final linkCount = merchantAsync.valueOrNull?.storefrontLinks.length ?? 0;
+    final subtitle = linkCount == 0
+        ? 'Réservation, menu, réseaux sociaux…'
+        : '$linkCount lien${linkCount > 1 ? 's' : ''} sur la vitrine';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () async {
+          await Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => MerchantStorefrontLinksScreen(
+                onBack: () => Navigator.of(context).pop(),
+              ),
+            ),
+          );
+          ref.invalidate(merchant_providers.currentMerchantForOwnerProvider);
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: StorefrontColors.creamLight,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: StorefrontColors.primaryGold.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: StorefrontColors.primaryGold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.link_rounded,
+                  color: StorefrontColors.primaryGold,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Liens personnalisés',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: StorefrontColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: StorefrontColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: StorefrontColors.textTertiary,
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );

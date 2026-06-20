@@ -3,49 +3,10 @@ package com.yuztoo.app
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
-import android.os.PowerManager
 import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-
-    private val batteryChannel = "com.yuztoo.app/battery"
-
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-
-        // Create the notification channel as early as possible so FCM messages
-        // have a valid IMPORTANCE_HIGH channel before the first push arrives.
-        createNotificationChannel()
-
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, batteryChannel)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "isIgnoringBatteryOptimizations" -> {
-                        val pm = getSystemService(POWER_SERVICE) as PowerManager
-                        result.success(pm.isIgnoringBatteryOptimizations(packageName))
-                    }
-                    "requestIgnoreBatteryOptimizations" -> {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            val pm = getSystemService(POWER_SERVICE) as PowerManager
-                            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                                val intent = Intent(
-                                    android.provider.Settings
-                                        .ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                    Uri.parse("package:$packageName")
-                                )
-                                startActivity(intent)
-                            }
-                        }
-                        result.success(null)
-                    }
-                    else -> result.notImplemented()
-                }
-            }
-    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -54,6 +15,11 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        createNotificationChannel()
+    }
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
         createNotificationChannel()
     }
 

@@ -1,7 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Required for push notifications on Android 13+ (API 33+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <!-- NFC: required for reading and writing NFC tags. -->
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
@@ -60,7 +59,6 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
                 <data android:scheme="http" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
-                <data android:scheme="https" android:host="www.yuztoo.app" android:pathPrefix="/vitrine" />
             </intent-filter>
             <!-- yuztoo://vitrine/{merchantId} -->
             <intent-filter>

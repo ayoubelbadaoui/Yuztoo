@@ -293,24 +293,19 @@ service cloud.firestore {
     }
 
     // Server-side cooldown enforcement — defence-in-depth alongside the
-    // SDK-level check in [FirestoreClientLoyaltyRepository]. The merchant
-    // path is the only path that bumps validated_passages /
-    // cumulative_spend_euros (clients are blocked by
-    // loyaltyClientSelfUpdateValid above), so this rule only kicks in when
-    // a tampered merchant clock or a hand-rolled REST call tries to log a
-    // second passage less than 1 hour after the previous one. Tracks the
-    // Dart constant `kPassageCooldown` (1 hour); update both together.
-    function loyaltyClientPassageCooldownPasses() {
+    // SDK-level check in [FirestoreClientLoyaltyRepository]. Skipped when
+    // `merchants/{merchantId}.passage_cooldown_enabled == false`.
+    function merchantPassageCooldownEnabled(merchantId) {
+      let m = get(/databases/$(database)/documents/merchants/$(merchantId)).data;
+      return m.get('passage_cooldown_enabled', true) != false;
+    }
+
+    function loyaltyClientPassageCooldownPasses(merchantId) {
       let r = request.resource.data;
       let o = resource.data;
-      // No prior anchor → first additive write for this client/merchant
-      // pair, allow.
-      return o.get('last_passage_at', null) == null
-        // Anchor unchanged → other field updated (e.g. enrolment, manual
-        // segment), not an additive passage write.
+      return !merchantPassageCooldownEnabled(merchantId)
+        || o.get('last_passage_at', null) == null
         || r.get('last_passage_at', null) == o.last_passage_at
-        // 1 hour elapsed since the previous additive write — server time,
-        // not client. Tampered clocks cannot bypass.
         || request.time >= o.last_passage_at + duration.value(1, 'h');
     }
 
@@ -323,7 +318,7 @@ service cloud.firestore {
         && loyaltyClientMerchantCreateValid();
 
       allow update: if (isMerchantOwner(merchantId)
-          && loyaltyClientPassageCooldownPasses())
+          && loyaltyClientPassageCooldownPasses(merchantId))
         || (isSignedIn()
           && request.auth.uid == userId
           && loyaltyClientSelfUpdateValid());
@@ -472,10 +467,19 @@ service cloud.firestore {
         || (r.status == 'cancelled' && merchantCancelActiveValidationValid());
     }
 
+    function activeValidationMerchantOwnerSelfBleBlocked(merchantId, clientUid) {
+      let r = request.resource.data;
+      return !(isMerchantOwner(merchantId)
+        && request.auth.uid == clientUid
+        && r.keys().hasAll(['source'])
+        && r.source == 'ble');
+    }
+
     match /merchants/{merchantId}/active_validations/{clientUid} {
       allow read: if isSignedIn()
         && (request.auth.uid == clientUid || isMerchantOwner(merchantId));
       allow create: if isSignedIn()
+        && activeValidationMerchantOwnerSelfBleBlocked(merchantId, clientUid)
         && (
           (request.auth.uid == clientUid && activeValidationCreateValid())
           || (isMerchantOwner(merchantId)
@@ -577,7 +581,15 @@ service cloud.firestore {
       allow read: if isMerchantOwner(merchantId);
       // Written by the app (merchant sending a quick notification).
       allow create: if isMerchantOwner(merchantId);
-      allow update, delete: if false;
+      // Merchant owner may finalize sent_count after fan-out; clients may
+      // increment open_count only (inbox read — mirrors promotion view_count).
+      allow update: if (isMerchantOwner(merchantId)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['sent_count']))
+        || (isSignedIn()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['open_count']));
+      allow delete: if false;
     }
 
     // --- /merchants/{merchantId}/scheduled_notifications/{scheduledId} ---

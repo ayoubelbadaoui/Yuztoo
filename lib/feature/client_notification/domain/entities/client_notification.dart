@@ -37,6 +37,7 @@ class ClientNotification extends Equatable {
     required this.isRead,
     required this.createdAt,
     this.promotionId,
+    this.sentNotificationId,
   });
 
   final String id;
@@ -52,6 +53,9 @@ class ClientNotification extends Equatable {
   /// Set when [type] is [ClientNotificationType.promotion].
   final String? promotionId;
 
+  /// Links back to `merchants/{id}/sent_notifications/{id}` for open stats.
+  final String? sentNotificationId;
+
   ClientNotification copyWith({
     String? id,
     String? clientId,
@@ -63,6 +67,7 @@ class ClientNotification extends Equatable {
     bool? isRead,
     DateTime? createdAt,
     String? promotionId,
+    String? sentNotificationId,
   }) {
     return ClientNotification(
       id: id ?? this.id,
@@ -75,6 +80,7 @@ class ClientNotification extends Equatable {
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
       promotionId: promotionId ?? this.promotionId,
+      sentNotificationId: sentNotificationId ?? this.sentNotificationId,
     );
   }
 
@@ -90,5 +96,6 @@ class ClientNotification extends Equatable {
         isRead,
         createdAt,
         promotionId,
+        sentNotificationId,
       ];
 }

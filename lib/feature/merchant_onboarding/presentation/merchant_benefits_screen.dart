@@ -53,21 +53,10 @@ class _MerchantBenefitsScreenState extends State<MerchantBenefitsScreen>
               child: GestureDetector(
                 onTap: widget.onBack,
                 behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: BenefitsColors.primaryGold, width: 2),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: BenefitsColors.primaryGold,
-                      size: 16,
-                    ),
-                  ),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: BenefitsColors.primaryGold,
+                  size: 18,
                 ),
               ),
             ),

@@ -59,7 +59,14 @@ class FirestoreFollowedMerchantsRepository implements FollowedMerchantsRepositor
     required String userId,
   }) async {
     try {
-      await _pendingClientRepo.writePendingClient(merchantId, userId);
+      final merchantSnap =
+          await _firestore.collection('merchants').doc(merchantId).get();
+      final autoClient =
+          merchantSnap.data()?['rappels_auto_client_validation'] as bool? ??
+              true;
+      if (!autoClient) {
+        await _pendingClientRepo.writePendingClient(merchantId, userId);
+      }
       await _incrementMerchantMonthlyCounter(
         merchantId: merchantId,
         counterField: 'rappels_monthly_connected_clients',

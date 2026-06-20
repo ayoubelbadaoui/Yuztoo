@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../../core/shared/widgets/overflow_scroll_text.dart';
 import 'subcategory_colors.dart';
 import '../../../domain/entities/merchant_subcategory.dart';
 
@@ -192,17 +193,16 @@ class SubcategoryCard extends StatelessWidget {
                       ),
                     ),
                     child: Center(
-                      child: Text(
-                        subcategory.title,
+                      child: OverflowScrollText(
+                        text: subcategory.title,
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
                         style: GoogleFonts.outfit(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: SubcategoryColors.textLight,
                           height: 1.25,
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),

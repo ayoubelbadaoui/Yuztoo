@@ -38,7 +38,7 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
-                        childAspectRatio: wide ? 0.88 : 0.82,
+                        childAspectRatio: wide ? 0.74 : 0.68,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                       ),
@@ -233,10 +233,10 @@ class _AudienceSegment extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 1),
-            Text(
-              audience.sublabelFr,
+            OverflowScrollText(
+              text: audience.sublabelFr,
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 10,
                 fontWeight: FontWeight.w400,

@@ -59,6 +59,44 @@ void main() {
       expect(isBlePassageAllowedForMerchant(auto),
           isAutomaticPassageAllowedForMerchant(auto));
     });
+
+    test('rappels toggle overrides stale manual loyalty_program', () {
+      const desynced = Merchant(
+        id: 'm1',
+        ownerUid: 'o1',
+        name: 'Shop',
+        email: 'a@b.c',
+        phone: '+33600000000',
+        city: 'Paris',
+        loyaltyEnabled: true,
+        rappelsAutoPassageValidation: true,
+        loyaltyProgram: LoyaltyProgramConfig(
+          programEnabled: true,
+          passageValidation: LoyaltyPassageValidation.manual,
+        ),
+      );
+      expect(isAutomaticPassageAllowedForMerchant(desynced), isTrue);
+      expect(isVitrinePassageRequestAllowedForMerchant(desynced), isFalse);
+    });
+
+    test('rappels toggle off forces manual even if program says automatic', () {
+      const manualToggle = Merchant(
+        id: 'm1',
+        ownerUid: 'o1',
+        name: 'Shop',
+        email: 'a@b.c',
+        phone: '+33600000000',
+        city: 'Paris',
+        loyaltyEnabled: true,
+        rappelsAutoPassageValidation: false,
+        loyaltyProgram: LoyaltyProgramConfig(
+          programEnabled: true,
+          passageValidation: LoyaltyPassageValidation.automatic,
+        ),
+      );
+      expect(isAutomaticPassageAllowedForMerchant(manualToggle), isFalse);
+      expect(isVitrinePassageRequestAllowedForMerchant(manualToggle), isTrue);
+    });
   });
 
   group('resolveLoyaltyProgramForPassage', () {
@@ -112,6 +150,25 @@ void main() {
         ),
       );
       expect(resolved.visitsRequired, 8);
+    });
+  });
+
+  group('merchantPassageCooldownEnabled', () {
+    test('defaults to true when field is null', () {
+      expect(merchantPassageCooldownEnabled(_merchant), isTrue);
+    });
+
+    test('false when merchant disabled cooldown', () {
+      const off = Merchant(
+        id: 'm1',
+        ownerUid: 'o1',
+        name: 'Shop',
+        email: 'a@b.c',
+        phone: '+33600000000',
+        city: 'Paris',
+        passageCooldownEnabled: false,
+      );
+      expect(merchantPassageCooldownEnabled(off), isFalse);
     });
   });
 }

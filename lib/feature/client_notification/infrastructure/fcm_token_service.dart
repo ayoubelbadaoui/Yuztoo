@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/infrastructure/logger_service.dart';
@@ -27,9 +26,6 @@ class FcmTokenService {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _tokenDocSubscription;
 
-  static const _batteryChannel =
-      MethodChannel('com.yuztoo.app/battery');
-
   /// Request permission and persist the FCM token for [userId].
   ///
   /// Safe to call multiple times — uses `SetOptions(merge: true)`.
@@ -48,10 +44,6 @@ class FcmTokenService {
       // NOT called here — main_shell_state._requestRuntimePermissions() already
       // sets alert:false (suppress system banner, use Flutter overlay instead).
       // Calling it here a second time causes a harmless race but is unnecessary.
-
-      // Ask Android to exempt this app from battery optimisation.
-      // Without this Samsung/Xiaomi/etc. kill FCM delivery after ~20 min idle.
-      await _requestBatteryExemption();
 
       // On iOS, FCM can return a token before APNs has issued a device token.
       // The resulting FCM token has no APNs binding and Firebase silently
@@ -113,25 +105,6 @@ class FcmTokenService {
       await Future<void>.delayed(interval);
     }
     return null;
-  }
-
-  /// Opens the system dialog asking the user to exempt this app from
-  /// battery optimisation — the single most common cause of missed FCM
-  /// pushes on Samsung / Xiaomi / OPPO / OnePlus devices.
-  Future<void> _requestBatteryExemption() async {
-    try {
-      final isExempt = await _batteryChannel
-          .invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
-          false;
-      if (!isExempt) {
-        await _batteryChannel
-            .invokeMethod('requestIgnoreBatteryOptimizations');
-      }
-    } on MissingPluginException {
-      // Not on Android — no-op.
-    } catch (_) {
-      // Non-critical — don't block token registration.
-    }
   }
 
   Future<void> _persistToken(String userId, String token) async {

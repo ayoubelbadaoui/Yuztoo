@@ -27,6 +27,7 @@ class _FakeLoyaltyRepo implements ClientLoyaltyRepository {
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
     ActiveValidationCompletion? completeActiveValidation,
+    bool enforcePassageCooldown = true,
   }) async {
     validatedDelta = validatedPassagesDelta;
     return const Right(

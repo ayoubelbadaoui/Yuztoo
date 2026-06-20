@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/shared/widgets/overflow_scroll_text.dart';
 import '../application/onboarding_flow_provider.dart';
 import '../application/providers.dart';
 import '../domain/entities/merchant_audience.dart';

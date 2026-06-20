@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import 'package:ndef/ndef.dart' as ndef;
 import 'package:universal_platform/universal_platform.dart';
 
+import '../config/vitrine_qr_config.dart';
 import '../../feature/loyalty/application/analytics/nfc_analytics.dart';
 
 /// Result of an NFC read or write operation.
@@ -27,24 +29,94 @@ final class NfcUnavailable extends NfcResult {
 
 /// Thin wrapper around flutter_nfc_kit for Yuztoo vitrine NFC operations.
 class NfcService {
+  /// When true, [isSupported] behaves as on a mobile device (unit tests only).
+  @visibleForTesting
+  static bool? debugForceMobileNfcSupported;
+
+  /// When set, drives iOS vs Android poll flags (unit tests only).
+  @visibleForTesting
+  static bool? debugSimulateIos;
+
   static bool get isSupported =>
-      UniversalPlatform.isAndroid || UniversalPlatform.isIOS;
+      debugForceMobileNfcSupported == true ||
+      UniversalPlatform.isAndroid ||
+      UniversalPlatform.isIOS;
+
+  static bool get _isIosPlatform =>
+      debugSimulateIos ?? UniversalPlatform.isIOS;
 
   static const NfcAnalytics _analytics = NfcAnalytics();
 
   static Map<String, Object?> _platformParams() => <String, Object?>{
-        'platform': UniversalPlatform.isIOS ? 'ios' : 'android',
+        'platform': _isIosPlatform ? 'ios' : 'android',
       };
+
+  /// Ends an in-flight Core NFC / reader session (safe no-op when idle).
+  static Future<void> cancelActiveSession() async {
+    if (!isSupported) return;
+    try {
+      await FlutterNfcKit.finish();
+    } catch (_) {}
+  }
+
+  /// Yuztoo stickers are NTAG213 (ISO 14443 Type A). On iOS, polling FeliCa
+  /// (ISO 18092) or ISO 15693 without matching Info.plist entitlements makes
+  /// Core NFC fail immediately with Code=2 "Missing required entitlement".
+  /// Android keeps broader polling for Samsung / multi-protocol readers.
+  static Future<NFCTag> _pollVitrineTag({
+    required String alertMessage,
+    required String multipleTagMessage,
+  }) {
+    final isIos = _isIosPlatform;
+    final pollIso15693 = !isIos;
+    final pollIso18092 = !isIos;
+    return FlutterNfcKit.poll(
+      timeout: const Duration(seconds: 20),
+      iosAlertMessage: alertMessage,
+      iosMultipleTagMessage: multipleTagMessage,
+      readIso14443A: true,
+      readIso14443B: true,
+      readIso15693: pollIso15693,
+      readIso18092: pollIso18092,
+    );
+  }
+
+  static NfcError? _mapNfcPlatformError(String msg) {
+    if (msg.contains('Missing required entitlement')) {
+      return const NfcError(
+        'NFC indisponible sur cette version de l’app — réinstallez depuis '
+        'TestFlight ou l’App Store après la prochaine mise à jour.',
+      );
+    }
+    if (msg.contains('406') || msg.contains('active session')) {
+      return const NfcError(
+        'Une lecture NFC est déjà en cours — réessayez dans quelques secondes.',
+      );
+    }
+    return null;
+  }
+
+  /// French explanation when [isAvailable] is false, or null when NFC is ready.
+  static Future<String?> unavailableReason() async {
+    if (!isSupported) {
+      return 'NFC non disponible sur cet appareil.';
+    }
+    try {
+      return switch (await FlutterNfcKit.nfcAvailability) {
+        NFCAvailability.available => null,
+        NFCAvailability.disabled =>
+          'Activez le NFC dans les réglages de votre téléphone.',
+        NFCAvailability.not_supported =>
+          'NFC non disponible sur cet appareil.',
+      };
+    } catch (_) {
+      return 'NFC non disponible sur cet appareil.';
+    }
+  }
 
   /// Check if NFC hardware is available and enabled on this device.
   static Future<bool> isAvailable() async {
-    if (!isSupported) return false;
-    try {
-      final availability = await FlutterNfcKit.nfcAvailability;
-      return availability == NFCAvailability.available;
-    } catch (_) {
-      return false;
-    }
+    return await unavailableReason() == null;
   }
 
   /// Read an NDEF tag and extract a Yuztoo vitrine URL.
@@ -58,22 +130,21 @@ class NfcService {
     String alertMessage = 'Approchez votre téléphone',
   }) async {
     if (!isSupported) return const NfcUnavailable();
+    final blocked = await unavailableReason();
+    if (blocked != null) return NfcError(blocked);
+
     _analytics.logEvent(
       NfcAnalyticsEvent.tagReadAttempt,
       parameters: _platformParams(),
     );
     try {
-      await FlutterNfcKit.poll(
-        timeout: const Duration(seconds: 20),
-        iosAlertMessage: alertMessage,
-        iosMultipleTagMessage: 'Plusieurs tags détectés — n\'en gardez qu\'un.',
+      await _pollVitrineTag(
+        alertMessage: alertMessage,
+        multipleTagMessage: 'Plusieurs tags détectés — n\'en gardez qu\'un.',
       );
 
       final records = await FlutterNfcKit.readNDEFRecords();
 
-      // Distinguish empty / non-Yuztoo / bad URL: the user-visible French
-      // message changes accordingly so a fresh sticker is not confused
-      // with a tag programmed for a different app.
       if (records.isEmpty) {
         await FlutterNfcKit.finish(
           iosErrorMessage: 'Badge vide.',
@@ -90,7 +161,7 @@ class NfcService {
       for (final record in records) {
         if (record is ndef.UriRecord) {
           final url = record.uri?.toString() ?? '';
-          final merchantId = _tryParseMerchantId(url);
+          final merchantId = VitrineQrConfig.tryParseMerchantId(url);
           if (merchantId != null) {
             await FlutterNfcKit.finish(iosAlertMessage: 'Tag lu !');
             _analytics.logEvent(
@@ -101,7 +172,7 @@ class NfcService {
           }
         } else if (record is ndef.TextRecord) {
           final text = record.text ?? '';
-          final merchantId = _tryParseMerchantId(text);
+          final merchantId = VitrineQrConfig.tryParseMerchantId(text);
           if (merchantId != null) {
             await FlutterNfcKit.finish(iosAlertMessage: 'Tag lu !');
             _analytics.logEvent(
@@ -111,11 +182,10 @@ class NfcService {
             return NfcSuccess(merchantId: merchantId);
           }
         } else {
-          // Try raw payload as UTF-8 URL.
           final payload = record.payload;
           if (payload != null && payload.isNotEmpty) {
             final raw = utf8.decode(payload, allowMalformed: true);
-            final merchantId = _tryParseMerchantId(raw);
+            final merchantId = VitrineQrConfig.tryParseMerchantId(raw);
             if (merchantId != null) {
               await FlutterNfcKit.finish(iosAlertMessage: 'Tag lu !');
               _analytics.logEvent(
@@ -143,12 +213,25 @@ class NfcService {
         await FlutterNfcKit.finish(iosErrorMessage: 'Erreur de lecture.');
       } catch (_) {}
       final msg = e.toString();
-      if (msg.contains('cancel') || msg.contains('Cancel')) {
+      if (msg.contains('409') ||
+          msg.contains('SessionCanceled') ||
+          msg.contains('UserCanceled')) {
         _analytics.logEvent(
           NfcAnalyticsEvent.tagReadCancelled,
           parameters: _platformParams(),
         );
         return const NfcError('Lecture annulée.');
+      }
+      final mapped = _mapNfcPlatformError(msg);
+      if (mapped != null) {
+        _analytics.logEvent(
+          NfcAnalyticsEvent.tagReadError,
+          parameters: <String, Object?>{
+            ..._platformParams(),
+            'reason': msg,
+          },
+        );
+        return mapped;
       }
       _analytics.logEvent(
         NfcAnalyticsEvent.tagReadError,
@@ -162,48 +245,36 @@ class NfcService {
   }
 
   /// Write the Yuztoo vitrine URL for [merchantId] to the next NFC tag presented.
-  ///
-  /// Works on iOS and Android. Three guards run after `poll()` and before
-  /// the actual write so the user gets a French explanation instead of a
-  /// raw stack trace:
-  ///
-  /// 1. [tag.ndefAvailable] — fresh tags that have never been NDEF-formatted
-  ///    will fail `writeNDEFRecords` with an opaque message; we surface
-  ///    "Ce badge n'est pas formaté NDEF" instead.
-  /// 2. [tag.ndefWritable] — locked / read-only tags (NTAG21x can be
-  ///    permanently locked) get a friendly message and we don't even try.
-  /// 3. [tag.ndefCapacity] — NTAG213 has 137 bytes of NDEF user memory.
-  ///    The vitrine URL fits comfortably for any reasonable merchantId,
-  ///    but we still check so an outsized merchantId surfaces a clear
-  ///    error rather than a partial write.
   static Future<NfcResult> writeVitrineUrl(
     String merchantId, {
     String alertMessage = 'Approchez votre téléphone de la carte/sticker NFC',
   }) async {
     if (!isSupported) return const NfcUnavailable();
-    if (merchantId.isEmpty) return const NfcError('Identifiant commerce manquant.');
+    final blocked = await unavailableReason();
+    if (blocked != null) return NfcError(blocked);
 
-    final url = 'https://yuztoo.app/vitrine/$merchantId';
+    final id = merchantId.trim();
+    if (id.isEmpty) return const NfcError('Identifiant commerce manquant.');
+
+    final url = VitrineQrConfig.uriStringForMerchant(id);
+    if (url.isEmpty) {
+      return const NfcError('Identifiant commerce manquant.');
+    }
+
     _analytics.logEvent(
       NfcAnalyticsEvent.tagWriteAttempt,
       parameters: <String, Object?>{
         ..._platformParams(),
-        'merchant_id': merchantId,
+        'merchant_id': id,
       },
     );
 
     try {
-      final tag = await FlutterNfcKit.poll(
-        timeout: const Duration(seconds: 20),
-        iosAlertMessage: alertMessage,
-        iosMultipleTagMessage: 'Plusieurs tags détectés — n\'en gardez qu\'un.',
-        readIso14443A: true,
-        readIso14443B: true,
-        readIso15693: true,
-        readIso18092: true,
+      final tag = await _pollVitrineTag(
+        alertMessage: alertMessage,
+        multipleTagMessage: 'Plusieurs tags détectés — n\'en gardez qu\'un.',
       );
 
-      // Defensive check 1 — non-NDEF tag.
       if (tag.ndefAvailable == false) {
         await FlutterNfcKit.finish(
           iosErrorMessage: 'Badge non NDEF.',
@@ -218,7 +289,6 @@ class NfcService {
         );
       }
 
-      // Defensive check 2 — read-only tag.
       if (tag.ndefWritable == false) {
         await FlutterNfcKit.finish(
           iosErrorMessage: 'Badge en lecture seule.',
@@ -232,10 +302,8 @@ class NfcService {
         );
       }
 
-      // Defensive check 3 — encoded NDEF message exceeds the tag's capacity.
-      // The NDEF wrapper for a single URI record adds a small header (~10
-      // bytes) on top of the URL bytes; we leave a generous margin.
-      final encodedSize = url.length + 16;
+      final ndefRecord = ndef.UriRecord.fromString(url);
+      final encodedSize = ndefRecord.encode().length;
       final capacity = tag.ndefCapacity;
       if (capacity != null && capacity > 0 && encodedSize > capacity) {
         await FlutterNfcKit.finish(
@@ -255,16 +323,14 @@ class NfcService {
         );
       }
 
-      await FlutterNfcKit.writeNDEFRecords([
-        ndef.UriRecord.fromString(url),
-      ]);
+      await FlutterNfcKit.writeNDEFRecords([ndefRecord]);
 
       await FlutterNfcKit.finish(iosAlertMessage: 'Badge programmé !');
       _analytics.logEvent(
         NfcAnalyticsEvent.tagWriteSuccess,
         parameters: <String, Object?>{
           ..._platformParams(),
-          'merchant_id': merchantId,
+          'merchant_id': id,
         },
       );
       return const NfcSuccess();
@@ -273,7 +339,9 @@ class NfcService {
         await FlutterNfcKit.finish(iosErrorMessage: 'Erreur d\'écriture.');
       } catch (_) {}
       final msg = e.toString();
-      if (msg.contains('cancel') || msg.contains('Cancel')) {
+      if (msg.contains('409') ||
+          msg.contains('SessionCanceled') ||
+          msg.contains('UserCanceled')) {
         _analytics.logEvent(
           NfcAnalyticsEvent.tagWriteCancelled,
           parameters: _platformParams(),
@@ -289,6 +357,17 @@ class NfcService {
           'Ce badge NFC est en lecture seule et ne peut pas être programmé.',
         );
       }
+      final mapped = _mapNfcPlatformError(msg);
+      if (mapped != null) {
+        _analytics.logEvent(
+          NfcAnalyticsEvent.tagWriteError,
+          parameters: <String, Object?>{
+            ..._platformParams(),
+            'reason': msg,
+          },
+        );
+        return mapped;
+      }
       _analytics.logEvent(
         NfcAnalyticsEvent.tagWriteError,
         parameters: <String, Object?>{
@@ -298,28 +377,5 @@ class NfcService {
       );
       return NfcError('Impossible de programmer le badge : $msg');
     }
-  }
-
-  /// Parses a Yuztoo vitrine URL and returns the merchant ID, or null.
-  static String? _tryParseMerchantId(String raw) {
-    final t = raw.trim();
-    if (t.isEmpty) return null;
-    final uri = Uri.tryParse(t);
-    if (uri == null) return null;
-
-    if (uri.scheme == 'yuztoo' && uri.host == 'vitrine') {
-      final segs = uri.pathSegments.where((s) => s.isNotEmpty).toList();
-      if (segs.isNotEmpty) return segs.first;
-    }
-
-    if (uri.scheme == 'https' || uri.scheme == 'http') {
-      final host = uri.host.toLowerCase();
-      if (host == 'yuztoo.app' || host == 'www.yuztoo.app') {
-        final segs = uri.pathSegments.where((s) => s.isNotEmpty).toList();
-        if (segs.length >= 2 && segs[0] == 'vitrine') return segs[1];
-      }
-    }
-
-    return null;
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/utils/image_crop_utils.dart';
+import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../application/profile_view_providers.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
@@ -322,6 +323,15 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
 
   void _rebuildAfterHoursHydrate() {
     setState(() {});
+  }
+
+  Future<void> _onPullRefresh() async {
+    final storefront = ref.read(storefrontProvider).valueOrNull;
+    ref.invalidate(storefrontProvider);
+    if (storefront != null) {
+      ref.invalidate(profileViewWeeklyStatsProvider(storefront.id));
+    }
+    await ref.read(storefrontProvider.future).catchError((_) => null);
   }
 
   @override

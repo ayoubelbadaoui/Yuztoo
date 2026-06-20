@@ -65,6 +65,30 @@ export const WIRED_AUTO_NOTIFICATION_TRIGGERS: ReadonlySet<string> = new Set([
 export const INACTIVE_MIN_DAYS = 60;
 export const INACTIVE_COOLDOWN_DAYS = 30;
 
+/** Calendar day in Europe/Paris — used by the 09:00 daily cron. */
+export interface ParisCalendarDay {
+  /** `MM-DD` in Europe/Paris */
+  md: string;
+  year: number;
+}
+
+/** Resolve the merchant-local calendar day for auto-notifications (09:00 Paris). */
+export function parisCalendarDayFromDate(date: Date): ParisCalendarDay {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parseInt(
+    parts.find((p) => p.type === "year")?.value ?? "1970",
+    10
+  );
+  const month = parts.find((p) => p.type === "month")?.value ?? "01";
+  const day = parts.find((p) => p.type === "day")?.value ?? "01";
+  return { md: `${month}-${day}`, year };
+}
+
 export function normalizeTrigger(raw: string): string {
   return raw.trim();
 }
@@ -133,16 +157,18 @@ export function isLeapYear(year: number): boolean {
 export function isBirthdayToday(
   dob: string | undefined,
   todayMD: string,
-  today: Date
+  today: Date,
+  calendarYear?: number
 ): boolean {
   if (!dob) return false;
   const dobMD = parseDobToMD(dob);
   if (dobMD === null) return false;
   if (dobMD === todayMD) return true;
+  const year = calendarYear ?? today.getFullYear();
   if (
     dobMD === "02-29" &&
     todayMD === "02-28" &&
-    !isLeapYear(today.getFullYear())
+    !isLeapYear(year)
   ) {
     return true;
   }
@@ -153,10 +179,12 @@ export function shouldSendBirthdayThisYear(
   dob: string | undefined,
   todayMD: string,
   today: Date,
-  lastBirthdayAutoYear: number | undefined
+  lastBirthdayAutoYear: number | undefined,
+  calendarYear?: number
 ): boolean {
-  if (!isBirthdayToday(dob, todayMD, today)) return false;
-  return lastBirthdayAutoYear !== today.getFullYear();
+  const year = calendarYear ?? today.getFullYear();
+  if (!isBirthdayToday(dob, todayMD, today, year)) return false;
+  return lastBirthdayAutoYear !== year;
 }
 
 export function shouldSendConnectionAnniversary(

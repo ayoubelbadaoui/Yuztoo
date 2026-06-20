@@ -45,6 +45,15 @@ export 'navigation_state_provider.dart' show navigationStateProvider, Navigation
 
 export 'client_onboarding_routing.dart' show clientOnboardingCompletedFromFirestore;
 export 'merchant_onboarding_routing.dart' show merchantOnboardingCompletedFromFirestore;
+export 'oauth_post_signup_routing.dart'
+    show
+        oauthSignupIntendedRoleProvider,
+        oauthSignupFreshProfileRoleProvider,
+        clearOAuthSignupRoutingHints,
+        clearOAuthSignupRoutingHintsFromWidget,
+        resolveOAuthCompletionRole,
+        resolveRoleAfterFreshOAuthSignup,
+        waitForFirestoreProfileBasics;
 
 final signOutProvider = Provider<SignOut>((ref) {
   final repository = ref.watch(authRepositoryProvider);

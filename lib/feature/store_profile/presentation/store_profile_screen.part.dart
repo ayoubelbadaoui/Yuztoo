@@ -482,16 +482,11 @@ class _RecordLoyaltyPassageSheetState
 
   Future<void> _submitRequest() async {
     if (_busy) return;
-    final config = widget.merchant.loyaltyProgram ??
-        LoyaltyProgramConfig.fallbackFromFlags(
-          loyaltyEnabled: widget.merchant.loyaltyEnabled,
-        );
-    if (config.passageValidation == LoyaltyPassageValidation.automatic) {
+    if (isAutomaticPassageAllowedForMerchant(widget.merchant)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Présentez-vous au comptoir : le commerçant valide votre passage '
-            'automatiquement (proximité).',
+            'Votre passage est validé automatiquement lors du scan NFC ou QR.',
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -789,8 +784,9 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   Widget _buildContent(
     BuildContext context,
     Merchant merchant,
-    List<Promotion> promotions,
-  ) {
+    List<Promotion> promotions, {
+    bool showOfflinePreviewBanner = false,
+  }) {
     final name = merchant.displayName ?? merchant.name;
     final activity = merchant.categories?.isNotEmpty == true
         ? merchant.categories!.join(' · ')
@@ -891,6 +887,51 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                     topPadding: MediaQuery.of(context).padding.top,
                   ),
                   const SizedBox(height: 56), // room for the overlapping logo
+
+                  if (showOfflinePreviewBanner) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: StorefrontColors.primaryGold
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: StorefrontColors.primaryGold
+                                .withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.visibility_outlined,
+                              size: 18,
+                              color: StorefrontColors.primaryGold,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Aperçu — votre commerce est hors ligne. '
+                                'Les clients ne voient pas cette vitrine '
+                                'tant qu\'il n\'est pas en ligne.',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  height: 1.45,
+                                  color: StorefrontColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
 
                   // ── Profile info ─────────────────────────────────────────────
                   Padding(
@@ -1938,16 +1979,40 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
       final auth = ref.read(authStateProvider);
       final client = auth is Authenticated ? auth.user : null;
 
-      final useCase = ref.read(processVitrineScanVisitProvider);
-      final result = await useCase(
-        client: client,
-        merchant: merchant,
-        isFollowing: isFollowing,
-        isFollowListReady: isFollowListReady,
-      );
+      ScanVisitResult result;
+      final forced = kNfcDebugEnabled
+          ? ref.read(nfcDebugForcedScanVisitResultProvider)
+          : null;
+      if (forced != null) {
+        ref.read(nfcDebugForcedScanVisitResultProvider.notifier).state = null;
+        result = forced;
+      } else {
+        final useCase = ref.read(processVitrineScanVisitProvider);
+        result = await useCase(
+          client: client,
+          merchant: merchant,
+          isFollowing: isFollowing,
+          isFollowListReady: isFollowListReady,
+        );
+      }
 
       if (!mounted || !context.mounted) return;
 
+      _applyScanVisitResult(
+        context: context,
+        merchant: merchant,
+        userId: userId,
+        result: result,
+      );
+    });
+  }
+
+  void _applyScanVisitResult({
+    required BuildContext context,
+    required Merchant merchant,
+    required String? userId,
+    required ScanVisitResult result,
+  }) {
       switch (result) {
         case ScanVisitGuest():
           // "au premier scan ... on doit proposer de suivre la boutique":
@@ -1998,7 +2063,6 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
             ),
           );
       }
-    });
   }
 
   /// Consumes [pendingStorePromotionIdProvider] once per screen visit.
@@ -2467,6 +2531,21 @@ class _AccueilTab extends ConsumerWidget {
                     value: merchant.websiteUrl!,
                     isFirst: false,
                     onTap: () => _launchWebsite(context, merchant.websiteUrl!),
+                  ),
+                ],
+                for (final link in merchant.storefrontLinks) ...[
+                  const Divider(
+                      height: 1, thickness: 1, color: Color(0xFFEEE8DE)),
+                  _InfoTile(
+                    icon: link.isLaunchableUrl
+                        ? Icons.open_in_new_rounded
+                        : Icons.info_outline_rounded,
+                    label: link.label,
+                    value: link.value,
+                    isFirst: false,
+                    onTap: link.isLaunchableUrl
+                        ? () => _launchWebsite(context, link.value)
+                        : null,
                   ),
                 ],
               ],

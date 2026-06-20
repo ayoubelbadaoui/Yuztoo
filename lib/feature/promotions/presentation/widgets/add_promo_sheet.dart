@@ -27,7 +27,6 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
 
   DateTime _dateFrom = DateTime.now();
   DateTime _dateTo = DateTime.now().add(const Duration(days: 14));
-  ClientType _clientType = ClientType.gratuit;
   String? _imagePath;
   Set<String> _selectedSegments = {};
   int _selectedDistanceIndex = 0;
@@ -141,16 +140,6 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
         ? _subtitleCtrl.text.trim()
         : 'Valide du ${_fmtD(_dateFrom)} au ${_fmtD(_dateTo)}';
 
-    final zone = _clientType == ClientType.payant
-        ? PromotionZone.values[_selectedDistanceIndex]
-        : null;
-
-    final targetScope = switch (_clientType) {
-      ClientType.gratuit => 'mes_clients',
-      ClientType.premium => 'yuztoo',
-      ClientType.payant => zone?.value ?? 'mes_clients',
-    };
-
     Navigator.pop(
       context,
       Promotion(
@@ -160,16 +149,11 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
         subtitle: subtitle,
         dateFrom: _dateFrom,
         dateTo: _dateTo,
-        selectedClientType: _clientType,
+        selectedClientType: ClientType.gratuit,
         isOnline: true,
         imagePath: _imagePath,
-        targetSegments: _clientType == ClientType.premium
-            ? _selectedSegments.toList()
-            : const [],
-        diffusionZone: zone,
-        targetScope: targetScope,
-        targetZoneLabel: zone?.label,
-        estimatedReach: zone?.estimatedReach ?? 0,
+        targetSegments: const [],
+        targetScope: 'mes_clients',
       ),
     );
   }
@@ -189,15 +173,6 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
 
   void _onDistanceChanged(int i) {
     setState(() => _selectedDistanceIndex = i);
-  }
-
-  void _onClientTypeSelected(ClientType type) {
-    setState(() {
-      _clientType = type;
-      // Reset targeting when switching type.
-      _selectedSegments = {};
-      _selectedDistanceIndex = 0;
-    });
   }
 
   void _clearImage() => setState(() => _imagePath = null);
@@ -251,7 +226,7 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
                   _buildClientTypeChips(),
                   const SizedBox(height: 16),
                   ClientTypeDetails(
-                    clientType: _clientType,
+                    clientType: ClientType.gratuit,
                     selectedSegments: _selectedSegments,
                     selectedDistanceIndex: _selectedDistanceIndex,
                     onSegmentToggled: _onSegmentToggled,

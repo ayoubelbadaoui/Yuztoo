@@ -6,6 +6,7 @@ import {
   isBirthdayToday,
   isMerchantAutoNotificationsEnabled,
   isSegmentSpecificAudience,
+  parisCalendarDayFromDate,
   parseDobToMD,
   resolveMerchantPublicName,
   shouldSendBirthdayThisYear,
@@ -120,6 +121,25 @@ describe("auto_notification_core — birthday", () => {
     expect(shouldSendBirthdayThisYear(undefined, "05-07", may7, undefined)).toBe(
       false
     );
+  });
+});
+
+describe("auto_notification_core — Paris calendar day", () => {
+  test("uses Europe/Paris calendar day, not UTC", () => {
+    // 2026-02-28 22:30 UTC → 23:30 Paris — still Feb 28 locally.
+    const utcEvening = new Date("2026-02-28T22:30:00.000Z");
+    expect(parisCalendarDayFromDate(utcEvening)).toEqual({
+      md: "02-28",
+      year: 2026,
+    });
+  });
+
+  test("scheduled 09:00 Paris run resolves same calendar day", () => {
+    const nineParis = new Date("2026-05-07T07:00:00.000Z"); // 09:00 CEST
+    expect(parisCalendarDayFromDate(nineParis)).toEqual({
+      md: "05-07",
+      year: 2026,
+    });
   });
 });
 

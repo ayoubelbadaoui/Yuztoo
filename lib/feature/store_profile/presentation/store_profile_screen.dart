@@ -7,12 +7,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/application/precache_network_images.dart';
+import '../../../core/debug/nfc_debug_flags.dart';
 import '../../auth/core/application/providers.dart' show authStateProvider;
 import '../../auth/core/application/state/auth_state.dart' show Authenticated;
 import '../../merchant_partners/application/providers.dart'
     as partners_providers;
-import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
+import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../promotions/application/providers.dart'
     show recordPromoViewsProvider;
 import '../../promotions/domain/entities/promotion.dart';
@@ -21,6 +22,7 @@ import '../../storefront/domain/entities/business_hours.dart';
 import '../../storefront/application/widgets.dart';
 import '../../loyalty/application/client_loyalty_providers.dart'
     show clientLoyaltyFeedProvider;
+import '../../loyalty/domain/loyalty_passage_program_policy.dart';
 import '../application/providers.dart';
 import 'widgets/store_profile_banner_section.dart';
 
@@ -244,14 +246,24 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
             if (merchant == null) {
               return _StoreProfileErrorBack(onBack: widget.onBack);
             }
+            final ownerAsync =
+                ref.watch(merchant_providers.currentMerchantForOwnerProvider);
+            final isOwnerPreview =
+                ownerAsync.valueOrNull?.id == merchant.id;
             // Guard: inactive merchants must not show a full storefront to
             // clients who arrive via QR / deep link / saved follows.
             // Discovery already hides them; this closes the direct-ID path.
+            // Merchants previewing their own vitrine (Aperçu) always see it.
             if (merchant.status != 'active') {
-              return _StoreProfileOffline(
-                merchantName: merchant.name,
-                onBack: widget.onBack,
-              );
+              if (ownerAsync.isLoading) {
+                return _StoreProfileSkeleton(onBack: widget.onBack);
+              }
+              if (!isOwnerPreview) {
+                return _StoreProfileOffline(
+                  merchantName: merchant.name,
+                  onBack: widget.onBack,
+                );
+              }
             }
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!context.mounted) return;
@@ -262,7 +274,13 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
               ]);
               _recordProfileViewIfNeeded(merchant.id);
             });
-            return _buildContent(context, merchant, data.promotions);
+            return _buildContent(
+              context,
+              merchant,
+              data.promotions,
+              showOfflinePreviewBanner:
+                  merchant.status != 'active' && isOwnerPreview,
+            );
           },
           loading: () => _StoreProfileSkeleton(onBack: widget.onBack),
           error: (_, __) => _StoreProfileErrorBack(onBack: widget.onBack),

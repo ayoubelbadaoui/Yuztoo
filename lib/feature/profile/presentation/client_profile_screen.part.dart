@@ -16,11 +16,26 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
           children: [
             _buildHeader(l10n),
             Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).padding.bottom + 80,
-                ),
-                child: Column(
+              child: YuztooPullRefresh(
+                onRefresh: () async {
+                  final auth = ref.read(authStateProvider);
+                  if (auth is Authenticated) {
+                    await refreshUserProfileCacheWidget(
+                      ref,
+                      uid: auth.user.id,
+                      isMerchant: false,
+                    );
+                  }
+                  ref.invalidate(blockedMerchantIdsProvider);
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom + 80,
+                  ),
+                  child: Column(
                   children: [
                     _buildSection(
                       sectionLabel: l10n.account,
@@ -52,17 +67,6 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                                         .popUntil((route) => route.isFirst);
                                   },
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                        _NavItem(
-                          icon: Icons.credit_card,
-                          label: l10n.paymentMethods,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const _PaymentStubScreen(),
                               ),
                             );
                           },
@@ -106,7 +110,7 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                               messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'Centre d\'aide bientôt disponible',
+                                    'Impossible d\'ouvrir le centre d\'aide',
                                     style: merchantSnackBarTextOnDark()
                                         .copyWith(fontSize: 13),
                                   ),
@@ -155,6 +159,7 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                   ],
                 ),
               ),
+            ),
             ),
           ],
         ),
@@ -322,126 +327,5 @@ class _NavItem extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// ── Payment stub ─────────────────────────────────────────────────────────────
-
-class _PaymentStubScreen extends StatelessWidget {
-  const _PaymentStubScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: MerchantColors.bgHeader,
-        statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: MerchantColors.bgMain,
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: MerchantColors.bgMain,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              // Custom top bar
-              Container(
-                color: MerchantColors.bgHeader,
-                padding: const EdgeInsets.fromLTRB(8, 12, 20, 12),
-                decoration: BoxDecoration(
-                  color: MerchantColors.bgHeader,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: MerchantColors.gold
-                          .withValues(alpha: MerchantColors.goldBorderAlpha),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      behavior: HitTestBehavior.opaque,
-                      child: const SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Center(
-                          child: Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: MerchantColors.gold,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'Moyens de paiement',
-                      style: GoogleFonts.outfit(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: MerchantColors.textWhite,
-                      ),
-                    ),
-                    const Spacer(),
-                    const SizedBox(width: 44),
-                  ],
-                ),
-              ), // end top bar Container
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: MerchantColors.gold.withValues(alpha: 0.1),
-                    border: Border.all(
-                      color: MerchantColors.gold
-                          .withValues(alpha: MerchantColors.goldBorderStronger),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.credit_card_rounded,
-                    color: MerchantColors.gold,
-                    size: 38,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Bientôt disponible',
-                  style: GoogleFonts.outfit(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: MerchantColors.textWhite,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'La gestion des moyens de paiement sera disponible prochainement.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: MerchantColors.textLightGrey,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-              ), // end Expanded
-            ], // end Column children
-          ), // end Column
-        ), // end Scaffold body SafeArea
-      ), // end Scaffold
-    ); // end AnnotatedRegion
   }
 }

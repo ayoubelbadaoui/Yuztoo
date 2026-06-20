@@ -34,6 +34,7 @@ class _FakeLoyaltyRepo implements ClientLoyaltyRepository {
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
     ActiveValidationCompletion? completeActiveValidation,
+    bool enforcePassageCooldown = true,
   }) async {
     applyCalls += 1;
     if (failure != null) {
@@ -122,6 +123,13 @@ class _FakeActiveValidationRepo implements ActiveValidationRepository {
     required String merchantId,
     required String clientUid,
   }) async* {}
+
+  @override
+  Future<Result<ActiveValidationRequest?>> getClientSession({
+    required String merchantId,
+    required String clientUid,
+  }) async =>
+      const Right(null);
 
   @override
   Stream<List<ActiveValidationRequest>> watchMerchantQueue(String merchantId) async* {}

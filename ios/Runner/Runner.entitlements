@@ -2,27 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Push Notifications capability — required for APNs/FCM.
-	     Value must be "development" for debug builds and "production" for
-	     App Store / TestFlight. Flutter/Xcode resolves this via the
-	     build configuration when CODE_SIGN_ENTITLEMENTS is set. -->
 	<key>aps-environment</key>
-	<string>development</string>
-	<!-- Sign In with Apple capability -->
+	<string>$(APS_ENVIRONMENT)</string>
 	<key>com.apple.developer.applesignin</key>
-	<array><string>Default</string></array>
-	<!-- NFC Tag Reading capability.
-	     SDK 26+ (Xcode 26) only allows TAG; NDEF is disallowed with min OS 15.5+. -->
-	<key>com.apple.developer.nfc.readersession.formats</key>
 	<array>
-		<string>TAG</string>
+		<string>Default</string>
 	</array>
-	<!-- Universal Links: maps https://yuztoo.app to the app via the
-	     apple-app-site-association file at the root of yuztoo.app. -->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:yuztoo.app</string>
 		<string>webcredentials:yuztoo.app</string>
+	</array>
+	<key>com.apple.developer.nfc.readersession.formats</key>
+	<array>
+		<string>TAG</string>
 	</array>
 </dict>
 </plist>

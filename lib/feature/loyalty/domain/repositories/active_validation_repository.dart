@@ -42,6 +42,13 @@ abstract class ActiveValidationRepository {
     required String clientUid,
   });
 
+  /// One-shot read of a session doc — used when opening validation from a
+  /// push before the merchant queue stream has caught up.
+  Future<Result<ActiveValidationRequest?>> getClientSession({
+    required String merchantId,
+    required String clientUid,
+  });
+
   /// Streams every 'awaiting' session under the merchant. Used by the global
   /// merchant-shell listener to pop the validation form. Completed/cancelled
   /// docs are filtered out client-side so the merchant only sees actionable

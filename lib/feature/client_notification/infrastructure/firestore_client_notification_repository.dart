@@ -59,6 +59,7 @@ class FirestoreClientNotificationRepository
         isRead: false,
         createdAt: DateTime.now(),
         promotionId: notification.promotionId,
+        sentNotificationId: notification.sentNotificationId,
       );
       await ref.set(dto.toFirestore());
 
@@ -91,9 +92,22 @@ class FirestoreClientNotificationRepository
       return const Right(unit);
     }
     try {
-      await _notificationsRef(clientId)
-          .doc(notificationId)
-          .update({'is_read': true});
+      final ref = _notificationsRef(clientId).doc(notificationId);
+      final snap = await ref.get();
+      if (!snap.exists) return const Right(unit);
+      final data = snap.data() ?? {};
+      if (data['is_read'] == true) return const Right(unit);
+
+      await ref.update({'is_read': true});
+
+      final sentNotifId = data['sent_notification_id'] as String?;
+      final merchantId = data['merchant_id'] as String?;
+      if (sentNotifId != null &&
+          sentNotifId.isNotEmpty &&
+          merchantId != null &&
+          merchantId.isNotEmpty) {
+        await _recordSentNotificationOpen(merchantId, sentNotifId);
+      }
       return const Right(unit);
     } on FirebaseException catch (e, st) {
       return Left(
@@ -112,11 +126,32 @@ class FirestoreClientNotificationRepository
           .where('is_read', isEqualTo: false)
           .get();
 
+      if (snap.docs.isEmpty) return const Right(unit);
+
+      final openCounts = <String, int>{};
       final batch = _firestore.batch();
       for (final doc in snap.docs) {
         batch.update(doc.reference, {'is_read': true});
+        final data = doc.data();
+        final sentNotifId = data['sent_notification_id'] as String?;
+        final merchantId = data['merchant_id'] as String?;
+        if (sentNotifId != null &&
+            sentNotifId.isNotEmpty &&
+            merchantId != null &&
+            merchantId.isNotEmpty) {
+          final key = '$merchantId/$sentNotifId';
+          openCounts[key] = (openCounts[key] ?? 0) + 1;
+        }
       }
       await batch.commit();
+
+      for (final entry in openCounts.entries) {
+        final parts = entry.key.split('/');
+        if (parts.length != 2) continue;
+        for (var i = 0; i < entry.value; i++) {
+          await _recordSentNotificationOpen(parts[0], parts[1]);
+        }
+      }
 
       LoggerService.logInfo(
         'All notifications marked as read',
@@ -180,6 +215,33 @@ class FirestoreClientNotificationRepository
     } catch (e, st) {
       return Left(
           ClientNotificationUnexpectedFailure(cause: e, stackTrace: st));
+    }
+  }
+
+  Future<void> _recordSentNotificationOpen(
+    String merchantId,
+    String sentNotificationId,
+  ) async {
+    try {
+      await _firestore
+          .collection('merchants')
+          .doc(merchantId)
+          .collection('sent_notifications')
+          .doc(sentNotificationId)
+          .set(
+            {'open_count': FieldValue.increment(1)},
+            SetOptions(merge: true),
+          );
+    } catch (e, st) {
+      LoggerService.logError(
+        'recordSentNotificationOpen',
+        error: e,
+        stackTrace: st,
+        context: {
+          'merchantId': merchantId,
+          'sentNotificationId': sentNotificationId,
+        },
+      );
     }
   }
 }

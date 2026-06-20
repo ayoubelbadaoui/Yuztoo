@@ -7,6 +7,7 @@ import '../../../../core/presentation/responsive_scroll_body.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../types.dart';
 import '../../core/application/oauth_identity_helpers.dart';
+import '../../core/application/oauth_post_signup_routing.dart';
 import '../application/oauth_signup_controller.dart';
 import '../application/providers.dart';
 import '../application/state/oauth_signup_state.dart';

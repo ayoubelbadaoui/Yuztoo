@@ -49,6 +49,7 @@ export '../../loyalty/application/use_cases/process_vitrine_scan_visit.dart'
         ScanVisitAwaitingMerchant,
         ScanVisitCooldownBlocked,
         ScanVisitError;
+export 'nfc_debug_providers.dart';
 export '../../profile/application/user_safety_providers.dart'
     show blockedMerchantIdsProvider, userSafetyRepositoryProvider;
 export '../../profile/domain/repositories/user_safety_repository.dart'

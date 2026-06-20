@@ -3,6 +3,7 @@ part of 'main.dart';
 class _RootShellState extends ConsumerState<_RootShell>
     with WidgetsBindingObserver {
   ProviderSubscription<AuthState>? _authStateSub;
+  ProviderSubscription<OAuthSignupState>? _oauthSignupSub;
   // Main navigation screen from provider (auth flow)
   ScreenId? _authScreen; // null = loading
   // Within-app navigation (discovery, messages, etc.) - manual state
@@ -58,6 +59,11 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// FCM message received via getInitialMessage() before the auth state resolved.
   RemoteMessage? _pendingInitialFcmMessage;
 
+  /// Manual passage validation push received before merchant shell / queue ready.
+  String? _pendingPassageValidationClientUid;
+  String? _pendingPassageValidationMerchantId;
+  bool _passageValidationPushInFlight = false;
+
   @override
   void initState() {
     super.initState();
@@ -84,8 +90,10 @@ class _RootShellState extends ConsumerState<_RootShell>
     _fcmForegroundSub = FirebaseMessaging.onMessage.listen(
       (message) {
         debugPrint('[FCM] foreground message: ${message.notification?.title}');
-        if (_role == UserRole.merchant) {
-          unawaited(_tryOpenPassageValidationFromPush(message.data));
+        final type =
+            (message.data['type'] ?? '').toString().trim().toLowerCase();
+        if (type == 'loyalty_passage_request') {
+          _handlePassageValidationPush(message.data);
         }
         unawaited(NotificationService.instance.showFromRemoteMessage(message));
       },
@@ -160,6 +168,11 @@ class _RootShellState extends ConsumerState<_RootShell>
       fireImmediately: true,
     );
 
+    _oauthSignupSub = ref.listenManual<OAuthSignupState>(
+      signup_providers.oauthSignupControllerProvider,
+      (previous, next) => _handleOAuthSignupControllerChange(next),
+    );
+
     _appLinkSubscription = _appLinks.uriLinkStream.listen(
       (Uri uri) {
         if (!mounted) return;
@@ -185,12 +198,10 @@ class _RootShellState extends ConsumerState<_RootShell>
     NotificationService.instance.attachOverlay(Overlay.of(context));
   }
 
-  /// Requests notification permission + battery optimisation exemption on
-  /// every cold-start, regardless of auth state.
-  /// Safe to call repeatedly — Android shows the dialog only when needed.
+  /// Requests notification permission on every cold-start, regardless of auth
+  /// state. Safe to call repeatedly — Android shows the dialog only when needed.
   Future<void> _requestRuntimePermissions() async {
     try {
-      // 1. Notification permission (Android 13+ / iOS).
       await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
@@ -204,20 +215,6 @@ class _RootShellState extends ConsumerState<_RootShell>
         badge: true,
         sound: true,
       );
-    } catch (_) {}
-
-    try {
-      // 2. Battery optimisation exemption — prevents Samsung/Xiaomi/OPPO from
-      //    killing FCM in background. Shows a one-time system dialog.
-      const channel = MethodChannel('com.yuztoo.app/battery');
-      final isExempt =
-          await channel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
-              false;
-      if (!isExempt) {
-        await channel.invokeMethod('requestIgnoreBatteryOptimizations');
-      }
-    } on MissingPluginException {
-      // Not on Android — no-op.
     } catch (_) {}
   }
 
@@ -233,6 +230,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     _bleDetectionSub?.cancel();
     _activeValidationSub?.close();
     _authStateSub?.close();
+    _oauthSignupSub?.close();
     super.dispose();
   }
 
@@ -509,8 +507,15 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
-    if (type == 'loyalty_passage_request' && _role == UserRole.merchant) {
-      unawaited(_tryOpenPassageValidationFromPush(data));
+    if (type == 'loyalty_passage_validated' && _role == UserRole.merchant) {
+      if (_activeTab != 'communaute' && mounted) {
+        setState(() => _activeTab = 'communaute');
+      }
+      return;
+    }
+
+    if (type == 'loyalty_passage_request') {
+      _handlePassageValidationPush(data);
       return;
     }
 
@@ -727,23 +732,20 @@ class _RootShellState extends ConsumerState<_RootShell>
     }
 
     try {
+      final freshOAuthRole = ref.read(oauthSignupFreshProfileRoleProvider);
+      final roleAttempts = freshOAuthRole != null ? 10 : 3;
+
       // Firestore-driven routing: role and onboarding are resolved from users/{uid}.
       final getUserRole = ref.read(getUserRoleProvider);
       UserRole? role;
 
-      // Retry a few times to absorb eventual consistency right after
-      // signup/profile writes. Per-attempt timeout shortened from 5s →
-      // 2s — Firestore single-doc reads typically resolve in <300ms; a
-      // 5s ceiling per attempt × 3 attempts = 15s of splash time that
-      // users perceived as "the app is frozen after signup". The 2s
-      // ceiling still tolerates a slow-but-working network while
-      // cutting worst-case splash time to ~6s.
-      for (int attempt = 0; attempt < 3; attempt++) {
+      // Retry to absorb eventual consistency right after signup/profile writes.
+      for (int attempt = 0; attempt < roleAttempts; attempt++) {
         if (attempt > 0) {
-          await Future.delayed(Duration(milliseconds: 200 * attempt));
+          await Future.delayed(Duration(milliseconds: 150 * attempt));
         }
         final roleResult =
-            await getUserRole.call(user.id).timeout(const Duration(seconds: 2));
+            await getUserRole.call(user.id).timeout(const Duration(seconds: 3));
         role = roleResult.fold((_) => null, (r) => r);
         if (role != null) break;
       }
@@ -753,14 +755,15 @@ class _RootShellState extends ConsumerState<_RootShell>
       // [oauthFirestoreProfilePendingProvider] while collecting phone on signup.
       if (role == null) {
         var hasFirestoreProfile = false;
-        for (int attempt = 0; attempt < 3; attempt++) {
+        final basicsAttempts = freshOAuthRole != null ? 10 : 3;
+        for (int attempt = 0; attempt < basicsAttempts; attempt++) {
           if (attempt > 0) {
-            await Future.delayed(Duration(milliseconds: 200 * attempt));
+            await Future.delayed(Duration(milliseconds: 150 * attempt));
           }
           final basicsResult = await ref
               .read(getUserProfileBasicsProvider)
               .call(user.id)
-              .timeout(const Duration(seconds: 2));
+              .timeout(const Duration(seconds: 3));
           hasFirestoreProfile =
               basicsResult.fold((_) => false, (b) => b != null);
           if (hasFirestoreProfile) break;
@@ -770,32 +773,40 @@ class _RootShellState extends ConsumerState<_RootShell>
             ref.read(oauthFirestoreProfilePendingProvider)) {
           _isNavigatingToHome = false;
           if (mounted) {
-            // If the user is mid-OAuth-completion flow, leave them on
-            // that screen — pulling them back to the signup form would
-            // wipe the controller's authUser handle and the typed
-            // first/last name. The signup screen is the correct
-            // fallback for any other pre-auth screen (splash etc.).
             if (_authScreen != ScreenId.oauthCompletion) {
-              setState(() => _authScreen = ScreenId.signup);
+              setState(() {
+                _oauthCompletionReturnScreen = _authScreen == ScreenId.login
+                    ? ScreenId.login
+                    : ScreenId.signup;
+                _authScreen = ScreenId.oauthCompletion;
+              });
             }
           }
           return;
         }
 
         if (!hasFirestoreProfile) {
-          ref.read(oauthFirestoreProfilePendingProvider.notifier).state = false;
-          try {
-            await ref.read(fcmTokenServiceProvider).clearToken(user.id);
-          } catch (_) {}
-          await ref.read(signOutProvider).call();
-          if (!mounted) return;
-          setState(() {
-            _authScreen = ScreenId.roleSelection;
-            _nestedScreen = null;
-            _role = null;
-            _isNavigatingToHome = false;
-          });
-          return;
+          if (freshOAuthRole != null) {
+            // Profile was just written — trust the intended role rather than
+            // signing out while Firestore catches up.
+            role = freshOAuthRole;
+          } else {
+            ref.read(oauthFirestoreProfilePendingProvider.notifier).state =
+                false;
+            clearOAuthSignupRoutingHintsFromWidget(ref);
+            try {
+              await ref.read(fcmTokenServiceProvider).clearToken(user.id);
+            } catch (_) {}
+            await ref.read(signOutProvider).call();
+            if (!mounted) return;
+            setState(() {
+              _authScreen = ScreenId.roleSelection;
+              _nestedScreen = null;
+              _role = null;
+              _isNavigatingToHome = false;
+            });
+            return;
+          }
         }
       }
 
@@ -808,13 +819,22 @@ class _RootShellState extends ConsumerState<_RootShell>
               .readLastSelectedRole(userId: user.id);
         } catch (_) {}
         role ??= _role;
+        role ??= ref.read(oauthSignupIntendedRoleProvider);
+        role ??= freshOAuthRole;
+      }
+
+      if (role == null && freshOAuthRole != null && mounted) {
+        role = await resolveRoleAfterFreshOAuthSignup(
+          fetchRole: () => getUserRole.call(user.id),
+          intendedRole: freshOAuthRole,
+        );
       }
 
       // If no fallback role exists (first app open + fresh install), wait only
       // briefly for users/{uid} to appear after signup. Long waits keep users
       // stuck on splash when Firestore rules deny reads.
       if (role == null && mounted) {
-        const maxExtraWaitMs = 3000;
+        final maxExtraWaitMs = freshOAuthRole != null ? 8000 : 3000;
         const stepMs = 500;
         var elapsed = 0;
         while (role == null && elapsed < maxExtraWaitMs && mounted) {
@@ -825,10 +845,12 @@ class _RootShellState extends ConsumerState<_RootShell>
               .timeout(const Duration(seconds: 5));
           role = roleResult.fold((_) => null, (r) => r);
         }
+        role ??= freshOAuthRole;
       }
 
       // If we still have no role after cache fallback, deny session.
       if (role == null) {
+        clearOAuthSignupRoutingHintsFromWidget(ref);
         try {
           await ref.read(fcmTokenServiceProvider).clearToken(user.id);
         } catch (_) {}
@@ -898,6 +920,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                 userId: user.id,
               ),
         );
+        clearOAuthSignupRoutingHintsFromWidget(ref);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _tryConsumePendingVitrineLink();
@@ -943,6 +966,44 @@ class _RootShellState extends ConsumerState<_RootShell>
       setState(() => _authScreen = ScreenId.splash);
     }
     unawaited(_handleAuthenticatedUser(authState.user));
+  }
+
+  /// After Google / Apple sign-in (new profile written or existing user).
+  void _routeAfterOAuthSignIn() {
+    if (!mounted) return;
+    final authState = ref.read(authControllerProvider);
+    if (authState is! Authenticated) return;
+
+    _isNavigatingToHome = true;
+    if (_authScreen != ScreenId.splash) {
+      setState(() => _authScreen = ScreenId.splash);
+    }
+    unawaited(_handleAuthenticatedUser(authState.user));
+  }
+
+  void _handleOAuthSignupControllerChange(OAuthSignupState next) {
+    if (!mounted) return;
+
+    if (next is OAuthSignupAuthenticating) {
+      ref.read(oauthSignupIntendedRoleProvider.notifier).state =
+          _role ?? UserRole.client;
+      return;
+    }
+
+    if (next is OAuthSignupNeedsCompletion) {
+      if (_authScreen == ScreenId.oauthCompletion) return;
+      setState(() {
+        _oauthCompletionReturnScreen = _authScreen == ScreenId.login
+            ? ScreenId.login
+            : ScreenId.signup;
+        _authScreen = ScreenId.oauthCompletion;
+      });
+      return;
+    }
+
+    if (next is OAuthSignupExistingUser) {
+      _routeAfterOAuthSignIn();
+    }
   }
 
   void _handleRoleSelect(UserRole role) {
@@ -1022,32 +1083,118 @@ class _RootShellState extends ConsumerState<_RootShell>
     _startActiveValidationListener();
   }
 
-  /// Opens the validation sheet from FCM when the Firestore queue already
-  /// contains the session (foreground / resume).
-  Future<void> _tryOpenPassageValidationFromPush(
-    Map<String, dynamic> data,
-  ) async {
-    if (!mounted || _role != UserRole.merchant || _activeValidationSheetOpen) {
-      return;
+  void _handlePassageValidationPush(Map<String, dynamic> data) {
+    String fcmStr(String key) {
+      final v = data[key];
+      if (v == null) return '';
+      return v.toString().trim();
     }
-    final clientUid = data['client_uid'] as String? ?? '';
+
+    final clientUid = fcmStr('client_uid');
     if (clientUid.isEmpty) return;
 
-    final queue = ref.read(merchantActiveValidationQueueProvider).valueOrNull ??
-        const <ActiveValidationRequest>[];
-    ActiveValidationRequest? session;
-    for (final s in queue) {
-      if (s.clientUid == clientUid && s.isAwaiting && !s.isExpired) {
-        session = s;
-        break;
-      }
-    }
-    if (session == null) return;
+    final merchantId = fcmStr('merchant_id');
+    _pendingPassageValidationClientUid = clientUid;
+    _pendingPassageValidationMerchantId =
+        merchantId.isNotEmpty ? merchantId : null;
+    unawaited(_consumePendingPassageValidationPush());
+  }
 
-    final key = _activeValidationSessionKey(session);
-    if (_handledActiveValidationKeys.contains(key)) return;
-    _handledActiveValidationKeys.add(key);
-    await _openActiveValidationSheet(session);
+  void _clearPendingPassageValidationPush() {
+    _pendingPassageValidationClientUid = null;
+    _pendingPassageValidationMerchantId = null;
+  }
+
+  /// Opens the validation sheet from a passage-request push (background,
+  /// killed app, or foreground). Switches to merchant role when needed and
+  /// fetches the Firestore session directly when the queue stream lags.
+  Future<void> _consumePendingPassageValidationPush() async {
+    if (_passageValidationPushInFlight) return;
+    final clientUid = _pendingPassageValidationClientUid;
+    if (clientUid == null || clientUid.isEmpty) return;
+
+    _passageValidationPushInFlight = true;
+    try {
+      if (!mounted) return;
+      final authState = ref.read(authStateProvider);
+      if (authState is! Authenticated) return;
+
+      if (_role != UserRole.merchant) {
+        var hasMerchant = false;
+        try {
+          hasMerchant = await ref
+              .read(merchant_providers.hasLinkedMerchantAccountProvider.future);
+        } catch (_) {}
+        if (!hasMerchant) {
+          _clearPendingPassageValidationPush();
+          return;
+        }
+        await _switchToMerchant();
+        if (!mounted || _role != UserRole.merchant) return;
+      }
+
+      _ensureMerchantPassageListener();
+
+      final merchant = await ref.read(
+        merchant_providers.currentMerchantForOwnerProvider.future,
+      );
+      if (!mounted || merchant == null) return;
+
+      final pushMerchantId = _pendingPassageValidationMerchantId;
+      if (pushMerchantId != null &&
+          pushMerchantId.isNotEmpty &&
+          merchant.id != pushMerchantId) {
+        _clearPendingPassageValidationPush();
+        return;
+      }
+
+      if (isAutomaticPassageAllowedForMerchant(merchant)) {
+        _clearPendingPassageValidationPush();
+        return;
+      }
+
+      if (_activeValidationSheetOpen) return;
+
+      ActiveValidationRequest? session;
+      final repo = ref.read(activeValidationRepositoryProvider);
+      for (var attempt = 0; attempt < 8; attempt++) {
+        final result = await repo.getClientSession(
+          merchantId: merchant.id,
+          clientUid: clientUid,
+        );
+        session = result.fold((_) => null, (s) => s);
+        if (session != null && session.isAwaiting && !session.isExpired) {
+          break;
+        }
+        session = null;
+        if (attempt < 7) {
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
+        if (!mounted) return;
+      }
+
+      if (session == null || !session.isAwaiting || session.isExpired) {
+        return;
+      }
+      if (session.isBle) {
+        _clearPendingPassageValidationPush();
+        return;
+      }
+
+      _clearPendingPassageValidationPush();
+
+      final key = _activeValidationSessionKey(session);
+      if (_handledActiveValidationKeys.contains(key)) return;
+      _handledActiveValidationKeys.add(key);
+
+      if (_activeTab != 'communaute' && mounted) {
+        setState(() => _activeTab = 'communaute');
+      }
+
+      await _openActiveValidationSheet(session);
+    } finally {
+      _passageValidationPushInFlight = false;
+    }
   }
 
   /// Subscribes to merchant-side live validation requests. When a new
@@ -1077,7 +1224,23 @@ class _RootShellState extends ConsumerState<_RootShell>
       '${session.createdAt?.millisecondsSinceEpoch ?? 0}';
 
   void _onActiveValidationQueue(List<ActiveValidationRequest> queue) {
-    if (!mounted || _activeValidationSheetOpen) return;
+    if (!mounted) return;
+
+    final pendingUid = _pendingPassageValidationClientUid;
+    if (pendingUid != null && !_activeValidationSheetOpen) {
+      for (final session in queue) {
+        if (session.clientUid != pendingUid) continue;
+        if (!session.isAwaiting || session.isExpired || session.isBle) continue;
+        _clearPendingPassageValidationPush();
+        final key = _activeValidationSessionKey(session);
+        if (_handledActiveValidationKeys.contains(key)) return;
+        _handledActiveValidationKeys.add(key);
+        _openActiveValidationSheet(session);
+        return;
+      }
+    }
+
+    if (_activeValidationSheetOpen) return;
     for (final session in queue) {
       if (!session.isAwaiting || session.isExpired) continue;
       // BLE sessions require explicit merchant proximity confirmation
@@ -1086,9 +1249,36 @@ class _RootShellState extends ConsumerState<_RootShell>
       final key = _activeValidationSessionKey(session);
       if (_handledActiveValidationKeys.contains(key)) continue;
       _handledActiveValidationKeys.add(key);
+      final merchant =
+          ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
+      if (merchant != null &&
+          merchant.id == session.merchantId &&
+          isAutomaticPassageAllowedForMerchant(merchant)) {
+        unawaited(_autoConfirmPassageSession(session, merchant));
+        continue;
+      }
       _openActiveValidationSheet(session);
       break; // Open one at a time; the next will be picked up on close.
     }
+  }
+
+  /// When passage validation is automatic, confirm immediately — no sheet,
+  /// no client "validation en cours" wait (handles desynced legacy sessions).
+  Future<void> _autoConfirmPassageSession(
+    ActiveValidationRequest session,
+    Merchant merchant,
+  ) async {
+    final result = await ref.read(confirmActiveValidationProvider).call(
+          actingOwnerUid: merchant.ownerUid,
+          merchant: merchant,
+          session: session,
+        );
+    result.fold(
+      (_) {},
+      (_) {
+        ref.invalidate(merchantActiveValidationQueueProvider);
+      },
+    );
   }
 
   Future<void> _openActiveValidationSheet(
@@ -1428,6 +1618,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       'notifications-hub': ScreenId.merchantNotificationsHub,
       'scheduled-notifications': ScreenId.merchantScheduledNotifications,
       'gratification-config': ScreenId.merchantGratificationConfig,
+      'storefront-links': ScreenId.merchantStorefrontLinks,
     };
 
     final target = map[screen];
@@ -1833,7 +2024,8 @@ class _RootShellState extends ConsumerState<_RootShell>
             currentScreen == ScreenId.merchantSecurity ||
             currentScreen == ScreenId.merchantDataPrivacy ||
             currentScreen == ScreenId.merchantProfileSummary ||
-            currentScreen == ScreenId.merchantGratificationConfig;
+            currentScreen == ScreenId.merchantGratificationConfig ||
+            currentScreen == ScreenId.merchantStorefrontLinks;
     final isMerchantClients = currentScreen == ScreenId.merchantClients;
     final isClientProfile = currentScreen == ScreenId.clientProfile;
     final isClientHome = currentScreen == ScreenId.clientHome;
@@ -2131,14 +2323,9 @@ class _RootShellState extends ConsumerState<_RootShell>
             }
           },
           onCompleted: () {
-            // Profile was created and the auth controller refreshed. The
-            // shell's auth-state listener will compute the right target
-            // (client onboarding, merchant profile form, …) on the next
-            // frame; show the splash in the meantime so the completion
-            // form doesn't flash empty during role lookup.
-            if (mounted) {
-              setState(() => _authScreen = ScreenId.splash);
-            }
+            // Profile was created — route explicitly (same pattern as OTP
+            // signup) so Firestore lag cannot sign the user out.
+            _routeAfterOAuthSignIn();
           },
         );
       case ScreenId.otp:
@@ -2487,6 +2674,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantGratificationConfig:
         return ClientGratificationConfigScreen(
+          onBack: _handleBackFromNested,
+        );
+      case ScreenId.merchantStorefrontLinks:
+        return MerchantStorefrontLinksScreen(
           onBack: _handleBackFromNested,
         );
     }
