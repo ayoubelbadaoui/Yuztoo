@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
+import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
 import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
 import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
@@ -28,7 +29,10 @@ export '../../auth/core/application/state/auth_state.dart'
 // ─── Use-case providers ────────────────────────────────────────────────────────
 
 final recordClientVisitPassageProvider = Provider<RecordClientVisitPassage>((ref) {
-  return RecordClientVisitPassage(ref.watch(clientLoyaltyRepositoryProvider));
+  return RecordClientVisitPassage(
+    ref.watch(clientLoyaltyRepositoryProvider),
+    ref.watch(clientNotificationRepositoryProvider),
+  );
 });
 
 final redeemLoyaltyRewardProvider = Provider<RedeemLoyaltyReward>((ref) {

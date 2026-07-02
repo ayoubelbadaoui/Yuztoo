@@ -4,6 +4,9 @@ tools/firebase/node_modules/
 # Firebase CLI deploy cache
 .firebase/
 
+# Hosted APK build artifact (large; deployed from public/ but not committed)
+public/downloads/*.apk
+
 # Emulator debug logs
 firestore-debug.log
 ui-debug.log

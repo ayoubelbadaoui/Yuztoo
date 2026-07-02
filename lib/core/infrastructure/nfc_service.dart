@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import 'package:ndef/ndef.dart' as ndef;
 import 'package:universal_platform/universal_platform.dart';
@@ -46,6 +47,27 @@ class NfcService {
       debugSimulateIos ?? UniversalPlatform.isIOS;
 
   static const NfcAnalytics _analytics = NfcAnalytics();
+
+  /// Native channel shared with [MainActivity]. On Android, our app holds NFC
+  /// foreground dispatch so a tap registers a passage instantly. That mode is
+  /// mutually exclusive with flutter_nfc_kit's reader session, so we must
+  /// suspend it around every active poll/write below and restore it after.
+  static const MethodChannel _androidNfcChannel =
+      MethodChannel('com.yuztoo.app/nfc');
+
+  static Future<void> _pauseAndroidForegroundDispatch() async {
+    if (_isIosPlatform || !UniversalPlatform.isAndroid) return;
+    try {
+      await _androidNfcChannel.invokeMethod('pauseNfcForegroundDispatch');
+    } catch (_) {}
+  }
+
+  static Future<void> _resumeAndroidForegroundDispatch() async {
+    if (_isIosPlatform || !UniversalPlatform.isAndroid) return;
+    try {
+      await _androidNfcChannel.invokeMethod('resumeNfcForegroundDispatch');
+    } catch (_) {}
+  }
 
   static Map<String, Object?> _platformParams() => <String, Object?>{
         'platform': _isIosPlatform ? 'ios' : 'android',
@@ -137,6 +159,7 @@ class NfcService {
       NfcAnalyticsEvent.tagReadAttempt,
       parameters: _platformParams(),
     );
+    await _pauseAndroidForegroundDispatch();
     try {
       await _pollVitrineTag(
         alertMessage: alertMessage,
@@ -241,6 +264,8 @@ class NfcService {
         },
       );
       return NfcError('Impossible de lire le tag NFC : $msg');
+    } finally {
+      await _resumeAndroidForegroundDispatch();
     }
   }
 
@@ -269,6 +294,7 @@ class NfcService {
       },
     );
 
+    await _pauseAndroidForegroundDispatch();
     try {
       final tag = await _pollVitrineTag(
         alertMessage: alertMessage,
@@ -376,6 +402,8 @@ class NfcService {
         },
       );
       return NfcError('Impossible de programmer le badge : $msg');
+    } finally {
+      await _resumeAndroidForegroundDispatch();
     }
   }
 }

@@ -8,7 +8,6 @@
       "namespace": "android_app",
       "package_name": "com.yuztoo.app",
       "sha256_cert_fingerprints": [
-        "REPLACE_WITH_PLAY_STORE_APP_SIGNING_SHA256",
         "A8:8D:91:16:92:73:F5:29:34:76:91:A8:BE:51:21:1B:D5:34:AD:C8:0E:10:32:31:2F:D1:93:39:B1:45:65:90"
       ]
     }

@@ -164,8 +164,13 @@ service cloud.firestore {
       allow read, update, delete: if isOwner(userId);
       allow create: if isSignedIn()
         && (
+          // Self-inbox: a user may always write a notification to their OWN
+          // inbox (e.g. an automatic loyalty passage recorded client-side on
+          // scan). Safe because reads are owner-only and you cannot target
+          // another user's inbox — at worst you notify yourself.
+          isOwner(userId)
           // No merchant_id field (or empty string): system/legacy path — permitted.
-          !('merchant_id' in request.resource.data)
+          || !('merchant_id' in request.resource.data)
           || request.resource.data.merchant_id == ''
           // Merchant-originated: the caller must own the referenced merchant.
           || isMerchantOwner(request.resource.data.merchant_id)

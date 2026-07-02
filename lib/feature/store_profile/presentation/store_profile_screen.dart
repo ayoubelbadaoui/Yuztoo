@@ -27,6 +27,7 @@ import '../application/providers.dart';
 import 'widgets/store_profile_banner_section.dart';
 
 part 'store_profile_screen.part.dart';
+part 'store_profile_follow_coachmark.part.dart';
 
 // ── Skeleton loading screen ────────────────────────────────────────────────────
 
@@ -217,12 +218,25 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   /// Avoids showing the welcome-gift modal twice (follow-then-passage).
   String? _welcomeShownForMerchantId;
 
+  /// Anchors the "Suivre ce commerce" CTA so the scan coachmark can spotlight
+  /// the real button instead of a duplicate (see [_showFollowPassageCoachmark]).
+  final GlobalKey _followCtaKey = GlobalKey();
+
+  /// Live coachmark overlay; removed on dismiss / follow / dispose.
+  OverlayEntry? _followCoachmarkEntry;
+
   /// "viewerUid::merchantId" of the last (viewer, merchant) pair for which
   /// we have already fired a profile-view record. Prevents re-firing on
   /// every rebuild of the same screen instance — the repo is also
   /// idempotent server-side (1 doc per viewer/UTC day), but this avoids
   /// even the no-op network round-trip on each frame.
   String? _profileViewRecordedFor;
+
+  @override
+  void dispose() {
+    _removeFollowCoachmark();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -964,6 +964,23 @@ describe("users/notifications", () => {
     );
   });
 
+  test("user CAN CREATE a merchant-attributed notification in their OWN inbox (automatic passage)", async () => {
+    await seedMerchant("merch-shop", "owner-shop");
+    await assertSucceeds(
+      authDb("alice")
+        .collection("users")
+        .doc("alice")
+        .collection("notifications")
+        .add({
+          merchant_id: "merch-shop",
+          merchant_name: "Shop",
+          message: "Passage validé",
+          is_read: false,
+          created_at: new Date(),
+        })
+    );
+  });
+
   test("non-owner CANNOT CREATE notification impersonating another merchant_id", async () => {
     await seedMerchant("merch-victim", "owner-victim");
     await assertFails(

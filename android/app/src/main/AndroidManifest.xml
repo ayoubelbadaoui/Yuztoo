@@ -67,6 +67,20 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="yuztoo" android:host="vitrine" />
             </intent-filter>
+            <!-- NFC tag tap → open the app directly and register the passage,
+                 with no browser / no "ouvrir avec / rediriger ?" prompt.
+                 NDEF_DISCOVERED is matched by Android's NFC tag-dispatch system
+                 BEFORE the generic URL VIEW dispatch, so claiming the vitrine
+                 URI here makes Yuztoo the handler even when the https App Link
+                 is not (or cannot be) verified. MainActivity reads the NDEF URI
+                 and hands the merchantId to Flutter (see MainActivity.kt). -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="https" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
+                <data android:scheme="http" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
+                <data android:scheme="yuztoo" android:host="vitrine" />
+            </intent-filter>
         </activity>
         <!-- Required by image_cropper (uCrop library). -->
         <activity

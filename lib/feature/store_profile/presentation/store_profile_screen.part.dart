@@ -1371,6 +1371,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           );
 
     return SizedBox(
+      key: _followCtaKey,
       width: double.infinity,
       child: InkWell(
         onTap: _isFollowToggling
@@ -1716,6 +1717,75 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     );
   }
 
+  void _removeFollowCoachmark() {
+    _followCoachmarkEntry?.remove();
+    _followCoachmarkEntry = null;
+  }
+
+  /// Spotlights the real "Suivre ce commerce" CTA so a logged-in non-follower
+  /// understands that following is what registers their passage. Tapping the
+  /// highlighted button follows AND chains straight into the fidélité flow via
+  /// [_handleFollowToggle] (→ record passage automatic / open active_validation
+  /// manual) — so there's no need to tap the badge / scan a second time.
+  ///
+  /// Falls back to [_showScanFollowFirstSheet] when the CTA isn't laid out
+  /// (e.g. scrolled off-screen) so the funnel never dead-ends.
+  void _showFollowPassageCoachmark(
+    BuildContext context,
+    Merchant merchant,
+    String userId,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !context.mounted) return;
+      final anchorCtx = _followCtaKey.currentContext;
+      final overlay = Overlay.maybeOf(context);
+      final box = anchorCtx?.findRenderObject() as RenderBox?;
+      if (anchorCtx == null ||
+          overlay == null ||
+          box == null ||
+          !box.hasSize) {
+        _showScanFollowFirstSheet(context, merchant, userId);
+        return;
+      }
+      final target = box.localToGlobal(Offset.zero) & box.size;
+      final screen = MediaQuery.of(context).size;
+      if (target.bottom < 0 || target.top > screen.height) {
+        _showScanFollowFirstSheet(context, merchant, userId);
+        return;
+      }
+
+      final loyaltyActive = _merchantLoyaltyActive(merchant);
+      final name = merchant.displayName?.isNotEmpty == true
+          ? merchant.displayName!
+          : merchant.name;
+
+      _removeFollowCoachmark();
+      final entry = OverlayEntry(
+        builder: (_) => _FollowPassageCoachmark(
+          targetRect: target,
+          title: loyaltyActive
+              ? 'Suivez pour valider votre passage'
+              : 'Suivez $name',
+          message: loyaltyActive
+              ? 'Ajoutez $name à votre carnet : votre passage sera enregistré automatiquement juste après.'
+              : 'Ajoutez $name à votre carnet pour suivre ses actualités et ses avantages.',
+          ctaHint: 'Touchez « Suivre ce commerce »',
+          onTargetTap: () {
+            _removeFollowCoachmark();
+            _handleFollowToggle(
+              context: context,
+              merchant: merchant,
+              currentlyFollowing: false,
+            );
+          },
+          onDismiss: _removeFollowCoachmark,
+        ),
+      );
+      _followCoachmarkEntry = entry;
+      overlay.insert(entry);
+    });
+  }
+
   /// Logged-in client scanned but does not follow yet — follow before passage.
   ///
   /// Opened by [_handleVitrineScanArrival] on [ScanVisitNotFollowing]:
@@ -1728,6 +1798,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     String userId,
   ) async {
     final name = merchant.displayName ?? merchant.name;
+    final loyaltyActive = _merchantLoyaltyActive(merchant);
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: StorefrontColors.backgroundLight,
@@ -1769,7 +1840,9 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
               ),
               const SizedBox(height: 10),
               Text(
-                'Ajoutez ce commerce à votre carnet Yuztoo pour enregistrer vos passages et recevoir vos avantages.',
+                loyaltyActive
+                    ? 'Ajoutez ce commerce à votre carnet Yuztoo. Vous validerez ensuite votre passage et profiterez de son programme de fidélité.'
+                    : 'Ajoutez ce commerce à votre carnet Yuztoo pour suivre ses actualités et recevoir ses avantages.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
                   fontSize: 14,
@@ -1777,7 +1850,48 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                   height: 1.5,
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 22),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: StorefrontColors.primaryGold.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: StorefrontColors.primaryGold.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _scanFollowHelpStep(
+                      Icons.favorite_rounded,
+                      '1. Suivez ce commerce',
+                      'Il rejoint votre carnet Yuztoo.',
+                    ),
+                    if (loyaltyActive) ...[
+                      const SizedBox(height: 14),
+                      _scanFollowHelpStep(
+                        Icons.contactless_rounded,
+                        '2. Validez votre passage',
+                        'On enregistre votre visite juste après.',
+                      ),
+                      const SizedBox(height: 14),
+                      _scanFollowHelpStep(
+                        Icons.card_giftcard_rounded,
+                        '3. Gagnez des récompenses',
+                        'Profitez de son programme de fidélité.',
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 14),
+                      _scanFollowHelpStep(
+                        Icons.notifications_active_rounded,
+                        '2. Restez au courant',
+                        'Recevez ses promos et nouveautés.',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: GestureDetector(
@@ -1804,7 +1918,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                     ref.invalidate(clientHomeFeedProvider);
                     Navigator.of(ctx).pop();
                     if (!context.mounted) return;
-                    _afterScanFollowSuccess(context, merchant, userId);
+                    await _afterScanFollowSuccess(context, merchant, userId);
                   },
                   child: Container(
                     height: 52,
@@ -1814,7 +1928,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      'Suivre ce commerce',
+                      loyaltyActive ? 'Suivre et continuer' : 'Suivre ce commerce',
                       style: GoogleFonts.outfit(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -1845,44 +1959,114 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     );
   }
 
-  void _afterScanFollowSuccess(
+  /// A single row of the "how it works" helper shown in the follow sheet.
+  Widget _scanFollowHelpStep(
+    IconData icon,
+    String title,
+    String subtitle,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: StorefrontColors.primaryGold.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 18, color: StorefrontColors.primaryGold),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: StorefrontColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: GoogleFonts.outfit(
+                  fontSize: 12.5,
+                  color: StorefrontColors.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// After a non-follower follows from the scan sheet: surface the welcome
+  /// gift (if configured), then **continue to the merchant's fidélité flow**
+  /// — record the passage automatically (automatic mode → celebration) or
+  /// open an `active_validations` session (manual mode → live banner).
+  Future<void> _afterScanFollowSuccess(
     BuildContext context,
     Merchant merchant,
     String userId,
-  ) {
-    // First-scan UX: the goal of the first interaction is discovery —
-    // show the welcome gift if any, then stop. Auto-opening the passage
-    // sheet right after the follow tile makes Yuztoo feel like a
-    // punch-card POS and confused users who only meant to subscribe
-    // ("au premier scan de connexion on propose de valider un passage
-    // alors qu'on doit proposer de suivre la boutique et voir cadeau
-    // de bienvenu"). Passage validation is for subsequent visits — it
-    // is reachable from the storefront CTA and from a re-scan.
+  ) async {
     final welcomeGift = merchant.welcomeGiftDescription?.trim() ?? '';
     final merchantName = merchant.displayName?.isNotEmpty == true
         ? merchant.displayName!
         : merchant.name;
 
-    if (welcomeGift.isEmpty) {
-      // No welcome gift configured — silent success is fine. Storefront
-      // already paints the followed state in the background.
-      return;
+    if (welcomeGift.isNotEmpty && _welcomeShownForMerchantId != merchant.id) {
+      _welcomeShownForMerchantId = merchant.id;
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _WelcomeGiftSheet(
+          merchantName: merchantName,
+          welcomeGift: welcomeGift,
+          subtitle: 'Merci de nous suivre ! Le commerçant vous offre :',
+        ),
+      );
+      if (!mounted || !context.mounted) return;
     }
 
-    if (_welcomeShownForMerchantId == merchant.id) {
-      return;
-    }
+    await _continueToFidelityFlowAfterFollow(context, merchant, userId);
+  }
 
-    _welcomeShownForMerchantId = merchant.id;
-    showModalBottomSheet<void>(
+  /// Re-runs the vitrine scan logic now that the client follows, so the
+  /// flow lands on the merchant's specific fidélité action. No-op when the
+  /// merchant has no active loyalty programme.
+  Future<void> _continueToFidelityFlowAfterFollow(
+    BuildContext context,
+    Merchant merchant,
+    String userId,
+  ) async {
+    if (!_merchantLoyaltyActive(merchant)) return;
+
+    final auth = ref.read(authStateProvider);
+    final client = auth is Authenticated ? auth.user : null;
+    if (client == null) return;
+
+    final useCase = ref.read(processVitrineScanVisitProvider);
+    final result = await useCase(
+      client: client,
+      merchant: merchant,
+      isFollowing: true,
+      isFollowListReady: true,
+    );
+    if (!mounted || !context.mounted) return;
+
+    _applyScanVisitResult(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _WelcomeGiftSheet(
-        merchantName: merchantName,
-        welcomeGift: welcomeGift,
-        subtitle: 'Merci de nous suivre ! Le commerçant vous offre :',
-      ),
+      merchant: merchant,
+      userId: userId,
+      result: result,
     );
   }
 
@@ -1944,8 +2128,9 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
   ///
   /// MVP funnel (post-NFC re-architecture):
   ///   * Guest → connect sheet ("Se connecter pour suivre", dismissible).
-  ///   * Non-follower → follow-first sheet ("Suivre ce commerce" → welcome
-  ///     gift via [_afterScanFollowSuccess]); never passage-first.
+  ///   * Non-follower → follow-first sheet ("Suivre et continuer" + helper)
+  ///     → [_afterScanFollowSuccess] shows the welcome gift, then continues
+  ///     to the merchant's fidélité flow (visit/validation).
   ///   * Follower + automatic loyalty → silent visit + celebration overlay.
   ///   * Follower + manual loyalty → `active_validations` session (live banner).
   ///   * Cooldown blocked → friendly info snackbar.
@@ -2020,10 +2205,13 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           // the storefront via "Continuer sans compte".
           _showScanGuestConnectSheet(context, merchant);
         case ScanVisitNotFollowing():
-          // Logged-in non-follower → invite to follow. On success the sheet
-          // routes through _afterScanFollowSuccess, which surfaces the
-          // welcome gift — never a passage validation on first scan.
-          _showScanFollowFirstSheet(context, merchant, userId!);
+          // Logged-in non-follower → spotlight the real "Suivre" CTA with a
+          // coachmark ("Suivez pour valider votre passage"). Tapping it follows
+          // AND continues to the fidélité flow in one shot (no second scan),
+          // because [_handleFollowToggle] already chains _afterScanFollowSuccess
+          // → record passage (automatic) / open active_validation (manual).
+          // Falls back to the bottom sheet if the button isn't laid out yet.
+          _showFollowPassageCoachmark(context, merchant, userId!);
         case ScanVisitFollowListNotReady():
         case ScanVisitLoyaltyInactive():
           // Profile only — nothing actionable to propose.
