@@ -129,7 +129,6 @@ mixin _FirebaseAuthRepositorySession on _FirebaseAuthRepositoryBase {
     }
   }
 
-  @override
   Future<Result<AuthUser?>> reloadCurrentUserProfile() async {
     try {
       final user = _auth.currentUser;

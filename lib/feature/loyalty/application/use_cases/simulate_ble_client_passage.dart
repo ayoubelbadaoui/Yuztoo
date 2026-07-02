@@ -25,7 +25,7 @@ class SimulateBleClientPassage {
         UnexpectedFailure(message: 'Client invalide'),
       );
     }
-    if (!isBlePassageAllowedForMerchant(merchant)) {
+    if (!isAutomaticPassageAllowedForMerchant(merchant)) {
       if (!isMerchantLoyaltyPassageActive(merchant)) {
         return const Left<AppFailure, void>(
           UnexpectedFailure(

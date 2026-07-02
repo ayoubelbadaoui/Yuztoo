@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
-import 'package:flutter_yuztoo/core/domain/core/failure.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/entities/auth_user.dart';
 import 'package:flutter_yuztoo/feature/followed_merchants/domain/repositories/followed_merchants_repository.dart';
@@ -16,8 +15,8 @@ import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 
 class _FakeActiveValidationRepo implements ActiveValidationRepository {
   _FakeActiveValidationRepo({
-    this.followCreateResult = const Right(null),
-    this.markResult = const Right(null),
+    required this.followCreateResult,
+    required this.markResult,
   });
 
   Result<void> followCreateResult;
@@ -237,7 +236,10 @@ void main() {
 
   group('InitiateBlePassageSession', () {
     test('creates BLE session when following', () async {
-      final repo = _FakeActiveValidationRepo();
+      final repo = _FakeActiveValidationRepo(
+        followCreateResult: const Right(null),
+        markResult: const Right(null),
+      );
       final useCase = InitiateBlePassageSession(
         repo,
         EnsureClientFollowsMerchant(_FakeFollowedRepo(following: true)),
@@ -248,7 +250,10 @@ void main() {
     });
 
     test('returns FollowRequiredFailure when not following', () async {
-      final repo = _FakeActiveValidationRepo();
+      final repo = _FakeActiveValidationRepo(
+        followCreateResult: const Right(null),
+        markResult: const Right(null),
+      );
       final useCase = InitiateBlePassageSession(
         repo,
         EnsureClientFollowsMerchant(_FakeFollowedRepo(following: false)),
@@ -261,7 +266,10 @@ void main() {
 
   group('AcceptBlePassageAsMerchant', () {
     test('marks merchant BLE connected when session awaiting', () async {
-      final repo = _FakeActiveValidationRepo();
+      final repo = _FakeActiveValidationRepo(
+        followCreateResult: const Right(null),
+        markResult: const Right(null),
+      );
       final useCase = AcceptBlePassageAsMerchant(repo);
       final result = await useCase.call(
         merchantId: _merchant.id,
@@ -273,7 +281,10 @@ void main() {
     });
 
     test('fails when no session exists', () async {
-      final useCase = AcceptBlePassageAsMerchant(_FakeActiveValidationRepo());
+      final useCase = AcceptBlePassageAsMerchant(_FakeActiveValidationRepo(
+        followCreateResult: const Right(null),
+        markResult: const Right(null),
+      ));
       final result = await useCase.call(
         merchantId: _merchant.id,
         clientUid: _client.id,
@@ -287,7 +298,10 @@ void main() {
     });
 
     test('skips mark when merchant already connected', () async {
-      final repo = _FakeActiveValidationRepo();
+      final repo = _FakeActiveValidationRepo(
+        followCreateResult: const Right(null),
+        markResult: const Right(null),
+      );
       final useCase = AcceptBlePassageAsMerchant(repo);
       final result = await useCase.call(
         merchantId: _merchant.id,
@@ -301,7 +315,7 @@ void main() {
 
   group('PrepareMerchantPassageValidation', () {
     test('passes vitrine session through without marking BLE', () async {
-      final prepare = const PrepareMerchantPassageValidation();
+      const prepare = PrepareMerchantPassageValidation();
       final vitrine = ActiveValidationRequest(
         merchantId: _merchant.id,
         clientUid: _client.id,

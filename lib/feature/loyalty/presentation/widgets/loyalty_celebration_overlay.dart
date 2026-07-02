@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../auth/core/application/providers.dart' as auth_providers;
-import '../../../auth/core/application/state/auth_state.dart';
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../application/active_validation_providers.dart';
 import '../../application/client_loyalty_providers.dart';

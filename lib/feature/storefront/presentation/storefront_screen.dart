@@ -229,11 +229,13 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
       Storefront storefront, bool published) async {
     if (storefront.isPublished == published) return;
     final merchantId = _merchantIdForStorefront(storefront);
-    if (mounted) setState(() {
-      _isPublishingToggle = true;
-      // Re-show the banner the next time the merchant goes offline.
-      if (published) _offlineBannerDismissed = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isPublishingToggle = true;
+        // Re-show the banner the next time the merchant goes offline.
+        if (published) _offlineBannerDismissed = false;
+      });
+    }
     final result =
         await ref.read(merchant_providers.updateStorefrontProvider).call(
               merchantId: merchantId,

@@ -20,6 +20,10 @@ class _RecordingFollowedRepo implements FollowedMerchantsRepository {
   bool failNextUpdate = false;
 
   @override
+  Stream<List<String>> watchFollowedIds(String userId) =>
+      Stream<List<String>>.value(const <String>[]);
+
+  @override
   Future<Result<Unit>> updateSortOrder(
       String userId, Map<String, int> sortIndexes) async {
     updateSortOrderCalls++;
@@ -106,10 +110,10 @@ void main() {
           auth_providers.currentUserIdProvider.overrideWith((ref) => 'user_test'),
           followedMerchantsRepositoryProvider.overrideWith((ref) => followedRepo),
           clientHomeFeedProvider.overrideWith(
-            (ref) async => _feed([
+            (ref) => Stream.value(_feed([
               _merchant('m_a', 'Alpha'),
               _merchant('m_b', 'Beta'),
-            ]),
+            ])),
           ),
           followedMerchantHeartLevelsForCurrentUserProvider.overrideWith(
             (ref) async => const {'m_a': 2, 'm_b': 1},
@@ -150,7 +154,7 @@ void main() {
             auth_providers.currentUserIdProvider.overrideWith((ref) => 'user_test'),
             followedMerchantsRepositoryProvider.overrideWith((ref) => followedRepo),
             clientHomeFeedProvider.overrideWith(
-              (ref) async => _feed([_merchant('m_only', 'Only')]),
+              (ref) => Stream.value(_feed([_merchant('m_only', 'Only')])),
             ),
             followedMerchantHeartLevelsForCurrentUserProvider.overrideWith(
               (ref) async => const {'m_only': 1},

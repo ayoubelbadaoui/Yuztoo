@@ -134,7 +134,7 @@ void main() {
         triggerType: LoyaltyTriggerType.visitCount,
         visitsRequired: 8,
       );
-      final session = ActiveValidationRequest(
+      const session = ActiveValidationRequest(
         merchantId: 'm1',
         clientUid: 'c1',
         clientDisplayName: 'A',

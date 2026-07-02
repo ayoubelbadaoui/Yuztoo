@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
-import 'package:flutter_yuztoo/core/domain/core/failure.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/core/infrastructure/ble_proximity_notifier.dart';
 import 'package:flutter_yuztoo/core/shared/widgets/proximity_list_avatar.dart';
@@ -279,8 +278,10 @@ void main() {
               (ref) => const PrepareMerchantPassageValidation(),
             ),
             showMerchantPassageValidationSheetProvider.overrideWith(
-              (ref) =>
-                  ({required context, required merchant, required session}) async {},
+              (ref) => (
+                  {required context,
+                  required merchant,
+                  required session}) async {},
             ),
             activeValidationRepositoryProvider
                 .overrideWithValue(_FakeActiveValidationRepo()),

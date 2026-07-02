@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/feature/auth/core/application/providers.dart'
     as auth_providers;
-import 'package:flutter_yuztoo/feature/auth/core/application/state/auth_state.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/entities/auth_user.dart';
 import 'package:flutter_yuztoo/feature/promotions/application/providers.dart';
 import 'package:flutter_yuztoo/feature/promotions/presentation/promotions_management_screen.dart';

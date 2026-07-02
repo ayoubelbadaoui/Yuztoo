@@ -18,15 +18,6 @@ ActiveValidationSource _sourceFromString(String? raw) {
   }
 }
 
-String _sourceToString(ActiveValidationSource s) {
-  switch (s) {
-    case ActiveValidationSource.ble:
-      return 'ble';
-    case ActiveValidationSource.vitrine:
-      return 'vitrine';
-  }
-}
-
 ActiveValidationStatus _statusFromString(String? raw) {
   switch (raw) {
     case 'completed':

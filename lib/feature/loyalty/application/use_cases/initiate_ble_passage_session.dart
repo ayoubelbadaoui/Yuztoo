@@ -2,7 +2,6 @@ import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/failure.dart';
 import '../../../../core/domain/core/result.dart';
 import '../../../auth/core/domain/entities/auth_user.dart';
-import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../../merchant/domain/entities/merchant.dart';
 import '../../domain/failures/ble_passage_failure.dart';
 import '../../domain/loyalty_passage_program_policy.dart';
@@ -28,10 +27,10 @@ class InitiateBlePassageSession {
         UnexpectedFailure(message: 'Utilisateur non connecté'),
       );
     }
-    if (!isBlePassageAllowedForMerchant(merchant)) {
+    if (!isAutomaticPassageAllowedForMerchant(merchant)) {
       final live = merchantLiveLoyaltyProgram(merchant);
       if (!merchant.loyaltyEnabled || !live.programEnabled) {
-        return Left<AppFailure, void>(MerchantLoyaltyInactiveFailure());
+        return const Left<AppFailure, void>(MerchantLoyaltyInactiveFailure());
       }
       return const Left<AppFailure, void>(
         BlePassageSessionFailure(

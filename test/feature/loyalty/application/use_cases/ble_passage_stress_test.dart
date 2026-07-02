@@ -1,13 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
-import 'package:flutter_yuztoo/core/domain/core/failure.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
-import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/accept_ble_passage_as_merchant.dart';
 import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/confirm_active_validation.dart';
 import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/prepare_merchant_passage_validation.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/active_validation_request.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/failures/ble_passage_failure.dart';
-import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/active_validation_repository.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/client_loyalty_repository.dart'
     show ActiveValidationCompletion, ClientLoyaltyRepository;
 import 'package:flutter_yuztoo/feature/client_notification/domain/entities/client_notification.dart';
@@ -15,90 +12,6 @@ import 'package:flutter_yuztoo/feature/client_notification/domain/repositories/c
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
-
-class _CountingValidationRepo implements ActiveValidationRepository {
-  int markCalls = 0;
-
-  @override
-  Future<Result<void>> markMerchantBleConnected({
-    required String merchantId,
-    required String clientUid,
-  }) async {
-    markCalls++;
-    return const Right(null);
-  }
-
-  @override
-  Future<Result<void>> cancelByClient({
-    required String merchantId,
-    required String clientUid,
-  }) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Result<void>> cancelByMerchant({
-    required String merchantId,
-    required String clientUid,
-    String? reason,
-  }) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Result<void>> completeSession({
-    required String merchantId,
-    required String clientUid,
-    int? resultValidatedDelta,
-    double? resultSpendDelta,
-    double? declaredSpendEuros,
-  }) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Result<void>> createBleSession({
-    required String merchantId,
-    required String clientUid,
-    required String clientDisplayName,
-    String? clientPhotoUrl,
-    required LoyaltyProgramConfig programSnapshot,
-    required String merchantDisplayName,
-  }) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Result<void>> createForClient({
-    required String merchantId,
-    required String clientUid,
-    required String clientDisplayName,
-    String? clientPhotoUrl,
-    required LoyaltyProgramConfig programSnapshot,
-  }) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Result<void>> markOpened({
-    required String merchantId,
-    required String clientUid,
-  }) =>
-      throw UnimplementedError();
-
-  @override
-  Stream<ActiveValidationRequest?> watchClientSession({
-    required String merchantId,
-    required String clientUid,
-  }) =>
-      Stream<ActiveValidationRequest?>.value(null);
-
-  @override
-  Future<Result<ActiveValidationRequest?>> getClientSession({
-    required String merchantId,
-    required String clientUid,
-  }) async =>
-      const Right(null);
-
-  @override
-  Stream<List<ActiveValidationRequest>> watchMerchantQueue(String merchantId) =>
-      Stream<List<ActiveValidationRequest>>.value(const []);
-}
 
 class _NoopLoyaltyRepo implements ClientLoyaltyRepository {
   @override
@@ -121,7 +34,7 @@ class _NoopLoyaltyRepo implements ClientLoyaltyRepository {
     ActiveValidationCompletion? completeActiveValidation,
     bool enforcePassageCooldown = true,
   }) async =>
-      Right(
+      const Right(
         ClientMerchantLoyaltyProgress(
           validatedPassages: 1,
           cumulativeSpendEuros: 0,
@@ -135,7 +48,8 @@ class _NoopLoyaltyRepo implements ClientLoyaltyRepository {
 
 class _NoopNotificationRepo implements ClientNotificationRepository {
   @override
-  Future<Result<ClientNotification>> create(ClientNotification notification) async =>
+  Future<Result<ClientNotification>> create(
+          ClientNotification notification) async =>
       Right(notification);
 
   @override
@@ -260,7 +174,8 @@ void main() {
   });
 
   group('ConfirmActiveValidation BLE guard', () {
-    test('blocks validate when BLE session lacks merchant_ble_connected', () async {
+    test('blocks validate when BLE session lacks merchant_ble_connected',
+        () async {
       final confirm = ConfirmActiveValidation(
         _NoopLoyaltyRepo(),
         _NoopNotificationRepo(),

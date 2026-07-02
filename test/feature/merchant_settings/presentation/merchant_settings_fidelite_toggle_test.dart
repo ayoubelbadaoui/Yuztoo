@@ -6,11 +6,9 @@ import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/e_fidelite/application/e_fidelite_providers.dart';
 import 'package:flutter_yuztoo/feature/merchant/application/providers.dart'
     as merchant_providers;
-import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
-import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
 import 'package:flutter_yuztoo/feature/merchant/infrastructure/merchant_repository_provider.dart';
 import 'package:flutter_yuztoo/feature/merchant_settings/application/providers.dart';

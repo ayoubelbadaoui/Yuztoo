@@ -21,7 +21,6 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/proximity_list_avatar.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../followed_merchants/application/providers.dart';
-import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import '../application/active_validation_providers.dart';
@@ -82,7 +81,7 @@ final bleFollowedMerchantsForPickProvider =
   final result =
       await ref.read(merchantRepositoryProvider).getMerchantsByIds(ids);
   return result.fold((_) => const <Merchant>[], (merchants) {
-    return merchants.where(isBlePassageAllowedForMerchant).toList();
+    return merchants.where(isAutomaticPassageAllowedForMerchant).toList();
   });
 });
 
@@ -147,7 +146,9 @@ class _ClientBleBroadcastScreenState
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      await ref.read(bleProximityProvider.notifier).suspendShellClientBroadcast();
+      await ref
+          .read(bleProximityProvider.notifier)
+          .suspendShellClientBroadcast();
       if (!mounted) return;
       await _startBroadcasting();
     });
@@ -169,9 +170,8 @@ class _ClientBleBroadcastScreenState
   Future<void> _cancelAwaitingBleSession(String merchantId) async {
     final auth = ref.read(auth_providers.authStateProvider);
     if (auth is! Authenticated) return;
-    final session = ref
-        .read(clientActiveValidationSessionProvider(merchantId))
-        .valueOrNull;
+    final session =
+        ref.read(clientActiveValidationSessionProvider(merchantId)).valueOrNull;
     if (session == null ||
         !session.isAwaiting ||
         session.isExpired ||
@@ -859,7 +859,8 @@ class _ClientBleBroadcastScreenState
   Future<void> _showClientBleDebugPicker() async {
     final auth = ref.read(auth_providers.authStateProvider);
     if (auth is! Authenticated) return;
-    final feed = ref.read(client_home_providers.clientHomeFeedProvider).valueOrNull;
+    final feed =
+        ref.read(client_home_providers.clientHomeFeedProvider).valueOrNull;
     final merchants = feed?.merchants ?? const <Merchant>[];
     if (!mounted) return;
     if (merchants.isEmpty) {
@@ -904,9 +905,7 @@ class _ClientBleBroadcastScreenState
                       )
                     : null,
                 enabled: m.id != authId,
-                onTap: m.id == authId
-                    ? null
-                    : () => Navigator.of(ctx).pop(m),
+                onTap: m.id == authId ? null : () => Navigator.of(ctx).pop(m),
               ),
           ],
         ),
@@ -935,9 +934,9 @@ class _ClientBleBroadcastScreenState
     sessionResult.fold(
       (f) => setState(() => _merchantActionMessage = f.message),
       (_) => setState(() {
-          _connectedMerchantId = picked.id;
-          _connectedMerchantLogoUrl = picked.logoUrl;
-        }),
+        _connectedMerchantId = picked.id;
+        _connectedMerchantLogoUrl = picked.logoUrl;
+      }),
     );
   }
 
@@ -987,7 +986,8 @@ class _ClientBleBroadcastScreenState
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: StorefrontColors.primaryGold.withValues(alpha: 0.5),
+                          color: StorefrontColors.primaryGold
+                              .withValues(alpha: 0.5),
                           width: 1.0,
                         ),
                       ),
@@ -1082,8 +1082,8 @@ class _ClientBleBroadcastScreenState
           Builder(
             builder: (context) {
               final session = ref
-                  .watch(
-                      clientActiveValidationSessionProvider(_connectedMerchantId!))
+                  .watch(clientActiveValidationSessionProvider(
+                      _connectedMerchantId!))
                   .valueOrNull;
               final merchantTitle = _merchantTitleForConnected(session);
               return Container(
@@ -1353,9 +1353,8 @@ class _ClientBleBroadcastScreenState
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
       data: (merchants) {
-        final manual = merchants
-            .where((m) => !nearbyIds.contains(m.id))
-            .toList();
+        final manual =
+            merchants.where((m) => !nearbyIds.contains(m.id)).toList();
         if (manual.isEmpty) return const SizedBox.shrink();
 
         return Column(
@@ -1510,8 +1509,8 @@ class _ClientBleBroadcastScreenState
               style: FilledButton.styleFrom(
                 backgroundColor: StorefrontColors.primaryGold,
                 foregroundColor: StorefrontColors.navyDark,
-                disabledBackgroundColor: StorefrontColors.primaryGold
-                    .withValues(alpha: 0.4),
+                disabledBackgroundColor:
+                    StorefrontColors.primaryGold.withValues(alpha: 0.4),
               ),
               child: _retrying
                   ? const SizedBox(
@@ -1555,4 +1554,3 @@ class _ClientBleBroadcastScreenState
     );
   }
 }
-

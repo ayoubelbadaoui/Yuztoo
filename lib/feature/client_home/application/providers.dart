@@ -144,13 +144,15 @@ Future<ClientHomeFeed> _buildClientHomeFeed({
   }
 
   final merchantsResult = await merchantRepo.getMerchantsByIds(followedIds);
+  // Copy into a growable list: the feed sorts and inserts the own-merchant
+  // tile below, and the repository may hand back an unmodifiable list.
   final merchants = merchantsResult.fold((failure) {
     LoggerService.logError(
       'Client home feed: getMerchantsByIds failed',
       context: {'failure': failure.toString(), 'requested': followedIds.length},
     );
     return <Merchant>[];
-  }, (list) => list);
+  }, (list) => List<Merchant>.of(list));
 
   if (followedIds.isNotEmpty && merchants.isEmpty) {
     LoggerService.logError(

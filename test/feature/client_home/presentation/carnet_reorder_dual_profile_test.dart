@@ -6,6 +6,7 @@
 ///
 /// Fix: rebuild `_ordered` from the reorderable subset + pinned own-merchant
 /// instead of relying on a fixed offset.
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +37,10 @@ Merchant _m(String id, String name) => Merchant(
 /// Fake repo that captures every `updateSortOrder` call.
 class _CapturingFollowedRepo implements FollowedMerchantsRepository {
   final List<Map<String, int>> calls = [];
+
+  @override
+  Stream<List<String>> watchFollowedIds(String userId) =>
+      Stream<List<String>>.value(const <String>[]);
 
   @override
   Future<Result<Unit>> updateSortOrder(
@@ -136,7 +141,7 @@ Widget _buildScreen({
     overrides: [
       auth_providers.currentUserIdProvider.overrideWith((ref) => 'user_test'),
       followedMerchantsRepositoryProvider.overrideWith((ref) => repo),
-      clientHomeFeedProvider.overrideWith((ref) async => feed),
+      clientHomeFeedProvider.overrideWith((ref) => Stream.value(feed)),
       followedMerchantHeartLevelsForCurrentUserProvider.overrideWith(
         (ref) async => const <String, int>{},
       ),

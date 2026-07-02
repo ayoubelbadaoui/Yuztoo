@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_yuztoo/feature/rappels/domain/entities/active_notification.dart';
 import 'package:flutter_yuztoo/feature/rappels/infrastructure/dto/auto_notification_dto.dart';
 
 void main() {
@@ -148,7 +147,8 @@ void main() {
   // This mirrors the defensive fix in fromFirestore and ensures the logic
   // is correct for all valid and invalid Firestore payloads.
   // ─────────────────────────────────────────────────────────────────────────
-  group('BUG-5: target_segments defensive parsing (fromFirestore guard mirror)', () {
+  group('BUG-5: target_segments defensive parsing (fromFirestore guard mirror)',
+      () {
     // Mirror of the fromFirestore defensive logic
     List<String> parseTargetSegments(dynamic raw) {
       if (raw is List) return List<String>.from(raw);

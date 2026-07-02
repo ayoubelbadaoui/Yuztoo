@@ -99,7 +99,7 @@ void main() {
     test('tier sequence: nouveau < soutien < habitue < vip', () {
       // Ensures the enum is declared in ascending order (important for
       // any code that uses `index` comparisons).
-      final values = ClientLoyaltyTier.values;
+      const values = ClientLoyaltyTier.values;
       expect(values[0], ClientLoyaltyTier.nouveau);
       expect(values[1], ClientLoyaltyTier.soutien);
       expect(values[2], ClientLoyaltyTier.habitue);

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
-import 'package:flutter_yuztoo/core/domain/core/failure.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/entities/auth_user.dart';
 import 'package:flutter_yuztoo/feature/followed_merchants/domain/repositories/followed_merchants_repository.dart';
@@ -70,8 +69,7 @@ class _CapturingLoyaltyRepo implements ClientLoyaltyRepository {
   LoyaltyProgramConfig? enrollProgram;
   int? visitDelta;
   double? spendDelta;
-  ClientMerchantLoyaltyProgress progress =
-      const ClientMerchantLoyaltyProgress(
+  ClientMerchantLoyaltyProgress progress = const ClientMerchantLoyaltyProgress(
     validatedPassages: 0,
     cumulativeSpendEuros: 0,
   );
@@ -111,7 +109,8 @@ class _CapturingLoyaltyRepo implements ClientLoyaltyRepository {
 
 class _NoopNotificationRepo implements ClientNotificationRepository {
   @override
-  Future<Result<ClientNotification>> create(ClientNotification notification) async =>
+  Future<Result<ClientNotification>> create(
+          ClientNotification notification) async =>
       Right(notification);
 
   @override
@@ -124,7 +123,8 @@ const _client = AuthUser(
   displayName: 'Alice',
 );
 
-Merchant _merchantWith(LoyaltyProgramConfig? program, {bool loyaltyEnabled = true}) {
+Merchant _merchantWith(LoyaltyProgramConfig? program,
+    {bool loyaltyEnabled = true}) {
   return Merchant(
     id: 'm-fid',
     ownerUid: 'owner-fid',
@@ -171,7 +171,8 @@ void main() {
         ),
       );
       expect(result.isLeft, isTrue);
-      expect(result.fold((f) => f, (_) => null), isA<MerchantLoyaltyInactiveFailure>());
+      expect(result.fold((f) => f, (_) => null),
+          isA<MerchantLoyaltyInactiveFailure>());
       expect(repo.bleSnapshots, isEmpty);
     });
 

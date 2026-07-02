@@ -12,6 +12,7 @@ import 'package:flutter_yuztoo/feature/followed_merchants/infrastructure/followe
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
 import 'package:flutter_yuztoo/feature/merchant/infrastructure/merchant_repository_provider.dart';
@@ -84,7 +85,7 @@ class _FakeMerchantRepository implements MerchantRepository {
 
   @override
   Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async =>
-      Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
+      const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
 
   @override
   Future<Result<bool>> merchantExists(String ownerUid) async =>
@@ -142,6 +143,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     bool? loyaltyEnabledStandalone,
     String? merchantType,
     bool clearCityField = false,
+    List<MerchantStorefrontLink>? storefrontLinks,
   }) async =>
       const Left<MerchantFailure, Merchant>(
         MerchantUnexpectedFailure(message: 'unused'),
@@ -287,8 +289,7 @@ void main() {
 
     test(
         'legacy merchant where doc id == user id still resolves via the '
-        'fallback to getMerchantById (defence-in-depth)',
-        () async {
+        'fallback to getMerchantById (defence-in-depth)', () async {
       const userId = 'legacy-user-2';
       final merchantRepo = _FakeMerchantRepository(
         byOwnerUid: null, // legacy doc has no owner_uid index

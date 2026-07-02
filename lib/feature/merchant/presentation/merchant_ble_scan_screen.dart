@@ -154,7 +154,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
   /// E-Fidélité off — BLE passage validation is not offered.
   bool _loyaltyFideliteDisabled = false;
 
-  bool _blePassageAllowed(Merchant m) => isBlePassageAllowedForMerchant(m);
+  bool _blePassageAllowed(Merchant m) => isAutomaticPassageAllowedForMerchant(m);
 
   @override
   void initState() {

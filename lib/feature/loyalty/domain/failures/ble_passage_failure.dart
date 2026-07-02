@@ -2,7 +2,7 @@ import '../../../../core/domain/core/failure.dart';
 
 /// Follow merchant before BLE fidélité session.
 final class FollowRequiredFailure extends AppFailure {
-  FollowRequiredFailure({
+  const FollowRequiredFailure({
     required this.merchantId,
     required this.merchantDisplayName,
   }) : super(
@@ -15,14 +15,13 @@ final class FollowRequiredFailure extends AppFailure {
 
 /// Merchant loyalty program not active for BLE passage.
 final class MerchantLoyaltyInactiveFailure extends AppFailure {
-  MerchantLoyaltyInactiveFailure([String? customMessage])
+  const MerchantLoyaltyInactiveFailure([String? customMessage])
       : super(
-          customMessage ??
-              'La fidélité n\'est pas activée pour ce commerce.',
+          customMessage ?? 'La fidélité n\'est pas activée pour ce commerce.',
         );
 }
 
 /// Session no longer actionable (expired, completed, cancelled).
 final class BlePassageSessionFailure extends AppFailure {
-  const BlePassageSessionFailure(String reason) : super(reason);
+  const BlePassageSessionFailure(super.reason);
 }

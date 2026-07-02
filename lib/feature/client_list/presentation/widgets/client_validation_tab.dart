@@ -75,8 +75,7 @@ class ClientValidationTab extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.loyalty_outlined,
-                size: 48,
-                color: MerchantColors.gold.withValues(alpha: 0.5)),
+                size: 48, color: MerchantColors.gold.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(
               'Activez E-Fidélité pour gérer la validation des passages, '
@@ -130,7 +129,7 @@ class ClientValidationTab extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            PassageValidationSection(),
+            const PassageValidationSection(),
             const SizedBox(height: 12),
             _HubCard(
               icon: Icons.tune_rounded,
@@ -314,7 +313,9 @@ class _ModeBadge extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            isManual ? Icons.pending_actions_rounded : Icons.bluetooth_searching,
+            isManual
+                ? Icons.pending_actions_rounded
+                : Icons.bluetooth_searching,
             color: MerchantColors.gold,
             size: 20,
           ),
