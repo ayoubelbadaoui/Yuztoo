@@ -585,7 +585,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
             SharePlus.instance.share(
               ShareParams(
                 text:
-                    '📍 Rejoins Yuztoo — l\'app qui connecte les commerçants locaux et leurs clients !\n\nhttps://yuztoo.app/invite',
+                    '📍 Rejoins Yuztoo — l\'app qui connecte les commerçants locaux et leurs clients !\n\nhttps://yuztoo.web.app/invite',
                 subject: 'Rejoins Yuztoo',
               ),
             );

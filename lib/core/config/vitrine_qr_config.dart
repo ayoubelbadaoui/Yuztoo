@@ -3,8 +3,18 @@
 ///
 /// Scanners (in-app or system camera + App Links later) resolve to the client vitrine.
 abstract final class VitrineQrConfig {
-  static const String _appHost = 'yuztoo.app';
+  static const String _appHost = 'yuztoo.web.app';
   static const String _pathSegment = 'vitrine';
+
+  /// Hosts we accept when parsing an inbound vitrine link. Kept permissive so a
+  /// tag/QR programmed for any of our domains still resolves in-app, regardless
+  /// of which host we ultimately standardize on for store approval.
+  static const Set<String> _acceptedHosts = {
+    'yuztoo.app',
+    'www.yuztoo.app',
+    'yuztoo.web.app',
+    'yuztoo.firebaseapp.com',
+  };
 
   /// HTTPS link shown in QR — unique per commerce; opens vitrine when handled by the app or site.
   static String uriStringForMerchant(String merchantId) {
@@ -27,10 +37,10 @@ abstract final class VitrineQrConfig {
       if (segs.isNotEmpty) return segs.first;
     }
 
-    // https://yuztoo.app/vitrine/{merchantId} (or www)
+    // https://<accepted-host>/vitrine/{merchantId}
     if (uri.scheme == 'https' || uri.scheme == 'http') {
       final host = uri.host.toLowerCase();
-      if (host == _appHost || host == 'www.$_appHost') {
+      if (_acceptedHosts.contains(host)) {
         final segs = uri.pathSegments.where((s) => s.isNotEmpty).toList();
         if (segs.length >= 2 && segs[0] == _pathSegment) {
           return segs[1];

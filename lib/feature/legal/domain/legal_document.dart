@@ -198,7 +198,7 @@ const _termsOfService = LegalDocumentMeta(
       heading: '13. Contact',
       body:
           'Pour toute question relative aux présentes CGU, vous pouvez nous '
-          'contacter à l\'adresse contact@yuztoo.app.',
+          'contacter à l\'adresse contact@yuztoo.com.',
     ),
   ],
 );
@@ -222,7 +222,7 @@ const _privacyPolicy = LegalDocumentMeta(
       body:
           'Yuztoo est le responsable du traitement de vos données '
           'personnelles. Pour toute question ou demande relative à vos '
-          'données, vous pouvez nous écrire à privacy@yuztoo.app.',
+          'données, vous pouvez nous écrire à contact@yuztoo.com.',
     ),
     LegalSection(
       heading: '2. Données collectées',
@@ -311,7 +311,7 @@ const _privacyPolicy = LegalDocumentMeta(
           '• Droit à la limitation et à l\'opposition au traitement.\n'
           '• Droit à la portabilité de vos données.\n'
           '• Droit de définir des directives post mortem.\n\n'
-          'Pour exercer ces droits, écrivez-nous à privacy@yuztoo.app. '
+          'Pour exercer ces droits, écrivez-nous à contact@yuztoo.com. '
           'Nous répondons dans un délai d\'un (1) mois. Vous pouvez '
           'également introduire une réclamation auprès de la CNIL '
           '(www.cnil.fr).',
@@ -355,7 +355,7 @@ const _privacyPolicy = LegalDocumentMeta(
       heading: '12. Contact',
       body:
           'Pour toute question relative à la protection de vos données, '
-          'vous pouvez nous contacter à privacy@yuztoo.app.',
+          'vous pouvez nous contacter à contact@yuztoo.com.',
     ),
   ],
 );

@@ -102,7 +102,7 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                           label: l10n.helpCenter,
                           onTap: () async {
                             final messenger = ScaffoldMessenger.of(context);
-                            final url = Uri.parse('https://yuztoo.app/aide');
+                            final url = Uri.parse('https://yuztoo.web.app/aide');
                             if (await canLaunchUrl(url)) {
                               await launchUrl(url,
                                   mode: LaunchMode.externalApplication);

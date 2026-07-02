@@ -121,7 +121,7 @@
 
     <footer>
       <span>Yuztoo, le carnet de vos commerces préférés.</span><br />
-      <a href="https://yuztoo.app">yuztoo.app</a>
+      <a href="https://yuztoo.web.app">yuztoo.web.app</a>
     </footer>
   </main>
 
@@ -158,7 +158,7 @@
       var isAndroid = /Android/i.test(ua);
 
       // Custom scheme that the installed app handles. The universal/app link
-      // (https://yuztoo.app/vitrine/{id}) usually opens the app first; this is
+      // (https://yuztoo.web.app/vitrine/{id}) usually opens the app first; this is
       // the explicit in-page fallback when the user lands on the web page.
       var appLink = merchantId
         ? 'yuztoo://vitrine/' + encodeURIComponent(merchantId)
@@ -167,7 +167,7 @@
       // Where a NON-installed user should go to get the app for their device.
       var storeUrl = isIOS ? IOS_URL
         : isAndroid ? APK_URL
-        : 'https://yuztoo.app';
+        : 'https://yuztoo.web.app';
 
       var openApp = document.getElementById('open-app');
       var download = document.getElementById('download');

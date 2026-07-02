@@ -326,7 +326,7 @@ void main() {
         if (c.expected == null) {
           expect(url, isEmpty);
         } else {
-          expect(url, 'https://yuztoo.app/vitrine/${c.id.trim()}');
+          expect(url, 'https://yuztoo.web.app/vitrine/${c.id.trim()}');
           expect(VitrineQrConfig.tryParseMerchantId(url), c.expected);
         }
       });

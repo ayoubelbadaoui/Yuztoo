@@ -1,6 +1,11 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Required for push notifications on Android 13+ (API 33+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- We do not use the advertising ID. A transitive dependency (Play
+         Services / analytics) can silently merge this permission in; strip it
+         so it matches the Play Data Safety declaration (no ad ID collected). -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
     <!-- NFC: required for reading and writing NFC tags. -->
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
@@ -52,11 +57,15 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- https://yuztoo.app/vitrine/{merchantId} — opens client vitrine in-app when verified (optional: assetlinks.json). -->
+            <!-- https://yuztoo.web.app/vitrine/{merchantId} — opens client vitrine in-app when
+                 verified via /.well-known/assetlinks.json. The legacy yuztoo.app host is kept so
+                 badges/QRs already printed for it still resolve in-app. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="yuztoo.web.app" android:pathPrefix="/vitrine" />
+                <data android:scheme="http" android:host="yuztoo.web.app" android:pathPrefix="/vitrine" />
                 <data android:scheme="https" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
                 <data android:scheme="http" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
             </intent-filter>
@@ -77,6 +86,8 @@
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
                 <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="https" android:host="yuztoo.web.app" android:pathPrefix="/vitrine" />
+                <data android:scheme="http" android:host="yuztoo.web.app" android:pathPrefix="/vitrine" />
                 <data android:scheme="https" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
                 <data android:scheme="http" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
                 <data android:scheme="yuztoo" android:host="vitrine" />
