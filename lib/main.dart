@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'l10n/app_localizations.dart';
 
@@ -25,6 +27,8 @@ import 'feature/splash/application/screens.dart';
 import 'feature/role_selection/application/screens.dart';
 import 'feature/auth/login/application/screens.dart';
 import 'feature/auth/signup/application/screens.dart';
+import 'feature/auth/signup/application/providers.dart' as signup_providers;
+import 'feature/auth/signup/application/state/oauth_signup_state.dart';
 import 'feature/client_onboarding/application/screens.dart';
 import 'feature/client_home/application/screens.dart';
 import 'feature/discovery/application/screens.dart';
@@ -54,6 +58,7 @@ import 'feature/merchant_partners/presentation/merchant_partners_screen.dart';
 import 'feature/e_fidelite/application/screens.dart';
 import 'feature/guest/presentation/guest_shell.dart';
 import 'feature/merchant/application/providers.dart' as merchant_providers;
+import 'feature/merchant/domain/entities/merchant.dart';
 import 'feature/client_notification/application/providers.dart'
     as client_notification_providers;
 import 'feature/client_notification/infrastructure/fcm_token_service.dart';
@@ -63,6 +68,7 @@ import 'core/infrastructure/ble_proximity_notifier.dart';
 import 'core/infrastructure/logger_service.dart';
 import 'feature/loyalty/application/active_validation_providers.dart';
 import 'feature/loyalty/domain/entities/active_validation_request.dart';
+import 'feature/loyalty/infrastructure/active_validation_repository_provider.dart';
 import 'feature/loyalty/domain/loyalty_passage_program_policy.dart';
 import 'feature/loyalty/presentation/merchant_passage_validation_flow.dart';
 import 'feature/loyalty/presentation/widgets/loyalty_celebration_overlay.dart';

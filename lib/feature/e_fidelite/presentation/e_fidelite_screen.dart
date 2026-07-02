@@ -12,11 +12,13 @@ import '../../storefront/application/providers.dart' as storefront_providers;
 import '../../loyalty/application/client_loyalty_providers.dart'
     show loyaltyProgramsDiffer;
 import '../application/e_fidelite_providers.dart';
+import '../application/loyalty_program_editing_notifier.dart';
 import '../application/loyalty_program_flow.dart';
 import 'widgets/loyalty_configuration_wizard.dart';
 
 part 'e_fidelite_screen.part.dart';
 part 'loyalty_program_recap.part.dart';
+part 'loyalty_quick_edit.part.dart';
 
 /// Merchant "E-Fidélité" — loyalty questionnaire + Firestore persistence.
 class EFideliteScreen extends ConsumerStatefulWidget {
@@ -28,7 +30,7 @@ class EFideliteScreen extends ConsumerStatefulWidget {
   ConsumerState<EFideliteScreen> createState() => _EFideliteScreenState();
 }
 
-enum _EFideliteViewMode { recap, wizard }
+enum _EFideliteViewMode { recap, wizard, quickEdit }
 
 class _EFideliteScreenState extends ConsumerState<EFideliteScreen> {
   bool _saving = false;
@@ -38,12 +40,44 @@ class _EFideliteScreenState extends ConsumerState<EFideliteScreen> {
   bool _viewModeInitialized = false;
 
   void _handleEfideliteBack() {
+    // Quick-edit is reached from the recap, so "back" should return there
+    // (discarding unsaved tweaks) instead of leaving the screen entirely.
+    if (_viewMode == _EFideliteViewMode.quickEdit) {
+      _cancelQuickEdit();
+      return;
+    }
     final merchant = ref.read(currentMerchantForOwnerProvider).valueOrNull;
     ref
         .read(loyaltyProgramEditingProvider.notifier)
         .resumeHydrationIfPaused(merchant);
     ref.read(loyaltyWizardMaxStepVisitedProvider.notifier).state = 0;
     widget.onBack?.call();
+  }
+
+  /// Opens the compact dropdown-based editor for the existing programme.
+  void _openQuickEdit() {
+    // editingFromRecap=true keeps the header "Enregistrer" enabled, and
+    // marking every step visited satisfies the save gate for active programs.
+    ref.read(loyaltyWizardMaxStepVisitedProvider.notifier).state =
+        loyaltyWizardLastStepIndex;
+    setState(() {
+      _viewMode = _EFideliteViewMode.quickEdit;
+      _editingFromRecap = true;
+    });
+  }
+
+  /// Discards in-memory tweaks and returns to the recap.
+  void _cancelQuickEdit() {
+    final merchant = ref.read(currentMerchantForOwnerProvider).valueOrNull;
+    if (merchant != null) {
+      ref
+          .read(loyaltyProgramEditingProvider.notifier)
+          .applySavedMerchant(merchant);
+    }
+    setState(() {
+      _viewMode = _EFideliteViewMode.recap;
+      _editingFromRecap = false;
+    });
   }
 
   Future<void> _confirmAndStartNewProgram(Merchant merchant) async {

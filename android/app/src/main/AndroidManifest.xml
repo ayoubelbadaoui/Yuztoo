@@ -1,7 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Required for push notifications on Android 13+ (API 33+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <!-- NFC: required for reading and writing NFC tags. -->
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
@@ -60,13 +59,26 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
                 <data android:scheme="http" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
-                <data android:scheme="https" android:host="www.yuztoo.app" android:pathPrefix="/vitrine" />
             </intent-filter>
             <!-- yuztoo://vitrine/{merchantId} -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="yuztoo" android:host="vitrine" />
+            </intent-filter>
+            <!-- NFC tag tap → open the app directly and register the passage,
+                 with no browser / no "ouvrir avec / rediriger ?" prompt.
+                 NDEF_DISCOVERED is matched by Android's NFC tag-dispatch system
+                 BEFORE the generic URL VIEW dispatch, so claiming the vitrine
+                 URI here makes Yuztoo the handler even when the https App Link
+                 is not (or cannot be) verified. MainActivity reads the NDEF URI
+                 and hands the merchantId to Flutter (see MainActivity.kt). -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="https" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
+                <data android:scheme="http" android:host="yuztoo.app" android:pathPrefix="/vitrine" />
                 <data android:scheme="yuztoo" android:host="vitrine" />
             </intent-filter>
         </activity>

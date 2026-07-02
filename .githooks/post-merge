@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Git post-merge hook — fires after `git pull` (which is fetch + merge)
+# and after `git merge`. The relevant range is ORIG_HEAD..HEAD.
+
+ROOT="$(git rev-parse --show-toplevel)"
+exec "$ROOT/.githooks/sync-flutter-ios.sh" "ORIG_HEAD" "HEAD"

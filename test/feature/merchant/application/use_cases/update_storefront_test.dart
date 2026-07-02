@@ -4,6 +4,7 @@ import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/merchant/application/use_cases/update_storefront.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
@@ -92,6 +93,7 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
     String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool? passageCooldownEnabled,
     LoyaltyProgramConfig? loyaltyProgram,
     bool? messagingEnabled,
     bool? notificationsAutoEnabled,
@@ -99,6 +101,7 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
     bool? loyaltyEnabledStandalone,
     String? merchantType,
     bool clearCityField = false,
+    List<MerchantStorefrontLink>? storefrontLinks,
   }) async {
     lastMerchantId = merchantId;
     lastLogoUrl = logoUrl;

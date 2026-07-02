@@ -44,16 +44,6 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<Result<AuthUser>> signupWithEmailAndPassword({
-    required EmailAddress email,
-    required Password password,
-  }) async {
-    return Right<AuthFailure, AuthUser>(
-      AuthUser(id: 'uid-123', email: email.value),
-    );
-  }
-
-  @override
   Future<Result<String>> sendPhoneVerification({
     required String phoneNumber,
   }) async {

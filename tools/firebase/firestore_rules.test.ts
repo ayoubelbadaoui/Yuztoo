@@ -807,6 +807,69 @@ describe("merchants/sent_notifications", () => {
     );
   });
 
+  test("signed-in client can increment ONLY open_count on a sent_notification", async () => {
+    await seedMerchant("merch1", "owner1");
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("sent_notifications")
+        .doc("sn1")
+        .set({ text: "Hello", sent_count: 10, open_count: 0 });
+    });
+    await assertSucceeds(
+      authDb("client1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("sent_notifications")
+        .doc("sn1")
+        .update({ open_count: 1 })
+    );
+  });
+
+  test("merchant owner can update ONLY sent_count on a sent_notification", async () => {
+    await seedMerchant("merch1", "owner1");
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("sent_notifications")
+        .doc("sn1")
+        .set({ text: "Hello", sent_count: 0, open_count: 0 });
+    });
+    await assertSucceeds(
+      authDb("owner1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("sent_notifications")
+        .doc("sn1")
+        .update({ sent_count: 5 })
+    );
+  });
+
+  test("client CANNOT modify sent_notification text", async () => {
+    await seedMerchant("merch1", "owner1");
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("sent_notifications")
+        .doc("sn1")
+        .set({ text: "Hello", sent_count: 1, open_count: 0 });
+    });
+    await assertFails(
+      authDb("client1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("sent_notifications")
+        .doc("sn1")
+        .update({ text: "Hacked" })
+    );
+  });
+
   test("CANNOT DELETE a sent_notification", async () => {
     await seedMerchant("merch1", "owner1");
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -901,6 +964,23 @@ describe("users/notifications", () => {
     );
   });
 
+  test("user CAN CREATE a merchant-attributed notification in their OWN inbox (automatic passage)", async () => {
+    await seedMerchant("merch-shop", "owner-shop");
+    await assertSucceeds(
+      authDb("alice")
+        .collection("users")
+        .doc("alice")
+        .collection("notifications")
+        .add({
+          merchant_id: "merch-shop",
+          merchant_name: "Shop",
+          message: "Passage validé",
+          is_read: false,
+          created_at: new Date(),
+        })
+    );
+  });
+
   test("non-owner CANNOT CREATE notification impersonating another merchant_id", async () => {
     await seedMerchant("merch-victim", "owner-victim");
     await assertFails(
@@ -969,9 +1049,9 @@ describe("users/notifications", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("merchants/loyalty_clients", () => {
-  test("client can CREATE their own loyalty entry with valid values", async () => {
+  test("client CANNOT create their own loyalty entry (merchant-only create)", async () => {
     await seedMerchant("merch1", "owner1");
-    await assertSucceeds(
+    await assertFails(
       authDb("client1")
         .collection("merchants")
         .doc("merch1")
@@ -982,6 +1062,24 @@ describe("merchants/loyalty_clients", () => {
           pending_passages: 0,
           cumulative_spend_euros: 0,
           updated_at: new Date(),
+        })
+    );
+  });
+
+  test("merchant owner CAN CREATE a loyalty entry on first validation", async () => {
+    await seedMerchant("merch1", "owner1");
+    await assertSucceeds(
+      authDb("owner1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set({
+          validated_passages: 1,
+          cumulative_spend_euros: 0,
+          updated_at: new Date(),
+          first_visit_at: new Date(),
+          last_passage_at: new Date(),
         })
     );
   });
@@ -1071,7 +1169,7 @@ describe("merchants/loyalty_clients", () => {
     );
   });
 
-  test("client CAN increment when last_passage_at is older than 1 hour", async () => {
+  test("merchant owner CAN increment when last_passage_at is older than 1 hour", async () => {
     await seedMerchant("merch1", "owner1");
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -1091,7 +1189,44 @@ describe("merchants/loyalty_clients", () => {
         });
     });
     await assertSucceeds(
-      authDb("client1")
+      authDb("owner1")
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set(
+          {
+            validated_passages: 2,
+            pending_passages: 0,
+            cumulative_spend_euros: 0,
+            updated_at: new Date(),
+            last_passage_at: new Date(),
+          },
+          { merge: true }
+        )
+    );
+  });
+
+  test("merchant owner CAN increment inside 1h when passage_cooldown_enabled is false", async () => {
+    await seedMerchant("merch1", "owner1", { passage_cooldown_enabled: false });
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("merchants")
+        .doc("merch1")
+        .collection("loyalty_clients")
+        .doc("client1")
+        .set({
+          validated_passages: 1,
+          pending_passages: 0,
+          cumulative_spend_euros: 0,
+          updated_at: new Date(),
+          last_passage_at: new Date(),
+          first_visit_at: new Date(),
+        });
+    });
+    await assertSucceeds(
+      authDb("owner1")
         .collection("merchants")
         .doc("merch1")
         .collection("loyalty_clients")
@@ -1176,10 +1311,9 @@ describe("merchants/loyalty_clients", () => {
     );
   });
 
-  test("client CAN create an empty loyalty seed doc without last_passage_at", async () => {
-    // Sanity: pure-seed creates (all counters at 0) remain anchor-free.
+  test("client CANNOT create an empty loyalty seed doc (merchant-only create)", async () => {
     await seedMerchant("merch1", "owner1");
-    await assertSucceeds(
+    await assertFails(
       authDb("client1")
         .collection("merchants")
         .doc("merch1")
@@ -1341,7 +1475,6 @@ describe("active_validations BLE create", () => {
         created_at: new Date(),
         status: "awaiting",
         program_snapshot: kProgramSnapshot,
-        source: "ble",
         client_ble_connected_at: new Date(),
       })
     );

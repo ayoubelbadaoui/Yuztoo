@@ -584,7 +584,7 @@ class _FreeProductNameFieldState extends State<_FreeProductNameField> {
           fontSize: 13,
         ),
         filled: true,
-        fillColor: MerchantColors.bgMain.withValues(alpha: 0.65),
+        fillColor: MerchantColors.inputFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(

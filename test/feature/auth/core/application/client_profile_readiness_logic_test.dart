@@ -39,4 +39,54 @@ void main() {
       'Jean Martin',
     );
   });
+
+  group('ClientProfileReadiness re-entry gate', () {
+    // Regression: a client account created with a skipped photo (which the
+    // onboarding wizard explicitly allows) was bounced back into onboarding
+    // on every merchant→client switch because the gate required photo+city.
+    test('photo and city gaps do NOT block client home re-entry', () {
+      const readiness = ClientProfileReadiness(
+        hasClientRole: true,
+        onboardingCompleted: true,
+        missingForClientHome: [
+          ClientProfileMissingField.photo,
+          ClientProfileMissingField.city,
+        ],
+      );
+      expect(readiness.canEnterClientHomeDirectly, isTrue);
+      expect(readiness.hasRequiredIdentityData, isTrue);
+      expect(readiness.isProfileDataComplete, isFalse);
+      // Optional gaps must not be announced in the confirmation dialog.
+      expect(readiness.missingFieldsLabelFr, isEmpty);
+    });
+
+    test('missing identity fields DO block re-entry', () {
+      const readiness = ClientProfileReadiness(
+        hasClientRole: true,
+        onboardingCompleted: false,
+        missingForClientHome: [
+          ClientProfileMissingField.firstName,
+          ClientProfileMissingField.dateOfBirth,
+          ClientProfileMissingField.photo,
+        ],
+      );
+      expect(readiness.canEnterClientHomeDirectly, isFalse);
+      expect(readiness.missingRequiredFields, [
+        ClientProfileMissingField.firstName,
+        ClientProfileMissingField.dateOfBirth,
+      ]);
+      // Dialog copy lists identity gaps only — photo is omitted.
+      expect(readiness.missingFieldsLabelFr, 'prénom, date de naissance');
+    });
+
+    test('missing client role blocks re-entry even with full identity', () {
+      const readiness = ClientProfileReadiness(
+        hasClientRole: false,
+        onboardingCompleted: false,
+        missingForClientHome: [],
+      );
+      expect(readiness.canEnterClientHomeDirectly, isFalse);
+      expect(readiness.hasRequiredIdentityData, isTrue);
+    });
+  });
 }

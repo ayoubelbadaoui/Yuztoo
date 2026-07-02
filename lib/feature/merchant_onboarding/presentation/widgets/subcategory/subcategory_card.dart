@@ -1,26 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../../core/shared/widgets/overflow_scroll_text.dart';
 import 'subcategory_colors.dart';
 import '../../../domain/entities/merchant_subcategory.dart';
 
-/// Maps subcategory id to a meaningful icon — presentation layer only.
+/// Maps a business id to a meaningful icon — presentation layer only.
+///
+/// Ids are prefixed by category (`bouche_*`, `btp_*`, …, see
+/// [MerchantSubcategoryCatalog]); a handful of well-known businesses get a
+/// dedicated icon, everything else falls back to its category icon.
 IconData _iconForSubcategory(String id) {
-  return switch (id) {
-    'cafe' => Icons.local_cafe_rounded,
-    'restaurant' => Icons.restaurant_rounded,
-    'restauration' => Icons.fastfood_rounded,
-    'boulangerie' => Icons.bakery_dining_rounded,
-    'boucherie' => Icons.lunch_dining_rounded,
-    'poissonnerie' => Icons.set_meal_rounded,
-    'fromagerie' => Icons.emoji_food_beverage_rounded,
-    'confiserie' => Icons.cake_rounded,
-    'glacier' => Icons.icecream_rounded,
-    'caviste' => Icons.wine_bar_rounded,
-    'maraicher' => Icons.grass_rounded,
-    'ferme' => Icons.eco_rounded,
-    'artisans' => Icons.storefront_rounded,
-    'boutique' => Icons.spa_rounded,
-    'traiteur' => Icons.delivery_dining_rounded,
+  // Specific overrides where an obvious glyph exists.
+  switch (id) {
+    case 'bouche_cafe':
+      return Icons.local_cafe_rounded;
+    case 'bouche_resto_rapide':
+      return Icons.fastfood_rounded;
+    case 'bouche_boulangerie':
+      return Icons.bakery_dining_rounded;
+    case 'bouche_boucherie':
+      return Icons.lunch_dining_rounded;
+    case 'bouche_poissonnerie':
+      return Icons.set_meal_rounded;
+    case 'bouche_caviste':
+      return Icons.wine_bar_rounded;
+    case 'bouche_glacier':
+      return Icons.icecream_rounded;
+    case 'bouche_traiteur':
+      return Icons.delivery_dining_rounded;
+    case 'bouche_producteurs':
+      return Icons.eco_rounded;
+    case 'beaute_coiffeur':
+    case 'beaute_barbier':
+      return Icons.content_cut_rounded;
+    case 'loisirs_fitness':
+    case 'loisirs_club_sportif':
+      return Icons.fitness_center_rounded;
+    case 'loisirs_yoga':
+      return Icons.self_improvement_rounded;
+    case 'loisirs_hotel':
+      return Icons.hotel_rounded;
+    case 'servpart_garagiste':
+      return Icons.directions_car_rounded;
+    case 'servpart_photographe':
+    case 'servpro_photo':
+      return Icons.photo_camera_rounded;
+    case 'sante_pharmacie':
+      return Icons.local_pharmacy_rounded;
+    case 'sante_veterinaire':
+    case 'beaute_toilettage':
+      return Icons.pets_rounded;
+    case 'btp_electricite':
+      return Icons.electrical_services_rounded;
+    case 'btp_plomberie':
+      return Icons.plumbing_rounded;
+    case 'btp_peinture':
+      return Icons.format_paint_rounded;
+    case 'btp_paysagiste':
+    case 'btp_espaces_verts':
+      return Icons.grass_rounded;
+    case 'servpro_it':
+      return Icons.computer_rounded;
+    case 'finjur_avocat':
+    case 'finjur_notaire':
+      return Icons.gavel_rounded;
+    case 'livraison_coursier':
+      return Icons.two_wheeler_rounded;
+  }
+
+  // Category-level fallback via id prefix.
+  final prefix = id.contains('_') ? id.substring(0, id.indexOf('_')) : id;
+  return switch (prefix) {
+    'bouche' => Icons.restaurant_rounded,
+    'commerce' => Icons.storefront_rounded,
+    'beaute' => Icons.spa_rounded,
+    'sante' => Icons.medical_services_rounded,
+    'servpart' => Icons.home_repair_service_rounded,
+    'loisirs' => Icons.attractions_rounded,
+    'assoc' => Icons.groups_rounded,
+    'btp' => Icons.construction_rounded,
+    'servpro' => Icons.business_center_rounded,
+    'grossiste' => Icons.warehouse_rounded,
+    'immo' => Icons.apartment_rounded,
+    'finjur' => Icons.account_balance_rounded,
+    'livraison' => Icons.local_shipping_rounded,
+    'indep' => Icons.badge_rounded,
     _ => Icons.store_rounded,
   };
 }
@@ -129,17 +193,16 @@ class SubcategoryCard extends StatelessWidget {
                       ),
                     ),
                     child: Center(
-                      child: Text(
-                        subcategory.title,
+                      child: OverflowScrollText(
+                        text: subcategory.title,
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
                         style: GoogleFonts.outfit(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: SubcategoryColors.textLight,
                           height: 1.25,
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),

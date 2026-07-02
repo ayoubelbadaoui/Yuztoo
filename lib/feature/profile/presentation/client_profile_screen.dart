@@ -12,7 +12,11 @@ import '../../legal/domain/legal_document.dart';
 import '../../legal/presentation/legal_document_screen.dart';
 import '../../merchant_settings/presentation/data_privacy_screen.dart';
 import 'personal_information_screen.dart';
-import '../application/providers.dart';
+import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
+import '../../auth/core/application/providers.dart';
+import '../../auth/core/application/state/auth_state.dart';
+import '../application/refresh_user_profile_cache.dart';
+import '../application/user_safety_providers.dart';
 
 part 'client_profile_screen.part.dart';
 

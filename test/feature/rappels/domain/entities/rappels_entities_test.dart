@@ -72,6 +72,22 @@ void main() {
       expect(base.segments, isEmpty);
     });
 
+    test('default openCount is 0', () {
+      expect(base.openCount, 0);
+    });
+
+    test('copyWith openCount preserves other fields', () {
+      final copy = base.copyWith(openCount: 12);
+      expect(copy.openCount, 12);
+      expect(copy.sentCount, 42);
+      expect(copy.text, 'Promo du jour');
+    });
+
+    test('different openCount breaks equality', () {
+      final copy = base.copyWith(openCount: 1);
+      expect(copy, isNot(equals(base)));
+    });
+
     test('copyWith preserves untouched fields', () {
       final copy = base.copyWith(sentCount: 100);
       expect(copy.id, 's1');

@@ -393,7 +393,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
   /// Full-width debug button directly under the scanner header (always visible on iOS).
   Widget _buildHeaderSimulateButton() {
     return GestureDetector(
-      onTap: _openDebugSimulateSheet,
+      onTap: () => _openDebugEmulator(),
       behavior: HitTestBehavior.opaque,
       child: Container(
         width: double.infinity,
@@ -417,7 +417,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
                 color: Colors.orange.shade100, size: 20),
             const SizedBox(width: 10),
             Text(
-              'DEBUG — Simuler scan / passage',
+              'DEBUG — Emulateur NFC complet',
               style: GoogleFonts.outfit(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -440,7 +440,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
       child: Material(
         color: Colors.transparent,
         child: GestureDetector(
-          onTap: _openDebugSimulateSheet,
+          onTap: () => _openDebugEmulator(),
           behavior: HitTestBehavior.opaque,
           child: Container(
             width: double.infinity,
@@ -465,7 +465,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
                 const SizedBox(width: 10),
                 Flexible(
                   child: Text(
-                    'DEBUG — Simuler scan / passage',
+                    'DEBUG — Emulateur NFC complet',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
                       fontSize: 14,

@@ -85,7 +85,7 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
                             size: 20,
                           ),
                           filled: true,
-                          fillColor: MerchantColors.bgHeader,
+                          fillColor: MerchantColors.inputFill,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 10,

@@ -3,7 +3,7 @@ import '../../../../core/domain/core/failure.dart';
 import '../../../../core/domain/core/result.dart';
 import '../../../merchant/domain/repositories/merchant_repository.dart';
 
-/// Updates the three active Yuztoo service toggles on the merchant document.
+/// Updates service toggles on the merchant document.
 class UpdateServiceSettings {
   const UpdateServiceSettings(this._repository);
 
@@ -14,12 +14,14 @@ class UpdateServiceSettings {
     bool? notificationsAutoEnabled,
     bool? galerieEnabled,
     bool? loyaltyEnabled,
+    bool? passageCooldownEnabled,
   }) async {
     final result = await _repository.updateMerchant(
       merchantId: merchantId,
       notificationsAutoEnabled: notificationsAutoEnabled,
       galerieEnabled: galerieEnabled,
       loyaltyEnabledStandalone: loyaltyEnabled,
+      passageCooldownEnabled: passageCooldownEnabled,
     );
     return result.fold(
       (failure) => Left<AppFailure, Unit>(failure),

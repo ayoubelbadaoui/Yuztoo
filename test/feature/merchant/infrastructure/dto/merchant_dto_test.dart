@@ -272,6 +272,35 @@ void main() {
       });
     });
 
+    group('passage_cooldown_enabled Firestore round-trip', () {
+      test('toFirestore + toDomain preserves bool', () {
+        const dto = MerchantDto(
+          id: 'm1',
+          ownerUid: 'u1',
+          name: 'Shop',
+          email: 'a@b.c',
+          phone: '+33600000000',
+          city: 'Paris',
+          passageCooldownEnabled: false,
+        );
+        expect(dto.toFirestore()['passage_cooldown_enabled'], isFalse);
+        expect(dto.toDomain().passageCooldownEnabled, isFalse);
+      });
+
+      test('null omits field from toFirestore', () {
+        const dto = MerchantDto(
+          id: 'm1',
+          ownerUid: 'u1',
+          name: 'Shop',
+          email: 'a@b.c',
+          phone: '+33600000000',
+          city: 'Paris',
+        );
+        expect(dto.toFirestore().containsKey('passage_cooldown_enabled'), isFalse);
+        expect(dto.toDomain().passageCooldownEnabled, isNull);
+      });
+    });
+
     group('List fields (categories, newsImageUrls)', () {
       test('null → null (no categories set)', () {
         expect(parseStringList(null), isNull);

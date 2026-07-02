@@ -5,3 +5,4 @@
 EXCLUDED_ARCHS[sdk=iphonesimulator*] = i386
 // Pods_Runner.framework is emitted at ${PODS_CONFIGURATION_BUILD_DIR}/; Pods xcconfig only lists per-pod subdirs.
 FRAMEWORK_SEARCH_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}"
+APS_ENVIRONMENT = development

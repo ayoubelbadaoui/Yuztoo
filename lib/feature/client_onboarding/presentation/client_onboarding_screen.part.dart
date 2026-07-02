@@ -214,7 +214,7 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
           color: MerchantOnboardingColors.textGrey,
         ),
         filled: true,
-        fillColor: MerchantOnboardingColors.bgDark2,
+        fillColor: MerchantColors.inputFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),

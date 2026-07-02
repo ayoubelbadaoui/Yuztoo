@@ -14,7 +14,6 @@ import '../../login/application/providers.dart' as login_providers;
 import 'delete_account_exception.dart';
 import 'finalize_oauth_signup.dart';
 import 'oauth_signup_controller.dart';
-import 'signup_with_email_password.dart';
 import 'send_phone_verification.dart';
 import 'start_oauth_signup.dart';
 import 'state/oauth_signup_state.dart';
@@ -23,12 +22,6 @@ import 'verify_email_available_for_signup.dart';
 import 'verify_and_link_phone.dart';
 import 'verify_phone_and_create_user.dart';
 import 'create_user_document.dart';
-
-final signupWithEmailPasswordProvider =
-    Provider<SignupWithEmailPassword>((ref) {
-  final repository = ref.watch(authRepositoryProvider);
-  return SignupWithEmailPassword(repository);
-});
 
 final sendPhoneVerificationProvider =
     Provider<SendPhoneVerification>((ref) {
@@ -102,6 +95,11 @@ final oauthSignupControllerProvider =
           .read(auth_core.oauthFirestoreProfilePendingProvider.notifier)
           .state = pending;
     },
+    setFreshProfileRole: (role) {
+      ref.read(auth_core.oauthSignupFreshProfileRoleProvider.notifier).state =
+          role;
+    },
+    clearRoutingHints: () => auth_core.clearOAuthSignupRoutingHints(ref),
   );
   return controller;
 });

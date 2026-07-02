@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
-import '../../../../core/shared/widgets/snackbar.dart';
 import '../../domain/entities/promotion.dart';
 
-/// Analytics section — shows real view data plus locked premium metrics.
+/// Analytics section — shows real promotion metrics only.
 class PromoAnalytics extends StatelessWidget {
   const PromoAnalytics({super.key, required this.promotions});
 
@@ -36,8 +35,6 @@ class PromoAnalytics extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-
-          // ── real stats ──
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -56,14 +53,12 @@ class PromoAnalytics extends StatelessWidget {
                   icon: Icons.local_offer_outlined,
                   label: 'Promotions actives',
                   value: '$activeCount / $totalCount',
-                  locked: false,
                 ),
                 const SizedBox(height: 10),
                 _statRow(
                   icon: Icons.visibility_outlined,
                   label: 'Vues totales',
                   value: '$totalViews',
-                  locked: false,
                 ),
                 const SizedBox(height: 10),
                 _statRow(
@@ -72,75 +67,8 @@ class PromoAnalytics extends StatelessWidget {
                   value: totalEstimatedReach > 0
                       ? '$totalEstimatedReach'
                       : '—',
-                  locked: false,
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Divider(
-                    height: 1,
-                    color: Color(0xFF2A3A4C),
-                  ),
-                ),
-                _statRow(
-                  icon: Icons.ads_click_outlined,
-                  label: 'Impressions',
-                  value: '—',
-                  locked: true,
-                ),
-                const SizedBox(height: 10),
-                _statRow(
-                  icon: Icons.touch_app_outlined,
-                  label: 'Visites',
-                  value: '—',
-                  locked: true,
-                ),
-                const SizedBox(height: 10),
-                _statRow(
-                  icon: Icons.person_add_outlined,
-                  label: 'Nouveaux clients',
-                  value: '—',
-                  locked: true,
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // ── upgrade CTA ──
-          Builder(
-            builder: (ctx) => TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Bientôt disponible.',
-                      style: merchantSnackBarTextOnDark(),
-                    ),
-                    backgroundColor: MerchantColors.navyCard,
-                  ),
-                );
-              },
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                minimumSize: const Size(double.infinity, 0),
-                backgroundColor:
-                    MerchantColors.gold.withValues(alpha: 0.12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: MerchantColors.gold
-                        .withValues(alpha: MerchantColors.goldBorderStronger),
-                  ),
-                ),
-              ),
-              child: Text(
-                'Statistiques avancées — Bientôt disponible',
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: MerchantColors.gold,
-                ),
-              ),
             ),
           ),
         ],
@@ -152,51 +80,30 @@ class PromoAnalytics extends StatelessWidget {
     required IconData icon,
     required String label,
     required String value,
-    required bool locked,
   }) {
     return Row(
       children: [
         Icon(icon,
             size: 16,
-            color: locked
-                ? MerchantColors.textGrey
-                : MerchantColors.gold),
+            color: MerchantColors.gold.withValues(alpha: 0.85)),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             label,
             style: GoogleFonts.outfit(
-              fontSize: 12,
-              color: locked ? MerchantColors.textGrey : Colors.white,
+              fontSize: 13,
+              color: MerchantColors.textLightGrey,
             ),
           ),
         ),
-        if (locked)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.lock_outline_rounded,
-                  size: 12, color: MerchantColors.gold),
-              const SizedBox(width: 4),
-              Text(
-                value,
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: MerchantColors.textGrey,
-                ),
-              ),
-            ],
-          )
-        else
-          Text(
-            value,
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: MerchantColors.gold,
-            ),
+        Text(
+          value,
+          style: GoogleFonts.outfit(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
           ),
+        ),
       ],
     );
   }

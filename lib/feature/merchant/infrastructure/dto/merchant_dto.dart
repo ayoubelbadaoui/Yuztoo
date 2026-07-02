@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/utils/city_input.dart';
+import '../../domain/entities/merchant_storefront_link.dart';
 import '../../domain/entities/client_gratification_config.dart';
 import '../../domain/entities/merchant.dart';
 import '../loyalty_program_firestore_mapper.dart';
@@ -33,6 +34,7 @@ class MerchantDto {
     this.galerieEnabled = true,
     this.rappelsAutoClientValidation,
     this.rappelsAutoPassageValidation,
+    this.passageCooldownEnabled,
     this.rappelsMonthlyConnectedClients = 0,
     this.rappelsMonthlyValidatedPassages = 0,
     this.weeklyNotifSentCount = 0,
@@ -43,6 +45,7 @@ class MerchantDto {
     this.subcategoryTitle,
     this.gratificationConfigRaw,
     this.publicFollowersCount = 0,
+    this.storefrontLinks = const [],
   });
 
   final String id;
@@ -71,6 +74,7 @@ class MerchantDto {
   final bool galerieEnabled;
   final bool? rappelsAutoClientValidation;
   final bool? rappelsAutoPassageValidation;
+  final bool? passageCooldownEnabled;
   final int rappelsMonthlyConnectedClients;
   final int rappelsMonthlyValidatedPassages;
   final int weeklyNotifSentCount;
@@ -84,6 +88,21 @@ class MerchantDto {
 
   /// Denormalized follower count (`public_followers_count` on merchant doc).
   final int publicFollowersCount;
+
+  final List<MerchantStorefrontLink> storefrontLinks;
+
+  static List<MerchantStorefrontLink> _parseStorefrontLinks(dynamic raw) {
+    if (raw is! List) return const [];
+    final out = <MerchantStorefrontLink>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final link = MerchantStorefrontLink.fromMap(
+        Map<String, dynamic>.from(item),
+      );
+      if (link.isValid) out.add(link);
+    }
+    return out;
+  }
 
   /// Create DTO from Firestore document snapshot.
   factory MerchantDto.fromFirestore(
@@ -163,6 +182,9 @@ class MerchantDto {
           data['rappels_auto_passage_validation'] is bool
               ? data['rappels_auto_passage_validation'] as bool
               : null,
+      passageCooldownEnabled: data['passage_cooldown_enabled'] is bool
+          ? data['passage_cooldown_enabled'] as bool
+          : null,
       rappelsMonthlyConnectedClients:
           nonNegativeInt(data['rappels_monthly_connected_clients']),
       rappelsMonthlyValidatedPassages:
@@ -178,6 +200,7 @@ class MerchantDto {
               data['gratification_config'] as Map)
           : null,
       publicFollowersCount: nonNegativeInt(data['public_followers_count']),
+      storefrontLinks: _parseStorefrontLinks(data['storefront_links']),
     );
   }
 
@@ -209,6 +232,7 @@ class MerchantDto {
         galerieEnabled: galerieEnabled,
         rappelsAutoClientValidation: rappelsAutoClientValidation,
         rappelsAutoPassageValidation: rappelsAutoPassageValidation,
+        passageCooldownEnabled: passageCooldownEnabled,
         rappelsMonthlyConnectedClients: rappelsMonthlyConnectedClients,
         rappelsMonthlyValidatedPassages: rappelsMonthlyValidatedPassages,
         weeklyNotifSentCount: weeklyNotifSentCount,
@@ -221,6 +245,7 @@ class MerchantDto {
             ? ClientGratificationConfig.fromMap(gratificationConfigRaw!)
             : null,
         publicFollowersCount: publicFollowersCount,
+        storefrontLinks: storefrontLinks,
       );
   factory MerchantDto.fromDomain(Merchant merchant) => MerchantDto(
         id: merchant.id,
@@ -250,6 +275,7 @@ class MerchantDto {
         galerieEnabled: merchant.galerieEnabled,
         rappelsAutoClientValidation: merchant.rappelsAutoClientValidation,
         rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation,
+        passageCooldownEnabled: merchant.passageCooldownEnabled,
         rappelsMonthlyConnectedClients: merchant.rappelsMonthlyConnectedClients,
         rappelsMonthlyValidatedPassages: merchant.rappelsMonthlyValidatedPassages,
         weeklyNotifSentCount: merchant.weeklyNotifSentCount,
@@ -260,6 +286,7 @@ class MerchantDto {
         subcategoryTitle: merchant.subcategoryTitle,
         gratificationConfigRaw: merchant.gratificationConfig?.toMap(),
         publicFollowersCount: merchant.publicFollowersCount,
+        storefrontLinks: merchant.storefrontLinks,
       );
   /// Note: 'id' is not included as it's the Firestore document ID.
   Map<String, dynamic> toFirestore() => <String, dynamic>{
@@ -285,6 +312,7 @@ class MerchantDto {
         'galerie_enabled': galerieEnabled,
         if (rappelsAutoClientValidation != null) 'rappels_auto_client_validation': rappelsAutoClientValidation,
         if (rappelsAutoPassageValidation != null) 'rappels_auto_passage_validation': rappelsAutoPassageValidation,
+        if (passageCooldownEnabled != null) 'passage_cooldown_enabled': passageCooldownEnabled,
         'merchant_type': merchantType,
         if (welcomeGiftDescription != null)
           'welcome_gift_description': welcomeGiftDescription,

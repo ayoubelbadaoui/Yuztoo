@@ -194,7 +194,7 @@ class _PartnerInviteSheetState extends ConsumerState<PartnerInviteSheet> {
                       )
                     : null,
                 filled: true,
-                fillColor: MerchantColors.navyCard,
+                fillColor: MerchantColors.inputFill,
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 18, vertical: 14),
                 border: OutlineInputBorder(

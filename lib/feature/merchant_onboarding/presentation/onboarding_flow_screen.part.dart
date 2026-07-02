@@ -1434,7 +1434,7 @@ class _StepAddressState extends State<_StepAddress> {
                           fontSize: 13,
                         ),
                         filled: true,
-                        fillColor: MerchantOnboardingColors.bgDark2,
+                        fillColor: MerchantColors.inputFill,
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -2310,7 +2310,7 @@ class _TextField extends StatelessWidget {
           height: 1.5,
         ),
         filled: true,
-        fillColor: MerchantOnboardingColors.bgDark2,
+        fillColor: MerchantColors.inputFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),

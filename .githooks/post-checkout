@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Git post-checkout hook — fires after `git checkout`, `git switch`,
+# `git clone`. Args: $1=prev_HEAD $2=new_HEAD $3=branch_flag (1=branch, 0=file).
+#
+# We only react to branch / clone checkouts, never to a single-file
+# checkout (`git checkout -- pubspec.yaml`), because file checkouts do
+# not actually move HEAD and the diff range would be empty.
+
+[ "${3:-0}" = "1" ] || exit 0
+
+ROOT="$(git rev-parse --show-toplevel)"
+exec "$ROOT/.githooks/sync-flutter-ios.sh" "$1" "$2"

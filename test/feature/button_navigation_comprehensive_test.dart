@@ -96,10 +96,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 700));
 
-      // Select a visible category item first.
-      final restaurantCategory = find.text('Restaurant');
-      expect(restaurantCategory, findsOneWidget);
-      await tester.tap(restaurantCategory);
+      // Select a visible category item first. Default audience tab is
+      // « Particuliers », whose grid starts with « Métiers de bouche ».
+      final boucheCategory = find.text('Métiers de bouche');
+      expect(boucheCategory, findsOneWidget);
+      await tester.tap(boucheCategory);
       await tester.pumpAndSettle();
 
       // Footer uses GestureDetector + Text (not ElevatedButton).
@@ -123,12 +124,12 @@ void main() {
         (tester) async {
       // Seed the category-id provider — the screen now auto-skips when no
       // category was picked (categories without a curated subcategory list
-      // skip the step entirely). For this test we exercise the restaurant
-      // path which has the canonical list.
+      // skip the step entirely). For this test we exercise the
+      // « Métiers de bouche » path which has the canonical list.
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            selectedMerchantCategoryIdProvider.overrideWith((ref) => 'restaurant'),
+            selectedMerchantCategoryIdProvider.overrideWith((ref) => 'bouche'),
           ],
           child: MaterialApp(
             home: SubcategorySelectionScreen(

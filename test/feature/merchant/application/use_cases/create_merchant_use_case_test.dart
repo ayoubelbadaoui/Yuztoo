@@ -5,6 +5,7 @@ import 'package:flutter_yuztoo/feature/merchant/application/use_cases/create_mer
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
 
@@ -111,6 +112,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool? passageCooldownEnabled,
     LoyaltyProgramConfig? loyaltyProgram,
     bool? messagingEnabled,
     bool? notificationsAutoEnabled,
@@ -118,6 +120,7 @@ class _FakeMerchantRepository implements MerchantRepository {
     bool? loyaltyEnabledStandalone,
     String? merchantType,
     bool clearCityField = false,
+    List<MerchantStorefrontLink>? storefrontLinks,
   }) async {
     if (_createdMerchant == null || _createdMerchant!.id != merchantId) {
       return const Left<MerchantFailure, Merchant>(
@@ -406,6 +409,7 @@ class _FailingCreateRepository implements MerchantRepository {
     String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool? passageCooldownEnabled,
     LoyaltyProgramConfig? loyaltyProgram,
     bool? messagingEnabled,
     bool? notificationsAutoEnabled,
@@ -413,6 +417,7 @@ class _FailingCreateRepository implements MerchantRepository {
     bool? loyaltyEnabledStandalone,
     String? merchantType,
     bool clearCityField = false,
+    List<MerchantStorefrontLink>? storefrontLinks,
   }) async {
     return const Left<MerchantFailure, Merchant>(
       UnableToCreateMerchantFailure(),

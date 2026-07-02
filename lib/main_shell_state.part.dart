@@ -3,10 +3,18 @@ part of 'main.dart';
 class _RootShellState extends ConsumerState<_RootShell>
     with WidgetsBindingObserver {
   ProviderSubscription<AuthState>? _authStateSub;
+  ProviderSubscription<OAuthSignupState>? _oauthSignupSub;
   // Main navigation screen from provider (auth flow)
   ScreenId? _authScreen; // null = loading
-  // Within-app navigation (discovery, messages, etc.) - manual state
-  ScreenId? _nestedScreen; // null = use _authScreen
+  // Within-app navigation stack layered on top of the base [_authScreen] tab.
+  // Empty = only the base tab is showing. Each entry is a sub-page; the system
+  // back button / iOS swipe pops ONE level so the user returns to the specific
+  // previous page instead of being thrown back to the root tab.
+  final List<ScreenId> _nestedStack = <ScreenId>[];
+
+  /// Topmost nested sub-screen, or null when only the base tab shows.
+  ScreenId? get _nestedScreen =>
+      _nestedStack.isEmpty ? null : _nestedStack.last;
   UserRole? _role; // For bottom nav and role-based navigation
   bool _isDualProfile =
       false; // true when user has both client + merchant roles
@@ -31,6 +39,13 @@ class _RootShellState extends ConsumerState<_RootShell>
 
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _appLinkSubscription;
+
+  /// Android-only channel that delivers NFC tag taps captured natively by
+  /// [MainActivity]. On Android the OS routes a Yuztoo NFC tap to the app via
+  /// the NDEF_DISCOVERED intent filter (no browser / no redirect prompt); the
+  /// tag's URL arrives here and is funneled through the same vitrine deep-link
+  /// path as a QR scan so the passage registers automatically.
+  static const MethodChannel _nfcChannel = MethodChannel('com.yuztoo.app/nfc');
   StreamSubscription<RemoteMessage>? _fcmForegroundSub;
   StreamSubscription<RemoteMessage>? _fcmOpenedAppSub;
   StreamSubscription<Map<String, dynamic>?>? _notifTapSub;
@@ -43,8 +58,25 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
   String? _pendingVitrineMerchantId;
 
+  /// Persisted store of [_pendingVitrineMerchantId] so the deep-link
+  /// survives a cold start that interrupts onboarding (the user kills
+  /// the app while signing up, the merchantId would otherwise be lost
+  /// when the next launch goes through splash → onboarding without
+  /// flushing the pending intent). 24h TTL keeps stale taps from
+  /// hijacking a future scan.
+  static const String _pendingVitrinePrefsKey =
+      'yuztoo.pending_vitrine_merchant_id';
+  static const String _pendingVitrineTimestampKey =
+      'yuztoo.pending_vitrine_recorded_at_ms';
+  static const Duration _pendingVitrineTtl = Duration(hours: 24);
+
   /// FCM message received via getInitialMessage() before the auth state resolved.
   RemoteMessage? _pendingInitialFcmMessage;
+
+  /// Manual passage validation push received before merchant shell / queue ready.
+  String? _pendingPassageValidationClientUid;
+  String? _pendingPassageValidationMerchantId;
+  bool _passageValidationPushInFlight = false;
 
   @override
   void initState() {
@@ -72,8 +104,10 @@ class _RootShellState extends ConsumerState<_RootShell>
     _fcmForegroundSub = FirebaseMessaging.onMessage.listen(
       (message) {
         debugPrint('[FCM] foreground message: ${message.notification?.title}');
-        if (_role == UserRole.merchant) {
-          unawaited(_tryOpenPassageValidationFromPush(message.data));
+        final type =
+            (message.data['type'] ?? '').toString().trim().toLowerCase();
+        if (type == 'loyalty_passage_request') {
+          _handlePassageValidationPush(message.data);
         }
         unawaited(NotificationService.instance.showFromRemoteMessage(message));
       },
@@ -148,6 +182,11 @@ class _RootShellState extends ConsumerState<_RootShell>
       fireImmediately: true,
     );
 
+    _oauthSignupSub = ref.listenManual<OAuthSignupState>(
+      signup_providers.oauthSignupControllerProvider,
+      (previous, next) => _handleOAuthSignupControllerChange(next),
+    );
+
     _appLinkSubscription = _appLinks.uriLinkStream.listen(
       (Uri uri) {
         if (!mounted) return;
@@ -164,6 +203,41 @@ class _RootShellState extends ConsumerState<_RootShell>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_consumeInitialAppLink());
     });
+
+    _setupNfcChannel();
+  }
+
+  /// Listens for native NFC tag taps on Android and replays the URL through the
+  /// vitrine deep-link funnel. No-op on other platforms (iOS reads NFC in-app
+  /// via [NfcService] / Core NFC, so there is no native channel to bind to).
+  void _setupNfcChannel() {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    _nfcChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onNfcLink') {
+        final url = call.arguments;
+        if (mounted && url is String && url.isNotEmpty) {
+          final uri = Uri.tryParse(url);
+          if (uri != null) _onAppLinkUri(uri);
+        }
+      }
+      return null;
+    });
+    // Drain a tap that cold-launched the app before this handler was ready.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_consumeInitialNfcLink());
+    });
+  }
+
+  Future<void> _consumeInitialNfcLink() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final url = await _nfcChannel.invokeMethod<String>('getInitialNfcLink');
+      if (!mounted || url == null || url.isEmpty) return;
+      final uri = Uri.tryParse(url);
+      if (uri != null) _onAppLinkUri(uri);
+    } catch (_) {
+      // Channel not wired (older build) or no pending tap — safe to ignore.
+    }
   }
 
   @override
@@ -173,12 +247,10 @@ class _RootShellState extends ConsumerState<_RootShell>
     NotificationService.instance.attachOverlay(Overlay.of(context));
   }
 
-  /// Requests notification permission + battery optimisation exemption on
-  /// every cold-start, regardless of auth state.
-  /// Safe to call repeatedly — Android shows the dialog only when needed.
+  /// Requests notification permission on every cold-start, regardless of auth
+  /// state. Safe to call repeatedly — Android shows the dialog only when needed.
   Future<void> _requestRuntimePermissions() async {
     try {
-      // 1. Notification permission (Android 13+ / iOS).
       await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
@@ -192,20 +264,6 @@ class _RootShellState extends ConsumerState<_RootShell>
         badge: true,
         sound: true,
       );
-    } catch (_) {}
-
-    try {
-      // 2. Battery optimisation exemption — prevents Samsung/Xiaomi/OPPO from
-      //    killing FCM in background. Shows a one-time system dialog.
-      const channel = MethodChannel('com.yuztoo.app/battery');
-      final isExempt =
-          await channel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
-              false;
-      if (!isExempt) {
-        await channel.invokeMethod('requestIgnoreBatteryOptimizations');
-      }
-    } on MissingPluginException {
-      // Not on Android — no-op.
     } catch (_) {}
   }
 
@@ -221,10 +279,16 @@ class _RootShellState extends ConsumerState<_RootShell>
     _bleDetectionSub?.cancel();
     _activeValidationSub?.close();
     _authStateSub?.close();
+    _oauthSignupSub?.close();
     super.dispose();
   }
 
   Future<void> _consumeInitialAppLink() async {
+    // Replay any deep-link queued before a cold restart (user killed
+    // the app mid-onboarding, etc.). Does nothing when the prefs are
+    // empty or expired.
+    await _restorePendingVitrineMerchantIdIfFresh();
+
     try {
       final uri = await _appLinks.getInitialLink();
       if (!mounted || uri == null) return;
@@ -240,7 +304,48 @@ class _RootShellState extends ConsumerState<_RootShell>
       _openVitrineForMerchant(merchantId);
     } else {
       _pendingVitrineMerchantId = merchantId;
+      unawaited(_persistPendingVitrineMerchantId(merchantId));
     }
+  }
+
+  Future<void> _persistPendingVitrineMerchantId(String merchantId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_pendingVitrinePrefsKey, merchantId);
+      await prefs.setInt(
+        _pendingVitrineTimestampKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+    } catch (_) {
+      // Best-effort: in-memory fallback is still set, so the live session
+      // path keeps working even if disk persistence fails.
+    }
+  }
+
+  Future<void> _clearPersistedPendingVitrineMerchantId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_pendingVitrinePrefsKey);
+      await prefs.remove(_pendingVitrineTimestampKey);
+    } catch (_) {}
+  }
+
+  Future<void> _restorePendingVitrineMerchantIdIfFresh() async {
+    if (_pendingVitrineMerchantId != null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getString(_pendingVitrinePrefsKey);
+      if (id == null || id.isEmpty) return;
+      final ts = prefs.getInt(_pendingVitrineTimestampKey) ?? 0;
+      final age = DateTime.now()
+          .difference(DateTime.fromMillisecondsSinceEpoch(ts));
+      if (age.isNegative || age > _pendingVitrineTtl) {
+        await prefs.remove(_pendingVitrinePrefsKey);
+        await prefs.remove(_pendingVitrineTimestampKey);
+        return;
+      }
+      _pendingVitrineMerchantId = id;
+    } catch (_) {}
   }
 
   bool _canApplyVitrineDeepLinkNow() {
@@ -300,14 +405,16 @@ class _RootShellState extends ConsumerState<_RootShell>
         _role = UserRole.client;
         _authScreen = ScreenId.clientHome;
         _activeTab = 'home';
-        _nestedScreen = ScreenId.storeProfile;
+        _nestedStack
+          ..clear()
+          ..add(ScreenId.storeProfile);
       });
       _persistSessionRole();
       return;
     }
 
     setState(() {
-      _nestedScreen = ScreenId.storeProfile;
+      _pushNestedScreen(ScreenId.storeProfile);
     });
   }
 
@@ -316,6 +423,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (id == null || id.isEmpty) return;
     if (!_canApplyVitrineDeepLinkNow()) return;
     _pendingVitrineMerchantId = null;
+    unawaited(_clearPersistedPendingVitrineMerchantId());
     _openVitrineForMerchant(id);
   }
 
@@ -367,7 +475,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       setState(() {
         _activeTab = 'loyalty';
         _authScreen = ScreenId.loyalty;
-        _nestedScreen = null;
+        _nestedStack.clear();
       });
       return;
     }
@@ -383,7 +491,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         _role = UserRole.client;
         _activeTab = 'loyalty';
         _authScreen = ScreenId.loyalty;
-        _nestedScreen = null;
+        _nestedStack.clear();
       });
       _persistSessionRole();
       return;
@@ -399,8 +507,8 @@ class _RootShellState extends ConsumerState<_RootShell>
   ///  3. `bon_expiring` / `bon_expired` → loyalty tab ("Mes avantages")
   ///  4. `type == loyalty_passage_request` + merchant → passage sheet (merchant shell)
   ///  5. `type` contains `loyalty` (but not passage_request) → loyalty tab
-  ///  6. `type == auto` + `merchant_id` → vitrine (merchant rappel / context)
-  ///  7. Anything else → notifications inbox (`notification_id` scroll when present)
+  ///  6. Anything else (incl. `auto`) → notifications inbox
+  ///     (`notification_id` scroll when present) — never the bare vitrine.
   void _handleFcmTap(Map<String, dynamic>? data) {
     if (!mounted) return;
     if (data == null) {
@@ -450,8 +558,15 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
-    if (type == 'loyalty_passage_request' && _role == UserRole.merchant) {
-      unawaited(_tryOpenPassageValidationFromPush(data));
+    if (type == 'loyalty_passage_validated' && _role == UserRole.merchant) {
+      if (_activeTab != 'communaute' && mounted) {
+        setState(() => _activeTab = 'communaute');
+      }
+      return;
+    }
+
+    if (type == 'loyalty_passage_request') {
+      _handlePassageValidationPush(data);
       return;
     }
 
@@ -460,11 +575,11 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
-    if (type == 'auto' && merchantId.isNotEmpty) {
-      _openVitrineForMerchant(merchantId);
-      return;
-    }
-
+    // Auto notifications (rappels, anniversaires…) intentionally fall through
+    // to the inbox: "quand un client clique sur une notification … il veut
+    // voir la notification, pas repartir sur la vitrine". The inbox scrolls
+    // to the row when `notification_id` is present, and the row's detail
+    // sheet keeps the storefront one tap away.
     _openNotificationsScreen(
       notificationId: notificationId.isEmpty ? null : notificationId,
     );
@@ -590,7 +705,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           setState(() {
             // Onboarding is only after signup for merchants (see merchantProfileForm)
             _authScreen = ScreenId.roleSelection;
-            _nestedScreen = null;
+            _nestedStack.clear();
             _role = null;
           });
           unawaited(_stopMerchantRealtimeServices());
@@ -605,7 +720,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           // First real state is an error - likely temporary, treat as unauthenticated
           setState(() {
             _authScreen = ScreenId.roleSelection;
-            _nestedScreen = null;
+            _nestedStack.clear();
           });
         }
         // If we already have a state, don't navigate away (prevents flicker)
@@ -668,23 +783,20 @@ class _RootShellState extends ConsumerState<_RootShell>
     }
 
     try {
+      final freshOAuthRole = ref.read(oauthSignupFreshProfileRoleProvider);
+      final roleAttempts = freshOAuthRole != null ? 10 : 3;
+
       // Firestore-driven routing: role and onboarding are resolved from users/{uid}.
       final getUserRole = ref.read(getUserRoleProvider);
       UserRole? role;
 
-      // Retry a few times to absorb eventual consistency right after
-      // signup/profile writes. Per-attempt timeout shortened from 5s →
-      // 2s — Firestore single-doc reads typically resolve in <300ms; a
-      // 5s ceiling per attempt × 3 attempts = 15s of splash time that
-      // users perceived as "the app is frozen after signup". The 2s
-      // ceiling still tolerates a slow-but-working network while
-      // cutting worst-case splash time to ~6s.
-      for (int attempt = 0; attempt < 3; attempt++) {
+      // Retry to absorb eventual consistency right after signup/profile writes.
+      for (int attempt = 0; attempt < roleAttempts; attempt++) {
         if (attempt > 0) {
-          await Future.delayed(Duration(milliseconds: 200 * attempt));
+          await Future.delayed(Duration(milliseconds: 150 * attempt));
         }
         final roleResult =
-            await getUserRole.call(user.id).timeout(const Duration(seconds: 2));
+            await getUserRole.call(user.id).timeout(const Duration(seconds: 3));
         role = roleResult.fold((_) => null, (r) => r);
         if (role != null) break;
       }
@@ -694,14 +806,15 @@ class _RootShellState extends ConsumerState<_RootShell>
       // [oauthFirestoreProfilePendingProvider] while collecting phone on signup.
       if (role == null) {
         var hasFirestoreProfile = false;
-        for (int attempt = 0; attempt < 3; attempt++) {
+        final basicsAttempts = freshOAuthRole != null ? 10 : 3;
+        for (int attempt = 0; attempt < basicsAttempts; attempt++) {
           if (attempt > 0) {
-            await Future.delayed(Duration(milliseconds: 200 * attempt));
+            await Future.delayed(Duration(milliseconds: 150 * attempt));
           }
           final basicsResult = await ref
               .read(getUserProfileBasicsProvider)
               .call(user.id)
-              .timeout(const Duration(seconds: 2));
+              .timeout(const Duration(seconds: 3));
           hasFirestoreProfile =
               basicsResult.fold((_) => false, (b) => b != null);
           if (hasFirestoreProfile) break;
@@ -711,32 +824,40 @@ class _RootShellState extends ConsumerState<_RootShell>
             ref.read(oauthFirestoreProfilePendingProvider)) {
           _isNavigatingToHome = false;
           if (mounted) {
-            // If the user is mid-OAuth-completion flow, leave them on
-            // that screen — pulling them back to the signup form would
-            // wipe the controller's authUser handle and the typed
-            // first/last name. The signup screen is the correct
-            // fallback for any other pre-auth screen (splash etc.).
             if (_authScreen != ScreenId.oauthCompletion) {
-              setState(() => _authScreen = ScreenId.signup);
+              setState(() {
+                _oauthCompletionReturnScreen = _authScreen == ScreenId.login
+                    ? ScreenId.login
+                    : ScreenId.signup;
+                _authScreen = ScreenId.oauthCompletion;
+              });
             }
           }
           return;
         }
 
         if (!hasFirestoreProfile) {
-          ref.read(oauthFirestoreProfilePendingProvider.notifier).state = false;
-          try {
-            await ref.read(fcmTokenServiceProvider).clearToken(user.id);
-          } catch (_) {}
-          await ref.read(signOutProvider).call();
-          if (!mounted) return;
-          setState(() {
-            _authScreen = ScreenId.roleSelection;
-            _nestedScreen = null;
-            _role = null;
-            _isNavigatingToHome = false;
-          });
-          return;
+          if (freshOAuthRole != null) {
+            // Profile was just written — trust the intended role rather than
+            // signing out while Firestore catches up.
+            role = freshOAuthRole;
+          } else {
+            ref.read(oauthFirestoreProfilePendingProvider.notifier).state =
+                false;
+            clearOAuthSignupRoutingHintsFromWidget(ref);
+            try {
+              await ref.read(fcmTokenServiceProvider).clearToken(user.id);
+            } catch (_) {}
+            await ref.read(signOutProvider).call();
+            if (!mounted) return;
+            setState(() {
+              _authScreen = ScreenId.roleSelection;
+              _nestedStack.clear();
+              _role = null;
+              _isNavigatingToHome = false;
+            });
+            return;
+          }
         }
       }
 
@@ -749,13 +870,22 @@ class _RootShellState extends ConsumerState<_RootShell>
               .readLastSelectedRole(userId: user.id);
         } catch (_) {}
         role ??= _role;
+        role ??= ref.read(oauthSignupIntendedRoleProvider);
+        role ??= freshOAuthRole;
+      }
+
+      if (role == null && freshOAuthRole != null && mounted) {
+        role = await resolveRoleAfterFreshOAuthSignup(
+          fetchRole: () => getUserRole.call(user.id),
+          intendedRole: freshOAuthRole,
+        );
       }
 
       // If no fallback role exists (first app open + fresh install), wait only
       // briefly for users/{uid} to appear after signup. Long waits keep users
       // stuck on splash when Firestore rules deny reads.
       if (role == null && mounted) {
-        const maxExtraWaitMs = 3000;
+        final maxExtraWaitMs = freshOAuthRole != null ? 8000 : 3000;
         const stepMs = 500;
         var elapsed = 0;
         while (role == null && elapsed < maxExtraWaitMs && mounted) {
@@ -766,10 +896,12 @@ class _RootShellState extends ConsumerState<_RootShell>
               .timeout(const Duration(seconds: 5));
           role = roleResult.fold((_) => null, (r) => r);
         }
+        role ??= freshOAuthRole;
       }
 
       // If we still have no role after cache fallback, deny session.
       if (role == null) {
+        clearOAuthSignupRoutingHintsFromWidget(ref);
         try {
           await ref.read(fcmTokenServiceProvider).clearToken(user.id);
         } catch (_) {}
@@ -777,7 +909,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         if (!mounted) return;
         setState(() {
           _authScreen = ScreenId.roleSelection;
-          _nestedScreen = null;
+          _nestedStack.clear();
           _role = null;
           _isNavigatingToHome = false;
         });
@@ -830,7 +962,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           _role = role;
           _isDualProfile = dualProfile;
           _activeTab = role == UserRole.client ? 'home' : 'storefront';
-          _nestedScreen = null;
+          _nestedStack.clear();
           _isNavigatingToHome = false; // Navigation complete
         });
         unawaited(
@@ -839,6 +971,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                 userId: user.id,
               ),
         );
+        clearOAuthSignupRoutingHintsFromWidget(ref);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _tryConsumePendingVitrineLink();
@@ -863,7 +996,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         setState(() {
           _role = null;
           _authScreen = ScreenId.roleSelection;
-          _nestedScreen = null;
+          _nestedStack.clear();
           _isNavigatingToHome = false; // Navigation complete
         });
       }
@@ -884,6 +1017,44 @@ class _RootShellState extends ConsumerState<_RootShell>
       setState(() => _authScreen = ScreenId.splash);
     }
     unawaited(_handleAuthenticatedUser(authState.user));
+  }
+
+  /// After Google / Apple sign-in (new profile written or existing user).
+  void _routeAfterOAuthSignIn() {
+    if (!mounted) return;
+    final authState = ref.read(authControllerProvider);
+    if (authState is! Authenticated) return;
+
+    _isNavigatingToHome = true;
+    if (_authScreen != ScreenId.splash) {
+      setState(() => _authScreen = ScreenId.splash);
+    }
+    unawaited(_handleAuthenticatedUser(authState.user));
+  }
+
+  void _handleOAuthSignupControllerChange(OAuthSignupState next) {
+    if (!mounted) return;
+
+    if (next is OAuthSignupAuthenticating) {
+      ref.read(oauthSignupIntendedRoleProvider.notifier).state =
+          _role ?? UserRole.client;
+      return;
+    }
+
+    if (next is OAuthSignupNeedsCompletion) {
+      if (_authScreen == ScreenId.oauthCompletion) return;
+      setState(() {
+        _oauthCompletionReturnScreen = _authScreen == ScreenId.login
+            ? ScreenId.login
+            : ScreenId.signup;
+        _authScreen = ScreenId.oauthCompletion;
+      });
+      return;
+    }
+
+    if (next is OAuthSignupExistingUser) {
+      _routeAfterOAuthSignIn();
+    }
   }
 
   void _handleRoleSelect(UserRole role) {
@@ -963,32 +1134,118 @@ class _RootShellState extends ConsumerState<_RootShell>
     _startActiveValidationListener();
   }
 
-  /// Opens the validation sheet from FCM when the Firestore queue already
-  /// contains the session (foreground / resume).
-  Future<void> _tryOpenPassageValidationFromPush(
-    Map<String, dynamic> data,
-  ) async {
-    if (!mounted || _role != UserRole.merchant || _activeValidationSheetOpen) {
-      return;
+  void _handlePassageValidationPush(Map<String, dynamic> data) {
+    String fcmStr(String key) {
+      final v = data[key];
+      if (v == null) return '';
+      return v.toString().trim();
     }
-    final clientUid = data['client_uid'] as String? ?? '';
+
+    final clientUid = fcmStr('client_uid');
     if (clientUid.isEmpty) return;
 
-    final queue = ref.read(merchantActiveValidationQueueProvider).valueOrNull ??
-        const <ActiveValidationRequest>[];
-    ActiveValidationRequest? session;
-    for (final s in queue) {
-      if (s.clientUid == clientUid && s.isAwaiting && !s.isExpired) {
-        session = s;
-        break;
-      }
-    }
-    if (session == null) return;
+    final merchantId = fcmStr('merchant_id');
+    _pendingPassageValidationClientUid = clientUid;
+    _pendingPassageValidationMerchantId =
+        merchantId.isNotEmpty ? merchantId : null;
+    unawaited(_consumePendingPassageValidationPush());
+  }
 
-    final key = _activeValidationSessionKey(session);
-    if (_handledActiveValidationKeys.contains(key)) return;
-    _handledActiveValidationKeys.add(key);
-    await _openActiveValidationSheet(session);
+  void _clearPendingPassageValidationPush() {
+    _pendingPassageValidationClientUid = null;
+    _pendingPassageValidationMerchantId = null;
+  }
+
+  /// Opens the validation sheet from a passage-request push (background,
+  /// killed app, or foreground). Switches to merchant role when needed and
+  /// fetches the Firestore session directly when the queue stream lags.
+  Future<void> _consumePendingPassageValidationPush() async {
+    if (_passageValidationPushInFlight) return;
+    final clientUid = _pendingPassageValidationClientUid;
+    if (clientUid == null || clientUid.isEmpty) return;
+
+    _passageValidationPushInFlight = true;
+    try {
+      if (!mounted) return;
+      final authState = ref.read(authStateProvider);
+      if (authState is! Authenticated) return;
+
+      if (_role != UserRole.merchant) {
+        var hasMerchant = false;
+        try {
+          hasMerchant = await ref
+              .read(merchant_providers.hasLinkedMerchantAccountProvider.future);
+        } catch (_) {}
+        if (!hasMerchant) {
+          _clearPendingPassageValidationPush();
+          return;
+        }
+        await _switchToMerchant();
+        if (!mounted || _role != UserRole.merchant) return;
+      }
+
+      _ensureMerchantPassageListener();
+
+      final merchant = await ref.read(
+        merchant_providers.currentMerchantForOwnerProvider.future,
+      );
+      if (!mounted || merchant == null) return;
+
+      final pushMerchantId = _pendingPassageValidationMerchantId;
+      if (pushMerchantId != null &&
+          pushMerchantId.isNotEmpty &&
+          merchant.id != pushMerchantId) {
+        _clearPendingPassageValidationPush();
+        return;
+      }
+
+      if (isAutomaticPassageAllowedForMerchant(merchant)) {
+        _clearPendingPassageValidationPush();
+        return;
+      }
+
+      if (_activeValidationSheetOpen) return;
+
+      ActiveValidationRequest? session;
+      final repo = ref.read(activeValidationRepositoryProvider);
+      for (var attempt = 0; attempt < 8; attempt++) {
+        final result = await repo.getClientSession(
+          merchantId: merchant.id,
+          clientUid: clientUid,
+        );
+        session = result.fold((_) => null, (s) => s);
+        if (session != null && session.isAwaiting && !session.isExpired) {
+          break;
+        }
+        session = null;
+        if (attempt < 7) {
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
+        if (!mounted) return;
+      }
+
+      if (session == null || !session.isAwaiting || session.isExpired) {
+        return;
+      }
+      if (session.isBle) {
+        _clearPendingPassageValidationPush();
+        return;
+      }
+
+      _clearPendingPassageValidationPush();
+
+      final key = _activeValidationSessionKey(session);
+      if (_handledActiveValidationKeys.contains(key)) return;
+      _handledActiveValidationKeys.add(key);
+
+      if (_activeTab != 'communaute' && mounted) {
+        setState(() => _activeTab = 'communaute');
+      }
+
+      await _openActiveValidationSheet(session);
+    } finally {
+      _passageValidationPushInFlight = false;
+    }
   }
 
   /// Subscribes to merchant-side live validation requests. When a new
@@ -1018,7 +1275,23 @@ class _RootShellState extends ConsumerState<_RootShell>
       '${session.createdAt?.millisecondsSinceEpoch ?? 0}';
 
   void _onActiveValidationQueue(List<ActiveValidationRequest> queue) {
-    if (!mounted || _activeValidationSheetOpen) return;
+    if (!mounted) return;
+
+    final pendingUid = _pendingPassageValidationClientUid;
+    if (pendingUid != null && !_activeValidationSheetOpen) {
+      for (final session in queue) {
+        if (session.clientUid != pendingUid) continue;
+        if (!session.isAwaiting || session.isExpired || session.isBle) continue;
+        _clearPendingPassageValidationPush();
+        final key = _activeValidationSessionKey(session);
+        if (_handledActiveValidationKeys.contains(key)) return;
+        _handledActiveValidationKeys.add(key);
+        _openActiveValidationSheet(session);
+        return;
+      }
+    }
+
+    if (_activeValidationSheetOpen) return;
     for (final session in queue) {
       if (!session.isAwaiting || session.isExpired) continue;
       // BLE sessions require explicit merchant proximity confirmation
@@ -1027,9 +1300,36 @@ class _RootShellState extends ConsumerState<_RootShell>
       final key = _activeValidationSessionKey(session);
       if (_handledActiveValidationKeys.contains(key)) continue;
       _handledActiveValidationKeys.add(key);
+      final merchant =
+          ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
+      if (merchant != null &&
+          merchant.id == session.merchantId &&
+          isAutomaticPassageAllowedForMerchant(merchant)) {
+        unawaited(_autoConfirmPassageSession(session, merchant));
+        continue;
+      }
       _openActiveValidationSheet(session);
       break; // Open one at a time; the next will be picked up on close.
     }
+  }
+
+  /// When passage validation is automatic, confirm immediately — no sheet,
+  /// no client "validation en cours" wait (handles desynced legacy sessions).
+  Future<void> _autoConfirmPassageSession(
+    ActiveValidationRequest session,
+    Merchant merchant,
+  ) async {
+    final result = await ref.read(confirmActiveValidationProvider).call(
+          actingOwnerUid: merchant.ownerUid,
+          merchant: merchant,
+          session: session,
+        );
+    result.fold(
+      (_) {},
+      (_) {
+        ref.invalidate(merchantActiveValidationQueueProvider);
+      },
+    );
   }
 
   Future<void> _openActiveValidationSheet(
@@ -1062,7 +1362,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (!mounted) return;
     final merchant =
         ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
-    if (merchant == null || !isBlePassageAllowedForMerchant(merchant)) {
+    if (merchant == null || !isAutomaticPassageAllowedForMerchant(merchant)) {
       ref.read(bleProximityProvider.notifier).resetAfterDetection();
       return;
     }
@@ -1135,7 +1435,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         }
       }
 
-      if (readiness.isProfileDataComplete) {
+      // Identity (first name, last name, DOB) is what onboarding enforces.
+      // When it's already on file we finalize the client profile silently
+      // and enter — photo / city being empty must NOT re-trigger the wizard.
+      if (readiness.hasRequiredIdentityData) {
         final authStateNow = ref.read(authStateProvider);
         final displayName = buildClientDisplayName(
           firstName: readiness.firstName,
@@ -1179,7 +1482,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         _isDualProfile = true;
         _authScreen = ScreenId.clientOnboarding;
         _activeTab = 'home';
-        _nestedScreen = null;
+        _nestedStack.clear();
       });
       unawaited(_startBleOnly());
     } finally {
@@ -1198,7 +1501,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       _isDualProfile = true;
       _authScreen = ScreenId.clientHome;
       _activeTab = 'home';
-      _nestedScreen = null;
+      _nestedStack.clear();
     });
     unawaited(_startBleOnly());
   }
@@ -1299,7 +1602,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           _isDualProfile = true;
           _authScreen = ScreenId.merchantStorefront;
           _activeTab = 'storefront';
-          _nestedScreen = null;
+          _nestedStack.clear();
         });
         unawaited(_startMerchantRealtimeServices());
       } else {
@@ -1326,7 +1629,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           _isDualProfile = true;
           _authScreen = ScreenId.merchantOnboarding;
           _activeTab = 'storefront';
-          _nestedScreen = null;
+          _nestedStack.clear();
         });
         unawaited(_startMerchantRealtimeServices());
       }
@@ -1366,6 +1669,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       'notifications-hub': ScreenId.merchantNotificationsHub,
       'scheduled-notifications': ScreenId.merchantScheduledNotifications,
       'gratification-config': ScreenId.merchantGratificationConfig,
+      'storefront-links': ScreenId.merchantStorefrontLinks,
     };
 
     final target = map[screen];
@@ -1374,16 +1678,16 @@ class _RootShellState extends ConsumerState<_RootShell>
         if (_role == UserRole.client && target == ScreenId.notifications) {
           _activeTab = 'notifications';
           _authScreen = ScreenId.notifications;
-          _nestedScreen = null;
+          _nestedStack.clear();
         } else {
-          _nestedScreen = target;
+          _pushNestedScreen(target);
         }
       });
     } else if (screen == 'storefront') {
       setState(() {
         _activeTab = 'storefront';
         _authScreen = ScreenId.merchantStorefront;
-        _nestedScreen = null;
+        _nestedStack.clear();
       });
       ref.invalidate(storefront_providers.storefrontProvider);
     } else if (screen == 'switch-to-client') {
@@ -1400,7 +1704,7 @@ class _RootShellState extends ConsumerState<_RootShell>
               .initializeFrom(storefront),
         );
       }
-      setState(() => _nestedScreen = ScreenId.merchantStorefrontEditProfile);
+      setState(() => _pushNestedScreen(ScreenId.merchantStorefrontEditProfile));
     } else if (screen == 'store-preview') {
       // Preview merchant's own storefront as a client would see it
       final merchantId = ref
@@ -1413,7 +1717,7 @@ class _RootShellState extends ConsumerState<_RootShell>
             .read(store_profile_providers
                 .selectedStoreMerchantIdProvider.notifier)
             .state = merchantId;
-        setState(() => _nestedScreen = ScreenId.storeProfile);
+        setState(() => _pushNestedScreen(ScreenId.storeProfile));
       }
     }
   }
@@ -1481,7 +1785,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       // For merchants, if storefront tab is selected, ensure we're on storefront screen
       if (_role == UserRole.merchant && tab == 'storefront') {
         _authScreen = ScreenId.merchantStorefront;
-        _nestedScreen = null;
+        _nestedStack.clear();
 
         return;
       }
@@ -1496,7 +1800,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         final target = map[tab] ?? ScreenId.clientHome;
         // All client tabs are top-level: set auth screen and clear nested
         _authScreen = target;
-        _nestedScreen = null;
+        _nestedStack.clear();
       } else {
         final map = <String, ScreenId>{
           'communaute': ScreenId.merchantClients,
@@ -1513,9 +1817,11 @@ class _RootShellState extends ConsumerState<_RootShell>
             target == ScreenId.merchantProfile ||
             target == ScreenId.merchantStorefront) {
           _authScreen = target;
-          _nestedScreen = null;
+          _nestedStack.clear();
         } else {
-          _nestedScreen = target;
+          _nestedStack
+            ..clear()
+            ..add(target);
         }
       }
     });
@@ -1525,14 +1831,14 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (_role == UserRole.client) {
       setState(() {
         _authScreen = ScreenId.clientHome;
-        _nestedScreen = null;
+        _nestedStack.clear();
 
         _activeTab = 'home';
       });
     } else {
       setState(() {
         _authScreen = ScreenId.merchantStorefront;
-        _nestedScreen = null;
+        _nestedStack.clear();
 
         _activeTab = 'storefront';
       });
@@ -1564,17 +1870,31 @@ class _RootShellState extends ConsumerState<_RootShell>
     setState(() {
       _authScreen = ScreenId.notifications;
       _activeTab = 'notifications';
-      _nestedScreen = null;
+      _nestedStack.clear();
     });
     _persistSessionRole();
   }
 
-  /// Go back from a nested screen to its parent (the current _authScreen).
-  /// Unlike _handleBackToBase, this does NOT reset to the root home/storefront.
+  /// Pushes a sub-screen onto the nested navigation stack. Consecutive
+  /// duplicates are ignored so a re-tap (or a deep-link to the page the user
+  /// is already on) doesn't stack the same screen twice — which would make
+  /// the first back press feel like a no-op.
+  ///
+  /// Call this INSIDE a `setState` closure (it only mutates [_nestedStack]).
+  void _pushNestedScreen(ScreenId screen) {
+    if (_nestedStack.isNotEmpty && _nestedStack.last == screen) return;
+    _nestedStack.add(screen);
+  }
+
+  /// Goes back one level: pops the topmost nested sub-screen so the user
+  /// returns to the *specific* page that opened it (the previous nested
+  /// screen, or the base tab when the stack empties). Unlike
+  /// [_handleBackToBase] this never jumps straight to the root home/vitrine
+  /// while intermediate pages are still on the stack.
   void _handleBackFromNested() {
-    if (_nestedScreen != null) {
+    if (_nestedStack.isNotEmpty) {
       setState(() {
-        _nestedScreen = null;
+        _nestedStack.removeLast();
       });
     } else {
       _handleBackToBase();
@@ -1588,7 +1908,9 @@ class _RootShellState extends ConsumerState<_RootShell>
 
     final currentScreen = _nestedScreen ?? _authScreen;
 
-    // 1) If we're on a nested sub-screen, go back to the parent tab screen.
+    // 1) On a nested sub-screen: pop ONE level so the user returns to the
+    //    specific page that opened it (the previous sub-page, or the base tab
+    //    once the stack empties) — never a forced jump to the root.
     if (_nestedScreen != null) {
       _handleBackFromNested();
       return;
@@ -1643,7 +1965,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         currentScreen != ScreenId.merchantStorefront) {
       setState(() {
         _authScreen = ScreenId.merchantStorefront;
-        _nestedScreen = null;
+        _nestedStack.clear();
         _activeTab = 'storefront';
       });
       return;
@@ -1655,7 +1977,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         currentScreen != ScreenId.clientHome) {
       setState(() {
         _authScreen = ScreenId.clientHome;
-        _nestedScreen = null;
+        _nestedStack.clear();
         _activeTab = 'home';
       });
       return;
@@ -1771,7 +2093,8 @@ class _RootShellState extends ConsumerState<_RootShell>
             currentScreen == ScreenId.merchantSecurity ||
             currentScreen == ScreenId.merchantDataPrivacy ||
             currentScreen == ScreenId.merchantProfileSummary ||
-            currentScreen == ScreenId.merchantGratificationConfig;
+            currentScreen == ScreenId.merchantGratificationConfig ||
+            currentScreen == ScreenId.merchantStorefrontLinks;
     final isMerchantClients = currentScreen == ScreenId.merchantClients;
     final isClientProfile = currentScreen == ScreenId.clientProfile;
     final isClientHome = currentScreen == ScreenId.clientHome;
@@ -1965,14 +2288,14 @@ class _RootShellState extends ConsumerState<_RootShell>
           onGuestDiscover: () {
             setState(() {
               _authScreen = ScreenId.guestShell;
-              _nestedScreen = null;
+              _nestedStack.clear();
             });
           },
           onScanQr: () {
             // Open QR scanner even without an account; back returns to role selection.
             setState(() {
               _authScreen = ScreenId.qrScanner;
-              _nestedScreen = null;
+              _nestedStack.clear();
             });
           },
         );
@@ -1986,7 +2309,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                 _role = UserRole.client;
                 _authScreen = ScreenId.clientHome;
                 _activeTab = 'home';
-                _nestedScreen = null;
+                _nestedStack.clear();
               });
             } else {
               setState(() => _authScreen = ScreenId.roleSelection);
@@ -2069,14 +2392,9 @@ class _RootShellState extends ConsumerState<_RootShell>
             }
           },
           onCompleted: () {
-            // Profile was created and the auth controller refreshed. The
-            // shell's auth-state listener will compute the right target
-            // (client onboarding, merchant profile form, …) on the next
-            // frame; show the splash in the meantime so the completion
-            // form doesn't flash empty during role lookup.
-            if (mounted) {
-              setState(() => _authScreen = ScreenId.splash);
-            }
+            // Profile was created — route explicitly (same pattern as OTP
+            // signup) so Firestore lag cannot sign the user out.
+            _routeAfterOAuthSignIn();
           },
         );
       case ScreenId.otp:
@@ -2114,7 +2432,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
             setState(() {
-              _nestedScreen = ScreenId.storeProfile;
+              _pushNestedScreen(ScreenId.storeProfile);
             });
           },
         );
@@ -2122,22 +2440,22 @@ class _RootShellState extends ConsumerState<_RootShell>
         return GuestShellScreen(
           onBack: () => setState(() {
             _authScreen = ScreenId.roleSelection;
-            _nestedScreen = null;
+            _nestedStack.clear();
           }),
           onStoreSelect: (merchantId) {
             ref
                 .read(store_profile_providers
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
-            setState(() => _nestedScreen = ScreenId.storeProfile);
+            setState(() => _pushNestedScreen(ScreenId.storeProfile));
           },
           onSignUp: () => setState(() {
             _authScreen = ScreenId.signup;
-            _nestedScreen = null;
+            _nestedStack.clear();
           }),
           onSignIn: () => setState(() {
             _authScreen = ScreenId.login;
-            _nestedScreen = null;
+            _nestedStack.clear();
           }),
         );
       case ScreenId.discovery:
@@ -2151,7 +2469,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
             setState(() {
-              _nestedScreen = ScreenId.storeProfile;
+              _pushNestedScreen(ScreenId.storeProfile);
             });
           },
         );
@@ -2160,11 +2478,14 @@ class _RootShellState extends ConsumerState<_RootShell>
           onBack: () {
             final authState = ref.read(authControllerProvider);
             if (authState is Authenticated) {
-              _handleBackToBase();
+              // Logged-in users reach the scanner from a sub-page (e.g. the
+              // Fidélité FAB). Pop one level so back returns to that opener,
+              // not the root home/vitrine.
+              _handleBackFromNested();
             } else {
               setState(() {
                 _authScreen = ScreenId.roleSelection;
-                _nestedScreen = null;
+                _nestedStack.clear();
                 _role = null;
               });
             }
@@ -2179,14 +2500,18 @@ class _RootShellState extends ConsumerState<_RootShell>
                     .pendingVitrineScanIntentProvider.notifier)
                 .state = store_profile_providers.VitrineScanIntent.fromQrOrNfc;
             setState(() {
-              _nestedScreen = ScreenId.storeProfile;
+              _pushNestedScreen(ScreenId.storeProfile);
             });
           },
         );
       case ScreenId.loyalty:
         return LoyaltyCardsScreen(
-          onBack: _handleBackToBase,
+          onBack: _handleBackFromNested,
           onNotifications: _openNotificationsScreen,
+          // Scan-only passage validation: the FAB opens the QR/NFC scanner
+          // (which routes through the vitrine scan funnel) instead of the
+          // legacy BLE broadcast screen.
+          onScan: () => _handleNavigate('qr-scanner'),
           onSwitchToMerchant:
               _isDualProfile ? () => unawaited(_switchToMerchant()) : null,
           onStoreTap: (merchantId) {
@@ -2194,14 +2519,14 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .read(store_profile_providers
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
-            setState(() => _nestedScreen = ScreenId.storeProfile);
+            setState(() => _pushNestedScreen(ScreenId.storeProfile));
           },
         );
       case ScreenId.storeProfile:
         return StoreProfileScreen(
           onBack: _handleBackFromNested,
           onNotifications: _openNotificationsScreen,
-          onMessage: () => setState(() => _nestedScreen = ScreenId.messages),
+          onMessage: () => setState(() => _pushNestedScreen(ScreenId.messages)),
           onReserve: _handleBackToBase,
           onRequestLogin: () {
             // Preserve the current merchant so that after the user logs in,
@@ -2213,7 +2538,7 @@ class _RootShellState extends ConsumerState<_RootShell>
               if (mid != null && mid.isNotEmpty) {
                 _pendingVitrineMerchantId = mid;
               }
-              _nestedScreen = null;
+              _nestedStack.clear();
               _role = null;
               _authScreen = ScreenId.login;
             });
@@ -2227,7 +2552,7 @@ class _RootShellState extends ConsumerState<_RootShell>
               setState(() {
                 _authScreen = ScreenId.discovery;
                 _activeTab = 'discovery';
-                _nestedScreen = null;
+                _nestedStack.clear();
               });
               return;
             }
@@ -2235,7 +2560,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .read(store_profile_providers
                     .selectedStoreMerchantIdProvider.notifier)
                 .state = merchantId;
-            setState(() => _nestedScreen = ScreenId.storeProfile);
+            setState(() => _pushNestedScreen(ScreenId.storeProfile));
           },
           onPromotionTap: (merchantId, promotionId) {
             // Set the merchant target AND the one-shot promotion deep-link
@@ -2251,7 +2576,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .read(store_profile_providers
                     .pendingStorePromotionIdProvider.notifier)
                 .state = promotionId.isEmpty ? null : promotionId;
-            setState(() => _nestedScreen = ScreenId.storeProfile);
+            setState(() => _pushNestedScreen(ScreenId.storeProfile));
           },
           // Bon / loyalty rows and matching FCM taps land on Mes avantages
           // (with dual-profile role switch when needed) — see
@@ -2261,7 +2586,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.messages:
         return MessagesScreen(
           role: _role ?? UserRole.client,
-          onBack: _handleBackToBase,
+          onBack: _handleBackFromNested,
           onConversationSelect: () {},
         );
       case ScreenId.clientProfile:
@@ -2292,11 +2617,11 @@ class _RootShellState extends ConsumerState<_RootShell>
           onBack: _handleBackToBase,
         );
       case ScreenId.merchantQr:
-        return MerchantQRCodeScreen(onBack: _handleBackToBase);
+        return MerchantQRCodeScreen(onBack: _handleBackFromNested);
       case ScreenId.merchantMessages:
         return MessagesScreen(
           role: _role ?? UserRole.merchant,
-          onBack: _handleBackToBase,
+          onBack: _handleBackFromNested,
           onConversationSelect: () {},
         );
       case ScreenId.merchantProfile:
@@ -2331,7 +2656,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           onAccountDeleted: () {
             if (!mounted) return;
             setState(() {
-              _nestedScreen = null;
+              _nestedStack.clear();
               _role = null;
               _authScreen = ScreenId.roleSelection;
             });
@@ -2345,7 +2670,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           onAccountDeleted: () {
             if (!mounted) return;
             setState(() {
-              _nestedScreen = null;
+              _nestedStack.clear();
               _role = null;
               _authScreen = ScreenId.roleSelection;
             });
@@ -2363,7 +2688,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.merchantStorefrontEditProfile:
         return StorefrontEditProfileScreen(onBack: _handleBackFromNested);
       case ScreenId.merchantStats:
-        return MerchantStatsScreen(onBack: _handleBackToBase);
+        return MerchantStatsScreen(onBack: _handleBackFromNested);
       case ScreenId.merchantStorefront:
         return StorefrontScreen(
           onNavigate: _handleNavigate,
@@ -2383,7 +2708,7 @@ class _RootShellState extends ConsumerState<_RootShell>
                 _role = UserRole.client;
                 _authScreen = ScreenId.clientHome;
                 _activeTab = 'home';
-                _nestedScreen = null;
+                _nestedStack.clear();
               });
             } else {
               // New-user path: back → benefits screen.
@@ -2421,6 +2746,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantGratificationConfig:
         return ClientGratificationConfigScreen(
+          onBack: _handleBackFromNested,
+        );
+      case ScreenId.merchantStorefrontLinks:
+        return MerchantStorefrontLinksScreen(
           onBack: _handleBackFromNested,
         );
     }

@@ -6,6 +6,8 @@ import {
   compareNotificationsBySpecificity,
   filterEnabledNotificationsForTrigger,
   isMerchantAutoNotificationsEnabled,
+  parisCalendarDayFromDate,
+  resolveMerchantPublicName,
   shouldSendBirthdayThisYear,
   shouldSendConnectionAnniversary,
   shouldSendInactiveReturn,
@@ -31,6 +33,94 @@ async function processInChunks<T>(
   for (let i = 0; i < items.length; i += concurrency) {
     await Promise.all(items.slice(i, i + concurrency).map(fn));
   }
+}
+
+/** FCM token at `users/{userId}/push_tokens/device`. */
+async function getUserDeviceFcmToken(userId: string): Promise<string | null> {
+  if (!userId) return null;
+  const tokenDoc = await db
+    .collection("users")
+    .doc(userId)
+    .collection("push_tokens")
+    .doc("device")
+    .get();
+  if (!tokenDoc.exists) return null;
+  const fcmToken: string | undefined = tokenDoc.data()?.fcm_token;
+  return fcmToken?.trim() ? fcmToken : null;
+}
+
+/** High-priority visible push (passage validation, merchant alerts). */
+async function sendHighPriorityAlertPush(
+  token: string,
+  title: string,
+  body: string,
+  data: Record<string, string>
+): Promise<void> {
+  const message: admin.messaging.Message = {
+    token,
+    notification: { title, body },
+    data,
+    android: {
+      priority: "high",
+      notification: {
+        channelId: "yuztoo_promo_v2",
+        priority: "high",
+        defaultSound: true,
+      },
+    },
+    apns: {
+      headers: {
+        "apns-priority": "10",
+        "apns-push-type": "alert",
+      },
+      payload: {
+        aps: {
+          sound: "default",
+          "content-available": 1,
+        },
+      },
+    },
+  };
+  await messaging.send(message);
+}
+
+function merchantPassageValidationIsAutomatic(
+  merchantData: admin.firestore.DocumentData | undefined
+): boolean {
+  if (!merchantData) return false;
+  const autoToggle = merchantData.rappels_auto_passage_validation;
+  if (typeof autoToggle === "boolean") return autoToggle;
+  const lp = merchantData.loyalty_program as
+    | Record<string, unknown>
+    | undefined;
+  return lp?.passage_validation === "automatic";
+}
+
+/** In-app inbox doc → [onNotificationCreated] sends the FCM push. */
+async function writeClientInAppNotification(
+  clientId: string,
+  fields: {
+    merchantId: string;
+    merchantName: string;
+    type: string;
+    title: string;
+    body: string;
+  }
+): Promise<void> {
+  await db
+    .collection("users")
+    .doc(clientId)
+    .collection("notifications")
+    .add({
+      client_id: clientId,
+      merchant_id: fields.merchantId,
+      merchant_name: fields.merchantName,
+      type: fields.type,
+      title: fields.title,
+      body: fields.body,
+      is_read: false,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
 }
 
 /**
@@ -663,7 +753,10 @@ async function fireAutoNotification(
 ): Promise<void> {
   const data = notifDoc.data();
   const merchantSnap = await db.collection("merchants").doc(merchantId).get();
-  const merchantName: string = merchantSnap.data()?.name ?? "Votre commerce";
+  // Resolve the public name (display_name → name → "Votre commerce")
+  // at SEND time, not at template creation. Ensures merchants who
+  // updated their commercial name see the new value in pushes.
+  const merchantName: string = resolveMerchantPublicName(merchantSnap.data());
 
   await db
     .collection("users")
@@ -995,9 +1088,8 @@ export const cleanupStaleActiveValidations = functions
 // ─── 2b. Client requests passage validation (merchant push) ─────────────────
 
 /**
- * When a client creates an `active_validations` doc with status `awaiting`,
- * notify the merchant owner immediately (FCM). The merchant app also listens
- * on Firestore for in-app popups while foregrounded.
+ * When an `active_validations` session is created (`awaiting`) or completed,
+ * notify both the merchant owner and the client (FCM + client inbox on request).
  */
 export const onActiveValidationAwaiting = functions
   .region("europe-west1")
@@ -1006,78 +1098,121 @@ export const onActiveValidationAwaiting = functions
   )
   .onWrite(async (change, context) => {
     const after = change.after.data();
-    if (!after || after.status !== "awaiting") return null;
+    if (!after) return null;
 
     const before = change.before.data();
-    // Skip noisy updates while still awaiting (e.g. opened_at).
-    if (before?.status === "awaiting") return null;
+    const statusAfter = after.status as string | undefined;
+    const statusBefore = before?.status as string | undefined;
+    if (!statusAfter || statusAfter === statusBefore) return null;
 
     const { merchantId, clientUid } = context.params;
     const merchantSnap = await db.collection("merchants").doc(merchantId).get();
     if (!merchantSnap.exists) return null;
-    const ownerUid: string | undefined = merchantSnap.data()?.owner_uid;
+    const merchantData = merchantSnap.data();
+    const ownerUid: string | undefined = merchantData?.owner_uid;
     if (!ownerUid) return null;
 
-    const tokenDoc = await db
-      .collection("users")
-      .doc(ownerUid)
-      .collection("push_tokens")
-      .doc("device")
-      .get();
-    if (!tokenDoc.exists) return null;
-    const fcmToken: string | undefined = tokenDoc.data()?.fcm_token;
-    if (!fcmToken) return null;
-
+    const merchantName = resolveMerchantPublicName(merchantData);
     const clientName: string =
       (after.client_display_name as string) || "Un client";
-    const title = "Passage à valider";
-    const body = `${clientName} attend votre validation`;
 
-    const message: admin.messaging.Message = {
-      token: fcmToken,
-      notification: { title, body },
-      data: {
-        type: "loyalty_passage_request",
-        merchant_id: merchantId,
-        client_uid: clientUid,
-        client_name: clientName,
-      },
-      android: {
-        priority: "high",
-        notification: {
-          channelId: "yuztoo_promo_v2",
-          priority: "high",
-          defaultSound: true,
-        },
-      },
-      apns: {
-        headers: {
-          "apns-priority": "10",
-          "apns-push-type": "alert",
-        },
-        payload: {
-          aps: {
-            sound: "default",
-            "content-available": 1,
-          },
-        },
-      },
-    };
+    // ── Client requested validation (manual mode) ───────────────────────────
+    if (statusAfter === "awaiting" && statusBefore !== "awaiting") {
+      if (merchantPassageValidationIsAutomatic(merchantData)) {
+        functions.logger.info("Skip passage push: automatic validation", {
+          merchantId,
+          clientUid,
+        });
+        return null;
+      }
 
-    try {
-      await messaging.send(message);
-      functions.logger.info("Merchant passage-request push sent", {
-        merchantId,
-        clientUid,
-        ownerUid,
-      });
-    } catch (error: unknown) {
-      functions.logger.error("Merchant passage-request push failed", {
-        merchantId,
-        clientUid,
-        error: String(error),
-      });
+      const merchantToken = await getUserDeviceFcmToken(ownerUid);
+      if (merchantToken) {
+        try {
+          await sendHighPriorityAlertPush(
+            merchantToken,
+            "Passage à valider",
+            `${clientName} attend votre validation`,
+            {
+              type: "loyalty_passage_request",
+              merchant_id: merchantId,
+              client_uid: clientUid,
+              client_name: clientName,
+            }
+          );
+          functions.logger.info("Merchant passage-request push sent", {
+            merchantId,
+            clientUid,
+            ownerUid,
+          });
+        } catch (error: unknown) {
+          functions.logger.error("Merchant passage-request push failed", {
+            merchantId,
+            clientUid,
+            error: String(error),
+          });
+        }
+      }
+
+      try {
+        await writeClientInAppNotification(clientUid, {
+          merchantId,
+          merchantName,
+          type: "loyalty",
+          title: `Validation en cours chez ${merchantName}`,
+          body:
+            "Votre passage est en attente de validation par le commerçant.",
+        });
+        functions.logger.info("Client passage-pending notification written", {
+          merchantId,
+          clientUid,
+        });
+      } catch (error: unknown) {
+        functions.logger.error("Client passage-pending notification failed", {
+          merchantId,
+          clientUid,
+          error: String(error),
+        });
+      }
+
+      return null;
     }
+
+    // ── Merchant validated the passage ──────────────────────────────────────
+    if (statusAfter === "completed" && statusBefore === "awaiting") {
+      const merchantToken = await getUserDeviceFcmToken(ownerUid);
+      if (merchantToken) {
+        try {
+          await sendHighPriorityAlertPush(
+            merchantToken,
+            "Passage validé",
+            `Passage enregistré pour ${clientName}`,
+            {
+              type: "loyalty_passage_validated",
+              merchant_id: merchantId,
+              client_uid: clientUid,
+              client_name: clientName,
+            }
+          );
+          functions.logger.info("Merchant passage-validated push sent", {
+            merchantId,
+            clientUid,
+            ownerUid,
+          });
+        } catch (error: unknown) {
+          functions.logger.error("Merchant passage-validated push failed", {
+            merchantId,
+            clientUid,
+            error: String(error),
+          });
+        }
+      }
+
+      // Client push + inbox: written by ConfirmActiveValidation in the app
+      // (writePassageValidatedNotification → onNotificationCreated).
+      return null;
+    }
+
     return null;
   });
 
@@ -1275,7 +1410,9 @@ export const onPromotionCreated = functions
     if (promoData.is_online === false) return null;
 
     const merchantSnap = await db.collection("merchants").doc(merchantId).get();
-    const merchantName: string = merchantSnap.data()?.name ?? "Votre commerce";
+    // Resolve at fan-out time so a renamed commerce surfaces the
+    // current name in the promotion push.
+    const merchantName: string = resolveMerchantPublicName(merchantSnap.data());
     const promoTitle: string = promoData.title ?? "Nouvelle promotion";
     const clientType: string = promoData.client_type ?? "gratuit";
     const targetSegments: string[] = Array.isArray(promoData.target_segments)
@@ -1494,9 +1631,9 @@ export const dailyScheduledTriggers = functions
     functions.logger.info("Running daily scheduled triggers");
 
     const now = new Date();
-    const todayMD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-      now.getDate()
-    ).padStart(2, "0")}`;
+    const parisToday = parisCalendarDayFromDate(now);
+    const todayMD = parisToday.md;
+    const calendarYear = parisToday.year;
 
     // Scan all merchants that have enabled auto notifications for birthday/anniversary.
     // G8 fix: process merchants with bounded concurrency (10 at a time) instead of
@@ -1567,6 +1704,11 @@ export const dailyScheduledTriggers = functions
               const followedMerchantSnap = await followRef.get();
               const followData = followedMerchantSnap.data() ?? {};
 
+              // At most one daily auto-notif per client/merchant. Birthday
+              // wins over connection anniversary, which wins over inactive
+              // return — avoids stacking multiple messages the same morning.
+              let sentDailyAuto = false;
+
               // Birthday trigger — once per calendar year per client/merchant.
               //
               // Idempotency reads from BOTH the legacy follow-doc field and
@@ -1591,7 +1733,8 @@ export const dailyScheduledTriggers = functions
                     dob,
                     todayMD,
                     now,
-                    lastBirthdayYear
+                    lastBirthdayYear,
+                    calendarYear
                   )
                 ) {
                   const sortedBirthdayNotifs = [...birthdayNotifs].sort(
@@ -1619,25 +1762,29 @@ export const dailyScheduledTriggers = functions
                     await recordBirthdaySent(
                       merchantId,
                       clientId,
-                      now.getFullYear(),
+                      calendarYear,
                       followRef
                     );
+                    sentDailyAuto = true;
                   }
                 }
               }
 
               // Anniversary of first connection — once per calendar year.
               // Same idempotency + cap-at-one-per-merchant guarantees as the
-              // birthday branch above.
-              if (anniversaryNotifs.length > 0 && followedMerchantSnap.exists) {
+              // birthday branch above. Skipped when a birthday notif already
+              // fired for this client today (daily spacing).
+              if (
+                !sentDailyAuto &&
+                anniversaryNotifs.length > 0 &&
+                followedMerchantSnap.exists
+              ) {
                 const followedAt: FirebaseFirestore.Timestamp | undefined =
                   followData.followed_at;
                 if (followedAt) {
-                  const followDate = followedAt.toDate();
-                  const followMD = `${String(followDate.getMonth() + 1).padStart(
-                    2,
-                    "0"
-                  )}-${String(followDate.getDate()).padStart(2, "0")}`;
+                  const followParis = parisCalendarDayFromDate(
+                    followedAt.toDate()
+                  );
                   const lastAnniversaryYear =
                     await getLastConnectionAnniversaryYearSent(
                       merchantId,
@@ -1646,10 +1793,10 @@ export const dailyScheduledTriggers = functions
                     );
                   if (
                     shouldSendConnectionAnniversary(
-                      followMD,
+                      followParis.md,
                       todayMD,
-                      followDate.getFullYear(),
-                      now.getFullYear(),
+                      followParis.year,
+                      calendarYear,
                       lastAnniversaryYear
                     )
                   ) {
@@ -1680,16 +1827,18 @@ export const dailyScheduledTriggers = functions
                       await recordConnectionAnniversarySent(
                         merchantId,
                         clientId,
-                        now.getFullYear(),
+                        calendarYear,
                         followRef
                       );
+                      sentDailyAuto = true;
                     }
                   }
                 }
               }
 
               // Inactive client — ≥60 days without visit, max once per 30 days.
-              if (inactiveNotifs.length > 0) {
+              // Skipped when birthday or anniversary already fired today.
+              if (!sentDailyAuto && inactiveNotifs.length > 0) {
                 const loyaltyRef = db
                   .collection("merchants")
                   .doc(merchantId)
@@ -2046,8 +2195,9 @@ export const processScheduledNotifications = functions
           .doc(merchantId)
           .get();
         const merchantData = merchantSnap.data() ?? {};
-        const merchantName: string =
-          merchantData.name ?? "Votre commerce";
+        // Resolve at quick-send time too — same root reason as
+        // [fireAutoNotification].
+        const merchantName: string = resolveMerchantPublicName(merchantData);
         const weeklyCount: number =
           Number(merchantData.weekly_notif_sent_count ?? 0);
         const resetAt = merchantData.weekly_notif_reset_at;
@@ -2121,6 +2271,23 @@ export const processScheduledNotifications = functions
           return;
         }
 
+        const sentNotifRef = db
+          .collection("merchants")
+          .doc(merchantId)
+          .collection("sent_notifications")
+          .doc();
+        await sentNotifRef.set({
+          merchant_id: merchantId,
+          text,
+          audience,
+          segments,
+          sent_count: 0,
+          open_count: 0,
+          sent_at: admin.firestore.FieldValue.serverTimestamp(),
+          source: "scheduled",
+          scheduled_notification_id: doc.id,
+        });
+
         // Write one notification doc per filtered follower. Same shape
         // as fireAutoNotification's auto/quick-send writes so
         // onNotificationCreated handles the FCM push uniformly.
@@ -2139,6 +2306,7 @@ export const processScheduledNotifications = functions
                 title: merchantName,
                 body: text,
                 is_read: false,
+                sent_notification_id: sentNotifRef.id,
                 created_at:
                   admin.firestore.FieldValue.serverTimestamp(),
               });
@@ -2151,6 +2319,8 @@ export const processScheduledNotifications = functions
             });
           }
         });
+
+        await sentNotifRef.set({ sent_count: sent }, { merge: true });
 
         // Increment merchant quota counter (same as quick-send path).
         // Uses a transaction so the read-modify-write of the rolling

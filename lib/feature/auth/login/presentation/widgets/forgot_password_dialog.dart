@@ -66,9 +66,16 @@ class _ForgotPasswordDialogState extends ConsumerState<ForgotPasswordDialog> {
         if (next is ForgotPasswordSuccess) {
           Navigator.of(context).pop();
           if (mounted) {
+            // Firebase Auth (>= v6) intentionally returns success for unknown
+            // emails to prevent account enumeration. Confirming "envoyé"
+            // would mislead users with mistyped addresses to wait for an
+            // email that never arrives. Use the canonical conditional
+            // wording (same pattern Google, GitHub, Stripe use).
             showSuccessSnackbar(
               context,
-              'Un email de réinitialisation a été envoyé à ${_emailController.text.trim()}',
+              'Si un compte Yuztoo correspond à cette adresse, un e-mail '
+              'de réinitialisation vient de partir. Pensez à vérifier '
+              'aussi vos spams.',
             );
           }
         } else if (next is ForgotPasswordError) {

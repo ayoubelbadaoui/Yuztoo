@@ -182,10 +182,12 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
     bool photoUploading = false,
     VoidCallback? onPhotoTap,
     VoidCallback? onCreateProAccount,
-    // Always non-null when called from `build()` — the parent now resolves
-    // the role-aware default (merchant ⇒ "Créer un carnet Yuztoo",
-    // client ⇒ "Créer un compte pro") before passing it down.
-    required String createOtherRoleLabel,
+    // Null when the user already holds both roles — the parent then
+    // omits the secondary-role CTA entirely (see [build]). When non-null
+    // it has already been resolved from the signed-in user's role
+    // (merchant ⇒ "Créer un carnet Yuztoo", client ⇒ "Créer un compte
+    // pro"), so this widget never has to derive labels on its own.
+    String? createOtherRoleLabel,
     bool isDualProfile = false,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -282,40 +284,46 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                       onPhotoTap: onPhotoTap,
                     ),
                     const SizedBox(height: 20),
-                    GestureDetector(
-                      onTap: onCreateProAccount,
-                      child: Container(
-                        width: double.infinity,
-                        height: 54,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFD4AF37), Color(0xFFD4A017)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: MerchantColors.gold.withValues(alpha: 0.35),
-                              blurRadius: 16,
-                              spreadRadius: -2,
-                              offset: const Offset(0, 6),
+                    // Secondary-role CTA — only rendered when the user
+                    // is missing the other role (carnet or pro). Once
+                    // both roles exist, the parent passes a null label
+                    // and we omit the button entirely.
+                    if (createOtherRoleLabel != null) ...[
+                      GestureDetector(
+                        onTap: onCreateProAccount,
+                        child: Container(
+                          width: double.infinity,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFD4AF37), Color(0xFFD4A017)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            createOtherRoleLabel,
-                            style: GoogleFonts.outfit(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: MerchantColors.bgHeader,
-                              letterSpacing: 0.2,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: MerchantColors.gold.withValues(alpha: 0.35),
+                                blurRadius: 16,
+                                spreadRadius: -2,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              createOtherRoleLabel,
+                              style: GoogleFonts.outfit(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: MerchantColors.bgHeader,
+                                letterSpacing: 0.2,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                     if (isDualProfile) ...[
                       const SizedBox(height: 28),
                       _buildYuztooCard(fullName),
@@ -426,7 +434,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
   Widget _buildEditForm(BuildContext context, {required String? uid}) {
     const inputDeco = InputDecorationTheme(
       filled: true,
-      fillColor: Color(0xFF0B2540),
+      fillColor: MerchantColors.inputFill,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
         borderSide: BorderSide(color: Color(0x33D4A017)),
@@ -1017,7 +1025,7 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
                             size: 20,
                           ),
                           filled: true,
-                          fillColor: MerchantColors.bgHeader,
+                          fillColor: MerchantColors.inputFill,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 10,
@@ -1287,7 +1295,7 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                 prefixIcon: const Icon(Icons.search_rounded,
                     color: MerchantColors.textGrey, size: 20),
                 filled: true,
-                fillColor: MerchantColors.bgHeader,
+                fillColor: MerchantColors.inputFill,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(

@@ -236,8 +236,13 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                   onSwitchRole: () => widget.onNavigate?.call('switch-to-client'),
                 ),
                 Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
+                  child: YuztooPullRefresh(
+                    onRefresh: _onPullRefresh,
+                    backgroundColor: StorefrontColors.backgroundLight,
+                    child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
                     padding: EdgeInsets.only(
                       bottom: MediaQuery.of(context).padding.bottom + 80,
                     ),
@@ -539,6 +544,7 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
                       ],
                     ),
                   ),
+                ),
                 ),
               ],
             );

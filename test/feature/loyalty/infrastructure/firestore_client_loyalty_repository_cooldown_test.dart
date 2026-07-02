@@ -134,6 +134,26 @@ void main() {
       final snap = await readDoc();
       expect(snap.data()?['cumulative_spend_euros'], closeTo(12.5, 1e-9));
     });
+
+    test('enforcePassageCooldown false allows rapid second passage', () async {
+      final first = await repo.applyPassageDeltas(
+        merchantId: merchantId,
+        clientUid: clientUid,
+        validatedPassagesDelta: 1,
+      );
+      expect(first.isRight, isTrue);
+
+      final second = await repo.applyPassageDeltas(
+        merchantId: merchantId,
+        clientUid: clientUid,
+        validatedPassagesDelta: 1,
+        enforcePassageCooldown: false,
+      );
+      expect(second.isRight, isTrue);
+
+      final snap = await readDoc();
+      expect(snap.data()?['validated_passages'], 2);
+    });
   });
 
   group('production default cooldown', () {

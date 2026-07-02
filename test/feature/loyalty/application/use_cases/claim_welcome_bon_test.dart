@@ -67,6 +67,7 @@ class _RecordingRepo implements ClientLoyaltyRepository {
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
     ActiveValidationCompletion? completeActiveValidation,
+    bool enforcePassageCooldown = true,
   }) async =>
       throw UnimplementedError();
   @override

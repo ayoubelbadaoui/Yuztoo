@@ -9,6 +9,7 @@ import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/infrastructure/loyalty_program_firestore_mapper.dart';
 import '../domain/entities/client_merchant_loyalty_progress.dart';
 import '../domain/entities/loyalty_pending_client_row.dart';
+import '../domain/failures/passage_cooldown_failure.dart';
 import '../domain/repositories/client_loyalty_repository.dart';
 
 /// Firestore: `merchants/{merchantId}/loyalty_clients/{clientUid}`.
@@ -126,6 +127,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
     ActiveValidationCompletion? completeActiveValidation,
+    bool enforcePassageCooldown = true,
   }) async {
     if (merchantId.isEmpty || clientUid.isEmpty) {
       return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
@@ -187,7 +189,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           // server-written `last_passage_at`. A tampered clock would bypass
           // this — the authoritative enforcement is in firestore.rules,
           // which compares `request.time` (server) to `last_passage_at`.
-          if (isNewPassageEvent) {
+          if (isNewPassageEvent && enforcePassageCooldown) {
             final lastPassageAt = snap.data()?['last_passage_at'];
             if (lastPassageAt is Timestamp) {
               final since = DateTime.now()
@@ -276,10 +278,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
       // it to the same friendly message instead of the generic fallback.
       if (e.code == 'permission-denied' && isNewPassageEvent) {
         return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
-          UnexpectedFailure(
-            message:
-                'Votre passage vient d’être enregistré. Patientez 1 heure avant un nouveau passage chez ce commerçant.',
-          ),
+          PassageCooldownFailure(),
         );
       }
       return Left<AppFailure, ClientMerchantLoyaltyProgress>(
@@ -291,17 +290,12 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
       );
     } catch (e, st) {
       if (e.toString().contains(_passageCooldownSentinel)) {
-        // Surfaced verbatim to the UI — the parent layer keys off the words
-        // "passage" and either "patientez" or "enregistré" to render the
-        // friendly "déjà été enregistré" sheet rather than a generic toast.
-        // The exact duration is spelled out so the merchant + client know
-        // when they can retry; a vague "patientez" was sending users back
-        // through the validation flow unnecessarily.
+        // Surfaced as a typed failure so callers can switch on the type
+        // (preferred) instead of substring-matching the message. The
+        // canonical French copy lives in [PassageCooldownFailure] so
+        // sheets, snackbars and analytics share the same wording.
         return const Left<AppFailure, ClientMerchantLoyaltyProgress>(
-          UnexpectedFailure(
-            message:
-                'Votre passage vient d’être enregistré. Patientez 1 heure avant un nouveau passage chez ce commerçant.',
-          ),
+          PassageCooldownFailure(),
         );
       }
       if (e.toString().contains('active_validation_missing')) {

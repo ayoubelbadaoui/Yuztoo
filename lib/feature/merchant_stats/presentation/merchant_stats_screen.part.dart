@@ -628,6 +628,15 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
       AsyncValue<List<SentNotification>> sentNotifAsync) {
     final notifications = sentNotifAsync.valueOrNull ?? [];
     final isLoading = sentNotifAsync.isLoading;
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final thisMonth = notifications
+        .where((n) => !n.sentAt.isBefore(monthStart))
+        .toList();
+    final totalSent =
+        thisMonth.fold<int>(0, (sum, n) => sum + n.sentCount);
+    final totalOpens =
+        thisMonth.fold<int>(0, (sum, n) => sum + n.openCount);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -652,7 +661,7 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
                     color: MerchantColors.gold, strokeWidth: 2),
               ),
             )
-          else if (notifications.isEmpty)
+          else if (thisMonth.isEmpty)
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -675,21 +684,107 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
               ),
             )
           else
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: _notifKpiCard(
-                    icon: Icons.send_rounded,
-                    value: '${notifications.length}',
-                    label: 'Envoyées',
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _notifKpiCard(
+                        icon: Icons.send_rounded,
+                        value: '$totalSent',
+                        label: 'Envoyées ce mois',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _notifKpiCard(
+                        icon: Icons.visibility_outlined,
+                        value: '$totalOpens',
+                        label: 'Ouvertures',
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _notifKpiCard(
-                    icon: Icons.people_outline_rounded,
-                    value: '${notifications.first.sentCount}',
-                    label: 'Dernière portée',
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: MerchantColors.navyCard,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                        color: MerchantColors.gold.withValues(alpha: 0.2)),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: thisMonth.length.clamp(0, 5),
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: MerchantColors.gold.withValues(alpha: 0.12),
+                    ),
+                    itemBuilder: (context, i) {
+                      final notif = thisMonth[i];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color:
+                                    MerchantColors.gold.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.notifications_rounded,
+                                  color: MerchantColors.gold, size: 18),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    notif.text,
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '${_formatDate(notif.sentAt)} · ${notif.sentCount} envoi${notif.sentCount > 1 ? 's' : ''}',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 11,
+                                      color: MerchantColors.textGrey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color:
+                                    MerchantColors.gold.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${notif.openCount} ouverture${notif.openCount > 1 ? 's' : ''}',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  color: MerchantColors.gold,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],

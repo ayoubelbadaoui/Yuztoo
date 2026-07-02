@@ -149,6 +149,15 @@ extension _OTPScreenFlow on _OTPScreenState {
 
     await createResult.fold<Future<void>>(
       (failure) async {
+        // The Firebase Auth user we just created in `verifyPhoneAndCreateUser`
+        // (phone + email + password) has no Firestore profile yet. If we leave
+        // it as-is, the email and phone stay claimed in Firebase Auth and
+        // any subsequent signup with the same email is blocked with
+        // `email-already-in-use`. Roll it back so the user can retry cleanly
+        // — this is the documented "state cleanup on failed verification"
+        // requirement.
+        await _rollbackOrphanFirebaseAuthUser();
+
         if (mounted) {
           showErrorSnackbar(
             context,
@@ -210,6 +219,37 @@ extension _OTPScreenFlow on _OTPScreenState {
         });
       },
     );
+  }
+
+  /// Best-effort cleanup of the Firebase Auth user that
+  /// `verifyPhoneAndCreateUser` just created (phone + email/password linked)
+  /// when the Firestore profile write failed afterwards.
+  ///
+  /// Without this rollback, the email and phone stay claimed by an orphan
+  /// Firebase Auth user and any retry with the same email yields
+  /// `email-already-in-use`, which is the symptom we are fixing.
+  ///
+  /// This is the auth-only delete path — the Firestore profile does not
+  /// exist yet, so there is no GDPR cascade to perform. We must NOT call
+  /// the `purgeAccount` Cloud Function here because the user has no
+  /// merchant doc, no loyalty footprint, etc. Calling it would only add
+  /// latency and could fail in environments where CFs aren't reachable.
+  Future<void> _rollbackOrphanFirebaseAuthUser() async {
+    try {
+      final authRepo = ref.read(auth_core.authRepositoryProvider);
+      // We do not act on the success/failure of the delete here — if it
+      // worked, the user is gone and the email/phone are released; if it
+      // didn't, the signOut below at least keeps the shell from booting
+      // the orphan as a logged-in session. The auth-only delete leaks at
+      // most one Firebase Auth row and surfaces in support logs as the
+      // failed signup attempt the user already saw an error for.
+      await authRepo.deleteCurrentUser();
+    } catch (_) {
+      // Best-effort — fall through to signOut below.
+    }
+    try {
+      await ref.read(auth_core.signOutProvider).call();
+    } catch (_) {}
   }
 
   Future<void> _handleResend() async {

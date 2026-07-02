@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/utils/city_input.dart';
 import 'client_gratification_config.dart';
 import 'loyalty_program_config.dart';
+import 'merchant_storefront_link.dart';
 
 /// Domain representation of a merchant business entity.
 /// 
@@ -35,6 +36,7 @@ class Merchant extends Equatable {
     this.galerieEnabled = true,
     this.rappelsAutoClientValidation,
     this.rappelsAutoPassageValidation,
+    this.passageCooldownEnabled,
     this.rappelsMonthlyConnectedClients = 0,
     this.rappelsMonthlyValidatedPassages = 0,
     this.weeklyNotifSentCount = 0,
@@ -45,6 +47,7 @@ class Merchant extends Equatable {
     this.subcategoryTitle,
     this.gratificationConfig,
     this.publicFollowersCount = 0,
+    this.storefrontLinks = const [],
   });
 
   /// Unique identifier for the merchant document
@@ -113,6 +116,9 @@ class Merchant extends Equatable {
   /// Rappels: auto-validate passage (default true)
   final bool? rappelsAutoPassageValidation;
 
+  /// When true (default), the same client cannot earn two passages within 1 h.
+  final bool? passageCooldownEnabled;
+
   /// Rappels: clients connectés ce mois (agrégat Firestore, défaut 0)
   final int rappelsMonthlyConnectedClients;
 
@@ -143,6 +149,9 @@ class Merchant extends Equatable {
 
   /// Server-maintained: Firestore `public_followers_count` (vitrine "Suivi").
   final int publicFollowersCount;
+
+  /// Custom vitrine links (reservation, menu, social, etc.).
+  final List<MerchantStorefrontLink> storefrontLinks;
 
   /// Returns the effective gratification config (never null).
   ClientGratificationConfig get effectiveGratificationConfig =>
@@ -216,6 +225,7 @@ class Merchant extends Equatable {
         galerieEnabled,
         rappelsAutoClientValidation,
         rappelsAutoPassageValidation,
+        passageCooldownEnabled,
         rappelsMonthlyConnectedClients,
         rappelsMonthlyValidatedPassages,
         weeklyNotifSentCount,
@@ -226,6 +236,7 @@ class Merchant extends Equatable {
         subcategoryTitle,
         gratificationConfig,
         publicFollowersCount,
+        storefrontLinks,
       ];
 
   /// Creates a copy of the merchant with updated fields
@@ -255,6 +266,7 @@ class Merchant extends Equatable {
     bool? galerieEnabled,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool? passageCooldownEnabled,
     int? rappelsMonthlyConnectedClients,
     int? rappelsMonthlyValidatedPassages,
     int? weeklyNotifSentCount,
@@ -265,6 +277,7 @@ class Merchant extends Equatable {
     String? subcategoryTitle,
     ClientGratificationConfig? gratificationConfig,
     int? publicFollowersCount,
+    List<MerchantStorefrontLink>? storefrontLinks,
   }) {
     return Merchant(
       id: id ?? this.id,
@@ -295,6 +308,8 @@ class Merchant extends Equatable {
           rappelsAutoClientValidation ?? this.rappelsAutoClientValidation,
       rappelsAutoPassageValidation:
           rappelsAutoPassageValidation ?? this.rappelsAutoPassageValidation,
+      passageCooldownEnabled:
+          passageCooldownEnabled ?? this.passageCooldownEnabled,
       rappelsMonthlyConnectedClients:
           rappelsMonthlyConnectedClients ?? this.rappelsMonthlyConnectedClients,
       rappelsMonthlyValidatedPassages:
@@ -308,6 +323,7 @@ class Merchant extends Equatable {
       gratificationConfig: gratificationConfig ?? this.gratificationConfig,
       publicFollowersCount:
           publicFollowersCount ?? this.publicFollowersCount,
+      storefrontLinks: storefrontLinks ?? this.storefrontLinks,
     );
   }
 

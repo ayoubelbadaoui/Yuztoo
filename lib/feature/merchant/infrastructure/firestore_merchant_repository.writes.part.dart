@@ -153,6 +153,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool? passageCooldownEnabled,
     LoyaltyProgramConfig? loyaltyProgram,
     bool? messagingEnabled,
     bool? notificationsAutoEnabled,
@@ -160,6 +161,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     bool? loyaltyEnabledStandalone,
     String? merchantType,
     bool clearCityField = false,
+    List<MerchantStorefrontLink>? storefrontLinks,
   }) async {
     if (merchantId.isEmpty) {
       return const Left<MerchantFailure, Merchant>(
@@ -253,6 +255,9 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       if (rappelsAutoPassageValidation != null) {
         updateData['rappels_auto_passage_validation'] = rappelsAutoPassageValidation;
       }
+      if (passageCooldownEnabled != null) {
+        updateData['passage_cooldown_enabled'] = passageCooldownEnabled;
+      }
       if (loyaltyProgram != null) {
         updateData['loyalty_program'] =
             LoyaltyProgramFirestoreMapper.toFirestoreMap(loyaltyProgram);
@@ -283,6 +288,14 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
             updatedLp['program_enabled'] = loyaltyEnabledStandalone;
             updateData['loyalty_program'] = updatedLp;
           }
+        }
+      }
+      if (storefrontLinks != null) {
+        if (storefrontLinks.isEmpty) {
+          updateData['storefront_links'] = FieldValue.delete();
+        } else {
+          updateData['storefront_links'] =
+              storefrontLinks.map((l) => l.toMap()).toList(growable: false);
         }
       }
 

@@ -6,8 +6,8 @@ import 'package:flutter_yuztoo/feature/rappels/presentation/widgets/trigger_grid
 /// Hard tests — Dart/TS contract + segment parity for auto-notifications.
 void main() {
   group('HARD: trigger contract Flutter ↔ Cloud Functions', () {
-    test('triggerLabels length matches grid count', () {
-      expect(triggerLabels.length, 11);
+    test('selectable triggerLabels length matches grid count', () {
+      expect(triggerLabels.length, 10);
     });
 
     test('every trigger label is non-empty and unique', () {
@@ -66,14 +66,21 @@ void main() {
   });
 
   group('HARD: birthday / inactive business rules (mirrors CF)', () {
+    String? parseDobMd(String? dob) {
+      if (dob == null) return null;
+      final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(dob.trim());
+      if (match == null) return null;
+      return '${match.group(2)}-${match.group(3)}';
+    }
+
     bool birthdayAllowed({
       required String? dob,
       required String todayMd,
       required int todayYear,
       required int? lastSentYear,
     }) {
-      if (dob == null || dob.isEmpty) return false;
-      final dobMd = dob.length >= 5 ? dob.substring(dob.length - 5) : dob;
+      final dobMd = parseDobMd(dob);
+      if (dobMd == null) return false;
       if (dobMd != todayMd) return false;
       return lastSentYear != todayYear;
     }
@@ -81,6 +88,18 @@ void main() {
     test('no DOB → no birthday notif', () {
       expect(
         birthdayAllowed(dob: null, todayMd: '05-07', todayYear: 2026, lastSentYear: null),
+        isFalse,
+      );
+    });
+
+    test('malformed DOB → no birthday notif', () {
+      expect(
+        birthdayAllowed(
+          dob: '07/05/1990',
+          todayMd: '05-07',
+          todayYear: 2026,
+          lastSentYear: null,
+        ),
         isFalse,
       );
     });

@@ -165,16 +165,17 @@ extension _EFideliteScreenUi on _EFideliteScreenState {
                         config: saved,
                         saving: _saving,
                         onEdit: ({required int initialStep}) =>
-                            _openWizard(
-                          initialStep: initialStep,
-                          fromRecap: true,
-                        ),
+                            _openQuickEdit(),
                         onDisable: _disableProgram,
                         onStartNewProgram: merchant.hasSavedLoyaltyProgram &&
                                 !saved.programEnabled
                             ? () => _confirmAndStartNewProgram(merchant)
                             : null,
                       );
+                    }
+
+                    if (_viewMode == _EFideliteViewMode.quickEdit) {
+                      return const LoyaltyQuickEditForm();
                     }
 
                     return LoyaltyConfigurationWizard(

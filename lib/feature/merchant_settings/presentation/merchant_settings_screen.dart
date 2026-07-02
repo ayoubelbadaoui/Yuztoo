@@ -1,16 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/logout_confirm_dialog.dart';
 import '../../legal/domain/legal_document.dart';
 import '../../legal/presentation/legal_document_screen.dart';
 import '../../e_fidelite/application/e_fidelite_providers.dart';
+import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
+import '../../storefront/application/providers.dart';
 import '../application/providers.dart';
 import 'widgets/settings_preferences_section.dart';
 import 'widgets/settings_services_section.dart';
+import 'widgets/settings_storefront_section.dart';
 
 part 'merchant_settings_screen.part.dart';
 
@@ -34,6 +40,7 @@ class _MerchantSettingsScreenState
   bool? _fidelite;
   bool? _notificationsAuto;
   bool? _galerie;
+  bool? _passageCooldown;
 
   /// Whether we've seeded local state from the Firestore merchant doc.
   bool _initialised = false;
@@ -42,18 +49,21 @@ class _MerchantSettingsScreenState
     bool loyalty,
     bool notifications,
     bool galerie,
+    bool passageCooldown,
   ) {
     if (_initialised) return;
     _initialised = true;
     _fidelite = loyalty;
     _notificationsAuto = notifications;
     _galerie = galerie;
+    _passageCooldown = passageCooldown;
   }
 
   Future<void> _toggle({
     bool? notificationsAutoEnabled,
     bool? galerieEnabled,
     bool? loyaltyEnabled,
+    bool? passageCooldownEnabled,
   }) async {
     final merchantId = ref.read(currentMerchantIdProvider);
     if (merchantId == null) return;
@@ -62,6 +72,7 @@ class _MerchantSettingsScreenState
           notificationsAutoEnabled: notificationsAutoEnabled,
           galerieEnabled: galerieEnabled,
           loyaltyEnabled: loyaltyEnabled,
+          passageCooldownEnabled: passageCooldownEnabled,
         );
     if (!mounted) return;
     result.fold(
@@ -118,22 +129,36 @@ class _MerchantSettingsScreenState
     _toggle(galerieEnabled: v);
   }
 
-  // One-time info popup per app session.
-  static bool _hasShownInfo = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!_hasShownInfo) {
-      _hasShownInfo = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showInfoPopup();
-      });
-    }
+  void _setPassageCooldown(bool v) {
+    setState(() => _passageCooldown = v);
+    _toggle(passageCooldownEnabled: v);
   }
 
-  void _showInfoPopup() {
-    showDialog<void>(
+  /// Whether we've scheduled the one-time control popup for this screen instance.
+  bool _controlPopupScheduled = false;
+
+  static String _controlPopupPrefsKey(String merchantId) =>
+      'merchant_settings.control_popup_seen.$merchantId';
+
+  Future<void> _maybeShowControlPopupOnce(String merchantId) async {
+    if (merchantId.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final key = _controlPopupPrefsKey(merchantId);
+    if (prefs.getBool(key) == true) return;
+    if (!mounted) return;
+    await _showInfoPopup();
+    if (!mounted) return;
+    await prefs.setBool(key, true);
+  }
+
+  void _scheduleControlPopupOnce(String merchantId) {
+    if (_controlPopupScheduled) return;
+    _controlPopupScheduled = true;
+    unawaited(_maybeShowControlPopupOnce(merchantId));
+  }
+
+  Future<void> _showInfoPopup() async {
+    await showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.65),
       builder: (ctx) => Dialog(

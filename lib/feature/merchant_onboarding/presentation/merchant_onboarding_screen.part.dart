@@ -24,23 +24,27 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
             children: [
               _buildProgressBar(1, 3),
               _buildHeader(),
+              _buildAudienceToggle(),
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final wide = constraints.maxWidth >= 520;
                     final crossAxisCount = wide ? 3 : 2;
+                    final categories = _visibleCategories;
                     return GridView.builder(
+                      // Rebuild the grid (and its entrance animations) when
+                      // the audience changes so stale cards don't linger.
+                      key: ValueKey(_audience),
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
-                        childAspectRatio: wide ? 0.88 : 0.82,
+                        childAspectRatio: wide ? 0.74 : 0.68,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                       ),
-                      itemCount: _MerchantOnboardingScreenState._categories.length,
+                      itemCount: categories.length,
                       itemBuilder: (context, index) {
-                        final category =
-                            _MerchantOnboardingScreenState._categories[index];
+                        final category = categories[index];
                         return CategoryCard(
                           category: category,
                           isSelected: _selectedCategoryId == category.id,
@@ -112,6 +116,41 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
     );
   }
 
+  /// Segmented selector for the first level of the referential
+  /// (Particuliers ↔ Professionnels). Switching audiences swaps the category
+  /// grid below and clears any pick from the other audience.
+  Widget _buildAudienceToggle() {
+    return FadeTransition(
+      opacity: _animationController,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: MerchantOnboardingColors.bgDark2,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: MerchantOnboardingColors.borderColor,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              for (final audience in MerchantAudience.values)
+                Expanded(
+                  child: _AudienceSegment(
+                    audience: audience,
+                    selected: _audience == audience,
+                    onTap: () => _selectAudience(audience),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return FadeTransition(
       opacity: _animationController,
@@ -139,6 +178,71 @@ extension _MerchantOnboardingScreenUi on _MerchantOnboardingScreenState {
                 color: MerchantOnboardingColors.textGrey,
                 height: 1.4,
                 letterSpacing: -0.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One half of the audience segmented control. Selected segment is a gold
+/// pill with dark text (same vocabulary as the flow CTA); unselected stays
+/// flat on the dark container.
+class _AudienceSegment extends StatelessWidget {
+  const _AudienceSegment({
+    required this.audience,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final MerchantAudience audience;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        if (!selected) HapticFeedback.selectionClick();
+        onTap();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? MerchantOnboardingColors.primaryGold
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Column(
+          children: [
+            Text(
+              audience.labelFr,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+                color: selected
+                    ? MerchantOnboardingColors.bgDark1
+                    : MerchantOnboardingColors.textLight,
+              ),
+            ),
+            const SizedBox(height: 1),
+            OverflowScrollText(
+              text: audience.sublabelFr,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                fontWeight: FontWeight.w400,
+                color: selected
+                    ? MerchantOnboardingColors.bgDark1.withValues(alpha: 0.7)
+                    : MerchantOnboardingColors.textGrey,
               ),
             ),
           ],

@@ -118,6 +118,7 @@ class ConfirmActiveValidation {
         spendDelta: spendDelta,
         declaredSpendEuros: spend > 0 ? spend : null,
       ),
+      enforcePassageCooldown: merchantPassageCooldownEnabled(merchant),
     );
 
     return result.fold(

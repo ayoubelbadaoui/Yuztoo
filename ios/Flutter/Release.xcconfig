@@ -4,3 +4,4 @@
 // Override Flutter Generated.xcconfig simulator arch exclusions for Apple Silicon.
 EXCLUDED_ARCHS[sdk=iphonesimulator*] = i386
 FRAMEWORK_SEARCH_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}"
+APS_ENVIRONMENT = production

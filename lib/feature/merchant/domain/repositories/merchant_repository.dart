@@ -1,4 +1,5 @@
 import '../../../../core/domain/core/result.dart';
+import '../entities/merchant_storefront_link.dart';
 import '../entities/client_gratification_config.dart';
 import '../entities/loyalty_program_config.dart';
 import '../entities/merchant.dart';
@@ -106,6 +107,7 @@ abstract class MerchantRepository {
   /// [hours] - Business hours map (optional)
   /// [rappelsAutoClientValidation] - Rappels: auto-validate new clients (optional)
   /// [rappelsAutoPassageValidation] - Rappels: auto-validate passage (optional)
+  /// [passageCooldownEnabled] - 1 h minimum between passages per client (default on)
   /// [loyaltyProgram] - Full loyalty questionnaire payload (optional)
   /// [clearCityField] - When true and [city] is null, removes `city` on the merchant (and syncs user doc).
   ///
@@ -128,6 +130,7 @@ abstract class MerchantRepository {
     String? welcomeGiftDescription,
     bool? rappelsAutoClientValidation,
     bool? rappelsAutoPassageValidation,
+    bool? passageCooldownEnabled,
     LoyaltyProgramConfig? loyaltyProgram,
     bool? messagingEnabled,
     bool? notificationsAutoEnabled,
@@ -135,6 +138,7 @@ abstract class MerchantRepository {
     bool? loyaltyEnabledStandalone,
     String? merchantType,
     bool clearCityField = false,
+    List<MerchantStorefrontLink>? storefrontLinks,
   });
 
   /// Persist the merchant's client gratification configuration.

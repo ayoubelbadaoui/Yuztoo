@@ -47,4 +47,10 @@ class AutoNotificationTriggers {
   };
 
   static bool isWiredInCloud(String trigger) => wiredInCloud.contains(trigger);
+
+  /// Triggers merchants can pick in the app (excludes cloud-unwired events).
+  static List<String> get selectableTriggerLabels => [
+        for (final label in triggerLabels)
+          if (isWiredInCloud(label)) label,
+      ];
 }

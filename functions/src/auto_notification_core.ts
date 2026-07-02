@@ -65,6 +65,30 @@ export const WIRED_AUTO_NOTIFICATION_TRIGGERS: ReadonlySet<string> = new Set([
 export const INACTIVE_MIN_DAYS = 60;
 export const INACTIVE_COOLDOWN_DAYS = 30;
 
+/** Calendar day in Europe/Paris — used by the 09:00 daily cron. */
+export interface ParisCalendarDay {
+  /** `MM-DD` in Europe/Paris */
+  md: string;
+  year: number;
+}
+
+/** Resolve the merchant-local calendar day for auto-notifications (09:00 Paris). */
+export function parisCalendarDayFromDate(date: Date): ParisCalendarDay {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parseInt(
+    parts.find((p) => p.type === "year")?.value ?? "1970",
+    10
+  );
+  const month = parts.find((p) => p.type === "month")?.value ?? "01";
+  const day = parts.find((p) => p.type === "day")?.value ?? "01";
+  return { md: `${month}-${day}`, year };
+}
+
 export function normalizeTrigger(raw: string): string {
   return raw.trim();
 }
@@ -133,16 +157,18 @@ export function isLeapYear(year: number): boolean {
 export function isBirthdayToday(
   dob: string | undefined,
   todayMD: string,
-  today: Date
+  today: Date,
+  calendarYear?: number
 ): boolean {
   if (!dob) return false;
   const dobMD = parseDobToMD(dob);
   if (dobMD === null) return false;
   if (dobMD === todayMD) return true;
+  const year = calendarYear ?? today.getFullYear();
   if (
     dobMD === "02-29" &&
     todayMD === "02-28" &&
-    !isLeapYear(today.getFullYear())
+    !isLeapYear(year)
   ) {
     return true;
   }
@@ -153,10 +179,12 @@ export function shouldSendBirthdayThisYear(
   dob: string | undefined,
   todayMD: string,
   today: Date,
-  lastBirthdayAutoYear: number | undefined
+  lastBirthdayAutoYear: number | undefined,
+  calendarYear?: number
 ): boolean {
-  if (!isBirthdayToday(dob, todayMD, today)) return false;
-  return lastBirthdayAutoYear !== today.getFullYear();
+  const year = calendarYear ?? today.getFullYear();
+  if (!isBirthdayToday(dob, todayMD, today, year)) return false;
+  return lastBirthdayAutoYear !== year;
 }
 
 export function shouldSendConnectionAnniversary(
@@ -254,4 +282,47 @@ export function compareNotificationsBySpecificity<
   const aSpec = isSegmentSpecificAudience(a.data()) ? 0 : 1;
   const bSpec = isSegmentSpecificAudience(b.data()) ? 0 : 1;
   return aSpec - bSpec;
+}
+
+/**
+ * Resolve the public-facing merchant name to surface in notifications.
+ *
+ * Why this exists:
+ * - The merchant document carries TWO name fields:
+ *     • `name`         — legal / registration name set at signup. Never
+ *                        edited from the merchant settings UI, so it
+ *                        keeps the value entered the day the account
+ *                        was created.
+ *     • `display_name` — public-facing trading name ("Nom commercial")
+ *                        edited from the merchant identity screen.
+ * - Notifications historically read `name`, which is why a merchant
+ *   that renamed their commerce kept seeing the OLD name in
+ *   automatic / promotion / quick-send notifications (the user's
+ *   "le nouveau nom n'est pas indiqué" report).
+ *
+ * Resolution order:
+ *   1. `display_name` when non-empty → public-facing, always current.
+ *   2. `name` as a fallback → covers very old accounts where
+ *      `display_name` was never written.
+ *   3. The "Votre commerce" generic literal as the last resort, so
+ *      pushes never go out with an empty merchant prefix.
+ *
+ * Pure (no Firestore I/O) so it can be unit-tested. Trims to defend
+ * against whitespace-only values that would otherwise pass the
+ * truthiness check.
+ */
+export function resolveMerchantPublicName(
+  data: Record<string, unknown> | undefined
+): string {
+  if (data) {
+    const displayName = data["display_name"];
+    if (typeof displayName === "string" && displayName.trim().length > 0) {
+      return displayName.trim();
+    }
+    const legalName = data["name"];
+    if (typeof legalName === "string" && legalName.trim().length > 0) {
+      return legalName.trim();
+    }
+  }
+  return "Votre commerce";
 }

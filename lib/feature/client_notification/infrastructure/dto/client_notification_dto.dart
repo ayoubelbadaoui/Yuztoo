@@ -14,6 +14,7 @@ import '../../domain/entities/client_notification.dart';
 ///   "body":          "...",
 ///   "is_read":       false,
 ///   "promotion_id":  "..." | null,
+///   "sent_notification_id": "..." | null,
 ///   "created_at":    <Timestamp>
 /// }
 /// ```
@@ -29,6 +30,7 @@ class ClientNotificationDto {
     required this.isRead,
     required this.createdAt,
     this.promotionId,
+    this.sentNotificationId,
   });
 
   final String id;
@@ -41,6 +43,7 @@ class ClientNotificationDto {
   final bool isRead;
   final DateTime createdAt;
   final String? promotionId;
+  final String? sentNotificationId;
 
   factory ClientNotificationDto.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -63,6 +66,7 @@ class ClientNotificationDto {
       isRead: (data['is_read'] as bool?) ?? false,
       createdAt: created,
       promotionId: data['promotion_id'] as String?,
+      sentNotificationId: data['sent_notification_id'] as String?,
     );
   }
 
@@ -75,6 +79,8 @@ class ClientNotificationDto {
         'is_read': isRead,
         'created_at': FieldValue.serverTimestamp(),
         if (promotionId != null) 'promotion_id': promotionId,
+        if (sentNotificationId != null)
+          'sent_notification_id': sentNotificationId,
       };
 
   ClientNotification toDomain() => ClientNotification(
@@ -88,6 +94,7 @@ class ClientNotificationDto {
         isRead: isRead,
         createdAt: createdAt,
         promotionId: promotionId,
+        sentNotificationId: sentNotificationId,
       );
 
   // Wire vocabulary lives here AND on the CF side

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/yuztoo_pull_refresh.dart';
+import '../../../loyalty/application/active_validation_providers.dart';
 import '../../../merchant/application/providers.dart' as merchant_providers;
 import '../../../merchant/domain/entities/client_gratification_config.dart';
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
@@ -109,12 +111,13 @@ class ClientValidationTab extends ConsumerWidget {
     final isManual =
         config.passageValidation == LoyaltyPassageValidation.manual;
 
-    return RefreshIndicator(
-      color: MerchantColors.gold,
-      backgroundColor: MerchantColors.navyCard,
+    return YuztooPullRefresh(
       onRefresh: () async {
         ref.invalidate(merchant_providers.currentMerchantForOwnerProvider);
-        await Future.delayed(const Duration(milliseconds: 400));
+        ref.invalidate(merchantActiveValidationQueueProvider);
+        await ref
+            .read(merchant_providers.currentMerchantForOwnerProvider.future)
+            .catchError((_) => null);
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(

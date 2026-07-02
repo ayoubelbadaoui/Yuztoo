@@ -168,7 +168,7 @@ class _QrScannerDebugSimulateSheetState
                 color: MerchantColors.textGrey.withValues(alpha: 0.6),
               ),
               filled: true,
-              fillColor: MerchantColors.bgHeader,
+              fillColor: MerchantColors.inputFill,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(

@@ -192,7 +192,7 @@ extension _OTPScreenStateUi on _OTPScreenState {
                       decoration: InputDecoration(
                         counterText: '',
                         filled: true,
-                        fillColor: SignupConstants.bgDark2,
+                        fillColor: MerchantColors.inputFill,
                         contentPadding:
                             const EdgeInsets.symmetric(vertical: 18),
                         border: OutlineInputBorder(

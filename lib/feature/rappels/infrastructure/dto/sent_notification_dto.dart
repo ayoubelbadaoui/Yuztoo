@@ -11,6 +11,7 @@ class SentNotificationDto {
     required this.segments,
     required this.sentCount,
     required this.sentAt,
+    this.openCount = 0,
   });
 
   final String id;
@@ -19,6 +20,7 @@ class SentNotificationDto {
   final String audience;
   final List<String> segments;
   final int sentCount;
+  final int openCount;
   final DateTime sentAt;
 
   factory SentNotificationDto.fromFirestore(
@@ -33,7 +35,8 @@ class SentNotificationDto {
       segments: d['segments'] is List
           ? List<String>.from(d['segments'] as List)
           : const [],
-      sentCount: d['sent_count'] as int? ?? 0,
+      sentCount: (d['sent_count'] as num?)?.toInt() ?? 0,
+      openCount: (d['open_count'] as num?)?.toInt() ?? 0,
       sentAt: (d['sent_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -44,6 +47,7 @@ class SentNotificationDto {
         'audience': audience,
         'segments': segments,
         'sent_count': sentCount,
+        'open_count': openCount,
         'sent_at': FieldValue.serverTimestamp(),
       };
 
@@ -54,6 +58,7 @@ class SentNotificationDto {
         audience: audience,
         segments: segments,
         sentCount: sentCount,
+        openCount: openCount,
         sentAt: sentAt,
       );
 }

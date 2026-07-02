@@ -60,7 +60,10 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
         sentCount: notification.sentCount,
         sentAt: notification.sentAt,
       );
-      final ref = await _col(notification.merchantId).add(dto.toFirestore());
+      final col = _col(notification.merchantId);
+      final ref =
+          notification.id.isNotEmpty ? col.doc(notification.id) : col.doc();
+      await ref.set(dto.toFirestore());
       final created = notification.copyWith(id: ref.id);
       return Right(created);
     } on FirebaseException catch (e, st) {
@@ -70,6 +73,46 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
     } catch (e, st) {
       LoggerService.logError('createSentNotification', error: e, stackTrace: st);
       return Left(UnexpectedFailure(message: 'Erreur d\'enregistrement', cause: e, stackTrace: st));
+    }
+  }
+
+  @override
+  Future<void> updateSentCount(
+    String merchantId,
+    String sentNotificationId,
+    int sentCount,
+  ) async {
+    if (merchantId.isEmpty || sentNotificationId.isEmpty) return;
+    try {
+      await _col(merchantId).doc(sentNotificationId).set(
+        {'sent_count': sentCount},
+        SetOptions(merge: true),
+      );
+    } catch (e, st) {
+      LoggerService.logError(
+        'updateSentCount',
+        error: e,
+        stackTrace: st,
+        context: {'merchantId': merchantId, 'sentNotificationId': sentNotificationId},
+      );
+    }
+  }
+
+  @override
+  Future<void> recordOpen(String merchantId, String sentNotificationId) async {
+    if (merchantId.isEmpty || sentNotificationId.isEmpty) return;
+    try {
+      await _col(merchantId).doc(sentNotificationId).set(
+        {'open_count': FieldValue.increment(1)},
+        SetOptions(merge: true),
+      );
+    } catch (e, st) {
+      LoggerService.logError(
+        'recordOpen',
+        error: e,
+        stackTrace: st,
+        context: {'merchantId': merchantId, 'sentNotificationId': sentNotificationId},
+      );
     }
   }
 

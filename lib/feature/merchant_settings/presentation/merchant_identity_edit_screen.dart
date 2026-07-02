@@ -388,7 +388,7 @@ class _MerchantIdentityEditScreenState
                 color: MerchantColors.textGrey.withValues(alpha: 0.7)),
             helperMaxLines: 2,
             filled: true,
-            fillColor: MerchantColors.bgHeader,
+            fillColor: MerchantColors.inputFill,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(

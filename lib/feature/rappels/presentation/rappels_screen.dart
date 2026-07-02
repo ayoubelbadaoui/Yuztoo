@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/snackbar.dart';
+import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
+import '../../loyalty/application/active_validation_providers.dart';
 import '../../loyalty/presentation/widgets/reward_redemption_section.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
@@ -38,22 +43,30 @@ class RappelsScreen extends ConsumerStatefulWidget {
 class _RappelsScreenState extends ConsumerState<RappelsScreen> {
   final GlobalKey _togglesSectionKey = GlobalKey();
 
-  // One-time welcome popup per app session.
-  static bool _hasShownWelcome = false;
+  bool _welcomePopupScheduled = false;
 
-  @override
-  void initState() {
-    super.initState();
-    if (!_hasShownWelcome) {
-      _hasShownWelcome = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showWelcomePopup();
-      });
-    }
+  static String _welcomePopupPrefsKey(String merchantId) =>
+      'rappels.welcome_popup_seen.$merchantId';
+
+  Future<void> _maybeShowWelcomePopupOnce(String merchantId) async {
+    if (merchantId.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final key = _welcomePopupPrefsKey(merchantId);
+    if (prefs.getBool(key) == true) return;
+    if (!mounted) return;
+    await _showWelcomePopup();
+    if (!mounted) return;
+    await prefs.setBool(key, true);
   }
 
-  void _showWelcomePopup() {
-    showDialog<void>(
+  void _scheduleWelcomePopupOnce(String merchantId) {
+    if (_welcomePopupScheduled) return;
+    _welcomePopupScheduled = true;
+    unawaited(_maybeShowWelcomePopupOnce(merchantId));
+  }
+
+  Future<void> _showWelcomePopup() async {
+    await showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.65),
       builder: (ctx) => Dialog(
@@ -193,11 +206,31 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
     );
   }
 
+  Future<void> _onPullRefresh() async {
+    final merchant =
+        ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
+    ref.invalidate(storefront_providers.storefrontProvider);
+    ref.invalidate(merchant_providers.currentMerchantForOwnerProvider);
+    if (merchant != null) {
+      ref.invalidate(rappels_providers.sentNotificationsProvider(merchant.id));
+      ref.invalidate(
+          rappels_providers.pendingClientsForMerchantProvider(merchant.id));
+      ref.invalidate(rappels_providers.rappelsAlertsProvider(merchant.id));
+      ref.invalidate(merchantActiveValidationQueueProvider);
+    }
+    await ref
+        .read(storefront_providers.storefrontProvider.future)
+        .catchError((_) => null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final storefrontAsync = ref.watch(storefront_providers.storefrontProvider);
     final merchantAsync = ref.watch(merchant_providers.currentMerchantForOwnerProvider);
     final Merchant? merchant = merchantAsync.valueOrNull;
+    if (merchant != null) {
+      _scheduleWelcomePopupOnce(merchant.id);
+    }
 
     return _buildRappelsScaffold(
       context,

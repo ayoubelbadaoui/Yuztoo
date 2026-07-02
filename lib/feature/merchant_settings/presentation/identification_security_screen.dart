@@ -235,12 +235,10 @@ class _IdentificationSecurityScreenState
                       _buildEmailCard(email),
                       const SizedBox(height: 12),
                       _buildPasswordCard(email),
-                      const SizedBox(height: 28),
-                      _sectionLabel('Sécurité avancée'),
-                      const SizedBox(height: 10),
-                      _buildTwoFactorCard(),
                       if (connectedProviders.isNotEmpty) ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 28),
+                        _sectionLabel('Connexion sociale'),
+                        const SizedBox(height: 10),
                         _buildConnectedProvidersCard(
                             connectedProviders, email, phoneNumber),
                       ],
@@ -605,73 +603,6 @@ class _IdentificationSecurityScreenState
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // ── two-factor card ────────────────────────────────────────────────────────
-  Widget _buildTwoFactorCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: MerchantColors.navyCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: MerchantColors.gold.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: MerchantColors.gold.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.verified_user_outlined,
-                color: MerchantColors.gold, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Double authentification',
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Bientôt disponible',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: MerchantColors.textGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: MerchantColors.gold.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'Bientôt',
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                color: MerchantColors.gold,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

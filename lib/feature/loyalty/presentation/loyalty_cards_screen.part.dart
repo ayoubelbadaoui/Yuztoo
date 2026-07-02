@@ -105,21 +105,14 @@ class _GreetingBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = feedAsync.valueOrNull ?? [];
-    // Own merchant (isOwnMerchant=true) is not a "followed" merchant.
-    final followedCount = entries.where((e) => !e.isOwnMerchant).length;
-    final hasOwnMerchant = entries.any((e) => e.isOwnMerchant);
-    final totalCount = entries.length;
+    final followedCount = entries.length;
 
     String subtitle;
-    if (totalCount == 0) {
+    if (followedCount == 0) {
       subtitle = 'Scannez votre premier commerce pour commencer';
-    } else if (followedCount == 0 && hasOwnMerchant) {
-      subtitle = 'Votre commerce est actif — suivez d\'autres commerces pour cumuler des avantages';
-    } else if (followedCount > 0) {
+    } else {
       subtitle =
           '$followedCount commerce${followedCount > 1 ? 's' : ''} suivi${followedCount > 1 ? 's' : ''}';
-    } else {
-      subtitle = 'Scannez votre premier commerce pour commencer';
     }
 
     return Column(
@@ -148,7 +141,7 @@ class _GreetingBlock extends StatelessWidget {
             color: MerchantColors.textGrey,
           ),
         ),
-        if (totalCount > 0) ...[
+        if (followedCount > 0) ...[
           const SizedBox(height: 10),
           Text(
             'Récompense prête : repérez « Dispo ! » sur une carte, puis '
@@ -340,7 +333,9 @@ class _LoyaltyFeed extends StatelessWidget {
     this.onStoreTap,
   });
 
-  final LoyaltyRewardCategory category;
+  /// Active filter, or null when the screen renders an unfiltered view
+  /// (representedCategoryCount < 2 — see `LoyaltyCardsScreen.build`).
+  final LoyaltyRewardCategory? category;
   final AsyncValue<List<ClientLoyaltyEntry>> feedAsync;
   final ValueChanged<String>? onStoreTap;
 
@@ -352,9 +347,11 @@ class _LoyaltyFeed extends StatelessWidget {
         message: 'Impossible de charger votre fidélité pour le moment.',
       ),
       data: (entries) {
-        final visible = entries
-            .where((e) => category.matchesConfig(e.config))
-            .toList();
+        final cat = category;
+        final visible = cat == null
+            ? entries.toList()
+            : entries.where((e) => cat.matchesConfig(e.config)).toList();
+        final categoryLabel = cat?.labelFr;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,9 +366,7 @@ class _LoyaltyFeed extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              visible.isEmpty
-                  ? 'Programmes « ${category.labelFr} »'
-                  : '${visible.length} carte${visible.length > 1 ? 's' : ''} « ${category.labelFr} »',
+              _feedSubtitle(visible.length, categoryLabel),
               style: GoogleFonts.outfit(
                 fontSize: 12,
                 color: MerchantColors.textGrey,
@@ -380,7 +375,7 @@ class _LoyaltyFeed extends StatelessWidget {
             const SizedBox(height: 14),
             if (visible.isEmpty)
               _LoyaltyTypeEmptyCard(
-                category: category,
+                category: cat,
                 forRewards: false,
               )
             else
@@ -396,6 +391,16 @@ class _LoyaltyFeed extends StatelessWidget {
       },
     );
   }
+
+  String _feedSubtitle(int count, String? categoryLabel) {
+    final plural = count > 1 ? 's' : '';
+    if (categoryLabel == null) {
+      if (count == 0) return 'Aucune carte de fidélité';
+      return '$count carte$plural de fidélité';
+    }
+    if (count == 0) return 'Programmes « $categoryLabel »';
+    return '$count carte$plural « $categoryLabel »';
+  }
 }
 
 /// Friendly empty placeholder when the client has no program/bon in a type.
@@ -405,20 +410,18 @@ class _LoyaltyTypeEmptyCard extends StatelessWidget {
     required this.forRewards,
   });
 
-  final LoyaltyRewardCategory category;
+  /// Null when the carnet is rendered without a category filter — the
+  /// copy collapses to a category-agnostic message in that case.
+  final LoyaltyRewardCategory? category;
   final bool forRewards;
 
   @override
   Widget build(BuildContext context) {
+    final cat = category;
     final title = forRewards
         ? 'Aucun bon pour l’instant'
         : 'Pas encore inscrit';
-    final body = forRewards
-        ? 'Vous n’avez pas encore de bon « ${category.labelFr} ». '
-            'Continuez à cumuler chez vos commerces inscrits.'
-        : 'Vous ne suivez pas encore de commerce avec un programme '
-            '« ${category.labelFr} ». Scannez le QR d’une vitrine pour '
-            'vous inscrire et commencer à cumuler.';
+    final body = _buildBody(cat, forRewards);
 
     return Container(
       width: double.infinity,
@@ -440,7 +443,9 @@ class _LoyaltyTypeEmptyCard extends StatelessWidget {
               color: MerchantColors.gold.withValues(alpha: 0.1),
             ),
             child: Icon(
-              _categoryIcon(category),
+              cat == null
+                  ? Icons.card_giftcard_rounded
+                  : _categoryIcon(cat),
               color: MerchantColors.gold.withValues(alpha: 0.55),
               size: 24,
             ),
@@ -469,6 +474,23 @@ class _LoyaltyTypeEmptyCard extends StatelessWidget {
       ),
     );
   }
+
+  static String _buildBody(LoyaltyRewardCategory? cat, bool forRewards) {
+    if (cat == null) {
+      return forRewards
+          ? 'Vous n’avez pas encore de bon. '
+              'Continuez à cumuler chez vos commerces inscrits.'
+          : 'Vous ne suivez pas encore de commerce avec un programme '
+              'de fidélité. Scannez le QR d’une vitrine pour vous '
+              'inscrire et commencer à cumuler.';
+    }
+    return forRewards
+        ? 'Vous n’avez pas encore de bon « ${cat.labelFr} ». '
+            'Continuez à cumuler chez vos commerces inscrits.'
+        : 'Vous ne suivez pas encore de commerce avec un programme '
+            '« ${cat.labelFr} ». Scannez le QR d’une vitrine pour '
+            'vous inscrire et commencer à cumuler.';
+  }
 }
 
 // ─── "Mes avantages" — bons filtrés par type de programme ─────────────────────
@@ -480,13 +502,15 @@ class _MesAvantagesShell extends StatelessWidget {
     this.rewardCount,
   });
 
-  final LoyaltyRewardCategory category;
+  /// Null when the carnet is rendered without a category filter.
+  final LoyaltyRewardCategory? category;
   final Widget child;
   final int? rewardCount;
 
   @override
   Widget build(BuildContext context) {
     final count = rewardCount;
+    final cat = category;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -500,11 +524,7 @@ class _MesAvantagesShell extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          count == null
-              ? 'Bons « ${category.labelFr} »'
-              : count == 0
-                  ? 'Pas encore de bon « ${category.labelFr} »'
-                  : '$count bon${count > 1 ? 's' : ''} disponible${count > 1 ? 's' : ''}',
+          _subtitle(count, cat),
           style: GoogleFonts.outfit(
             fontSize: 12,
             color: MerchantColors.textGrey,
@@ -515,21 +535,36 @@ class _MesAvantagesShell extends StatelessWidget {
       ],
     );
   }
+
+  static String _subtitle(int? count, LoyaltyRewardCategory? cat) {
+    if (cat == null) {
+      if (count == null) return 'Bons disponibles';
+      if (count == 0) return 'Pas encore de bon';
+      final plural = count > 1 ? 's' : '';
+      return '$count bon$plural disponible$plural';
+    }
+    if (count == null) return 'Bons « ${cat.labelFr} »';
+    if (count == 0) return 'Pas encore de bon « ${cat.labelFr} »';
+    final plural = count > 1 ? 's' : '';
+    return '$count bon$plural disponible$plural';
+  }
 }
 
 class _MesAvantagesSection extends ConsumerWidget {
   const _MesAvantagesSection({required this.category});
 
-  final LoyaltyRewardCategory category;
+  /// Null when the carnet is rendered without a category filter.
+  final LoyaltyRewardCategory? category;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rewardsAsync = ref.watch(availableClientRewardsProvider);
+    final cat = category;
     return rewardsAsync.when(
       loading: () => Padding(
         padding: const EdgeInsets.only(bottom: 24),
         child: _MesAvantagesShell(
-          category: category,
+          category: cat,
           child: const Center(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
@@ -548,26 +583,26 @@ class _MesAvantagesSection extends ConsumerWidget {
       error: (_, __) => Padding(
         padding: const EdgeInsets.only(bottom: 24),
         child: _MesAvantagesShell(
-          category: category,
+          category: cat,
           child: _LoyaltyTypeEmptyCard(
-            category: category,
+            category: cat,
             forRewards: true,
           ),
         ),
       ),
       data: (rewards) {
-        final active = rewards
-            .where((r) => _rewardMatchesCategory(r, category))
-            .toList();
+        final active = cat == null
+            ? rewards.toList()
+            : rewards.where((r) => _rewardMatchesCategory(r, cat)).toList();
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
           child: _MesAvantagesShell(
-            category: category,
+            category: cat,
             rewardCount: active.length,
             child: active.isEmpty
                 ? _LoyaltyTypeEmptyCard(
-                    category: category,
+                    category: cat,
                     forRewards: true,
                   )
                 : Column(

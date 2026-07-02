@@ -3,9 +3,10 @@ import 'package:flutter_yuztoo/feature/rappels/domain/auto_notification_triggers
 import 'package:flutter_yuztoo/feature/rappels/presentation/widgets/trigger_grid.dart';
 
 void main() {
-  test('triggerLabels matches AutoNotificationTriggers.triggerLabels', () {
-    expect(triggerLabels, AutoNotificationTriggers.triggerLabels);
-    expect(triggerLabels.length, 11);
+  test('triggerLabels matches selectable cloud-wired triggers', () {
+    expect(triggerLabels, AutoNotificationTriggers.selectableTriggerLabels);
+    expect(triggerLabels.length, 10);
+    expect(triggerLabels, isNot(contains(AutoNotificationTriggers.visitDetected)));
   });
 
   test('birthday and inactive triggers are wired in cloud', () {

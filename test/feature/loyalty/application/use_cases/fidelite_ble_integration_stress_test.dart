@@ -91,6 +91,7 @@ class _CapturingLoyaltyRepo implements ClientLoyaltyRepository {
     double cumulativeSpendEurosDelta = 0,
     LoyaltyProgramConfig? enrollProgram,
     ActiveValidationCompletion? completeActiveValidation,
+    bool enforcePassageCooldown = true,
   }) async {
     this.enrollProgram = enrollProgram;
     visitDelta = validatedPassagesDelta;

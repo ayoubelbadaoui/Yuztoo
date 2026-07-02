@@ -39,13 +39,13 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                             .where((p) =>
                                 !p.isOnline || !p.dateTo.isAfter(now))
                             .toList();
-                        return RefreshIndicator(
-                          color: MerchantColors.gold,
-                          backgroundColor: MerchantColors.navyCard,
+                        return YuztooPullRefresh(
                           onRefresh: _onRefresh,
                           child: SingleChildScrollView(
                             physics:
-                                const AlwaysScrollableScrollPhysics(),
+                                const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
+                            ),
                             padding: EdgeInsets.only(
                               bottom: MediaQuery.of(context).padding.bottom +
                                   80,

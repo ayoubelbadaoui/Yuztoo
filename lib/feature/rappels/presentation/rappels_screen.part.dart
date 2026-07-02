@@ -21,8 +21,12 @@ extension _RappelsScreenUi on _RappelsScreenState {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
+              child: YuztooPullRefresh(
+                onRefresh: _onPullRefresh,
+                child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).padding.bottom +
                       MediaQuery.of(context).viewInsets.bottom +
@@ -146,6 +150,7 @@ extension _RappelsScreenUi on _RappelsScreenState {
                   ],
                 ),
               ),
+            ),
             ),
           ],
         ),

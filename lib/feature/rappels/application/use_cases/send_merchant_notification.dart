@@ -89,6 +89,21 @@ class SendMerchantNotification {
     }
     if (targetIds.isEmpty) return const Right(0);
 
+    // Reserve the history doc first so each inbox row can link back for
+    // open-count analytics (Statistiques → ouvertures).
+    final recordResult = await _sentNotifRepo.create(
+      SentNotification(
+        id: '',
+        merchantId: merchantId,
+        text: text.trim(),
+        audience: audience,
+        segments: segments,
+        sentCount: 0,
+        sentAt: DateTime.now(),
+      ),
+    );
+    final sentRecordId = recordResult.fold((_) => null, (record) => record.id);
+
     // 2. Write one notification doc per targeted follower.
     int sent = 0;
     for (final clientId in targetIds) {
@@ -102,21 +117,26 @@ class SendMerchantNotification {
         body: text.trim(),
         isRead: false,
         createdAt: DateTime.now(),
+        sentNotificationId: sentRecordId,
       );
       final result = await _notificationRepo.create(notif);
       result.fold((_) {}, (_) => sent++);
     }
 
-    // 3. Persist the send record + update quota counter.
-    await _sentNotifRepo.create(SentNotification(
-      id: '',
-      merchantId: merchantId,
-      text: text.trim(),
-      audience: audience,
-      segments: segments,
-      sentCount: sent,
-      sentAt: DateTime.now(),
-    ));
+    // 3. Finalize send record + update quota counter.
+    if (sentRecordId != null) {
+      await _sentNotifRepo.updateSentCount(merchantId, sentRecordId, sent);
+    } else {
+      await _sentNotifRepo.create(SentNotification(
+        id: '',
+        merchantId: merchantId,
+        text: text.trim(),
+        audience: audience,
+        segments: segments,
+        sentCount: sent,
+        sentAt: DateTime.now(),
+      ));
+    }
     await _sentNotifRepo.incrementWeeklyNotifCount(merchantId);
 
     return Right(sent);

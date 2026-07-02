@@ -35,7 +35,21 @@ export '../../loyalty/application/client_loyalty_providers.dart'
     show
         clientLoyaltyProgressForMerchantProvider,
         recordClientVisitPassageProvider,
+        processVitrineScanVisitProvider,
+        pendingDirectVisitCelebrationProvider,
         ClientLoyaltyEntry;
+export '../../loyalty/application/use_cases/process_vitrine_scan_visit.dart'
+    show
+        ScanVisitResult,
+        ScanVisitGuest,
+        ScanVisitFollowListNotReady,
+        ScanVisitNotFollowing,
+        ScanVisitLoyaltyInactive,
+        ScanVisitVisitRecorded,
+        ScanVisitAwaitingMerchant,
+        ScanVisitCooldownBlocked,
+        ScanVisitError;
+export 'nfc_debug_providers.dart';
 export '../../profile/application/user_safety_providers.dart'
     show blockedMerchantIdsProvider, userSafetyRepositoryProvider;
 export '../../profile/domain/repositories/user_safety_repository.dart'

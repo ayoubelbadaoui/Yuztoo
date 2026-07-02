@@ -1,6 +1,12 @@
 # Firebase tooling (optional; npm install in tools/firebase)
 tools/firebase/node_modules/
 
+# Firebase CLI deploy cache
+.firebase/
+
+# Hosted APK build artifact (large; deployed from public/ but not committed)
+public/downloads/*.apk
+
 # Emulator debug logs
 firestore-debug.log
 ui-debug.log
@@ -53,6 +59,12 @@ app.*.map.json
 
 # Local dev scripts
 send-test-notification.js
+
+# Android release signing (never commit secrets)
+android/key.properties
+**/*.jks
+**/*.keystore
+upload-keystore.jks
 
 # Test-only Apple signing material (never commit keys)
 .test_signing/

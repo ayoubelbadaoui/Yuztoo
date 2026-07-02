@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -8,20 +10,26 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:gal/gal.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/config/vitrine_qr_config.dart';
+import '../../../core/debug/nfc_debug_flags.dart';
+import '../../../core/debug/nfc_debug_ui_helpers.dart';
 import '../../../core/infrastructure/nfc_service.dart';
+import '../../qr_scanner/presentation/widgets/nfc_debug_emulator_sheet.dart';
 import '../../merchant/application/providers.dart';
 
-/// NFC plaque programming is Android-only — Apple does not allow third-party
-/// apps to write NDEF records to NFC tags from iOS. Reading already works on
-/// both platforms (iOS reader entitlement is in place), so clients on any
-/// device can tap a badge programmed by an Android merchant or shipped
-/// pre-programmed by Yuztoo.
-final bool _kEnableNfcPlaquePrograming = Platform.isAndroid;
+/// NFC plaque programming is enabled on **both** Android and iOS. Apple
+/// allows third-party apps to write NDEF records via the Core NFC tag
+/// reader session (`com.apple.developer.nfc.readersession.formats = TAG`);
+/// the entitlement is already configured in Runner.entitlements and
+/// flutter_nfc_kit's `writeNDEFRecords` works on both platforms.
+///
+/// Defensive checks (`ndefAvailable`, `ndefWritable`, `ndefCapacity`)
+/// live in [NfcService.writeVitrineUrl] so locked or non-NDEF tags
+/// surface a clear French message rather than a stack trace.
+const bool _kEnableNfcPlaquePrograming = true;
 
 /// Merchant QR Code screen — real QR backed by the merchant's Firestore ID.
 /// Merchants scan this to let clients follow their store.
@@ -40,6 +48,14 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
   bool _isSaving = false;
   bool _isSharing = false;
   bool _isWritingNfc = false;
+
+  @override
+  void dispose() {
+    if (_isWritingNfc) {
+      unawaited(NfcService.cancelActiveSession());
+    }
+    super.dispose();
+  }
 
   /// Captures the QR widget as PNG bytes.
   Future<Uint8List?> _captureQr() async {
@@ -100,24 +116,28 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
   }
 
   Future<void> _writeNfc(String merchantId) async {
-    final available = await NfcService.isAvailable();
+    if (_isWritingNfc) return;
+    final blocked = await NfcService.unavailableReason();
     if (!mounted) return;
-    if (!available) {
-      _showSnack('NFC non disponible sur cet appareil');
+    if (blocked != null) {
+      _showSnack(blocked);
       return;
     }
     setState(() => _isWritingNfc = true);
     final result = await NfcService.writeVitrineUrl(merchantId);
     if (!mounted) return;
     setState(() => _isWritingNfc = false);
-    switch (result) {
-      case NfcSuccess():
-        _showSnack('Badge NFC programmé avec succès !', isSuccess: true);
-      case NfcUnavailable():
-        _showSnack('NFC non disponible sur cet appareil');
-      case NfcError(:final message):
-        _showSnack(message);
-    }
+    applyNfcWriteResult(context, result);
+  }
+
+  void _openNfcDebugEmulator(String merchantId) {
+    if (!kNfcDebugEnabled) return;
+    showNfcDebugEmulatorSheet(
+      context,
+      initialMerchantId: merchantId,
+      initialTabIndex: 1,
+      onNavigateToVitrine: (_) {},
+    );
   }
 
   void _showSnack(String msg, {bool isSuccess = false}) {    if (!mounted) return;
@@ -334,7 +354,9 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
           ),
           const SizedBox(height: 28),
 
-          // ── action buttons ──────────────────────────────────────────
+          // ── Partager ────────────────────────────────────────────────
+          _sectionLabel('Partager le code', Icons.ios_share_rounded),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -357,59 +379,54 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 28),
 
-          // ── NFC plaque write button (hidden) ────────────────────────
-          // Kept in source so flipping _kEnableNfcPlaquePrograming back
-          // to true restores the full plaque-programming flow without
-          // any rework. The reading side (qr_scanner_screen) keeps
-          // working — so plaques already programmed in the wild stay
-          // functional even with the merchant button hidden.
+          // ── Badge NFC ───────────────────────────────────────────────
+          // Kept gated behind _kEnableNfcPlaquePrograming so flipping it
+          // back off hides the whole section without any rework. The
+          // reading side (qr_scanner_screen) keeps working regardless, so
+          // plaques already programmed in the wild stay functional.
           if (_kEnableNfcPlaquePrograming) ...[
-            GestureDetector(
-              onTap: _isWritingNfc ? null : () => _writeNfc(merchantId),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: MerchantColors.navyCard,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: MerchantColors.gold
-                        .withValues(alpha: MerchantColors.goldBorderAlpha),
+            const SizedBox(height: 26),
+            _sectionLabel('Badge NFC sans contact', Icons.nfc_rounded),
+            const SizedBox(height: 12),
+            _buildNfcCard(merchantId),
+            if (kNfcDebugEnabled) ...[
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => _openNfcDebugEmulator(merchantId),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade900.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.orange.shade400),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.bug_report_outlined,
+                          color: Colors.orange.shade100, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'DEBUG — Emulateur NFC (ecriture + funnel)',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.orange.shade50,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _isWritingNfc
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: MerchantColors.gold),
-                          )
-                        : const Icon(Icons.nfc_rounded,
-                            color: MerchantColors.gold, size: 22),
-                    const SizedBox(width: 10),
-                    Text(
-                      _isWritingNfc
-                          ? 'Approchez le badge NFC...'
-                          : 'Programmer un badge NFC',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ),
-            const SizedBox(height: 28),
+            ],
           ],
 
-          // ── tips card ───────────────────────────────────────────────
+          // ── Conseils ────────────────────────────────────────────────
+          const SizedBox(height: 26),
+          _sectionLabel('Conseils', Icons.lightbulb_outline_rounded),
+          const SizedBox(height: 12),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -423,22 +440,6 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.lightbulb_outline_rounded,
-                        color: MerchantColors.gold, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Comment l\'utiliser',
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: MerchantColors.gold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
                 _tip('Imprimez et affichez-le à la caisse'),
                 _tip('Partagez-le sur vos réseaux sociaux'),
                 _tip('Ajoutez-le à vos cartes de visite'),
@@ -447,6 +448,137 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
                 else
                   _tip('Demandez votre badge NFC Yuztoo à apposer à la caisse'),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Small left-aligned section header used to group the QR screen content
+  /// (Partager / Badge NFC / Conseils) so actions read as organised blocks
+  /// instead of a loose stack of buttons.
+  Widget _sectionLabel(String label, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: MerchantColors.gold, size: 16),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: MerchantColors.textLightGrey,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Grouped NFC card: an explanation of what programming does plus the
+  /// write action, instead of a bare button floating between Share and Tips.
+  Widget _buildNfcCard(String merchantId) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: MerchantColors.navyCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: MerchantColors.gold
+              .withValues(alpha: MerchantColors.goldBorderStronger),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: MerchantColors.gold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.nfc_rounded,
+                    color: MerchantColors.gold, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Programmer un badge',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Écrivez votre lien Yuztoo sur une carte ou un '
+                      'badge NFC : vos clients n\'auront qu\'à l\'approcher.',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: MerchantColors.textGrey,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          GestureDetector(
+            onTap: _isWritingNfc ? null : () => _writeNfc(merchantId),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              decoration: BoxDecoration(
+                gradient: _isWritingNfc
+                    ? null
+                    : const LinearGradient(
+                        colors: [MerchantColors.gold, Color(0xFFD4AF37)],
+                      ),
+                color: _isWritingNfc
+                    ? MerchantColors.gold.withValues(alpha: 0.18)
+                    : null,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_isWritingNfc)
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: MerchantColors.gold),
+                    )
+                  else
+                    const Icon(Icons.nfc_rounded,
+                        color: MerchantColors.bgHeader, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    _isWritingNfc
+                        ? 'Approchez le badge NFC…'
+                        : 'Programmer le badge',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _isWritingNfc
+                          ? MerchantColors.gold
+                          : MerchantColors.bgHeader,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

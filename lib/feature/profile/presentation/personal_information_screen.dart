@@ -214,14 +214,23 @@ class _PersonalInformationScreenState
     if (hasPhoto) completionPercent += 20;
 
     final uid = user?.id;
-    // Derive the secondary-role CTA label from the current user when no
-    // explicit override was provided. A merchant viewing this screen always
-    // wants "Créer un carnet Yuztoo" (their secondary role is client),
-    // a client always wants "Créer un compte pro". This makes the screen
-    // robust to new callers that might forget to pass the override.
+    // Decide whether to surface the secondary-role CTA AT ALL.
+    //
+    // Rule: a user who already holds both roles ("dual profile") has
+    // nothing to create — the previous code always rendered the button,
+    // which is the regression the user reported ("Une fois le carnet
+    // Yuztoo créé cette proposition doit disparaître").
+    //
+    // When a CTA is appropriate we derive its label from the current
+    // role so callers can no longer silently regress wording by adding
+    // a new entry point that forgets to pass the override.
+    final hasBothRoles = user?.hasBothRoles ?? false;
     final isMerchant = user?.isMerchant ?? false;
-    final resolvedLabel = widget.createOtherRoleLabel ??
-        (isMerchant ? 'Créer un carnet Yuztoo' : 'Créer un compte pro');
+    String? resolvedLabel;
+    if (!hasBothRoles && user != null) {
+      resolvedLabel = widget.createOtherRoleLabel ??
+          (isMerchant ? 'Créer un carnet Yuztoo' : 'Créer un compte pro');
+    }
     return _buildScaffold(
       context,
       uid: uid,
@@ -237,7 +246,9 @@ class _PersonalInformationScreenState
       onPhotoTap: uid != null
           ? () => _pickAndUploadPhoto(uid)
           : null,
-      onCreateProAccount: widget.onCreateProAccount,
+      onCreateProAccount: resolvedLabel == null
+          ? null
+          : widget.onCreateProAccount,
       createOtherRoleLabel: resolvedLabel,
       isDualProfile: widget.isDualProfile,
     );

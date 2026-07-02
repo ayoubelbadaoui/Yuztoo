@@ -174,7 +174,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                 )
               : null,
           filled: true,
-          fillColor: MerchantColors.navyCard,
+          fillColor: MerchantColors.inputFill,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           border: OutlineInputBorder(
@@ -203,25 +203,33 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
       children: [
         _buildSearchBar(),
         const SizedBox(height: 12),
-        Expanded(child: _buildSearchBody(followedIds)),
+        Expanded(
+          child: YuztooPullRefresh(
+            onRefresh: _onRefresh,
+            child: _buildSearchBody(followedIds),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildSearchBody(Set<String> followedIds) {
     if (_searchLoading) {
-      return const Center(
-        child: SizedBox(
-          width: 28,
-          height: 28,
-          child: CircularProgressIndicator(
-              color: MerchantColors.gold, strokeWidth: 2),
+      return yuztooRefreshableEmpty(
+        const Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+                color: MerchantColors.gold, strokeWidth: 2),
+          ),
         ),
       );
     }
 
     if (_searchResults.isEmpty) {
-      return Center(
+      return yuztooRefreshableEmpty(
+        Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
@@ -259,10 +267,14 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
             ],
           ),
         ),
+      ),
       );
     }
 
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
       itemCount: _searchResults.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -294,17 +306,23 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
         children: [
           _buildSearchBar(),
           Expanded(
-              child: _buildEmptyState(context, typeFilter, followedIds)),
+            child: YuztooPullRefresh(
+              onRefresh: _onRefresh,
+              child: yuztooRefreshableEmpty(
+                _buildEmptyState(context, typeFilter, followedIds),
+              ),
+            ),
+          ),
         ],
       );
     }
 
-    return RefreshIndicator(
+    return YuztooPullRefresh(
       onRefresh: _onRefresh,
-      color: MerchantColors.gold,
-      backgroundColor: MerchantColors.bgHeader,
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).padding.bottom + 80,
         ),
@@ -346,12 +364,12 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
   ) {
     final hasFollowed = followedIds.isNotEmpty;
 
-    return RefreshIndicator(
+    return YuztooPullRefresh(
       onRefresh: _onRefresh,
-      color: MerchantColors.gold,
-      backgroundColor: MerchantColors.bgHeader,
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         padding: EdgeInsets.only(
           left: 24,
           right: 24,

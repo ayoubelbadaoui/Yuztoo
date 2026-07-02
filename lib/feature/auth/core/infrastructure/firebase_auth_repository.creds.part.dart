@@ -51,34 +51,6 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
     }
   }
 
-  Future<Result<AuthUser>> signupWithEmailAndPassword({
-    required EmailAddress email,
-    required Password password,
-  }) async {
-    try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email.value,
-        password: password.value,
-      );
-
-      final user = credential.user;
-      if (user == null) {
-        return const Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(message: 'Utilisateur introuvable après l\'inscription.'),
-        );
-      }
-
-      // Return AuthUser without Firestore profile (will be created later)
-      final dto = AuthUserDto.fromFirebase(user);
-      return Right<AuthFailure, AuthUser>(dto.toDomain());
-    } on firebase.FirebaseAuthException catch (e, st) {
-      return Left<AuthFailure, AuthUser>(_mapSignupException(e, st));
-    } catch (e, st) {
-      return Left<AuthFailure, AuthUser>(
-          AuthUnexpectedFailure(cause: e, stackTrace: st));
-    }
-  }
-
   Future<Result<String>> sendPhoneVerification({
     required String phoneNumber,
   }) async {

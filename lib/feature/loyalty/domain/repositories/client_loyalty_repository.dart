@@ -47,6 +47,8 @@ abstract class ClientLoyaltyRepository {
     /// The transaction reads the session first and rejects if status is not
     /// 'awaiting' — that's the merchant-side double-validation guard.
     ActiveValidationCompletion? completeActiveValidation,
+    /// When false, skips the 1 h anti double-scan cooldown for this write.
+    bool enforcePassageCooldown = true,
   });
 
   /// Returns a real-time stream of loyalty clients whose progress meets or

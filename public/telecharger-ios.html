@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B1F33" />
+  <title>Installer Yuztoo sur iPhone</title>
+  <meta name="description" content="Téléchargez et installez l'application Yuztoo sur iPhone via TestFlight." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <style>
+    :root {
+      --navy: #0B1F33;
+      --navy-2: #102C49;
+      --gold: #C9A352;
+      --gold-2: #E4C57E;
+      --cream: #F4EDDD;
+      --text-light: rgba(244, 237, 221, 0.7);
+      --line: rgba(201, 163, 82, 0.22);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(1000px 560px at 50% -10%, rgba(201, 163, 82, 0.16), transparent 60%),
+        var(--navy);
+      color: var(--cream);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 28px 20px calc(env(safe-area-inset-bottom) + 40px);
+    }
+    .stack { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 22px; }
+    .top { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+    .logo {
+      width: 56px; height: 56px; border-radius: 14px;
+      background: linear-gradient(150deg, var(--gold-2), var(--gold));
+      color: var(--navy);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 26px;
+      box-shadow: 0 10px 28px rgba(201, 163, 82, 0.28);
+    }
+    h1 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 800; }
+    p.lede { margin: 0; color: var(--text-light); font-size: 15px; line-height: 1.5; }
+
+    a.cta {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 16px 20px; border-radius: 14px;
+      background: linear-gradient(150deg, var(--gold-2), var(--gold)); color: var(--navy);
+      font-weight: 700; font-size: 16px; text-decoration: none;
+      box-shadow: 0 12px 30px rgba(201, 163, 82, 0.28);
+      transition: transform 130ms ease, opacity 130ms ease;
+    }
+    a.cta:active { transform: scale(0.985); opacity: 0.95; }
+
+    .note {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 12px 14px; border-radius: 12px;
+      background: rgba(201, 163, 82, 0.1); border: 1px solid var(--line);
+      color: var(--text-light); font-size: 13px; line-height: 1.45;
+    }
+    .note b { color: var(--cream); font-weight: 700; }
+
+    .steps { display: flex; flex-direction: column; gap: 12px; }
+    .steps-title { font-size: 13px; font-weight: 700; letter-spacing: 0.4px; color: var(--gold-2); text-transform: uppercase; }
+    .step {
+      display: flex; gap: 14px; align-items: flex-start;
+      padding: 14px; border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .step .num {
+      flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(201, 163, 82, 0.16); border: 1px solid var(--line);
+      color: var(--gold-2); font-weight: 800; font-size: 14px;
+    }
+    .step .body { flex: 1; }
+    .step h3 { margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+    .step p { margin: 0; color: var(--text-light); font-size: 13px; line-height: 1.45; }
+    .step a { color: var(--gold-2); }
+
+    footer { margin-top: 8px; font-size: 12px; color: var(--text-light); text-align: center; }
+    footer a { color: var(--gold); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main class="stack">
+    <div class="top">
+      <div class="logo">Y</div>
+      <h1>Installer Yuztoo sur iPhone</h1>
+      <p class="lede">L'app est en bêta via TestFlight (gratuit). Appuyez sur le bouton puis suivez les étapes.</p>
+    </div>
+
+    <a id="tf" class="cta" href="https://testflight.apple.com/join/BQEPEym5">
+      Ouvrir l'invitation TestFlight
+    </a>
+
+    <div class="note">
+      <span aria-hidden="true">ℹ️</span>
+      <span>TestFlight est l'outil officiel d'Apple pour tester les apps en bêta. <b>L'installation est 100 % gratuite et sécurisée.</b></span>
+    </div>
+
+    <div class="steps">
+      <span class="steps-title">Étapes d'installation</span>
+
+      <div class="step">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Installez TestFlight</h3>
+          <p>Téléchargez l'app gratuite <b>TestFlight</b> depuis l'App Store (si vous ne l'avez pas déjà).</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Ouvrez l'invitation</h3>
+          <p>Appuyez sur <b>« Ouvrir l'invitation TestFlight »</b> ci-dessus : TestFlight s'ouvre sur la page de Yuztoo.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Acceptez et installez</h3>
+          <p>Dans TestFlight, appuyez sur <b>Accepter</b> puis sur <b>Installer</b>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Ouvrez Yuztoo</h3>
+          <p>Lancez l'app depuis l'écran d'accueil ou depuis TestFlight. C'est prêt !</p>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <a href="/">← Retour</a> &nbsp;·&nbsp; <a href="https://yuztoo.app">yuztoo.app</a>
+    </footer>
+  </main>
+</body>
+</html>

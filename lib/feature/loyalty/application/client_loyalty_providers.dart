@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
+import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
 import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
 import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../merchant/domain/entities/merchant.dart';
@@ -13,7 +14,9 @@ import '../domain/entities/client_merchant_loyalty_progress.dart';
 import '../domain/entities/client_reward_item.dart';
 import '../infrastructure/client_bon_repository_provider.dart';
 import '../infrastructure/client_loyalty_repository_provider.dart';
+import 'active_validation_providers.dart';
 import 'use_cases/claim_welcome_bon.dart';
+import 'use_cases/process_vitrine_scan_visit.dart';
 import 'use_cases/record_client_visit_passage.dart';
 import 'use_cases/redeem_loyalty_reward.dart';
 import '../domain/entities/loyalty_pending_client_row.dart';
@@ -26,7 +29,10 @@ export '../../auth/core/application/state/auth_state.dart'
 // ─── Use-case providers ────────────────────────────────────────────────────────
 
 final recordClientVisitPassageProvider = Provider<RecordClientVisitPassage>((ref) {
-  return RecordClientVisitPassage(ref.watch(clientLoyaltyRepositoryProvider));
+  return RecordClientVisitPassage(
+    ref.watch(clientLoyaltyRepositoryProvider),
+    ref.watch(clientNotificationRepositoryProvider),
+  );
 });
 
 final redeemLoyaltyRewardProvider = Provider<RedeemLoyaltyReward>((ref) {
@@ -36,6 +42,30 @@ final redeemLoyaltyRewardProvider = Provider<RedeemLoyaltyReward>((ref) {
 final claimWelcomeBonProvider = Provider<ClaimWelcomeBon>((ref) {
   return ClaimWelcomeBon(ref.watch(clientLoyaltyRepositoryProvider));
 });
+
+/// Application use case that orchestrates a vitrine scan (NFC, QR,
+/// universal link) and returns a [ScanVisitResult] the UI consumes
+/// uniformly. See [ProcessVitrineScanVisit] for the branching rules.
+final processVitrineScanVisitProvider =
+    Provider<ProcessVitrineScanVisit>((ref) {
+  return ProcessVitrineScanVisit(
+    recordVisit: ref.watch(recordClientVisitPassageProvider),
+    requestValidation: ref.watch(requestActiveValidationProvider),
+  );
+});
+
+/// One-shot signal: a passage was just recorded directly via scan
+/// (NFC tag, QR, deep link), without going through `active_validations`.
+///
+/// The [LoyaltyCelebrationOverlay] watches this provider so it can fire
+/// the gold celebration immediately, instead of waiting for an
+/// active_validations doc that the automatic flow never creates.
+///
+/// Set the value to the merchantId on a successful direct visit. The
+/// overlay clears the state to null after celebrating, so the same
+/// merchant scan can re-trigger on the next cycle.
+final pendingDirectVisitCelebrationProvider =
+    StateProvider<String?>((ref) => null);
 
 // ─── Per-merchant progress stream ─────────────────────────────────────────────
 
@@ -129,9 +159,8 @@ class ClientLoyaltyEntry {
   /// Merchant disabled loyalty; client keeps enrolled progress/rewards.
   final bool programEnded;
 
-  /// True when this entry is the user's own merchant (prepended for dual-profile
-  /// testing). It is NOT a "followed" merchant — the count shown to the user
-  /// should exclude it from the "X suivis" subtitle.
+  /// Legacy flag — own merchant is no longer shown in the client fidélité tab
+  /// (dual-profile users manage loyalty from the merchant shell).
   final bool isOwnMerchant;
 
   String get merchantId => merchant.id;
@@ -189,12 +218,11 @@ class ClientLoyaltyEntry {
 }
 
 List<ClientLoyaltyEntry> _loyaltyEntriesFromCandidates({
-  required List<Merchant> candidates,
-  required Merchant? ownMerchant,
   required List<Merchant> followedMerchants,
   required Map<String, ClientMerchantLoyaltyProgress> progressByMerchant,
+  String? excludeMerchantId,
 }) {
-  ClientLoyaltyEntry? toEntry(Merchant m, {required bool isOwn}) {
+  ClientLoyaltyEntry? toEntry(Merchant m) {
     final liveCfg = m.loyaltyProgram ??
         LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: m.loyaltyEnabled);
     final progress = progressByMerchant[m.id] ??
@@ -203,14 +231,13 @@ List<ClientLoyaltyEntry> _loyaltyEntriesFromCandidates({
 
     if (m.loyaltyEnabled && liveCfg.programEnabled) {
       final cfg = enrolled ?? liveCfg;
-      return ClientLoyaltyEntry(merchant: m, config: cfg, isOwnMerchant: isOwn);
+      return ClientLoyaltyEntry(merchant: m, config: cfg);
     }
 
     if (enrolled != null) {
       return ClientLoyaltyEntry(
         merchant: m,
         config: enrolled,
-        isOwnMerchant: isOwn,
         programEnded: !m.loyaltyEnabled || !liveCfg.programEnabled,
       );
     }
@@ -220,18 +247,14 @@ List<ClientLoyaltyEntry> _loyaltyEntriesFromCandidates({
   final entries = <ClientLoyaltyEntry>[];
   final seen = <String>{};
 
-  if (ownMerchant != null) {
-    final e = toEntry(ownMerchant, isOwn: true);
+  for (final m in followedMerchants) {
+    if (excludeMerchantId != null && m.id == excludeMerchantId) continue;
+    if (seen.contains(m.id)) continue;
+    final e = toEntry(m);
     if (e != null) {
       entries.add(e);
-      seen.add(ownMerchant.id);
+      seen.add(m.id);
     }
-  }
-
-  for (final m in followedMerchants) {
-    if (seen.contains(m.id)) continue;
-    final e = toEntry(m, isOwn: false);
-    if (e != null) entries.add(e);
   }
 
   return entries;
@@ -255,26 +278,22 @@ final clientLoyaltyFeedProvider =
   StreamSubscription<List<String>>? followedSub;
 
   void emitEntries({
-    required Merchant? ownMerchant,
+    required String? excludeMerchantId,
     required List<Merchant> followedMerchants,
     required Map<String, ClientMerchantLoyaltyProgress> progressByMerchant,
   }) {
     if (controller.isClosed) return;
     controller.add(
       _loyaltyEntriesFromCandidates(
-        candidates: [
-          if (ownMerchant != null) ownMerchant,
-          ...followedMerchants,
-        ],
-        ownMerchant: ownMerchant,
         followedMerchants: followedMerchants,
         progressByMerchant: progressByMerchant,
+        excludeMerchantId: excludeMerchantId,
       ),
     );
   }
 
   Future<void> bindProgressStreams({
-    required Merchant? ownMerchant,
+    required String? excludeMerchantId,
     required List<Merchant> followedMerchants,
   }) async {
     for (final s in progressSubs) {
@@ -282,10 +301,12 @@ final clientLoyaltyFeedProvider =
     }
     progressSubs.clear();
 
-    final candidates = <Merchant>[
-      if (ownMerchant != null) ownMerchant,
-      ...followedMerchants,
-    ];
+    final candidates = followedMerchants
+        .where(
+          (m) =>
+              excludeMerchantId == null || m.id != excludeMerchantId,
+        )
+        .toList();
     final progressByMerchant = <String, ClientMerchantLoyaltyProgress>{};
     await Future.wait(
       candidates.map((m) async {
@@ -294,7 +315,7 @@ final clientLoyaltyFeedProvider =
       }),
     );
     emitEntries(
-      ownMerchant: ownMerchant,
+      excludeMerchantId: excludeMerchantId,
       followedMerchants: followedMerchants,
       progressByMerchant: progressByMerchant,
     );
@@ -304,7 +325,7 @@ final clientLoyaltyFeedProvider =
         loyaltyRepo.watchProgress(m.id, userId).listen((progress) {
           progressByMerchant[m.id] = progress;
           emitEntries(
-            ownMerchant: ownMerchant,
+            excludeMerchantId: excludeMerchantId,
             followedMerchants: followedMerchants,
             progressByMerchant: Map<String, ClientMerchantLoyaltyProgress>.from(
               progressByMerchant,
@@ -316,15 +337,22 @@ final clientLoyaltyFeedProvider =
   }
 
   followedSub = followedRepo.watchFollowedIds(userId).listen((ids) async {
-    final ownMerchantResult = await merchantRepo.getMerchantById(userId);
-    final ownMerchant = ownMerchantResult.fold((_) => null, (m) => m);
-    final filteredIds = ids.where((id) => id != userId).toList();
+    var ownMerchantResult = await merchantRepo.getMerchantByOwnerUid(userId);
+    var ownMerchant = ownMerchantResult.fold((_) => null, (m) => m);
+    if (ownMerchant == null) {
+      final legacyResult = await merchantRepo.getMerchantById(userId);
+      ownMerchant = legacyResult.fold((_) => null, (m) => m);
+    }
+    final ownMerchantId = ownMerchant?.id;
+    final filteredIds = ids
+        .where((id) => id != userId && id != ownMerchantId)
+        .toList();
     final followedMerchants = filteredIds.isEmpty
         ? <Merchant>[]
         : (await merchantRepo.getMerchantsByIds(filteredIds))
             .fold((_) => <Merchant>[], (list) => list);
     await bindProgressStreams(
-      ownMerchant: ownMerchant,
+      excludeMerchantId: ownMerchantId,
       followedMerchants: followedMerchants,
     );
   });

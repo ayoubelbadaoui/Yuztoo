@@ -124,9 +124,18 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
     Map<String, int> heartLevels, {
     List<String> followedIds = const [],
     String? ownMerchantId,
+    // The Yuztoo brand vignette is a merchant-only affordance (it lets a
+    // merchant viewing their own client carnet preview the Yuztoo
+    // storefront). Pure clients should never see it. The parent passes
+    // [hasLinkedMerchantAccountProvider] here, which combines the
+    // canonical roles flag with a real merchant-doc lookup.
+    bool showYuztooBrandTile = false,
   }) {
     if (merchants.isEmpty) {
-      return _buildEmptyCarnet(context);
+      return _buildEmptyCarnet(
+        context,
+        showYuztooBrandTile: showYuztooBrandTile,
+      );
     }
 
     // Order comes from [clientHomeFeedProvider] (sort_index + heart fallback).
@@ -137,6 +146,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
       heartLevels: heartLevels,
       followedSet: followedSet,
       ownMerchantId: ownMerchantId,
+      showYuztooBrandTile: showYuztooBrandTile,
       onMerchantTap: (id) {
         if (onStoreSelect != null) {
           onStoreSelect!(id);
@@ -253,7 +263,10 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
     );
   }
 
-  Widget _buildEmptyCarnet(BuildContext context) {
+  Widget _buildEmptyCarnet(
+    BuildContext context, {
+    bool showYuztooBrandTile = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -325,7 +338,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
             ),
           ),
           const SizedBox(height: 16),
-          const _RestonsProchesTile(),
+          if (showYuztooBrandTile) const _RestonsProchesTile(),
         ],
       ),
     );
@@ -750,6 +763,7 @@ class _CarnetList extends StatefulWidget {
     required this.onMerchantTap,
     this.ownMerchantId,
     this.onOrderChanged,
+    this.showYuztooBrandTile = false,
   });
 
   final List<Merchant> merchants;
@@ -758,6 +772,10 @@ class _CarnetList extends StatefulWidget {
   final void Function(String merchantId) onMerchantTap;
   final String? ownMerchantId;
   final void Function(Map<String, int> sortIndexes)? onOrderChanged;
+  /// Whether the Yuztoo brand vignette ("Restons Proches") should be
+  /// rendered at the bottom of the carnet. Reserved for users who also
+  /// hold a merchant account — pure clients never see it.
+  final bool showYuztooBrandTile;
 
   @override
   State<_CarnetList> createState() => _CarnetListState();
@@ -806,7 +824,7 @@ class _CarnetListState extends State<_CarnetList> {
         }
       }
     }
-    final showRestonsProches = _query.isEmpty;
+    final showRestonsProches = _query.isEmpty && widget.showYuztooBrandTile;
     final showOwnMerchant = ownMerchant != null && _query.isEmpty;
     final reorderableList = showOwnMerchant
         ? filtered.where((m) => m.id != widget.ownMerchantId).toList()
@@ -829,7 +847,7 @@ class _CarnetListState extends State<_CarnetList> {
                 prefixIcon: const Icon(Icons.search_rounded,
                     color: MerchantColors.gold, size: 20),
                 filled: true,
-                fillColor: MerchantColors.bgHeader,
+                fillColor: MerchantColors.inputFill,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(

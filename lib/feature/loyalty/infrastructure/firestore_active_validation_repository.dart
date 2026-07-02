@@ -155,6 +155,19 @@ class FirestoreActiveValidationRepository
     }
   }
 
+  ActiveValidationRequest? _sessionFromSnap({
+    required String merchantId,
+    required String clientUid,
+    required DocumentSnapshot<Map<String, dynamic>> snap,
+  }) {
+    if (!snap.exists) return null;
+    return ActiveValidationRequest.fromFirestoreMap(
+      merchantId: merchantId,
+      clientUid: clientUid,
+      data: snap.data() ?? <String, dynamic>{},
+    );
+  }
+
   @override
   Stream<ActiveValidationRequest?> watchClientSession({
     required String merchantId,
@@ -166,13 +179,48 @@ class FirestoreActiveValidationRepository
     return _docRef(merchantId: merchantId, clientUid: clientUid)
         .snapshots()
         .map((DocumentSnapshot<Map<String, dynamic>> snap) {
-      if (!snap.exists) return null;
-      return ActiveValidationRequest.fromFirestoreMap(
+      return _sessionFromSnap(
         merchantId: merchantId,
         clientUid: clientUid,
-        data: snap.data() ?? <String, dynamic>{},
+        snap: snap,
       );
     });
+  }
+
+  @override
+  Future<Result<ActiveValidationRequest?>> getClientSession({
+    required String merchantId,
+    required String clientUid,
+  }) async {
+    if (merchantId.isEmpty || clientUid.isEmpty) {
+      return const Left<AppFailure, ActiveValidationRequest?>(
+        UnexpectedFailure(message: 'Session invalide'),
+      );
+    }
+    try {
+      final snap = await _docRef(merchantId: merchantId, clientUid: clientUid)
+          .get();
+      return Right<AppFailure, ActiveValidationRequest?>(
+        _sessionFromSnap(
+          merchantId: merchantId,
+          clientUid: clientUid,
+          snap: snap,
+        ),
+      );
+    } on FirebaseException catch (e, st) {
+      LoggerService.logError(
+        'Active validation getClientSession',
+        error: e,
+        stackTrace: st,
+      );
+      return Left<AppFailure, ActiveValidationRequest?>(
+        UnexpectedFailure(
+          message: 'Impossible de charger la demande',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
+    }
   }
 
   @override

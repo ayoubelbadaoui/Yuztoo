@@ -72,6 +72,23 @@ class _FakeActiveValidationRepo implements ActiveValidationRepository {
       );
 
   @override
+  Future<Result<ActiveValidationRequest?>> getClientSession({
+    required String merchantId,
+    required String clientUid,
+  }) async =>
+      Right(
+        ActiveValidationRequest(
+          merchantId: merchantId,
+          clientUid: clientUid,
+          clientDisplayName: 'Alice',
+          status: ActiveValidationStatus.awaiting,
+          programSnapshot: const LoyaltyProgramConfig(programEnabled: true),
+          source: ActiveValidationSource.ble,
+          clientBleConnectedAt: DateTime(2026, 1, 1),
+        ),
+      );
+
+  @override
   Future<Result<void>> cancelByClient({
     required String merchantId,
     required String clientUid,
@@ -163,7 +180,7 @@ Widget _buildSheet({
       ),
       acceptBlePassageAsMerchantProvider.overrideWithValue(fakeAccept),
       prepareMerchantPassageValidationProvider.overrideWith(
-        (ref) => PrepareMerchantPassageValidation(fakeAccept),
+        (ref) => const PrepareMerchantPassageValidation(),
       ),
       showMerchantPassageValidationSheetProvider.overrideWith(
         (ref) =>
@@ -259,7 +276,7 @@ void main() {
             acceptBlePassageAsMerchantProvider
                 .overrideWithValue(_FakeAcceptBle()),
             prepareMerchantPassageValidationProvider.overrideWith(
-              (ref) => PrepareMerchantPassageValidation(_FakeAcceptBle()),
+              (ref) => const PrepareMerchantPassageValidation(),
             ),
             showMerchantPassageValidationSheetProvider.overrideWith(
               (ref) =>

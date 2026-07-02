@@ -1,0 +1,7 @@
+{
+  "workbench.statusBar.visible": true,
+  "git.enabled": true,
+  "scm.showInStatusBar": true,
+  "git.autoRepositoryDetection": true,
+  "git.openRepositoryInParentFolders": "always"
+}

@@ -11,11 +11,10 @@ class _Trigger {
   const _Trigger(this.label, this.icon);
 }
 
-/// All available triggers (canonical strings — synced with Cloud Functions).
-/// NOTE: "Chaque promotion créé" was removed — onPromotionCreated fans out promos.
-const triggerLabels = AutoNotificationTriggers.triggerLabels;
+/// Trigger labels shown in [TriggerGrid] (cloud-wired triggers only).
+List<String> get triggerLabels => AutoNotificationTriggers.selectableTriggerLabels;
 
-const _triggers = [
+const _allTriggers = [
   _Trigger('Date anniversaire', Icons.cake_outlined),
   _Trigger('Changement statut', Icons.swap_horiz_rounded),
   _Trigger('Nouveau client', Icons.person_add_outlined),
@@ -28,6 +27,17 @@ const _triggers = [
   _Trigger('Nouveau partenaire', Icons.handshake_outlined),
   _Trigger('Anniversaire connexion', Icons.celebration_outlined),
 ];
+
+List<_Trigger> get _selectableTriggers {
+  final labels = AutoNotificationTriggers.selectableTriggerLabels;
+  final result = <_Trigger>[];
+  for (var i = 0; i < AutoNotificationTriggers.triggerLabels.length; i++) {
+    if (labels.contains(AutoNotificationTriggers.triggerLabels[i])) {
+      result.add(_allTriggers[i]);
+    }
+  }
+  return result;
+}
 
 /// Trigger selection grid – icon-based mini cards in a 3-column layout.
 class TriggerGrid extends StatelessWidget {
@@ -61,14 +71,11 @@ class TriggerGrid extends StatelessWidget {
             crossAxisSpacing: spacing,
             childAspectRatio: aspectRatio,
           ),
-          itemCount: _triggers.length,
+          itemCount: _selectableTriggers.length,
           itemBuilder: (context, index) {
-            final trigger = _triggers[index];
+            final trigger = _selectableTriggers[index];
             final isSelected = selectedIndex == index;
-            final isWired = AutoNotificationTriggers.isWiredInCloud(
-              triggerLabels[index],
-            );
-            return _triggerCard(trigger, isSelected, index, isWired: isWired);
+            return _triggerCard(trigger, isSelected, index);
           },
         );
       },
@@ -78,9 +85,8 @@ class TriggerGrid extends StatelessWidget {
   Widget _triggerCard(
     _Trigger trigger,
     bool isSelected,
-    int index, {
-    bool isWired = true,
-  }) {
+    int index,
+  ) {
     return GestureDetector(
       onTap: () => onSelected(index),
       child: AnimatedContainer(
@@ -131,17 +137,6 @@ class TriggerGrid extends StatelessWidget {
                 height: 1.3,
               ),
             ),
-            if (!isWired) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Bientôt',
-                style: GoogleFonts.outfit(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
-                  color: MerchantColors.textGrey,
-                ),
-              ),
-            ],
           ],
         ),
       ),
