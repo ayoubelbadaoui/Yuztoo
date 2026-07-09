@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/domain/core/failure.dart';
 import '../../../../core/infrastructure/logger_service.dart';
+import '../../../../types.dart';
 import '../../core/application/providers.dart' as auth_core;
 import '../../core/domain/auth_failure.dart';
 import '../../core/domain/repositories/auth_repository.dart';
@@ -22,6 +23,7 @@ import 'verify_email_available_for_signup.dart';
 import 'verify_and_link_phone.dart';
 import 'verify_phone_and_create_user.dart';
 import 'create_user_document.dart';
+import 'signup_with_email.dart';
 
 final sendPhoneVerificationProvider =
     Provider<SendPhoneVerification>((ref) {
@@ -54,6 +56,10 @@ final verifyPhoneAndCreateUserProvider = Provider<VerifyPhoneAndCreateUser>((ref
 final createUserDocumentProvider = Provider<CreateUserDocument>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return CreateUserDocument(repository);
+});
+
+final signupWithEmailProvider = Provider<SignupWithEmail>((ref) {
+  return SignupWithEmail(ref.watch(authRepositoryProvider));
 });
 
 /// Use case provider for starting the Google / Apple signup flow.
@@ -100,6 +106,9 @@ final oauthSignupControllerProvider =
           role;
     },
     clearRoutingHints: () => auth_core.clearOAuthSignupRoutingHints(ref),
+    getOAuthCompletionRole: () =>
+        ref.read(auth_core.oauthSignupIntendedRoleProvider) ??
+        UserRole.client,
   );
   return controller;
 });

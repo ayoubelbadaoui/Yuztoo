@@ -49,6 +49,13 @@ class _CountingSocialAuthRepository implements AuthRepository {
       throw UnimplementedError();
 
   @override
+  Future<Result<AuthUser>> createUserWithEmailAndPassword({
+    required EmailAddress email,
+    required Password password,
+  }) =>
+      throw UnimplementedError();
+
+  @override
   Future<Result<String>> sendPhoneVerification({
     required String phoneNumber,
   }) =>

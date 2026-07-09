@@ -1,5 +1,6 @@
 import '../../core/domain/entities/auth_user.dart';
 import '../../../../core/domain/core/failure.dart';
+import 'state/oauth_signup_state.dart';
 
 /// Pure-domain outcome of [StartOAuthSignup] — the use case that runs the
 /// Google / Apple credential exchange + profile resolution.
@@ -16,16 +17,18 @@ class OAuthSignupOutcomeExistingUser extends OAuthSignupOutcome {
 }
 
 /// Brand-new OAuth user — `/users/{uid}` does not exist. Caller must
-/// collect the phone (and optionally the name when [needsName] is true)
-/// and call [CompleteOAuthSignup].
+/// collect optional phone (Google only) and call [FinalizeOAuthSignup].
+/// Apple sign-ups must auto-finalize without prompting for name/email.
 class OAuthSignupOutcomeNeedsCompletion extends OAuthSignupOutcome {
   const OAuthSignupOutcomeNeedsCompletion({
     required this.authUser,
     required this.needsName,
+    required this.provider,
   });
 
   final AuthUser authUser;
   final bool needsName;
+  final OAuthSignupProvider provider;
 }
 
 /// Recoverable failure during OAuth exchange or profile resolution. The

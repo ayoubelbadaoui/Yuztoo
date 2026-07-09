@@ -42,6 +42,7 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
     required void Function(bool pending) setOAuthFirestorePending,
     required void Function(UserRole role) setFreshProfileRole,
     required void Function() clearRoutingHints,
+    required UserRole Function() getOAuthCompletionRole,
   })  : _startOAuthSignup = startOAuthSignup,
         _finalizeOAuthSignup = finalizeOAuthSignup,
         _signOut = signOut,
@@ -51,6 +52,7 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
         _setOAuthFirestorePending = setOAuthFirestorePending,
         _setFreshProfileRole = setFreshProfileRole,
         _clearRoutingHints = clearRoutingHints,
+        _getOAuthCompletionRole = getOAuthCompletionRole,
         super(const OAuthSignupIdle());
 
   final StartOAuthSignup _startOAuthSignup;
@@ -62,6 +64,7 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
   final void Function(bool pending) _setOAuthFirestorePending;
   final void Function(UserRole role) _setFreshProfileRole;
   final void Function() _clearRoutingHints;
+  final UserRole Function() _getOAuthCompletionRole;
 
   /// Guard against double-tap on the Google / Apple buttons.
   bool get isBusy =>
@@ -119,48 +122,41 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
     }
 
     if (outcome is OAuthSignupOutcomeNeedsCompletion) {
-      // Brand-new OAuth user — collect phone (and maybe name). Pending
-      // flag stays `true` until the completion screen finishes or
-      // cancels, so the shell does not auto-route the half-formed
-      // account to onboarding/role-selection.
+      if (outcome.provider == OAuthSignupProvider.apple) {
+        // App Store Guideline 4: never prompt for name/email after Sign in
+        // with Apple — finalize immediately using Authentication Services data.
+        await _finalizeNewOAuthUser(
+          authUser: outcome.authUser,
+          needsName: false,
+          provider: OAuthSignupProvider.apple,
+          role: _getOAuthCompletionRole(),
+          phoneE164: '',
+        );
+        return;
+      }
       state = OAuthSignupNeedsCompletion(
         authUser: outcome.authUser,
         needsName: outcome.needsName,
+        provider: outcome.provider,
       );
       return;
     }
   }
 
-  /// Submits the completion form (phone + optional first/last name) for a
-  /// new OAuth user. Verifies phone availability and writes
-  /// `/users/{uid}`. On any failure, restores the form so the user can
-  /// fix the value and retry **without** re-running OAuth.
-  Future<void> submitCompletion({
+  Future<void> _finalizeNewOAuthUser({
+    required AuthUser authUser,
+    required bool needsName,
+    required OAuthSignupProvider provider,
     required UserRole role,
     required String phoneE164,
     String? firstName,
     String? lastName,
   }) async {
-    final current = state;
-    final AuthUser authUser;
-    final bool needsName;
-    if (current is OAuthSignupNeedsCompletion) {
-      authUser = current.authUser;
-      needsName = current.needsName;
-    } else if (current is OAuthSignupError && current.authUser != null) {
-      authUser = current.authUser!;
-      needsName = current.needsName;
-    } else {
-      // Defensive: submit was called when the controller is not in a
-      // completion-able state. Fail loudly so the bug shows up in QA
-      // instead of silently signing the user out.
-      state = const OAuthSignupError(
-        message: 'État inattendu. Réessayez la connexion via Google ou Apple.',
-      );
-      return;
-    }
-
-    state = OAuthSignupSubmitting(authUser: authUser, needsName: needsName);
+    state = OAuthSignupSubmitting(
+      authUser: authUser,
+      needsName: needsName,
+      provider: provider,
+    );
 
     final result = await _finalizeOAuthSignup.call(
       authUser: authUser,
@@ -171,21 +167,24 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
     );
 
     if (result.isLeft) {
-      // Stay on the completion screen so the user can retry. The OAuth
-      // Firebase session is intact — we deliberately do NOT signOut on
-      // a soft failure here.
-      final f = result.leftOrNull!;
+      if (provider == OAuthSignupProvider.apple) {
+        state = OAuthSignupError(
+          message: AuthErrorMapper.displayMessage(result.leftOrNull!),
+          authUser: authUser,
+          needsName: false,
+          provider: provider,
+        );
+        return;
+      }
       state = OAuthSignupError(
-        message: AuthErrorMapper.displayMessage(f),
+        message: AuthErrorMapper.displayMessage(result.leftOrNull!),
         authUser: authUser,
         needsName: needsName,
+        provider: provider,
       );
       return;
     }
 
-    // Best-effort follow-ups: legacy doc patch + last-login. These may
-    // throw on Firestore rule lag; never fatal — the account is created
-    // and the user must move forward.
     try {
       await _patchUserDocument.call(authUser.id);
     } catch (_) {}
@@ -201,6 +200,46 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
     _setOAuthFirestorePending(false);
     state = const OAuthSignupCompleted();
     unawaited(_authController.refreshAuthState());
+  }
+
+  /// Submits the completion form (phone + optional first/last name) for a
+  /// new OAuth user. Verifies phone availability and writes
+  /// `/users/{uid}`. On any failure, restores the form so the user can
+  /// fix the value and retry **without** re-running OAuth.
+  Future<void> submitCompletion({
+    required UserRole role,
+    required String phoneE164,
+    String? firstName,
+    String? lastName,
+  }) async {
+    final current = state;
+    final AuthUser authUser;
+    final bool needsName;
+    final OAuthSignupProvider provider;
+    if (current is OAuthSignupNeedsCompletion) {
+      authUser = current.authUser;
+      needsName = current.needsName;
+      provider = current.provider;
+    } else if (current is OAuthSignupError && current.authUser != null) {
+      authUser = current.authUser!;
+      needsName = current.needsName;
+      provider = current.provider;
+    } else {
+      state = const OAuthSignupError(
+        message: 'État inattendu. Réessayez la connexion via Google ou Apple.',
+      );
+      return;
+    }
+
+    await _finalizeNewOAuthUser(
+      authUser: authUser,
+      needsName: needsName,
+      provider: provider,
+      role: role,
+      phoneE164: phoneE164,
+      firstName: firstName,
+      lastName: lastName,
+    );
   }
 
   /// User explicitly tapped "Annuler" on the completion screen, or
@@ -228,6 +267,7 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
         state = OAuthSignupNeedsCompletion(
           authUser: err.authUser!,
           needsName: err.needsName,
+          provider: err.provider,
         );
       } else {
         state = const OAuthSignupIdle();

@@ -34,14 +34,6 @@ class CreateUserDocument {
       );
     }
 
-    if (phone.isEmpty) {
-      return Future<Result<Unit>>.value(
-        const Left<AuthFailure, Unit>(
-          AuthUnexpectedFailure(message: 'Le numéro de téléphone est requis.'),
-        ),
-      );
-    }
-
     return _repository.createUserDocument(
       uid: uid,
       email: email,

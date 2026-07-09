@@ -69,18 +69,21 @@ class OAuthSignupNeedsCompletion extends OAuthSignupState {
   const OAuthSignupNeedsCompletion({
     required this.authUser,
     required this.needsName,
+    required this.provider,
   });
 
   /// Firebase Auth user just signed in via Google / Apple.
   final AuthUser authUser;
 
-  /// `true` when the provider returned no name (Apple after the first
-  /// authorization, Google with no Name scope, etc.). The completion
-  /// screen will show first / last name inputs in that case.
+  /// `true` when the provider returned no name (Google with no Name scope).
+  /// Never `true` for Apple — App Store requires using Authentication
+  /// Services data instead of prompting for name/email after Sign in with Apple.
   final bool needsName;
 
+  final OAuthSignupProvider provider;
+
   @override
-  List<Object?> get props => <Object?>[authUser, needsName];
+  List<Object?> get props => <Object?>[authUser, needsName, provider];
 }
 
 /// The completion form was submitted — verifying phone availability and
@@ -92,13 +95,15 @@ class OAuthSignupSubmitting extends OAuthSignupState {
   const OAuthSignupSubmitting({
     required this.authUser,
     required this.needsName,
+    this.provider = OAuthSignupProvider.google,
   });
 
   final AuthUser authUser;
   final bool needsName;
+  final OAuthSignupProvider provider;
 
   @override
-  List<Object?> get props => <Object?>[authUser, needsName];
+  List<Object?> get props => <Object?>[authUser, needsName, provider];
 }
 
 /// Profile created — auth state refreshed. Shell will now route to
@@ -123,12 +128,14 @@ class OAuthSignupError extends OAuthSignupState {
     required this.message,
     this.authUser,
     this.needsName = false,
+    this.provider = OAuthSignupProvider.google,
   });
 
   final String message;
   final AuthUser? authUser;
   final bool needsName;
+  final OAuthSignupProvider provider;
 
   @override
-  List<Object?> get props => <Object?>[message, authUser, needsName];
+  List<Object?> get props => <Object?>[message, authUser, needsName, provider];
 }

@@ -11,7 +11,7 @@ import '../entities/user_profile_basics.dart';
 /// User Schema (/users/{uid}):
 /// - uid: String (required)
 /// - email: String (required)
-/// - phone: String (required)
+/// - phone: String (optional at signup; may be added later in profile)
 /// - city: String (required)
 /// - roles: Map<String, bool> (required) - {"client": bool, "merchant": bool, "provider": bool}
 ///   Signup: client XOR merchant (`client` and `merchant` are not both true); merchants also set `provider`.

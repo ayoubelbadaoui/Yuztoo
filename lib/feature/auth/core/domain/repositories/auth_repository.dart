@@ -9,14 +9,15 @@ abstract class AuthRepository {
     required Password password,
   });
 
-  // NOTE: a stand-alone `signupWithEmailAndPassword` no longer exists.
-  // The signup path goes through phone verification first
-  // ([sendPhoneVerification] → [verifyPhoneAndCreateUser]) so that the
-  // Firebase Auth user is created in a single linked credential — phone
-  // and email/password — and the orphan rollback in
-  // [verifyPhoneAndCreateUser] can release both identifiers if any step
-  // fails. A separate email/password create would race that linking
-  // and reintroduce the "email-already-in-use" lockout we fixed.
+  // NOTE: email/password signup may go through phone verification
+  // ([sendPhoneVerification] → [verifyPhoneAndCreateUser]) when the user
+  // provides a phone number, or directly via [createUserWithEmailAndPassword]
+  // when phone is omitted (App Store Guideline 5.1.1).
+
+  Future<Result<AuthUser>> createUserWithEmailAndPassword({
+    required EmailAddress email,
+    required Password password,
+  });
 
   Future<Result<String>> sendPhoneVerification({
     required String phoneNumber,

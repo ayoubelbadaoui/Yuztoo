@@ -387,7 +387,7 @@ class PhoneField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('NUMÉRO DE TÉLÉPHONE', style: _labelStyle()),
+        Text('NUMÉRO DE TÉLÉPHONE (FACULTATIF)', style: _labelStyle()),
         const SizedBox(height: 8),
         FormField<String>(
           key: fieldKey,

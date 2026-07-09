@@ -51,6 +51,65 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
     }
   }
 
+  Future<Result<AuthUser>> createUserWithEmailAndPassword({
+    required EmailAddress email,
+    required Password password,
+  }) async {
+    firebase.User? createdUser;
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email.value,
+        password: password.value,
+      );
+      createdUser = credential.user;
+      if (createdUser == null) {
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(message: 'Utilisateur introuvable après la création.'),
+        );
+      }
+
+      DocumentSnapshot<Map<String, dynamic>>? existingProfile;
+      try {
+        existingProfile = await _firestore
+            .collection('users')
+            .doc(createdUser.uid)
+            .get()
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        existingProfile = null;
+      }
+      if (existingProfile?.exists == true) {
+        try {
+          await createdUser.delete();
+        } catch (_) {}
+        return const Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(
+            message:
+                'Cette adresse e-mail est déjà utilisée. Connectez-vous ou utilisez une autre adresse.',
+          ),
+        );
+      }
+
+      final dto = AuthUserDto.fromFirebase(createdUser);
+      return Right<AuthFailure, AuthUser>(dto.toDomain());
+    } on firebase.FirebaseAuthException catch (e, st) {
+      if (createdUser != null) {
+        try {
+          await createdUser.delete();
+        } catch (_) {}
+      }
+      return Left<AuthFailure, AuthUser>(_mapSignupException(e, st));
+    } catch (e, st) {
+      if (createdUser != null) {
+        try {
+          await createdUser.delete();
+        } catch (_) {}
+      }
+      return Left<AuthFailure, AuthUser>(
+          AuthUnexpectedFailure(cause: e, stackTrace: st));
+    }
+  }
+
   Future<Result<String>> sendPhoneVerification({
     required String phoneNumber,
   }) async {
@@ -277,9 +336,11 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
         );
       }
       // Update display name from Apple credential if not set
-      final firstName = appleCredential.givenName;
-      final lastName = appleCredential.familyName;
-      if (firstName != null && user.displayName == null) {
+      final firstName = appleCredential.givenName?.trim();
+      final lastName = appleCredential.familyName?.trim();
+      if (firstName != null &&
+          firstName.isNotEmpty &&
+          user.displayName == null) {
         await user.updateDisplayName('$firstName ${lastName ?? ''}'.trim());
         await user.reload();
       }
@@ -293,7 +354,12 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
       } catch (_) {
         profileDoc = null;
       }
-      final mapped = await _profileToAuthResult(user, profileDoc);
+      final mapped = await _profileToAuthResult(
+        user,
+        profileDoc,
+        oauthFirstName: firstName,
+        oauthLastName: lastName,
+      );
       if (mapped.isLeft) {
         return const Left<AuthFailure, AuthUser>(AccountDisabledFailure());
       }

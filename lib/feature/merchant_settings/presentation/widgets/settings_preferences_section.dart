@@ -59,6 +59,11 @@ class SettingsPreferencesSection extends StatelessWidget {
             icon: Icons.shield_rounded,
             label: 'Confidentialité des données',
             onTap: () => onNavigate?.call('data-privacy'),
+          ),
+          _settingsItem(
+            icon: Icons.no_accounts_outlined,
+            label: 'Supprimer mon compte',
+            onTap: () => onNavigate?.call('data-privacy'),
             isLast: true,
           ),
         ],

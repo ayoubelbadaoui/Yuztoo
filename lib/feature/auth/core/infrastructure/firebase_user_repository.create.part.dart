@@ -17,9 +17,7 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
 
     final normalizedPhone = phone.trim();
     if (normalizedPhone.isEmpty) {
-      return const Left<AuthFailure, Unit>(
-        AuthUnexpectedFailure(message: 'Le numéro de téléphone est requis'),
-      );
+      // Phone is optional at signup (App Store Guideline 5.1.1).
     }
 
     const duplicateMsg = AuthUnexpectedFailure(
@@ -35,7 +33,7 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
     Map<String, dynamic> userPayload() => {
           'uid': uid,
           'email': email,
-          'phone': phone,
+          if (normalizedPhone.isNotEmpty) 'phone': normalizedPhone,
           'roles': roles,
           'primary_role': roles['merchant'] == true ? 'merchant' : 'client',
           if (persistedCity != null) 'city': persistedCity,
@@ -74,14 +72,17 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
     try {
       await _firestore.runTransaction((transaction) async {
         final userRef = _firestore.collection('users').doc(uid);
-        final phoneIndexRef =
-            _firestore.collection('phone_index').doc(normalizedPhone);
+        final phoneIndexRef = normalizedPhone.isNotEmpty
+            ? _firestore.collection('phone_index').doc(normalizedPhone)
+            : null;
         final emailIndexRef =
             _firestore.collection('email_index').doc(normalizedEmail);
 
         // All reads must come before any writes in a Firestore transaction.
         final userSnap = await transaction.get(userRef);
-        final phoneSnap = await transaction.get(phoneIndexRef);
+        final phoneSnap = phoneIndexRef != null
+            ? await transaction.get(phoneIndexRef)
+            : null;
         final emailSnap = await transaction.get(emailIndexRef);
 
         // --- Checks ---
@@ -97,7 +98,7 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
         // upstream `verifyPhoneAvailableForSignup` / `verifyEmailAvailableForSignup`
         // calls block these cases at the form layer; this in-transaction
         // check is the second line of defence.
-        if (phoneSnap.exists) {
+        if (phoneSnap != null && phoneSnap.exists) {
           final existingUid = (phoneSnap.data()?['uid'] as String?)?.trim();
           if (existingUid == null || existingUid.isEmpty) {
             LoggerService.logError(
@@ -128,7 +129,7 @@ mixin _FirebaseUserRepositoryCreate on _FirebaseUserRepositoryBase {
         }
 
         // --- Writes (only after all reads) ---
-        if (!phoneSnap.exists) {
+        if (phoneIndexRef != null && phoneSnap != null && !phoneSnap.exists) {
           transaction.set(phoneIndexRef, {'uid': uid});
         }
         if (!emailSnap.exists) {

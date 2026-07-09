@@ -60,9 +60,12 @@ class FinalizeOAuthSignup {
       return Left<AppFailure, Unit>(emailCheck.leftOrNull!);
     }
 
-    final phoneCheck = await _verifyPhone.call(phoneNumber: phoneNumber);
-    if (phoneCheck.isLeft) {
-      return Left<AppFailure, Unit>(phoneCheck.leftOrNull!);
+    final normalizedPhone = phoneNumber.trim();
+    if (normalizedPhone.isNotEmpty) {
+      final phoneCheck = await _verifyPhone.call(phoneNumber: normalizedPhone);
+      if (phoneCheck.isLeft) {
+        return Left<AppFailure, Unit>(phoneCheck.leftOrNull!);
+      }
     }
 
     final providerIdentity = oauthIdentityForCreateUserDocument(authUser);
@@ -77,7 +80,7 @@ class FinalizeOAuthSignup {
     final createResult = await _createUserDocument.call(
       uid: authUser.id,
       email: email,
-      phone: phoneNumber,
+      phone: normalizedPhone,
       roles: signupRolesMap(role),
       firstName: firstName,
       lastName: lastName,

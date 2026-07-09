@@ -114,28 +114,26 @@ extension _SignupScreenUi on _SignupScreenState {
       return;
     }
 
-    if (_phoneNumber == null ||
-        _phoneNumber!.isEmpty ||
-        _phoneController.text.isEmpty) {
-      if (mounted) {
-        showErrorSnackbar(context, 'Le numéro de téléphone est requis.');
-      }
-      return;
-    }
+    final rawPhoneDigits =
+        _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+    final hasPhone = rawPhoneDigits.isNotEmpty;
 
-    final formattedPhoneNumber = PhoneFormatter.formatPhoneNumber(
-      _selectedCountryCode,
-      _phoneController.text,
-    );
+    String formattedPhoneNumber = '';
+    if (hasPhone) {
+      formattedPhoneNumber = PhoneFormatter.formatPhoneNumber(
+        _selectedCountryCode,
+        _phoneController.text,
+      );
 
-    if (!PhoneFormatter.isValidE164(formattedPhoneNumber)) {
-      if (mounted) {
-        showErrorSnackbar(
-          context,
-          'Numéro de téléphone invalide. Vérifiez le format.',
-        );
+      if (!PhoneFormatter.isValidE164(formattedPhoneNumber)) {
+        if (mounted) {
+          showErrorSnackbar(
+            context,
+            'Numéro de téléphone invalide. Vérifiez le format.',
+          );
+        }
+        return;
       }
-      return;
     }
 
     if (_isSubmitting) return;
@@ -150,7 +148,6 @@ extension _SignupScreenUi on _SignupScreenState {
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    final phoneNumber = formattedPhoneNumber;
 
     final verifyEmail = ref.read(verifyEmailAvailableForSignupProvider);
     final emailResult = await verifyEmail.call(email: email);
@@ -177,6 +174,16 @@ extension _SignupScreenUi on _SignupScreenState {
       }
       return;
     }
+
+    if (!hasPhone) {
+      await _handleEmailOnlySignup(
+        email: email,
+        password: password,
+      );
+      return;
+    }
+
+    final phoneNumber = formattedPhoneNumber;
 
     final verifyPhone = ref.read(verifyPhoneAvailableForSignupProvider);
     final phoneResult = await verifyPhone.call(phoneNumber: phoneNumber);
@@ -264,6 +271,102 @@ extension _SignupScreenUi on _SignupScreenState {
 
     if (mounted && _isSubmitting) {
       _withSetState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _handleEmailOnlySignup({
+    required String email,
+    required String password,
+  }) async {
+    ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+        true;
+
+    try {
+      final signupResult =
+          await ref.read(signupWithEmailProvider).call(
+                email: email,
+                password: password,
+              );
+
+      await signupResult.fold<Future<void>>(
+        (failure) async {
+          if (mounted) {
+            showErrorSnackbar(
+              context,
+              AuthErrorMapper.displayMessage(failure),
+            );
+          }
+        },
+        (authUser) async {
+          final createResult = await ref.read(createUserDocumentProvider).call(
+                uid: authUser.id,
+                email: email,
+                phone: '',
+                roles: signupRolesMap(widget.role),
+              );
+
+          await createResult.fold<Future<void>>(
+            (failure) async {
+              try {
+                await ref.read(auth_core.authRepositoryProvider).deleteCurrentUser();
+              } catch (_) {}
+              try {
+                await ref.read(auth_core.signOutProvider).call();
+              } catch (_) {}
+              if (mounted) {
+                showErrorSnackbar(
+                  context,
+                  AuthErrorMapper.displayMessage(failure),
+                );
+              }
+            },
+            (_) async {
+              try {
+                await ref
+                    .read(auth_core.roleCacheServiceProvider)
+                    .saveLastSelectedRole(widget.role);
+              } catch (_) {}
+
+              try {
+                ref
+                    .read(auth_core.oauthFirestoreProfilePendingProvider.notifier)
+                    .state = false;
+              } catch (_) {}
+
+              await ref
+                  .read(auth_core.authControllerProvider.notifier)
+                  .reloadProfile();
+
+              if (!mounted) return;
+
+              showSuccessSnackbar(context, 'Inscription réussie!');
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                widget.onSignupComplete?.call();
+              });
+            },
+          );
+        },
+      );
+    } catch (e, st) {
+      if (mounted) {
+        showErrorSnackbar(
+          context,
+          AuthErrorMapper.displayMessage(
+            AuthUnexpectedFailure(cause: e, stackTrace: st),
+          ),
+        );
+      }
+    } finally {
+      try {
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
+            false;
+      } catch (_) {}
+      if (mounted) {
+        _withSetState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+      }
     }
   }
 

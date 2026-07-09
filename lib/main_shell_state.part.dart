@@ -1055,6 +1055,10 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (next is OAuthSignupExistingUser) {
       _routeAfterOAuthSignIn();
     }
+
+    if (next is OAuthSignupCompleted) {
+      _routeAfterOAuthSignIn();
+    }
   }
 
   void _handleRoleSelect(UserRole role) {
@@ -2379,6 +2383,7 @@ class _RootShellState extends ConsumerState<_RootShell>
               _authScreen = ScreenId.oauthCompletion;
             });
           },
+          onSignupComplete: _routeAfterOtpSignupComplete,
         );
       case ScreenId.oauthCompletion:
         return OAuthCompletionScreen(

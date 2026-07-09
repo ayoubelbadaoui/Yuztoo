@@ -10,6 +10,8 @@ class AuthUserDto {
     this.displayName,
     this.photoUrl,
     this.phoneNumber,
+    this.firstName,
+    this.lastName,
     this.roles,
     this.primaryRole,
     this.role = 'client',
@@ -20,6 +22,8 @@ class AuthUserDto {
   final String? displayName;
   final String? photoUrl;
   final String? phoneNumber;
+  final String? firstName;
+  final String? lastName;
   final Map<String, bool>? roles;
   /// Firestore `primary_role` (`merchant` | `client`).
   final String? primaryRole;
@@ -43,6 +47,8 @@ class AuthUserDto {
   factory AuthUserDto.fromFirebase(
     firebase.User user, {
     DocumentSnapshot<Map<String, dynamic>>? profileDoc,
+    String? oauthFirstName,
+    String? oauthLastName,
   }) {
     final data = profileDoc?.data();
     // ROOT FIX: If user was created with phone auth, email might not be in Firebase Auth
@@ -90,13 +96,19 @@ class AuthUserDto {
 
     final fsFirst = (data?['firstName'] as String?)?.trim() ?? '';
     final fsLast = (data?['lastName'] as String?)?.trim() ?? '';
+    final oauthFirst = oauthFirstName?.trim() ?? '';
+    final oauthLast = oauthLastName?.trim() ?? '';
+    final resolvedFirst =
+        fsFirst.isNotEmpty ? fsFirst : (oauthFirst.isNotEmpty ? oauthFirst : '');
+    final resolvedLast =
+        fsLast.isNotEmpty ? fsLast : (oauthLast.isNotEmpty ? oauthLast : '');
     String? displayName;
-    if (fsFirst.isNotEmpty && fsLast.isNotEmpty) {
-      displayName = '$fsFirst $fsLast';
-    } else if (fsFirst.isNotEmpty) {
-      displayName = fsFirst;
-    } else if (fsLast.isNotEmpty) {
-      displayName = fsLast;
+    if (resolvedFirst.isNotEmpty && resolvedLast.isNotEmpty) {
+      displayName = '$resolvedFirst $resolvedLast';
+    } else if (resolvedFirst.isNotEmpty) {
+      displayName = resolvedFirst;
+    } else if (resolvedLast.isNotEmpty) {
+      displayName = resolvedLast;
     } else {
       displayName = user.displayName ?? data?['displayName'] as String?;
     }
@@ -112,7 +124,9 @@ class AuthUserDto {
       email: email,
       displayName: displayName,
       photoUrl: photoUrl,
-      phoneNumber: user.phoneNumber ?? data?['phoneNumber'] as String?,
+      phoneNumber: user.phoneNumber ?? data?['phone'] as String?,
+      firstName: resolvedFirst.isNotEmpty ? resolvedFirst : null,
+      lastName: resolvedLast.isNotEmpty ? resolvedLast : null,
       roles: rolesMap,
       primaryRole: primaryRole,
       role: role,
@@ -125,6 +139,8 @@ class AuthUserDto {
         displayName: displayName,
         photoUrl: photoUrl,
         phoneNumber: phoneNumber,
+        firstName: firstName,
+        lastName: lastName,
         roles: roles,
         primaryRole: primaryRole,
         role: role,

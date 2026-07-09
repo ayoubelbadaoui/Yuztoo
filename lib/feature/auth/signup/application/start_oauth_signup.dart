@@ -6,6 +6,7 @@ import '../../core/domain/repositories/user_repository.dart';
 import '../../login/application/sign_in_with_social.dart';
 import '../../../../core/domain/core/result.dart';
 import 'oauth_signup_outcome.dart';
+import 'state/oauth_signup_state.dart';
 
 /// Drives the credential-exchange + profile-resolution part of an OAuth
 /// signup attempt.
@@ -39,12 +40,15 @@ class StartOAuthSignup {
   final SignInWithApple _signInWithApple;
   final UserRepository _userRepository;
 
-  Future<OAuthSignupOutcome> google() => _run(_signInWithGoogle.call);
+  Future<OAuthSignupOutcome> google() =>
+      _run(_signInWithGoogle.call, OAuthSignupProvider.google);
 
-  Future<OAuthSignupOutcome> apple() => _run(_signInWithApple.call);
+  Future<OAuthSignupOutcome> apple() =>
+      _run(_signInWithApple.call, OAuthSignupProvider.apple);
 
   Future<OAuthSignupOutcome> _run(
     Future<Result<AuthUser>> Function() signIn,
+    OAuthSignupProvider provider,
   ) async {
     final Result<AuthUser> credentialResult;
     try {
@@ -103,10 +107,12 @@ class StartOAuthSignup {
       );
     }
 
-    final needsName = _hasNoUsableName(authUser);
+    final needsName = provider != OAuthSignupProvider.apple &&
+        _hasNoUsableName(authUser);
     return OAuthSignupOutcomeNeedsCompletion(
       authUser: authUser,
       needsName: needsName,
+      provider: provider,
     );
   }
 
@@ -137,6 +143,10 @@ class StartOAuthSignup {
   /// the **first** authorization per Apple-ID per app — every subsequent
   /// attempt returns blanks, so we must ask the user to type them.
   static bool _hasNoUsableName(AuthUser user) {
+    if ((user.firstName?.trim().isNotEmpty ?? false) ||
+        (user.lastName?.trim().isNotEmpty ?? false)) {
+      return false;
+    }
     final dn = user.displayName?.trim() ?? '';
     return dn.isEmpty;
   }

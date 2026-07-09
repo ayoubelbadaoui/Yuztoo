@@ -213,8 +213,8 @@ extension _OAuthCompletionScreenUi on _OAuthCompletionScreenState {
         const SizedBox(height: 6),
         Text(
           email == null
-              ? 'Quelques détails et c’est terminé.'
-              : 'Connecté en tant que $email — quelques détails et c’est terminé.',
+              ? 'Ajoutez un numéro de téléphone si vous le souhaitez.'
+              : 'Connecté en tant que $email — ajoutez un numéro si vous le souhaitez.',
           style: GoogleFonts.outfit(
             fontSize: 13,
             color: SignupConstants.textGrey,
@@ -423,7 +423,7 @@ extension _OAuthCompletionScreenUi on _OAuthCompletionScreenState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'NUMÉRO DE TÉLÉPHONE',
+          'NUMÉRO DE TÉLÉPHONE (FACULTATIF)',
           style: GoogleFonts.outfit(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -599,7 +599,7 @@ extension _OAuthCompletionScreenUi on _OAuthCompletionScreenState {
                     ),
                   )
                 : Text(
-                    'Terminer mon inscription',
+                    'Terminer',
                     style: GoogleFonts.outfit(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -659,13 +659,14 @@ extension _OAuthCompletionScreenUi on _OAuthCompletionScreenState {
     }
 
     final rawPhone = _phoneController.text.trim();
-    final formatted = rawPhone.startsWith('+')
-        ? rawPhone.replaceAll(RegExp(r'\s'), '')
-        : PhoneFormatter.formatPhoneNumber(_selectedCountryCode, rawPhone);
+    final formatted = rawPhone.isEmpty
+        ? ''
+        : rawPhone.startsWith('+')
+            ? rawPhone.replaceAll(RegExp(r'\s'), '')
+            : PhoneFormatter.formatPhoneNumber(_selectedCountryCode, rawPhone);
 
     if (rawPhone.isEmpty) {
-      _phoneError = 'Saisissez votre numéro de téléphone.';
-      hasError = true;
+      _phoneError = null;
     } else if (!PhoneFormatter.isValidE164(formatted)) {
       _phoneError = 'Numéro invalide (ex. +33 6 12 34 56 78).';
       hasError = true;

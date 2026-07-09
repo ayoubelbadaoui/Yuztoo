@@ -10,6 +10,7 @@ import '../../../legal/domain/legal_document.dart';
 import '../../../legal/presentation/legal_document_screen.dart';
 import '../application/providers.dart';
 import '../application/state/oauth_signup_state.dart';
+import '../domain/signup_roles_map.dart';
 import '../../core/application/auth_error_mapper.dart';
 import '../../core/domain/auth_failure.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
@@ -31,6 +32,7 @@ class SignupScreen extends ConsumerStatefulWidget {
     required this.onBack,
     required this.onNavigateToOtp,
     required this.onNavigateToOAuthCompletion,
+    this.onSignupComplete,
     this.initialEmail,
     this.initialPassword,
     this.initialPhone,
@@ -48,6 +50,9 @@ class SignupScreen extends ConsumerStatefulWidget {
   /// until [OAuthSignupController.cancelCompletion] returns the flow
   /// to idle (then the shell brings this screen back to the front).
   final VoidCallback onNavigateToOAuthCompletion;
+
+  /// Called after email-only signup (no phone) completes successfully.
+  final VoidCallback? onSignupComplete;
 
   final String? initialEmail;
   final String? initialPassword;
@@ -143,9 +148,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         return;
       }
 
-      if (next is OAuthSignupError && next.authUser == null) {
+      if (next is OAuthSignupError) {
         showErrorSnackbar(context, next.message);
-        ref.read(oauthSignupControllerProvider.notifier).dismissError();
+        if (next.authUser == null) {
+          ref.read(oauthSignupControllerProvider.notifier).dismissError();
+        } else if (next.provider == OAuthSignupProvider.apple) {
+          unawaited(
+            ref.read(oauthSignupControllerProvider.notifier).cancelCompletion(),
+          );
+        } else {
+          ref.read(oauthSignupControllerProvider.notifier).dismissError();
+        }
         return;
       }
     });

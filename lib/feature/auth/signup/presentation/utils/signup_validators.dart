@@ -59,7 +59,7 @@ class SignupValidators {
     return null;
   }
 
-  /// Validate phone number
+  /// Validate phone number — optional at signup (App Store Guideline 5.1.1).
   static String? validatePhone(
     String? value,
     String countryCode,
@@ -67,7 +67,7 @@ class SignupValidators {
     // Extract only digits from the formatted value
     final currentValue = (value ?? '').replaceAll(RegExp(r'[^\d]'), '');
     if (currentValue.isEmpty) {
-      return 'Le numéro est requis.';
+      return null;
     }
     
     // Additional regex check to ensure only numbers

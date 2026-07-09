@@ -190,11 +190,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           return;
         }
 
-        if (next is OAuthSignupError && next.authUser == null) {
+        if (next is OAuthSignupError) {
           showErrorSnackbar(context, next.message);
-          ref
-              .read(signup_providers.oauthSignupControllerProvider.notifier)
-              .dismissError();
+          if (next.authUser == null) {
+            ref
+                .read(signup_providers.oauthSignupControllerProvider.notifier)
+                .dismissError();
+          } else if (next.provider == OAuthSignupProvider.apple) {
+            unawaited(
+              ref
+                  .read(signup_providers.oauthSignupControllerProvider.notifier)
+                  .cancelCompletion(),
+            );
+          } else {
+            ref
+                .read(signup_providers.oauthSignupControllerProvider.notifier)
+                .dismissError();
+          }
           return;
         }
       },

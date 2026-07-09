@@ -13,6 +13,8 @@ class AuthUser extends Equatable {
     this.displayName,
     this.photoUrl,
     this.phoneNumber,
+    this.firstName,
+    this.lastName,
     this.roles,
     this.primaryRole,
     this.role = 'client',
@@ -23,6 +25,10 @@ class AuthUser extends Equatable {
   final String? displayName;
   final String? photoUrl;
   final String? phoneNumber;
+  /// OAuth given name (e.g. Apple `givenName` on first authorization).
+  final String? firstName;
+  /// OAuth family name (e.g. Apple `familyName` on first authorization).
+  final String? lastName;
   /// `client` / `merchant` / `provider` flags when the profile was loaded from Firestore.
   final Map<String, bool>? roles;
   /// Firestore `primary_role`: `merchant` | `client` — account created as merchant vs client.
@@ -81,6 +87,16 @@ class AuthUser extends Equatable {
   bool get hasBothRoles => hasClientRole && hasMerchantRole;
 
   @override
-  List<Object?> get props =>
-      <Object?>[id, email, displayName, photoUrl, phoneNumber, roles, primaryRole, role];
+  List<Object?> get props => <Object?>[
+        id,
+        email,
+        displayName,
+        photoUrl,
+        phoneNumber,
+        firstName,
+        lastName,
+        roles,
+        primaryRole,
+        role,
+      ];
 }

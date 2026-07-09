@@ -35,8 +35,10 @@ abstract class _FirebaseAuthRepositoryBase {
   /// Builds [AuthUser] from Firestore profile, or blocks access when `status` is `blocked`.
   Future<Result<AuthUser?>> _profileToAuthResult(
     firebase.User user,
-    DocumentSnapshot<Map<String, dynamic>>? profileDoc,
-  ) async {
+    DocumentSnapshot<Map<String, dynamic>>? profileDoc, {
+    String? oauthFirstName,
+    String? oauthLastName,
+  }) async {
     if (profileDoc != null && profileDoc.exists) {
       final data = profileDoc.data();
       if (_isStatusBlocked(data)) {
@@ -49,8 +51,17 @@ abstract class _FirebaseAuthRepositoryBase {
       }
     }
     final dto = profileDoc != null && profileDoc.exists
-        ? AuthUserDto.fromFirebase(user, profileDoc: profileDoc)
-        : AuthUserDto.fromFirebase(user);
+        ? AuthUserDto.fromFirebase(
+            user,
+            profileDoc: profileDoc,
+            oauthFirstName: oauthFirstName,
+            oauthLastName: oauthLastName,
+          )
+        : AuthUserDto.fromFirebase(
+            user,
+            oauthFirstName: oauthFirstName,
+            oauthLastName: oauthLastName,
+          );
     return Right<AuthFailure, AuthUser?>(dto.toDomain());
   }
 
