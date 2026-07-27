@@ -278,15 +278,28 @@ extension _SignupScreenUi on _SignupScreenState {
     required String email,
     required String password,
   }) async {
-    ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-        true;
+    // Capture everything we need from `ref`/`widget` BEFORE the first await.
+    // The shell can swap screens while sign-in / Firestore writes are in
+    // flight, disposing this widget — any later `ref` use then throws
+    // "Cannot use ref after the widget was disposed" and leaves the pending
+    // flag stuck at `true`, blocking all shell routing (user stuck forever).
+    final pendingNotifier =
+        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier);
+    final signupWithEmail = ref.read(signupWithEmailProvider);
+    final createUserDoc = ref.read(createUserDocumentProvider);
+    final authRepository = ref.read(auth_core.authRepositoryProvider);
+    final signOutUseCase = ref.read(auth_core.signOutProvider);
+    final roleCache = ref.read(auth_core.roleCacheServiceProvider);
+    final authController = ref.read(auth_core.authControllerProvider.notifier);
+    final signupRole = widget.role;
+
+    pendingNotifier.state = true;
 
     try {
-      final signupResult =
-          await ref.read(signupWithEmailProvider).call(
-                email: email,
-                password: password,
-              );
+      final signupResult = await signupWithEmail.call(
+        email: email,
+        password: password,
+      );
 
       await signupResult.fold<Future<void>>(
         (failure) async {
@@ -298,20 +311,20 @@ extension _SignupScreenUi on _SignupScreenState {
           }
         },
         (authUser) async {
-          final createResult = await ref.read(createUserDocumentProvider).call(
+          final createResult = await createUserDoc.call(
                 uid: authUser.id,
                 email: email,
                 phone: '',
-                roles: signupRolesMap(widget.role),
+                roles: signupRolesMap(signupRole),
               );
 
           await createResult.fold<Future<void>>(
             (failure) async {
               try {
-                await ref.read(auth_core.authRepositoryProvider).deleteCurrentUser();
+                await authRepository.deleteCurrentUser();
               } catch (_) {}
               try {
-                await ref.read(auth_core.signOutProvider).call();
+                await signOutUseCase.call();
               } catch (_) {}
               if (mounted) {
                 showErrorSnackbar(
@@ -322,20 +335,17 @@ extension _SignupScreenUi on _SignupScreenState {
             },
             (_) async {
               try {
-                await ref
-                    .read(auth_core.roleCacheServiceProvider)
-                    .saveLastSelectedRole(widget.role);
+                await roleCache.saveLastSelectedRole(signupRole);
               } catch (_) {}
 
               try {
-                ref
-                    .read(auth_core.oauthFirestoreProfilePendingProvider.notifier)
-                    .state = false;
+                pendingNotifier.state = false;
               } catch (_) {}
 
-              await ref
-                  .read(auth_core.authControllerProvider.notifier)
-                  .reloadProfile();
+              // Runs even if this widget was disposed mid-flow — the new
+              // Authenticated emission is what lets the shell route the
+              // freshly created account.
+              await authController.reloadProfile();
 
               if (!mounted) return;
 
@@ -358,8 +368,7 @@ extension _SignupScreenUi on _SignupScreenState {
       }
     } finally {
       try {
-        ref.read(auth_core.oauthFirestoreProfilePendingProvider.notifier).state =
-            false;
+        pendingNotifier.state = false;
       } catch (_) {}
       if (mounted) {
         _withSetState(() {

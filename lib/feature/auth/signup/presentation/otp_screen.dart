@@ -6,9 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../application/providers.dart';
 import '../application/create_user_document.dart';
 import '../../core/application/auth_error_mapper.dart';
-import '../../core/application/use_cases/get_user_role.dart';
 import '../../core/application/providers.dart' as auth_core;
+import '../../core/domain/auth_failure.dart';
+import '../../core/application/auth_controller.dart';
 import '../../core/application/state/auth_state.dart';
+import '../../core/application/use_cases/sign_out.dart';
+import '../../core/domain/repositories/auth_repository.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
 import '../domain/signup_roles_map.dart';
@@ -66,6 +69,11 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   int _resendTimer = 60; // 60 seconds
   bool _canResend = false;
   bool _isVerifying = false;
+
+  /// True once the OTP code was accepted and the account is being finalized
+  /// (Firestore profile write + auth reload). The UI swaps to a full-screen
+  /// loading view so the user isn't left staring at frozen OTP fields.
+  bool _isFinalizing = false;
   bool _otpBlocked = false;
   String? _otpUnavailableMessage;
   Timer? _timer;
@@ -102,7 +110,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   }
 
   void _handleBack() {
-    if (_isVerifying) return;
+    if (_isVerifying || _isFinalizing) return;
     // Prefer popping this route if it exists.
     final nav = Navigator.of(context);
     if (nav.canPop()) {
@@ -127,6 +135,11 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
 
   void _setVerifying(bool value) {
     setState(() => _isVerifying = value);
+  }
+
+  void _setFinalizing(bool value) {
+    if (!mounted) return;
+    setState(() => _isFinalizing = value);
   }
 
   void _startResendTimer() {

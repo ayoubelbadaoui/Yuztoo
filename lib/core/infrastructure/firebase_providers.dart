@@ -42,6 +42,27 @@ final firebaseInitializationProvider = FutureProvider<void>((ref) async {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
+  // The iOS keychain persists Firebase Auth sessions across app reinstalls —
+  // and even across server-side account deletion (e.g. the signup rollback
+  // that removes an orphan user). A restored session whose account no longer
+  // exists cannot refresh its token, so every Firestore call fails with
+  // permission-denied. Detect that state at bootstrap and sign out so the
+  // app starts clean instead of booting a dead session.
+  final restoredUser = FirebaseAuth.instance.currentUser;
+  if (restoredUser != null) {
+    try {
+      await restoredUser.getIdToken(true);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found' ||
+          e.code == 'user-disabled' ||
+          e.code == 'invalid-user-token' ||
+          e.code == 'user-token-expired') {
+        await FirebaseAuth.instance.signOut();
+      }
+    } catch (_) {
+      // Offline or transient failure — keep the session and let the app retry.
+    }
+  }
   // On iOS: pass clientId (iOS OAuth client) so the plugin reads from plist.
   // On Android: serverClientId is required so authenticate() returns a non-null idToken.
   try {

@@ -1009,6 +1009,11 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// After email/phone OTP signup + Firestore user doc — route off OTP.
   void _routeAfterOtpSignupComplete() {
     if (!mounted) return;
+    // The reloadProfile() emission from the OTP flow usually triggers routing
+    // via the auth-state listener first. Running _handleAuthenticatedUser a
+    // second time in parallel caused a visible re-navigation (screen shown,
+    // then bounced) — this call is only a fallback when no emission arrived.
+    if (_isNavigatingToHome) return;
     final authState = ref.read(authControllerProvider);
     if (authState is! Authenticated) return;
 
@@ -1022,6 +1027,8 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// After Google / Apple sign-in (new profile written or existing user).
   void _routeAfterOAuthSignIn() {
     if (!mounted) return;
+    // Same double-navigation guard as [_routeAfterOtpSignupComplete].
+    if (_isNavigatingToHome) return;
     final authState = ref.read(authControllerProvider);
     if (authState is! Authenticated) return;
 

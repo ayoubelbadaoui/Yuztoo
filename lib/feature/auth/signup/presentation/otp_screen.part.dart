@@ -275,6 +275,38 @@ extension _OTPScreenStateUi on _OTPScreenState {
     );
   }
 
+  /// Full-screen loading view shown once the OTP code was accepted, while
+  /// the Firestore profile is written and the shell prepares navigation.
+  /// Mirrors the app's loading screen (bgMain + gold spinner) so the
+  /// transition to splash/onboarding is seamless.
+  Widget _buildFinalizingView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                SignupConstants.primaryGold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Création de votre compte...',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: SignupConstants.textGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOtpScreen(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -287,11 +319,11 @@ extension _OTPScreenStateUi on _OTPScreenState {
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && !_isVerifying) _handleBack();
+          if (!didPop && !_isVerifying && !_isFinalizing) _handleBack();
         },
         child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
-          body: SafeArea(
+          body: _isFinalizing ? _buildFinalizingView() : SafeArea(
             child: ResponsiveScrollBody(
               horizontalPadding: 24,
               verticalPadding: 8,
