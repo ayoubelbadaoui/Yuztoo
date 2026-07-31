@@ -1,7 +1,7 @@
 name: flutter_yuztoo
 description: Flutter UI recreation of the High-Fidelity Yuztoo design.
 publish_to: "none"
-version: 1.0.1+31
+version: 1.0.2+32
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -73,31 +73,6 @@ flutter:
     - assets/branding/logo.png
     - assets/branding/app_icon.png
     - assets/branding/app_icon_monochrome.png
-
-# ──────────────────────────────────────────────────────────────────────────────
-# App icon generation.
-#
-# Source: `assets/branding/app_icon.png` — 1024×1024 PNG of the bird-in-pin
-# Yuztoo logo with a WHITE background. iOS requires a fully opaque square;
-# Android adaptive icons need a foreground + background pair.
-#
-# To regenerate everything from scratch run:
-#   tools/build_app_icons.sh
-#
-# Or manually:
-#   dart run flutter_launcher_icons          # launcher icons (iOS + Android)
-#   tools/build_notification_icon.py         # Android notification silhouette
-#
-# Outputs:
-#   • iOS  → ios/Runner/Assets.xcassets/AppIcon.appiconset/*  (all sizes)
-#   • Android launcher  → android/app/src/main/res/mipmap-*/  (all densities)
-#   • Android adaptive  → mipmap-anydpi-v26/ic_launcher.xml  + foreground PNG
-#   • Android Android-13+ themed icon  → drawable/ic_launcher_monochrome.png
-#   • Android notification icon  → drawable-*/ic_stat_yuztoo.png
-#
-# iOS notification icon: not configurable. iOS shows the app icon for push
-# notifications automatically — so once app_icon.png is in place, iOS push
-# banners show the new bird without any extra setup.
 # ──────────────────────────────────────────────────────────────────────────────
 flutter_launcher_icons:
   image_path: "assets/branding/app_icon.png"

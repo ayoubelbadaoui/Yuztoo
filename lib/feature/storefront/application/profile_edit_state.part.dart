@@ -21,7 +21,65 @@ class StorefrontProfileEditNotifier
 
   final Ref ref;
 
+  /// Values the pre-taxonomy, food-only category dropdown could write.
+  /// That dropdown silently remapped any unknown category to 'Café / Bar',
+  /// so for a B2B merchant a stored value from this list is corruption
+  /// left behind by the old edit screen — never a deliberate choice.
+  static const _legacyFoodOptions = {
+    'Café / Bar',
+    'Restaurant / Brasserie',
+    'Restauration rapide',
+    'Boulangerie / Pâtisserie',
+    'Boucherie / Charcuterie',
+    'Poissonnerie',
+    'Fromagerie / Crèmerie',
+    'Confiserie / Chocolatier',
+    'Glacier',
+    'Caviste & Épicerie',
+    'Maraîcher',
+    'Ferme / Produit Locaux',
+    'Artisans marché',
+    'Boutique BIO',
+    'Traiteur',
+  };
+
+  /// 'Artisan Jewelry' is a legacy injected placeholder, never a real
+  /// category; legacy food values are invalid for B2B merchants (see
+  /// [_legacyFoodOptions]).
+  static bool _isCorruptedCategory(String value, String? merchantType) =>
+      value == 'Artisan Jewelry' ||
+      (merchantType == 'b2b' && _legacyFoodOptions.contains(value));
+
+  /// Category as chosen during onboarding: `categories` holds the category
+  /// title, `subcategoryTitle` the precise business.
+  static String _categoryFromMerchant(Merchant? merchant) {
+    final categories = merchant?.categories;
+    final fromList =
+        (categories != null && categories.isNotEmpty) ? categories.first.trim() : '';
+    if (fromList.isNotEmpty &&
+        !_isCorruptedCategory(fromList, merchant?.merchantType)) {
+      return fromList;
+    }
+    final fromSubcategory = merchant?.subcategoryTitle?.trim() ?? '';
+    return _isCorruptedCategory(fromSubcategory, merchant?.merchantType)
+        ? ''
+        : fromSubcategory;
+  }
+
   Future<void> initializeFrom(Storefront storefront) async {
+    // Await the merchant doc (instead of a sync `valueOrNull` read) so the
+    // Firestore-backed category is available even on a cold open where the
+    // provider hasn't resolved yet. The provider itself never throws.
+    Merchant? merchant;
+    try {
+      merchant = await ref
+          .read(merchant_providers.currentMerchantForOwnerProvider.future);
+    } catch (_) {
+      merchant = null;
+    }
+    if (!mounted) return;
+    final merchantCategory = _categoryFromMerchant(merchant);
+
     // Try to load existing data from cache first
     try {
       final authState = ref.read(auth_providers.authStateProvider);
@@ -53,7 +111,10 @@ class StorefrontProfileEditNotifier
             bannerImageUrl: bannerUrl,
             profileImageUrl: profileUrl,
             businessName: cachedName.isNotEmpty ? cachedName : storefront.merchantName,
-            category: cachedCategory.isNotEmpty ? cachedCategory : (state.category.isEmpty ? 'Artisan Jewelry' : state.category),
+            category: cachedCategory.isNotEmpty &&
+                    !_isCorruptedCategory(cachedCategory, merchant?.merchantType)
+                ? cachedCategory
+                : (merchantCategory.isNotEmpty ? merchantCategory : state.category),
             description: cachedDescription.isNotEmpty 
                 ? cachedDescription
                 : (state.description.isEmpty 
@@ -73,6 +134,13 @@ class StorefrontProfileEditNotifier
                   ? cachedCity
                   : storefront.city,
             ),
+            // Same defensive allowlist as the non-cached branch below. The
+            // cached branch used to leave the 'b2c' default in place, which
+            // save() would then write over a B2B merchant's type.
+            merchantType: (merchant?.merchantType == 'b2b' ||
+                    merchant?.merchantType == 'b2c')
+                ? merchant!.merchantType
+                : 'b2c',
           );
           return;
         }
@@ -83,12 +151,11 @@ class StorefrontProfileEditNotifier
     }
     
     // Fallback: use storefront data (from Firestore) with defaults
-    final merchant = ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
     state = state.copyWith(
       bannerImageUrl: storefront.bannerImageUrl,
       profileImageUrl: storefront.profileImageUrl,
       businessName: storefront.merchantName,
-      category: state.category.isEmpty ? 'Artisan Jewelry' : state.category,
+      category: state.category.isEmpty ? merchantCategory : state.category,
       description: state.description.isEmpty
           ? 'Décrivez votre activité en quelques lignes.'
           : state.description,

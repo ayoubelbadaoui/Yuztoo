@@ -14,6 +14,8 @@ import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
 import '../../storage/application/providers.dart' as storage_providers;
 import '../../merchant/application/providers.dart' as merchant_providers;
+import '../../merchant_onboarding/domain/entities/merchant_audience.dart';
+import '../../merchant_onboarding/presentation/widgets/merchant_category_catalog.dart';
 import '../../merchant_settings/presentation/merchant_storefront_links_screen.dart';
 
 part 'storefront_edit_profile_screen.part.dart';
@@ -98,17 +100,28 @@ class _StorefrontEditProfileScreenState
     }
   }
 
+  /// Options for the category dropdown: the onboarding taxonomy for the
+  /// merchant's audience (B2C/B2B), plus the currently saved value when it
+  /// predates the taxonomy, so it stays visible instead of being silently
+  /// remapped to the first option.
+  List<String> _categoryOptions(StorefrontProfileEditState state) {
+    final audience = state.merchantType == 'b2b'
+        ? MerchantAudience.professionnels
+        : MerchantAudience.particuliers;
+    final options = [
+      for (final category in MerchantCategoryCatalog.forAudience(audience))
+        category.title,
+    ];
+    final current = state.category.trim();
+    if (current.isNotEmpty && !options.contains(current)) {
+      options.insert(0, current);
+    }
+    return options;
+  }
+
   /// Get valid category value that exists in options list (DDD: presentation layer validation)
   String _getValidCategoryValue(String category, List<String> options) {
-    if (category.isEmpty) {
-      return options.isNotEmpty ? options.first : 'Café / Bar';
-    }
-    // Check if category exists in options
-    if (options.contains(category)) {
-      return category;
-    }
-    // Fallback to first option if category doesn't match
-    return options.isNotEmpty ? options.first : 'Café / Bar';
+    return options.contains(category) ? category : options.first;
   }
 
   /// Load image files from state if they are file paths (DDD: presentation layer handles file loading)

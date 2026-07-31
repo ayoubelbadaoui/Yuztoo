@@ -7,6 +7,7 @@ import '../../../../core/utils/city_input.dart';
 import '../../../../core/infrastructure/firebase_providers.dart';
 import '../domain/entities/storefront.dart';
 import '../../discovery/application/providers.dart';
+import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
