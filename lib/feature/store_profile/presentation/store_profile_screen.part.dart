@@ -2116,12 +2116,16 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     final key = '$userId::$merchantId';
     if (_lastViewedKey == key) return;
     _lastViewedKey = key;
-    unawaited(
-      ref
-          .read(viewedMerchantsLocalServiceProvider)
-          .markViewed(userId, merchantId),
-    );
-    ref.invalidate(viewedMerchantIdsForCurrentUserProvider);
+    // Defer: [ref.invalidate] must not run while this screen is building.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref
+            .read(viewedMerchantsLocalServiceProvider)
+            .markViewed(userId, merchantId),
+      );
+      ref.invalidate(viewedMerchantIdsForCurrentUserProvider);
+    });
   }
 
   /// Consumes [pendingVitrineScanIntentProvider] once per screen visit.
@@ -2156,10 +2160,12 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     if (loggedIn && !isFollowListReady) return;
 
     _scanArrivalHandled = true;
-    _clearVitrineScanIntent();
 
+    // Called from build — clear intent + run funnel after the frame so we
+    // never mutate providers while the widget tree is building.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      _clearVitrineScanIntent();
 
       final auth = ref.read(authStateProvider);
       final client = auth is Authenticated ? auth.user : null;

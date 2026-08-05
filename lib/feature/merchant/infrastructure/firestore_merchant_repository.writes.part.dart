@@ -160,6 +160,8 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     bool? galerieEnabled,
     bool? loyaltyEnabledStandalone,
     String? merchantType,
+    String? categoryId,
+    String? subcategoryTitle,
     bool clearCityField = false,
     List<MerchantStorefrontLink>? storefrontLinks,
   }) async {
@@ -248,6 +250,22 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       // segment filters.
       if (merchantType == 'b2b' || merchantType == 'b2c') {
         updateData['merchant_type'] = merchantType;
+      }
+      if (categoryId != null) {
+        final trimmed = categoryId.trim();
+        if (trimmed.isEmpty) {
+          updateData['category_id'] = FieldValue.delete();
+        } else {
+          updateData['category_id'] = trimmed;
+        }
+      }
+      if (subcategoryTitle != null) {
+        final trimmed = subcategoryTitle.trim();
+        if (trimmed.isEmpty) {
+          updateData['subcategory_title'] = FieldValue.delete();
+        } else {
+          updateData['subcategory_title'] = trimmed;
+        }
       }
       if (rappelsAutoClientValidation != null) {
         updateData['rappels_auto_client_validation'] = rappelsAutoClientValidation;

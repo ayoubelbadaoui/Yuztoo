@@ -39,8 +39,13 @@ class QRScannerScreen extends ConsumerStatefulWidget {
   ConsumerState<QRScannerScreen> createState() => _QRScannerScreenState();
 }
 
-class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
+class _QRScannerScreenState extends ConsumerState<QRScannerScreen>
+    with WidgetsBindingObserver {
+  /// [autoStart] must stay false: we mount/unmount [MobileScanner] when
+  /// toggling NFC ↔ QR, and a concurrent auto-start races [start]/[stop]
+  /// on Android (black preview on the second open).
   final MobileScannerController _controller = MobileScannerController(
+    autoStart: false,
     detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
     torchEnabled: false,
@@ -51,22 +56,74 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
 
   bool _nfcMode = true;
   bool _nfcScanning = false;
+  bool _cameraStarting = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _nfcMode) _startNfcScan();
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Camera is only live in QR mode; skip while NFC overlay is showing.
+    if (_nfcMode) return;
+    if (!_controller.value.hasCameraPermission) return;
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        unawaited(_startCamera());
+      case AppLifecycleState.inactive:
+        unawaited(_stopCamera());
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+        return;
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_nfcScanning) {
       unawaited(NfcService.cancelActiveSession());
     }
-    _controller.dispose();
+    unawaited(_disposeCamera());
     super.dispose();
+  }
+
+  Future<void> _disposeCamera() async {
+    try {
+      await _controller.stop();
+    } catch (_) {
+      // Already stopped / never started.
+    }
+    await _controller.dispose();
+  }
+
+  Future<void> _startCamera() async {
+    if (_nfcMode || _cameraStarting || !mounted) return;
+    if (_controller.value.isRunning) return;
+    _cameraStarting = true;
+    try {
+      await _controller.start();
+    } catch (_) {
+      // Permission denial / already starting — errorBuilder handles UI.
+    } finally {
+      _cameraStarting = false;
+    }
+  }
+
+  Future<void> _stopCamera() async {
+    if (!_controller.value.isRunning) return;
+    try {
+      await _controller.stop();
+    } catch (_) {
+      // Already stopped.
+    }
   }
 
   void _onDetect(BarcodeCapture capture) {
@@ -105,6 +162,10 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
     final id = merchantId.trim();
     if (id.isEmpty) return;
     HapticFeedback.mediumImpact();
+    // Release the camera before navigating away so the next open isn't blank.
+    if (!_nfcMode) {
+      unawaited(_stopCamera());
+    }
     widget.onVitrineMerchantFound(id);
   }
 
@@ -146,16 +207,34 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
     );
   }
 
-  void _toggleMode() {
-    setState(() {
-      _nfcMode = !_nfcMode;
-      if (_nfcMode) {
-        _controller.stop();
-      } else {
-        _controller.start();
+  Future<void> _toggleMode() async {
+    if (_nfcMode) {
+      // NFC → QR: cancel NFC, mount scanner, then start after the frame.
+      if (_nfcScanning) {
+        await NfcService.cancelActiveSession();
+        if (!mounted) return;
+        setState(() => _nfcScanning = false);
       }
-    });
-    if (_nfcMode) _startNfcScan();
+      setState(() => _nfcMode = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_nfcMode) {
+          unawaited(_startCamera());
+        }
+      });
+      return;
+    }
+
+    // QR → NFC: stop camera before removing [MobileScanner] from the tree.
+    await _stopCamera();
+    if (!mounted) return;
+    setState(() => _nfcMode = true);
+    unawaited(_startNfcScan());
+  }
+
+  Future<void> _retryCamera() async {
+    await _stopCamera();
+    if (!mounted) return;
+    await _startCamera();
   }
 
   @override

@@ -204,7 +204,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
             ),
             const SizedBox(height: 24),
             TextButton.icon(
-              onPressed: () => _controller.start(),
+              onPressed: _retryCamera,
               icon: const Icon(Icons.refresh,
                   color: MerchantColors.gold, size: 20),
               label: Text(

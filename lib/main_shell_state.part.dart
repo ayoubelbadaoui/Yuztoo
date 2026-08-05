@@ -611,12 +611,34 @@ class _RootShellState extends ConsumerState<_RootShell>
           .read(merchant_onboarding_providers.onboardingFlowProvider.notifier)
           .reset();
     } catch (_) {}
+    // OAuth / login controllers are Riverpod singletons — terminal states
+    // (e.g. [OAuthSignupExistingUser]) survive logout and would leave the
+    // next signup/login mount stuck on a full-screen loading overlay.
+    _resetAuthFlowControllers();
     _signupUserId = null;
     _phoneNumber = null;
     _verificationId = null;
     _signupEmail = null;
     _signupPassword = null;
     _otpUnavailableMessage = null;
+  }
+
+  /// Resets OAuth signup + email login flow controllers and their routing
+  /// guards. Safe to call on logout, account deletion, or after the shell
+  /// has finished handing an OAuth success off to home routing.
+  void _resetAuthFlowControllers() {
+    try {
+      ref.read(signup_providers.oauthSignupControllerProvider.notifier).reset();
+    } catch (_) {}
+    try {
+      ref.read(login_providers.loginFlowControllerProvider.notifier).reset();
+    } catch (_) {}
+    try {
+      ref.read(oauthFirestoreProfilePendingProvider.notifier).state = false;
+    } catch (_) {}
+    try {
+      clearOAuthSignupRoutingHintsFromWidget(ref);
+    } catch (_) {}
   }
 
   /// Handle auth state changes and update navigation
@@ -667,6 +689,17 @@ class _RootShellState extends ConsumerState<_RootShell>
       }
       return;
     } else if (authState is AuthLoading) {
+      // Never tear down an in-progress auth UI (signup / OTP / OAuth
+      // completion / login). [AuthController.signOut] briefly emits
+      // AuthLoading — swapping those screens for splash would dispose the
+      // widget mid-flow and can leave oauth pending flags stuck.
+      final inAuthFlow = _authScreen == ScreenId.login ||
+          _authScreen == ScreenId.signup ||
+          _authScreen == ScreenId.oauthCompletion ||
+          _authScreen == ScreenId.otp;
+      if (inAuthFlow) {
+        return;
+      }
       // Show loading, but keep splash if we haven't received first state yet
       if (!_hasReceivedFirstAuthState || _isNavigatingToHome) {
         setState(() => _authScreen = ScreenId.splash);
@@ -714,17 +747,18 @@ class _RootShellState extends ConsumerState<_RootShell>
         // Reset navigation flag
         _isNavigatingToHome = false;
 
-        // Only navigate to role selection if this is the first real auth state.
-        // This prevents showing errors for temporary network issues during app startup
-        if (wasFirstRealAuthState) {
-          // First real state is an error - likely temporary, treat as unauthenticated
+        // First real auth emission, or we were on the AuthLoading surface
+        // (`_authScreen == null`) after a failed signOut — either way, do
+        // not leave the user stranded on the branded spinner forever.
+        if (wasFirstRealAuthState || _authScreen == null) {
           setState(() {
             _authScreen = ScreenId.roleSelection;
             _nestedStack.clear();
           });
+          unawaited(_clearAuthTransientDrafts());
         }
-        // If we already have a state, don't navigate away (prevents flicker)
-        // The error might be temporary and will resolve on next auth state change
+        // If we already have a concrete screen, don't navigate away
+        // (prevents flicker). The error might be temporary.
       } else if (authState is Authenticated) {
         // While email OTP signup (or OAuth phone collection) is in progress the
         // Firestore document hasn't been written yet. Skip automatic navigation
@@ -1059,12 +1093,17 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
 
-    if (next is OAuthSignupExistingUser) {
+    if (next is OAuthSignupExistingUser || next is OAuthSignupCompleted) {
       _routeAfterOAuthSignIn();
-    }
-
-    if (next is OAuthSignupCompleted) {
-      _routeAfterOAuthSignIn();
+      // Terminal OAuth states keep the login/signup loading overlay up.
+      // Drop only that UI state once routing has started — do not [reset]
+      // (which would wipe fresh-profile role hints mid-routing).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref
+            .read(signup_providers.oauthSignupControllerProvider.notifier)
+            .acknowledgeShellRouted();
+      });
     }
   }
 

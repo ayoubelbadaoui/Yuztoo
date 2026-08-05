@@ -32,7 +32,7 @@ void main() {
   });
 
   group('MerchantSubcategoryCatalog', () {
-    test('every category except "autres_pro" has a curated business list',
+    test('every category except free-text "Autre" has a curated business list',
         () {
       final all = [
         ...MerchantCategoryCatalog.particuliers,
@@ -40,9 +40,8 @@ void main() {
       ];
       for (final category in all) {
         final list = MerchantSubcategoryCatalog.forCategory(category.id);
-        if (category.id == 'autres_pro') {
-          // Single-business category — the wizard auto-skips instead of
-          // showing a one-card grid.
+        if (MerchantCategoryCatalog.isOtherCategoryId(category.id)) {
+          // Free-text "Autre" — profile shows a text field; wizard auto-skips.
           expect(list, isEmpty);
           expect(
               MerchantSubcategoryCatalog.hasSubcategoriesFor(category.id),

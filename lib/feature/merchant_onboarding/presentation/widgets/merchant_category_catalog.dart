@@ -54,6 +54,12 @@ class MerchantCategoryCatalog {
       description: 'Associations & structures publiques',
       placeholderColorHex: '#795548',
     ),
+    MerchantCategory(
+      id: 'autre',
+      title: 'Autre',
+      description: 'Autre activité non listée',
+      placeholderColorHex: '#9E9E9E',
+    ),
   ];
 
   /// Catégories pour les activités au service des professionnels (B2B).
@@ -102,11 +108,16 @@ class MerchantCategoryCatalog {
     ),
     MerchantCategory(
       id: 'autres_pro',
-      title: 'Autres activités',
+      title: 'Autre',
       description: 'Autre activité professionnelle',
       placeholderColorHex: '#9E9E9E',
     ),
   ];
+
+  /// Main-category ids that have no curated specialty list — the UI shows a
+  /// free-text field instead of a subcategory dropdown.
+  static bool isOtherCategoryId(String? categoryId) =>
+      categoryId == 'autre' || categoryId == 'autres_pro';
 
   /// Grille de catégories pour l'audience sélectionnée.
   static List<MerchantCategory> forAudience(MerchantAudience audience) =>
@@ -114,4 +125,15 @@ class MerchantCategoryCatalog {
         MerchantAudience.particuliers => particuliers,
         MerchantAudience.professionnels => professionnels,
       };
+
+  /// Look up a category by id across both audiences.
+  static MerchantCategory? byId(String? categoryId) {
+    if (categoryId == null || categoryId.isEmpty) return null;
+    for (final audience in MerchantAudience.values) {
+      for (final category in forAudience(audience)) {
+        if (category.id == categoryId) return category;
+      }
+    }
+    return null;
+  }
 }

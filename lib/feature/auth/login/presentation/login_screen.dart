@@ -74,6 +74,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    Future.microtask(() {
+      if (!mounted) return;
+      // Same guard as signup: a leftover [OAuthSignupExistingUser] after
+      // logout must not leave this screen stuck on the social loading overlay.
+      ref
+          .read(signup_providers.oauthSignupControllerProvider.notifier)
+          .acknowledgeShellRouted();
+      final loginFlow = ref.read(loginFlowControllerProvider);
+      if (loginFlow is LoginFlowLoading || loginFlow is LoginFlowSuccess) {
+        ref.read(loginFlowControllerProvider.notifier).reset();
+      }
+    });
     // Validate email format when user clicks on another field (blur event)
     _emailFocusNode.addListener(() {
       if (!_emailFocusNode.hasFocus) {

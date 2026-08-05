@@ -101,9 +101,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
+      if (!mounted) return;
       ref
           .read(auth_core.roleCacheServiceProvider)
           .saveLastSelectedRole(widget.role);
+      // Stale terminal OAuth states survive logout (Riverpod singleton) and
+      // would paint the full-screen "Connexion…" overlay on this mount.
+      ref.read(oauthSignupControllerProvider.notifier).acknowledgeShellRouted();
     });
     _initControllers();
     _initFocusNodes();

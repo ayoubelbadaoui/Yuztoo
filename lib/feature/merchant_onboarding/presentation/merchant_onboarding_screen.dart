@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/infrastructure/logger_service.dart';
 import '../../../core/shared/widgets/overflow_scroll_text.dart';
 import '../application/onboarding_flow_provider.dart';
 import '../application/providers.dart';
@@ -43,11 +44,37 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
       MerchantCategoryCatalog.forAudience(_audience);
 
   void _selectCategory(String id) {
+    MerchantCategory? selected;
+    for (final c in _visibleCategories) {
+      if (c.id == id) {
+        selected = c;
+        break;
+      }
+    }
+    LoggerService.logInfo(
+      'Onboarding category card tapped',
+      context: <String, dynamic>{
+        'categoryId': id,
+        'categoryTitle': selected?.title,
+        'audience': _audience.name,
+        'merchantType': _audience.merchantTypeValue,
+        'previousCategoryId': _selectedCategoryId,
+      },
+    );
     setState(() => _selectedCategoryId = id);
   }
 
   void _selectAudience(MerchantAudience audience) {
     if (audience == _audience) return;
+    LoggerService.logInfo(
+      'Onboarding audience toggled',
+      context: <String, dynamic>{
+        'audience': audience.name,
+        'merchantType': audience.merchantTypeValue,
+        'previousAudience': _audience.name,
+        'clearedCategoryId': _selectedCategoryId,
+      },
+    );
     setState(() {
       _audience = audience;
       // The previous pick belongs to the other audience's grid — it must not
@@ -80,12 +107,15 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
         selected.title;
     container.read(selectedMerchantCategoryIdProvider.notifier).state =
         selected.id;
+    final flow = container.read(onboardingFlowProvider.notifier);
+    // Persist into the onboarding flow (was previously only stored in the
+    // UI-only StateProviders, so categoryId/categoryTitle never reached
+    // CompleteMerchantOnboarding).
+    flow.setCategory(selected.id, selected.title);
     // The audience choice determines merchant_type deterministically —
     // prefill it so the later « Particuliers / Professionnels » wizard step
     // arrives preselected (the merchant can still override it there).
-    container
-        .read(onboardingFlowProvider.notifier)
-        .setMerchantType(_audience.merchantTypeValue);
+    flow.setMerchantType(_audience.merchantTypeValue);
     // Reset any previously-chosen subcategory: if the merchant changes
     // category, the old subcategory pick belongs to a different list and
     // must not silently leak through (e.g. picking "Boulangerie" then
@@ -93,6 +123,15 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
     // as the subcategory).
     container.read(selectedMerchantSubcategoryTitleProvider.notifier).state =
         null;
+    LoggerService.logInfo(
+      'Onboarding category confirmed (Continuer)',
+      context: <String, dynamic>{
+        'categoryId': selected.id,
+        'categoryTitle': selected.title,
+        'audience': _audience.name,
+        'merchantType': _audience.merchantTypeValue,
+      },
+    );
     widget.onNext();
   }
 

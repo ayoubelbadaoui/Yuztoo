@@ -137,7 +137,7 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         phone: phone,
         city: city,
         address: address,
-        category: data.categoryTitle,
+        category: data.subcategoryTitle ?? data.categoryTitle,
         description: description,
         bannerImagePath: localBannerPath,
         profileImagePath: hasLocalLogo ? localImagePath : null,
@@ -165,6 +165,23 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
 
     bool firestoreSuccess = false;
     try {
+      // Profile "Catégorie" shows the specialty; write that into `categories`
+      // so display and Firestore stay aligned. Parent sector stays on
+      // category_id / categoryTitle for taxonomy.
+      final categoriesWritten = data.subcategoryTitle != null
+          ? [data.subcategoryTitle!]
+          : (data.categoryTitle != null ? [data.categoryTitle!] : null);
+      LoggerService.logInfo(
+        'Onboarding persisting merchant category',
+        context: <String, dynamic>{
+          'userId': userId,
+          'merchantType': data.merchantType,
+          'categoryId': data.categoryId,
+          'categoryTitle': data.categoryTitle,
+          'subcategoryTitle': data.subcategoryTitle,
+          'categoriesWritten': categoriesWritten,
+        },
+      );
       final completeOnboarding = ref.read(completeMerchantOnboardingProvider);
       final result = await completeOnboarding.call(
         userId: userId,
@@ -173,7 +190,7 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         phone: phone,
         city: city,
         address: address,
-        categories: data.categoryTitle != null ? [data.categoryTitle!] : null,
+        categories: categoriesWritten,
         description: description,
         websiteUrl: websiteUrl,
         hours: data.hoursJson,
@@ -184,6 +201,13 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         subcategoryTitle: data.subcategoryTitle,
       );
       firestoreSuccess = result.fold((_) => false, (_) => true);
+      LoggerService.logInfo(
+        'Onboarding persist merchant category result',
+        context: <String, dynamic>{
+          'userId': userId,
+          'success': firestoreSuccess,
+        },
+      );
     } catch (_) {}
 
     if (!firestoreSuccess) {

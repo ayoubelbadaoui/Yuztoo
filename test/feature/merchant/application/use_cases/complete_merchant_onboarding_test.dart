@@ -113,6 +113,8 @@ class _FakeMerchantRepository implements MerchantRepository {
     bool? galerieEnabled,
     bool? loyaltyEnabledStandalone,
     String? merchantType,
+    String? categoryId,
+    String? subcategoryTitle,
     bool clearCityField = false,
     List<MerchantStorefrontLink>? storefrontLinks,
   }) async {

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/infrastructure/logger_service.dart';
+
 /// Collected data during merchant onboarding (before signup).
 /// Used to prefill merchant profile form after signup.
 class MerchantOnboardingData {
@@ -139,11 +141,33 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
   void setWebsiteUrl(String value) => state =
       state.copyWith(websiteUrl: value.trim().isEmpty ? null : value.trim());
 
-  void setCategory(String id, String title) =>
-      state = state.copyWith(categoryId: id, categoryTitle: title);
+  void setCategory(String id, String title) {
+    LoggerService.logInfo(
+      'Onboarding category selected',
+      context: <String, dynamic>{
+        'categoryId': id,
+        'categoryTitle': title,
+        'merchantType': state.merchantType,
+        'previousCategoryId': state.categoryId,
+        'previousCategoryTitle': state.categoryTitle,
+      },
+    );
+    state = state.copyWith(categoryId: id, categoryTitle: title);
+  }
 
-  void setSubcategoryTitle(String title) =>
-      state = state.copyWith(subcategoryTitle: title);
+  void setSubcategoryTitle(String title) {
+    LoggerService.logInfo(
+      'Onboarding subcategory selected',
+      context: <String, dynamic>{
+        'subcategoryTitle': title,
+        'categoryId': state.categoryId,
+        'categoryTitle': state.categoryTitle,
+        'merchantType': state.merchantType,
+        'previousSubcategoryTitle': state.subcategoryTitle,
+      },
+    );
+    state = state.copyWith(subcategoryTitle: title);
+  }
 
   void setDescription(String? value) =>
       state = state.copyWith(description: value?.trim().isEmpty == true ? null : value?.trim());
@@ -156,6 +180,13 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
   /// poisoning the state and cascading into a bad Firestore write.
   void setMerchantType(String value) {
     if (value != 'b2b' && value != 'b2c') return;
+    LoggerService.logInfo(
+      'Onboarding merchant type selected',
+      context: <String, dynamic>{
+        'merchantType': value,
+        'previousMerchantType': state.merchantType,
+      },
+    );
     state = state.copyWith(merchantType: value);
   }
 

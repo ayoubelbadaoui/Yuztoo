@@ -275,11 +275,23 @@ class OAuthSignupController extends StateNotifier<OAuthSignupState> {
     }
   }
 
-  /// Resets to idle. Called by the signup screen on dispose so a stale
-  /// state does not bleed into the next mount.
+  /// Resets to idle. Called on logout / account deletion so a stale
+  /// terminal state does not bleed into the next login or signup mount.
   void reset() {
     _setOAuthFirestorePending(false);
     _clearRoutingHints();
     state = const OAuthSignupIdle();
+  }
+
+  /// Clears only the terminal UI states ([OAuthSignupExistingUser] /
+  /// [OAuthSignupCompleted]) after the shell has started home routing.
+  ///
+  /// Unlike [reset], this does **not** clear [oauthSignupFreshProfileRoleProvider]
+  /// — `_handleAuthenticatedUser` may still need that hint while Firestore
+  /// catches up after a brand-new OAuth profile write.
+  void acknowledgeShellRouted() {
+    if (state is OAuthSignupExistingUser || state is OAuthSignupCompleted) {
+      state = const OAuthSignupIdle();
+    }
   }
 }

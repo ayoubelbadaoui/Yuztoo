@@ -826,7 +826,15 @@ class _SelectField extends StatelessWidget {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: options.contains(value) ? value : (options.isNotEmpty ? options.first : null),
+              value: options.contains(value) ? value : null,
+              hint: Text(
+                'Sélectionner',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[400],
+                ),
+              ),
               isExpanded: true,
               style: const TextStyle(
                 fontSize: 14,
@@ -1027,17 +1035,53 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
               const SizedBox(height: 14),
               _SelectField(
                 label: 'Catégorie',
-                value: _getValidCategoryValue(
-                  state.category,
-                  _categoryOptions(state),
+                value: _validSelectValue(
+                  state.categoryTitle,
+                  _mainCategoryTitles(state),
                 ),
-                options: _categoryOptions(state),
-                onChanged: (v) => notifier.setCategory(v ?? ''),
+                options: _mainCategoryTitles(state),
+                onChanged: (title) {
+                  if (title == null || title.isEmpty) return;
+                  final id = _mainCategoryIdForTitle(state, title);
+                  if (id == null) return;
+                  _otherCategoryCtrl.clear();
+                  notifier.setMainCategory(id, title);
+                },
                 isRequired: true,
-                isIncomplete: state.category.isEmpty || _isFieldIncomplete(state.category),
-                helpText: 'Sélectionnez la catégorie qui correspond le mieux à votre activité. Cela aide les clients à vous trouver.',
+                isIncomplete: state.categoryId.isEmpty,
+                helpText:
+                    'Sélectionnez le secteur qui correspond le mieux à votre activité. Cela aide les clients à vous trouver.',
                 onShowHelp: _showHelpDialog,
               ),
+              if (state.categoryId.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                if (state.isOtherCategory)
+                  _Field(
+                    label: 'Précisez votre activité',
+                    controller: _otherCategoryCtrl,
+                    onChanged: notifier.setSubcategoryTitle,
+                    isRequired: true,
+                    isIncomplete: state.subcategoryTitle.trim().isEmpty,
+                    helpText:
+                        'Décrivez votre activité en quelques mots. Exemple : consultant SEO, atelier de restauration…',
+                    onShowHelp: _showHelpDialog,
+                  )
+                else
+                  _SelectField(
+                    label: 'Spécialité',
+                    value: _validSelectValue(
+                      state.subcategoryTitle,
+                      _subcategoryTitles(state),
+                    ),
+                    options: _subcategoryTitles(state),
+                    onChanged: (v) => notifier.setSubcategoryTitle(v ?? ''),
+                    isRequired: true,
+                    isIncomplete: state.subcategoryTitle.trim().isEmpty,
+                    helpText:
+                        'Précisez votre spécialité. Vous pourrez la modifier à tout moment.',
+                    onShowHelp: _showHelpDialog,
+                  ),
+              ],
               const SizedBox(height: 14),
               _MultilineField(
                 label: 'Description',

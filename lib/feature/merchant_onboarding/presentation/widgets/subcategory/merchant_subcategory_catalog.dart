@@ -270,8 +270,7 @@ class MerchantSubcategoryCatalog {
       ('indep_technicien', 'Technicien spécialisé'),
       ('indep_autre', 'Autre indépendant (à préciser)'),
     ]),
-    // 'autres_pro' n'a volontairement pas de liste : son unique business
-    // (« Autres activités ») n'apporterait aucune information — le wizard
-    // saute l'étape (même comportement que l'ancien « other »).
+    // 'autre' / 'autres_pro' n'ont volontairement pas de liste : le profil
+    // affiche un champ texte libre, et le wizard saute l'étape.
   };
 }

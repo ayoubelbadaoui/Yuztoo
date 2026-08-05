@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/infrastructure/logger_service.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/utils/email_validator.dart';
 import '../../discovery/application/providers.dart'

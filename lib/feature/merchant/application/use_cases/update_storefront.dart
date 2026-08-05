@@ -57,6 +57,8 @@ class UpdateStorefront {
     Map<String, dynamic>? hours,
     String? welcomeGiftDescription,
     String? merchantType,
+    String? categoryId,
+    String? subcategoryTitle,
     bool clearMerchantCityField = false,
   }) async {
     if (merchantId.isEmpty) {
@@ -148,6 +150,8 @@ class UpdateStorefront {
       hours: hours,
       welcomeGiftDescription: welcomeGiftDescription,
       merchantType: merchantType,
+      categoryId: categoryId,
+      subcategoryTitle: subcategoryTitle,
       clearCityField: clearMerchantCityField,
     );
 

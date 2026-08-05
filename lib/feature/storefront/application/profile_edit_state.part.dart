@@ -9,6 +9,9 @@ class StorefrontProfileEditNotifier
             profileImageUrl: '',
             businessName: '',
             category: '',
+            categoryId: '',
+            categoryTitle: '',
+            subcategoryTitle: '',
             description: '',
             phoneNumber: '',
             email: '',
@@ -22,9 +25,6 @@ class StorefrontProfileEditNotifier
   final Ref ref;
 
   /// Values the pre-taxonomy, food-only category dropdown could write.
-  /// That dropdown silently remapped any unknown category to 'Café / Bar',
-  /// so for a B2B merchant a stored value from this list is corruption
-  /// left behind by the old edit screen — never a deliberate choice.
   static const _legacyFoodOptions = {
     'Café / Bar',
     'Restaurant / Brasserie',
@@ -43,33 +43,93 @@ class StorefrontProfileEditNotifier
     'Traiteur',
   };
 
-  /// 'Artisan Jewelry' is a legacy injected placeholder, never a real
-  /// category; legacy food values are invalid for B2B merchants (see
-  /// [_legacyFoodOptions]).
   static bool _isCorruptedCategory(String value, String? merchantType) =>
       value == 'Artisan Jewelry' ||
       (merchantType == 'b2b' && _legacyFoodOptions.contains(value));
 
-  /// Category as chosen during onboarding: `categories` holds the category
-  /// title, `subcategoryTitle` the precise business.
-  static String _categoryFromMerchant(Merchant? merchant) {
-    final categories = merchant?.categories;
-    final fromList =
-        (categories != null && categories.isNotEmpty) ? categories.first.trim() : '';
-    if (fromList.isNotEmpty &&
-        !_isCorruptedCategory(fromList, merchant?.merchantType)) {
-      return fromList;
+  /// Resolve main category id + specialty from a merchant document.
+  static ({String categoryId, String categoryTitle, String subcategoryTitle})
+      _taxonomyFromMerchant(Merchant? merchant) {
+    final merchantType = merchant?.merchantType;
+    final storedId = merchant?.categoryId?.trim() ?? '';
+    final storedSub = merchant?.subcategoryTitle?.trim() ?? '';
+    final storedCategories = merchant?.categories ?? const <String>[];
+    final storedFirst = storedCategories.isNotEmpty
+        ? storedCategories.first.trim()
+        : '';
+
+    final cleanSub = storedSub.isNotEmpty &&
+            !_isCorruptedCategory(storedSub, merchantType)
+        ? storedSub
+        : '';
+    final cleanFirst = storedFirst.isNotEmpty &&
+            !_isCorruptedCategory(storedFirst, merchantType)
+        ? storedFirst
+        : '';
+
+    // Prefer persisted category_id when it still exists in the catalog.
+    final byId = MerchantCategoryCatalog.byId(storedId);
+    if (byId != null) {
+      final specialty = cleanSub.isNotEmpty
+          ? cleanSub
+          : (MerchantCategoryCatalog.isOtherCategoryId(byId.id)
+              ? cleanFirst
+              : '');
+      return (
+        categoryId: byId.id,
+        categoryTitle: byId.title,
+        subcategoryTitle: specialty,
+      );
     }
-    final fromSubcategory = merchant?.subcategoryTitle?.trim() ?? '';
-    return _isCorruptedCategory(fromSubcategory, merchant?.merchantType)
-        ? ''
-        : fromSubcategory;
+
+    // Reverse-lookup specialty → parent sector.
+    final specialtyHint = cleanSub.isNotEmpty ? cleanSub : cleanFirst;
+    if (specialtyHint.isNotEmpty) {
+      for (final audience in MerchantAudience.values) {
+        for (final category in MerchantCategoryCatalog.forAudience(audience)) {
+          for (final sub
+              in MerchantSubcategoryCatalog.forCategory(category.id)) {
+            if (sub.title == specialtyHint) {
+              return (
+                categoryId: category.id,
+                categoryTitle: category.title,
+                subcategoryTitle: specialtyHint,
+              );
+            }
+          }
+          if (category.title == specialtyHint) {
+            return (
+              categoryId: category.id,
+              categoryTitle: category.title,
+              subcategoryTitle: specialtyHint,
+            );
+          }
+        }
+      }
+
+      // Free-text specialty with no parent → treat as "Autre".
+      final otherId = merchantType == 'b2b' ? 'autres_pro' : 'autre';
+      final other = MerchantCategoryCatalog.byId(otherId);
+      return (
+        categoryId: otherId,
+        categoryTitle: other?.title ?? 'Autre',
+        subcategoryTitle: specialtyHint,
+      );
+    }
+
+    return (categoryId: '', categoryTitle: '', subcategoryTitle: '');
+  }
+
+  static String _specialtyDisplay({
+    required String subcategoryTitle,
+    required String categoryTitle,
+  }) {
+    final sub = subcategoryTitle.trim();
+    if (sub.isNotEmpty) return sub;
+    return categoryTitle.trim();
   }
 
   Future<void> initializeFrom(Storefront storefront) async {
-    // Await the merchant doc (instead of a sync `valueOrNull` read) so the
-    // Firestore-backed category is available even on a cold open where the
-    // provider hasn't resolved yet. The provider itself never throws.
     Merchant? merchant;
     try {
       merchant = await ref
@@ -78,105 +138,196 @@ class StorefrontProfileEditNotifier
       merchant = null;
     }
     if (!mounted) return;
-    final merchantCategory = _categoryFromMerchant(merchant);
 
-    // Try to load existing data from cache first
+    final taxonomy = _taxonomyFromMerchant(merchant);
+    final firestoreMerchantType = merchant?.merchantType;
+    final resolvedMerchantType =
+        (firestoreMerchantType == 'b2b' || firestoreMerchantType == 'b2c')
+            ? firestoreMerchantType!
+            : 'b2c';
+    final specialty = _specialtyDisplay(
+      subcategoryTitle: taxonomy.subcategoryTitle,
+      categoryTitle: taxonomy.categoryTitle,
+    );
+
+    LoggerService.logInfo(
+      'Profile edit category fetch (merchant doc)',
+      context: <String, dynamic>{
+        'merchantId': merchant?.id,
+        'merchantType': firestoreMerchantType,
+        'firestoreCategoryId': merchant?.categoryId,
+        'firestoreCategories': merchant?.categories ?? const <String>[],
+        'firestoreSubcategoryTitle': merchant?.subcategoryTitle,
+        'resolvedCategoryId': taxonomy.categoryId,
+        'resolvedCategoryTitle': taxonomy.categoryTitle,
+        'resolvedSubcategoryTitle': taxonomy.subcategoryTitle,
+      },
+    );
+
     try {
       final authState = ref.read(auth_providers.authStateProvider);
       if (authState is Authenticated) {
-        final cacheService = ref.read(merchant_providers.merchantProfileCacheServiceProvider);
+        final cacheService =
+            ref.read(merchant_providers.merchantProfileCacheServiceProvider);
         final cachedData = await cacheService.loadProfile();
-        
+
         if (cachedData['userId'] == authState.user.id) {
-          // Use cached data if available - ensure all values are non-null strings
           final cachedName = cachedData['name']?.toString().trim() ?? '';
-          final cachedCategory = cachedData['category']?.toString().trim() ?? '';
-          final cachedDescription = cachedData['description']?.toString().trim() ?? '';
+          final cachedDescription =
+              cachedData['description']?.toString().trim() ?? '';
           final cachedPhone = cachedData['phone']?.toString().trim() ?? '';
           final cachedAddress = cachedData['address']?.toString().trim() ?? '';
           final cachedCity = cachedData['city']?.toString().trim() ?? '';
-          final cachedWebsiteUrl = cachedData['websiteUrl']?.toString().trim() ?? '';
-          final cachedBannerPath = cachedData['bannerImagePath']?.toString().trim();
-          final cachedProfilePath = cachedData['profileImagePath']?.toString().trim();
-          
-          // Use cached image paths if available, otherwise use storefront URLs
-          final bannerUrl = cachedBannerPath != null && cachedBannerPath.isNotEmpty
-              ? 'file://$cachedBannerPath'
-              : storefront.bannerImageUrl;
-          final profileUrl = cachedProfilePath != null && cachedProfilePath.isNotEmpty
-              ? 'file://$cachedProfilePath'
-              : storefront.profileImageUrl;
-          
+          final cachedWebsiteUrl =
+              cachedData['websiteUrl']?.toString().trim() ?? '';
+          final cachedBannerPath =
+              cachedData['bannerImagePath']?.toString().trim();
+          final cachedProfilePath =
+              cachedData['profileImagePath']?.toString().trim();
+
+          final bannerUrl =
+              cachedBannerPath != null && cachedBannerPath.isNotEmpty
+                  ? 'file://$cachedBannerPath'
+                  : storefront.bannerImageUrl;
+          final profileUrl =
+              cachedProfilePath != null && cachedProfilePath.isNotEmpty
+                  ? 'file://$cachedProfilePath'
+                  : storefront.profileImageUrl;
+
+          LoggerService.logInfo(
+            'Profile edit category resolved',
+            context: <String, dynamic>{
+              'source': 'merchant',
+              'categoryId': taxonomy.categoryId,
+              'categoryTitle': taxonomy.categoryTitle,
+              'subcategoryTitle': taxonomy.subcategoryTitle,
+              'resolvedMerchantType': resolvedMerchantType,
+            },
+          );
+
           state = state.copyWith(
             bannerImageUrl: bannerUrl,
             profileImageUrl: profileUrl,
-            businessName: cachedName.isNotEmpty ? cachedName : storefront.merchantName,
-            category: cachedCategory.isNotEmpty &&
-                    !_isCorruptedCategory(cachedCategory, merchant?.merchantType)
-                ? cachedCategory
-                : (merchantCategory.isNotEmpty ? merchantCategory : state.category),
-            description: cachedDescription.isNotEmpty 
+            businessName:
+                cachedName.isNotEmpty ? cachedName : storefront.merchantName,
+            category: specialty,
+            categoryId: taxonomy.categoryId,
+            categoryTitle: taxonomy.categoryTitle,
+            subcategoryTitle: taxonomy.subcategoryTitle,
+            description: cachedDescription.isNotEmpty
                 ? cachedDescription
-                : (state.description.isEmpty 
-                    ? 'Décrivez votre activité en quelques lignes.' 
+                : (state.description.isEmpty
+                    ? 'Décrivez votre activité en quelques lignes.'
                     : state.description),
-            phoneNumber: cachedPhone.isNotEmpty 
+            phoneNumber: cachedPhone.isNotEmpty
                 ? cachedPhone
-                : (state.phoneNumber.isEmpty ? '+33 6 12 34 56 78' : state.phoneNumber),
-            websiteUrl: cachedWebsiteUrl.isNotEmpty 
+                : (state.phoneNumber.isEmpty
+                    ? '+33 6 12 34 56 78'
+                    : state.phoneNumber),
+            websiteUrl: cachedWebsiteUrl.isNotEmpty
                 ? cachedWebsiteUrl
-                : (state.websiteUrl.isEmpty ? 'www.votresite.com' : state.websiteUrl),
-            address: cachedAddress.isNotEmpty 
+                : (state.websiteUrl.isEmpty
+                    ? 'www.votresite.com'
+                    : state.websiteUrl),
+            address: cachedAddress.isNotEmpty
                 ? cachedAddress
                 : (state.address.isEmpty ? 'Votre adresse' : state.address),
             city: CityInput.forEditField(
-              cachedCity.isNotEmpty
-                  ? cachedCity
-                  : storefront.city,
+              cachedCity.isNotEmpty ? cachedCity : storefront.city,
             ),
-            // Same defensive allowlist as the non-cached branch below. The
-            // cached branch used to leave the 'b2c' default in place, which
-            // save() would then write over a B2B merchant's type.
-            merchantType: (merchant?.merchantType == 'b2b' ||
-                    merchant?.merchantType == 'b2c')
-                ? merchant!.merchantType
-                : 'b2c',
+            merchantType: resolvedMerchantType,
           );
           return;
         }
       }
     } catch (e) {
-      // Cache load failed - use storefront data with defaults
-      // Log error but don't crash
+      LoggerService.logDebug(
+        'Profile edit cache load failed; using merchant fallback',
+        context: <String, dynamic>{'error': e.toString()},
+      );
     }
-    
-    // Fallback: use storefront data (from Firestore) with defaults
+
+    LoggerService.logInfo(
+      'Profile edit category resolved (merchant fallback branch)',
+      context: <String, dynamic>{
+        'categoryId': taxonomy.categoryId,
+        'categoryTitle': taxonomy.categoryTitle,
+        'subcategoryTitle': taxonomy.subcategoryTitle,
+        'resolvedMerchantType': resolvedMerchantType,
+      },
+    );
     state = state.copyWith(
       bannerImageUrl: storefront.bannerImageUrl,
       profileImageUrl: storefront.profileImageUrl,
       businessName: storefront.merchantName,
-      category: state.category.isEmpty ? merchantCategory : state.category,
+      category: specialty,
+      categoryId: taxonomy.categoryId,
+      categoryTitle: taxonomy.categoryTitle,
+      subcategoryTitle: taxonomy.subcategoryTitle,
       description: state.description.isEmpty
           ? 'Décrivez votre activité en quelques lignes.'
           : state.description,
-      phoneNumber: (storefront.phone ?? state.phoneNumber).trim().isEmpty ? '+33 6 12 34 56 78' : (storefront.phone ?? state.phoneNumber),
+      phoneNumber: (storefront.phone ?? state.phoneNumber).trim().isEmpty
+          ? '+33 6 12 34 56 78'
+          : (storefront.phone ?? state.phoneNumber),
       email: merchant?.email.isNotEmpty == true ? merchant!.email : '',
-      websiteUrl: (storefront.websiteUrl ?? state.websiteUrl).trim().isEmpty ? 'www.votresite.com' : (storefront.websiteUrl ?? state.websiteUrl),
-      address: (storefront.address ?? state.address).trim().isEmpty ? 'Votre adresse' : (storefront.address ?? state.address),
+      websiteUrl: (storefront.websiteUrl ?? state.websiteUrl).trim().isEmpty
+          ? 'www.votresite.com'
+          : (storefront.websiteUrl ?? state.websiteUrl),
+      address: (storefront.address ?? state.address).trim().isEmpty
+          ? 'Votre adresse'
+          : (storefront.address ?? state.address),
       city: CityInput.forEditField(storefront.city),
       welcomeGiftDescription: merchant?.welcomeGiftDescription ?? '',
-      // Defensive read: anything other than the two known values falls
-      // back to the entity default so the picker never shows a blank
-      // state and the save path doesn't blindly forward garbage.
-      merchantType: (merchant?.merchantType == 'b2b' ||
-              merchant?.merchantType == 'b2c')
-          ? merchant!.merchantType
-          : 'b2c',
+      merchantType: resolvedMerchantType,
     );
   }
 
   void setBusinessName(String v) => state = state.copyWith(businessName: v);
-  void setCategory(String v) => state = state.copyWith(category: v);
+
+  /// Select a main sector; clears specialty so the merchant re-picks (or types).
+  void setMainCategory(String categoryId, String categoryTitle) {
+    LoggerService.logInfo(
+      'Profile edit main category changed',
+      context: <String, dynamic>{
+        'previousCategoryId': state.categoryId,
+        'previousCategoryTitle': state.categoryTitle,
+        'newCategoryId': categoryId,
+        'newCategoryTitle': categoryTitle,
+        'merchantType': state.merchantType,
+      },
+    );
+    state = state.copyWith(
+      categoryId: categoryId,
+      categoryTitle: categoryTitle,
+      subcategoryTitle: '',
+      category: '',
+    );
+  }
+
+  void setSubcategoryTitle(String v) {
+    final trimmed = v.trim();
+    LoggerService.logInfo(
+      'Profile edit subcategory changed',
+      context: <String, dynamic>{
+        'categoryId': state.categoryId,
+        'previousSubcategoryTitle': state.subcategoryTitle,
+        'newSubcategoryTitle': trimmed,
+        'isOtherCategory': state.isOtherCategory,
+      },
+    );
+    state = state.copyWith(
+      subcategoryTitle: trimmed,
+      category: _specialtyDisplay(
+        subcategoryTitle: trimmed,
+        categoryTitle: state.categoryTitle,
+      ),
+    );
+  }
+
+  @Deprecated('Use setMainCategory / setSubcategoryTitle')
+  void setCategory(String v) => setSubcategoryTitle(v);
+
   void setDescription(String v) => state = state.copyWith(description: v);
   void setPhoneNumber(String v) => state = state.copyWith(phoneNumber: v);
   void setEmail(String v) => state = state.copyWith(email: v);
@@ -186,15 +337,14 @@ class StorefrontProfileEditNotifier
   void setWelcomeGiftDescription(String v) =>
       state = state.copyWith(welcomeGiftDescription: v);
 
-  /// Setter validates against the wire allowlist; anything else is a
-  /// no-op so the picker can never put the state into a bad shape.
   void setMerchantType(String v) {
     if (v != 'b2b' && v != 'b2c') return;
     state = state.copyWith(merchantType: v);
   }
 
   void setBannerImageUrl(String v) => state = state.copyWith(bannerImageUrl: v);
-  void setProfileImageUrl(String v) => state = state.copyWith(profileImageUrl: v);
+  void setProfileImageUrl(String v) =>
+      state = state.copyWith(profileImageUrl: v);
   void clearError() => state = state.copyWith(errorMessage: null);
 
   Future<void> save() async {
@@ -202,7 +352,6 @@ class StorefrontProfileEditNotifier
     state = state.copyWith(isSaving: true);
 
     try {
-      // Get current user ID
       final authState = ref.read(auth_providers.authStateProvider);
       if (authState is! Authenticated) {
         state = state.copyWith(isSaving: false);
@@ -211,16 +360,14 @@ class StorefrontProfileEditNotifier
 
       final userId = authState.user.id;
 
-      // Resolve the real merchant document ID from the user doc.
-      // In MVP, merchantId == userId, but linkExistingMerchantToUser can differ.
       final firestore = ref.read(firebaseFirestoreProvider);
       final userDoc = await firestore.collection('users').doc(userId).get();
       final merchantId =
-          ((userDoc.data()?['merchant_id'] as String?)?.trim().isNotEmpty ?? false)
+          ((userDoc.data()?['merchant_id'] as String?)?.trim().isNotEmpty ??
+                  false)
               ? (userDoc.data()?['merchant_id'] as String).trim()
               : userId;
-      
-      // Extract logo file path if a new image was selected
+
       String? logoFilePath;
       if (state.profileImageUrl.startsWith('file://')) {
         final path = state.profileImageUrl.substring(7);
@@ -230,7 +377,6 @@ class StorefrontProfileEditNotifier
         }
       }
 
-      // Extract banner file path if a new image was selected
       String? bannerFilePath;
       if (state.bannerImageUrl.startsWith('file://')) {
         final path = state.bannerImageUrl.substring(7);
@@ -240,22 +386,22 @@ class StorefrontProfileEditNotifier
         }
       }
 
-      // Prepare storefront update data (all fields saved to Firestore)
       final displayName = state.businessName.trim().isNotEmpty
           ? state.businessName.trim()
           : null;
       final description = state.description.trim().isNotEmpty
           ? state.description.trim()
           : null;
-      final categories = state.category.trim().isNotEmpty
-          ? [state.category.trim()]
-          : null;
+      final specialty = _specialtyDisplay(
+        subcategoryTitle: state.subcategoryTitle,
+        categoryTitle: state.categoryTitle,
+      );
+      final categories = specialty.isNotEmpty ? [specialty] : null;
       final phone = state.phoneNumber.trim().isNotEmpty
           ? state.phoneNumber.trim()
           : null;
-      final address = state.address.trim().isNotEmpty
-          ? state.address.trim()
-          : null;
+      final address =
+          state.address.trim().isNotEmpty ? state.address.trim() : null;
       final city = CityInput.forFirestore(state.city);
       final websiteUrl = state.websiteUrl.trim().isNotEmpty
           ? state.websiteUrl.trim()
@@ -267,8 +413,20 @@ class StorefrontProfileEditNotifier
               ? state.welcomeGiftDescription.trim()
               : '';
 
-      // Use UpdateStorefront use case to upload images and update Firestore
-      final updateStorefront = ref.read(merchant_providers.updateStorefrontProvider);
+      LoggerService.logInfo(
+        'Profile edit saving category',
+        context: <String, dynamic>{
+          'merchantId': merchantId,
+          'categoryId': state.categoryId,
+          'categoryTitle': state.categoryTitle,
+          'subcategoryTitle': state.subcategoryTitle,
+          'categoriesWritten': categories,
+          'isOtherCategory': state.isOtherCategory,
+        },
+      );
+
+      final updateStorefront =
+          ref.read(merchant_providers.updateStorefrontProvider);
       final result = await updateStorefront.call(
         merchantId: merchantId,
         displayName: displayName,
@@ -283,22 +441,22 @@ class StorefrontProfileEditNotifier
         websiteUrl: websiteUrl,
         welcomeGiftDescription: welcomeGiftDescription,
         merchantType: state.merchantType,
+        categoryId: state.categoryId.trim().isNotEmpty
+            ? state.categoryId.trim()
+            : '',
+        subcategoryTitle: state.subcategoryTitle.trim(),
         clearMerchantCityField: city == null,
       );
 
       result.fold(
         (failure) {
-          // Save failed - set error message (already in French/English from failure)
           state = state.copyWith(
             errorMessage: failure.message,
             isSaving: false,
           );
-          return; // Exit early on error
+          return;
         },
         (merchant) {
-          // Success - storefront updated in Firestore
-          // Logo uploaded and URL saved
-          // Clear any previous error
           state = state.copyWith(errorMessage: null);
           final auth = ref.read(auth_providers.authControllerProvider);
           if (auth is Authenticated) {
@@ -315,29 +473,28 @@ class StorefrontProfileEditNotifier
         },
       );
 
-      // Also save to cache as fallback (for demo mode)
-      final cacheService = ref.read(merchant_providers.merchantProfileCacheServiceProvider);
+      final cacheService =
+          ref.read(merchant_providers.merchantProfileCacheServiceProvider);
       final existingCache = await cacheService.loadProfile();
-      
-      // Extract image paths for cache (preserve local paths for offline access)
+
       String? profilePath;
       if (logoFilePath != null) {
         profilePath = logoFilePath;
       } else if (state.profileImageUrl.isEmpty) {
-        profilePath = null; // User deleted image
+        profilePath = null;
       } else if (state.profileImageUrl.startsWith('file://')) {
         final path = state.profileImageUrl.substring(7);
         if (File(path).existsSync()) {
           profilePath = path;
         }
-      } else if (!state.profileImageUrl.contains('aida-public') && state.profileImageUrl.isNotEmpty) {
+      } else if (!state.profileImageUrl.contains('aida-public') &&
+          state.profileImageUrl.isNotEmpty) {
         profilePath = result.fold(
           (_) => existingCache['profileImagePath'],
           (merchant) => merchant.logoUrl,
         );
       }
 
-      // Extract banner path/URL for cache
       String? bannerPath;
       if (bannerFilePath != null) {
         bannerPath = bannerFilePath;
@@ -355,31 +512,27 @@ class StorefrontProfileEditNotifier
         );
       }
 
-      // Save to cache (fallback for demo mode)
       await cacheService.saveProfile(
         userId: userId,
         name: displayName ?? existingCache['name'] ?? 'Nom du commerce',
         email: existingCache['email'] ?? 'demo@example.com',
-        phone: state.phoneNumber.trim().isNotEmpty 
-            ? state.phoneNumber.trim() 
+        phone: state.phoneNumber.trim().isNotEmpty
+            ? state.phoneNumber.trim()
             : (existingCache['phone'] ?? '+33123456789'),
         city: CityInput.forFirestore(state.city) ??
             (CityInput.isPlaceholder(existingCache['city']?.toString())
                 ? ''
                 : (existingCache['city']?.toString().trim() ?? '')),
         address: state.address.trim().isNotEmpty ? state.address.trim() : null,
-        category: state.category.trim().isNotEmpty ? state.category.trim() : null,
+        category: specialty.isNotEmpty ? specialty : null,
         description: description,
         profileImagePath: profilePath,
         bannerImagePath: bannerPath,
-        websiteUrl: state.websiteUrl.trim().isNotEmpty ? state.websiteUrl.trim() : null,
+        websiteUrl:
+            state.websiteUrl.trim().isNotEmpty ? state.websiteUrl.trim() : null,
       );
-
-      // Note: Following DDD principles, provider invalidation should be done in presentation layer
-      // The save operation completes successfully - presentation layer will handle refresh
     } catch (e) {
-      // Unexpected error - this should not happen, but handle gracefully
-      // Error will be shown by presentation layer
+      // Unexpected error — presentation layer surfaces state.errorMessage.
     } finally {
       state = state.copyWith(isSaving: false);
     }

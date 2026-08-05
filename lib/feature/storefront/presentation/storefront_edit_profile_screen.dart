@@ -16,6 +16,7 @@ import '../../storage/application/providers.dart' as storage_providers;
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant_onboarding/domain/entities/merchant_audience.dart';
 import '../../merchant_onboarding/presentation/widgets/merchant_category_catalog.dart';
+import '../../merchant_onboarding/presentation/widgets/subcategory/merchant_subcategory_catalog.dart';
 import '../../merchant_settings/presentation/merchant_storefront_links_screen.dart';
 
 part 'storefront_edit_profile_screen.part.dart';
@@ -40,6 +41,7 @@ class _StorefrontEditProfileScreenState
   final _addrCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   final _giftCtrl = TextEditingController();
+  final _otherCategoryCtrl = TextEditingController();
   final _picker = ImagePicker();
 
   bool _controllersInitialized = false;
@@ -56,6 +58,7 @@ class _StorefrontEditProfileScreenState
     _addrCtrl.dispose();
     _cityCtrl.dispose();
     _giftCtrl.dispose();
+    _otherCategoryCtrl.dispose();
     super.dispose();
   }
 
@@ -69,7 +72,13 @@ class _StorefrontEditProfileScreenState
       if (_webCtrl.text != s.websiteUrl) _webCtrl.text = s.websiteUrl;
       if (_addrCtrl.text != s.address) _addrCtrl.text = s.address;
       if (_cityCtrl.text != s.city) _cityCtrl.text = s.city;
-      if (_giftCtrl.text != s.welcomeGiftDescription) _giftCtrl.text = s.welcomeGiftDescription;
+      if (_giftCtrl.text != s.welcomeGiftDescription) {
+        _giftCtrl.text = s.welcomeGiftDescription;
+      }
+      if (s.isOtherCategory &&
+          _otherCategoryCtrl.text != s.subcategoryTitle) {
+        _otherCategoryCtrl.text = s.subcategoryTitle;
+      }
       _controllersInitialized = true;
     } catch (e) {
       // If setting text fails, use safe fallbacks
@@ -82,7 +91,10 @@ class _StorefrontEditProfileScreenState
           _webCtrl.text = s.websiteUrl.isNotEmpty ? s.websiteUrl : '';
           _addrCtrl.text = s.address.isNotEmpty ? s.address : '';
           _cityCtrl.text = s.city.isNotEmpty ? s.city : '';
-          _giftCtrl.text = s.welcomeGiftDescription.isNotEmpty ? s.welcomeGiftDescription : '';
+          _giftCtrl.text =
+              s.welcomeGiftDescription.isNotEmpty ? s.welcomeGiftDescription : '';
+          _otherCategoryCtrl.text =
+              s.isOtherCategory ? s.subcategoryTitle : '';
           _controllersInitialized = true;
         } catch (_) {
           // Final fallback - set empty strings
@@ -94,34 +106,48 @@ class _StorefrontEditProfileScreenState
           _addrCtrl.text = '';
           _cityCtrl.text = '';
           _giftCtrl.text = '';
+          _otherCategoryCtrl.text = '';
           _controllersInitialized = true;
         }
       }
     }
   }
 
-  /// Options for the category dropdown: the onboarding taxonomy for the
-  /// merchant's audience (B2C/B2B), plus the currently saved value when it
-  /// predates the taxonomy, so it stays visible instead of being silently
-  /// remapped to the first option.
-  List<String> _categoryOptions(StorefrontProfileEditState state) {
+  List<String> _mainCategoryTitles(StorefrontProfileEditState state) {
     final audience = state.merchantType == 'b2b'
         ? MerchantAudience.professionnels
         : MerchantAudience.particuliers;
-    final options = [
+    return [
       for (final category in MerchantCategoryCatalog.forAudience(audience))
         category.title,
     ];
-    final current = state.category.trim();
-    if (current.isNotEmpty && !options.contains(current)) {
-      options.insert(0, current);
-    }
-    return options;
   }
 
-  /// Get valid category value that exists in options list (DDD: presentation layer validation)
-  String _getValidCategoryValue(String category, List<String> options) {
-    return options.contains(category) ? category : options.first;
+  String? _mainCategoryIdForTitle(
+    StorefrontProfileEditState state,
+    String title,
+  ) {
+    final audience = state.merchantType == 'b2b'
+        ? MerchantAudience.professionnels
+        : MerchantAudience.particuliers;
+    for (final category in MerchantCategoryCatalog.forAudience(audience)) {
+      if (category.title == title) return category.id;
+    }
+    return null;
+  }
+
+  List<String> _subcategoryTitles(StorefrontProfileEditState state) {
+    if (state.categoryId.isEmpty || state.isOtherCategory) return const [];
+    return [
+      for (final sub
+          in MerchantSubcategoryCatalog.forCategory(state.categoryId))
+        sub.title,
+    ];
+  }
+
+  String _validSelectValue(String value, List<String> options) {
+    if (options.isEmpty) return '';
+    return options.contains(value) ? value : '';
   }
 
   /// Load image files from state if they are file paths (DDD: presentation layer handles file loading)

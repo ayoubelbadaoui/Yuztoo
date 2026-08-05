@@ -2375,40 +2375,143 @@ export const processScheduledNotifications = functions
 
 // ─── RGPD: account deletion with cascade ──────────────────────────────────────
 //
-// `user.delete()` from the client SDK only removes the Firebase Auth account —
-// the user's Firestore data (loyalty progress at every merchant they ever
-// followed, push tokens, notifications, blocked merchants, AND the merchant
-// document if they are a pro) all survive. That violates GDPR's right to
-// erasure and gets the app rejected by Apple App Store under guideline 5.1.1
-// ("If your app supports account creation, you must also offer account
-//  deletion within the app").
+// `user.delete()` / Console Auth deletion only removes the Firebase Auth
+// account — Firestore (loyalty progress, push tokens, notifications, merchant
+// doc) and Storage survive. That violates GDPR erasure and Apple 5.1.1.
 //
-// This callable handles the full purge in a single privileged path:
-//   1. Read users/{uid} to discover dual-profile (merchant_id) and indexed
-//      email / phone.
-//   2. Delete every merchants/*/loyalty_clients|pending_clients|active_validations|clients
-//      document whose id is this uid (collection-group — includes merchants
-//      the user unfollowed after data was written).
-//   3. Recursively delete users/{uid} — wipes notifications, push_tokens,
-//      followed_merchants, blocked_merchants, loyalty_bons, and any other
-//      subcollection.
-//   4. If the user is also a merchant (owns a merchants/{merchant_id} doc),
-//      recursively delete that document — wipes loyalty_clients of OTHER
-//      users at this merchant, partners, promotions, sent_notifications,
-//      auto_notifications. Other clients keep dangling followed_merchants
-//      refs that the UI tolerates (getMerchantById returns null for
-//      deleted merchants).
-//   5. Free the email_index and phone_index entries so the same address
-//      can be reused at re-signup.
-//   6. Delete Firebase Storage prefixes users/{uid}/ and merchants/{merchant_id}/.
-//   7. Remove data_export_requests/{uid} if present.
-//   8. Delete the Firebase Auth user.
+// Shared cascade (callable + Auth onDelete):
+//   1. Read users/{uid} for merchant_id + indexed email / phone (Auth event
+//      hints fill gaps when the doc is already gone).
+//   2. Delete merchants/*/loyalty_clients|pending_clients|active_validations|clients
+//      docs whose id is this uid (collection-group + follow fallback).
+//   3. Remove data_export_requests/{uid}.
+//   4. Delete Storage prefixes users/{uid}/ and merchants/{merchant_id}/.
+//   5. Recursively delete users/{uid} (+ merchants/{merchant_id} if owned).
+//   6. Free email_index / phone_index (by known ids + uid query).
 //
-// Idempotent on a best-effort basis — a re-call after a partial failure
-// continues cleanup. Cascade errors are logged but do NOT short-circuit
-// auth deletion: orphaned docs (no PII surfaced to other users) is a
-// far better failure mode than a surviving auth account that locks the
-// user out of re-signup.
+// Idempotent best-effort — safe if purgeAccount already cleaned then Auth
+// delete fires onAuthUserDeleted, or Console delete runs the trigger alone.
+// Batch Admin deleteUsers() does NOT fire onDelete — delete one-by-one.
+
+type CascadeContactHints = {
+  email?: string | null;
+  phone?: string | null;
+};
+
+async function deleteIndexDocsForUid(
+  collection: "email_index" | "phone_index",
+  uid: string,
+  knownDocId?: string
+): Promise<void> {
+  const ids = new Set<string>();
+  if (knownDocId?.trim()) ids.add(knownDocId.trim());
+
+  try {
+    const snap = await db.collection(collection).where("uid", "==", uid).get();
+    for (const doc of snap.docs) {
+      ids.add(doc.id);
+    }
+  } catch (e) {
+    functions.logger.warn(`cascadeEraseUserData: ${collection} uid query failed`, {
+      uid,
+      error: e,
+    });
+  }
+
+  for (const id of ids) {
+    try {
+      await db.collection(collection).doc(id).delete();
+    } catch (e) {
+      functions.logger.warn(`cascadeEraseUserData: ${collection} delete failed`, {
+        uid,
+        id,
+        error: e,
+      });
+    }
+  }
+}
+
+/**
+ * Wipe Firestore + Storage for [uid]. Does not touch Firebase Auth.
+ * [hints] come from the Auth onDelete event when the user doc is missing.
+ */
+async function cascadeEraseUserData(
+  uid: string,
+  hints: CascadeContactHints = {}
+): Promise<{ merchantId: string | null }> {
+  functions.logger.info("cascadeEraseUserData: starting", { uid });
+
+  let merchantId: string | undefined;
+  let lowercaseEmail: string | undefined;
+  let phoneId: string | undefined;
+
+  try {
+    const userDoc = await db.collection("users").doc(uid).get();
+    const data = userDoc.data() ?? {};
+    merchantId = (data.merchant_id as string | undefined) || undefined;
+    const email = (data.email as string | undefined) || "";
+    lowercaseEmail = email ? email.trim().toLowerCase() : undefined;
+    phoneId = (data.phone as string | undefined) || undefined;
+  } catch (e) {
+    functions.logger.warn("cascadeEraseUserData: user doc read failed", {
+      uid,
+      error: e,
+    });
+  }
+
+  const hintEmail = hints.email?.trim().toLowerCase();
+  if (!lowercaseEmail && hintEmail) lowercaseEmail = hintEmail;
+  const hintPhone = hints.phone?.trim();
+  if (!phoneId && hintPhone) phoneId = hintPhone;
+
+  await deleteAllMerchantClientFootprintForUid(uid);
+
+  try {
+    await db.collection("data_export_requests").doc(uid).delete();
+  } catch (e) {
+    functions.logger.warn("cascadeEraseUserData: data_export_requests delete failed", {
+      uid,
+      error: e,
+    });
+  }
+
+  await deleteStoragePrefix(`users/${uid}`);
+
+  try {
+    await db.recursiveDelete(db.collection("users").doc(uid));
+  } catch (e) {
+    functions.logger.error("cascadeEraseUserData: recursiveDelete users failed", {
+      uid,
+      error: e,
+    });
+  }
+
+  if (merchantId) {
+    await deleteStoragePrefix(`merchants/${merchantId}`);
+    try {
+      await db.recursiveDelete(db.collection("merchants").doc(merchantId));
+    } catch (e) {
+      functions.logger.error(
+        "cascadeEraseUserData: recursiveDelete merchants failed",
+        { uid, merchantId, error: e }
+      );
+    }
+  }
+
+  await deleteIndexDocsForUid("email_index", uid, lowercaseEmail);
+  await deleteIndexDocsForUid("phone_index", uid, phoneId);
+
+  functions.logger.info("cascadeEraseUserData: completed", {
+    uid,
+    merchantId: merchantId ?? null,
+  });
+  return { merchantId: merchantId ?? null };
+}
+
+/**
+ * In-app account deletion (GDPR / App Store 5.1.1). Cascades data then
+ * deletes the Auth user (which also fires [onAuthUserDeleted] — idempotent).
+ */
 export const purgeAccount = functions
   .region("europe-west1")
   .runWith({ timeoutSeconds: 540, memory: "1GB" })
@@ -2422,93 +2525,13 @@ export const purgeAccount = functions
     const uid = context.auth.uid;
     functions.logger.info("purgeAccount: starting", { uid });
 
-    // 1) Read user doc to discover merchant_id + indexed contact identifiers.
-    let merchantId: string | undefined;
-    let lowercaseEmail: string | undefined;
-    let phoneId: string | undefined;
-    try {
-      const userDoc = await db.collection("users").doc(uid).get();
-      const data = userDoc.data() ?? {};
-      merchantId = (data.merchant_id as string | undefined) || undefined;
-      const email = (data.email as string | undefined) || "";
-      lowercaseEmail = email ? email.trim().toLowerCase() : undefined;
-      phoneId = (data.phone as string | undefined) || undefined;
-    } catch (e) {
-      functions.logger.warn("purgeAccount: user doc read failed", { uid, error: e });
-    }
+    const { merchantId } = await cascadeEraseUserData(uid);
 
-    // 2) Merchant-scoped footprint for this uid (any merchant, not only current follows).
-    await deleteAllMerchantClientFootprintForUid(uid);
-
-    // 2b) GDPR queue doc (rules disallow client delete; Admin SDK removes it here).
-    try {
-      await db.collection("data_export_requests").doc(uid).delete();
-    } catch (e) {
-      functions.logger.warn("purgeAccount: data_export_requests delete failed", {
-        uid,
-        error: e,
-      });
-    }
-
-    // 2c) Profile photos etc. under users/{uid}/ (Firestore recursiveDelete does not touch GCS).
-    await deleteStoragePrefix(`users/${uid}`);
-
-    // 3) Recursively delete the user's own root document and every
-    //    subcollection beneath it.
-    try {
-      await db.recursiveDelete(db.collection("users").doc(uid));
-    } catch (e) {
-      functions.logger.error("purgeAccount: recursiveDelete users failed", {
-        uid,
-        error: e,
-      });
-    }
-
-    // 4) If the user is also a merchant, wipe their merchant footprint too.
-    if (merchantId) {
-      // Vitrine images, promotion art, news uploads, etc.
-      await deleteStoragePrefix(`merchants/${merchantId}`);
-      try {
-        await db.recursiveDelete(db.collection("merchants").doc(merchantId));
-      } catch (e) {
-        functions.logger.error(
-          "purgeAccount: recursiveDelete merchants failed",
-          { uid, merchantId, error: e }
-        );
-      }
-    }
-
-    // 5) Free index entries so the email / phone can be reused at re-signup.
-    if (lowercaseEmail) {
-      try {
-        await db.collection("email_index").doc(lowercaseEmail).delete();
-      } catch (e) {
-        functions.logger.warn("purgeAccount: email_index delete failed", {
-          uid,
-          lowercaseEmail,
-          error: e,
-        });
-      }
-    }
-    if (phoneId) {
-      try {
-        await db.collection("phone_index").doc(phoneId).delete();
-      } catch (e) {
-        functions.logger.warn("purgeAccount: phone_index delete failed", {
-          uid,
-          phoneId,
-          error: e,
-        });
-      }
-    }
-
-    // 6) Finally drop the auth account so the user cannot sign in any more.
     try {
       await admin.auth().deleteUser(uid);
     } catch (e: unknown) {
-      // If the auth user no longer exists (a mid-failed previous run, or
-      // Firebase Auth removed it via console), treat as success — the
-      // Firestore footprint is the part that matters for GDPR.
+      // Mid-failed previous run, or Console already removed Auth — Firestore
+      // footprint is what matters for GDPR.
       const code = (e as { code?: string })?.code;
       if (code !== "auth/user-not-found") {
         functions.logger.error("purgeAccount: auth deleteUser failed", {
@@ -2524,7 +2547,26 @@ export const purgeAccount = functions
 
     functions.logger.info("purgeAccount: completed", {
       uid,
-      merchantId: merchantId ?? null,
+      merchantId,
     });
     return { ok: true };
+  });
+
+/**
+ * Console / Admin SDK / client Auth deletion — cascade Firestore + Storage
+ * when Auth is removed outside [purgeAccount] (or after it).
+ *
+ * Auth triggers (1st gen) must run in us-central1.
+ * Does not fire for Admin batch deleteUsers([...]).
+ */
+export const onAuthUserDeleted = functions
+  .region("us-central1")
+  .runWith({ timeoutSeconds: 540, memory: "1GB" })
+  .auth.user()
+  .onDelete(async (user) => {
+    functions.logger.info("onAuthUserDeleted: starting", { uid: user.uid });
+    await cascadeEraseUserData(user.uid, {
+      email: user.email,
+      phone: user.phoneNumber,
+    });
   });

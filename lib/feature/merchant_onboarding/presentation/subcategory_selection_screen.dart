@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/infrastructure/logger_service.dart';
 import '../application/onboarding_flow_provider.dart';
 import '../application/providers.dart';
 import '../domain/entities/merchant_subcategory.dart';
@@ -74,6 +75,27 @@ class _SubcategorySelectionScreenState
     super.dispose();
   }
 
+  void _selectSubcategory(String id) {
+    MerchantSubcategory? selected;
+    for (final s in _subcategories) {
+      if (s.id == id) {
+        selected = s;
+        break;
+      }
+    }
+    LoggerService.logInfo(
+      'Onboarding subcategory card tapped',
+      context: <String, dynamic>{
+        'subcategoryId': id,
+        'subcategoryTitle': selected?.title,
+        'categoryId': ref.read(selectedMerchantCategoryIdProvider),
+        'categoryTitle': ref.read(selectedMerchantCategoryTitleProvider),
+        'previousSubcategoryId': _selectedSubcategoryId,
+      },
+    );
+    setState(() => _selectedSubcategoryId = id);
+  }
+
   void _continue() {
     if (_selectedSubcategoryId == null) return;
     final selected =
@@ -81,6 +103,15 @@ class _SubcategorySelectionScreenState
     ref.read(selectedMerchantSubcategoryTitleProvider.notifier).state =
         selected.title;
     ref.read(onboardingFlowProvider.notifier).setSubcategoryTitle(selected.title);
+    LoggerService.logInfo(
+      'Onboarding subcategory confirmed (Continuer)',
+      context: <String, dynamic>{
+        'subcategoryId': selected.id,
+        'subcategoryTitle': selected.title,
+        'categoryId': ref.read(selectedMerchantCategoryIdProvider),
+        'categoryTitle': ref.read(selectedMerchantCategoryTitleProvider),
+      },
+    );
     widget.onNext();
   }
 
@@ -202,8 +233,7 @@ class _SubcategorySelectionScreenState
                       subcategory: subcategory,
                       isSelected: _selectedSubcategoryId == subcategory.id,
                       animationDelay: index * 30,
-                      onTap: () =>
-                          setState(() => _selectedSubcategoryId = subcategory.id),
+                      onTap: () => _selectSubcategory(subcategory.id),
                     );
                   },
                 ),

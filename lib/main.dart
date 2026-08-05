@@ -26,6 +26,7 @@ import 'feature/client_list/application/screens.dart';
 import 'feature/splash/application/screens.dart';
 import 'feature/role_selection/application/screens.dart';
 import 'feature/auth/login/application/screens.dart';
+import 'feature/auth/login/application/providers.dart' as login_providers;
 import 'feature/auth/signup/application/screens.dart';
 import 'feature/auth/signup/application/providers.dart' as signup_providers;
 import 'feature/auth/signup/application/state/oauth_signup_state.dart';
