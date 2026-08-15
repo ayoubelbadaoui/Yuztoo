@@ -414,7 +414,17 @@ class _RootShellState extends ConsumerState<_RootShell>
     }
 
     setState(() {
-      _pushNestedScreen(ScreenId.storeProfile);
+      if ((_nestedScreen ?? _authScreen) == ScreenId.qrScanner) {
+        // NFC tap while the scan screen is open: back from the vitrine must
+        // land on "Mon Carnet", not on the scanner.
+        _authScreen = ScreenId.clientHome;
+        _activeTab = 'home';
+        _nestedStack
+          ..clear()
+          ..add(ScreenId.storeProfile);
+      } else {
+        _pushNestedScreen(ScreenId.storeProfile);
+      }
     });
   }
 
@@ -2550,8 +2560,22 @@ class _RootShellState extends ConsumerState<_RootShell>
                 .read(store_profile_providers
                     .pendingVitrineScanIntentProvider.notifier)
                 .state = store_profile_providers.VitrineScanIntent.fromQrOrNfc;
+            final authState = ref.read(authControllerProvider);
             setState(() {
-              _pushNestedScreen(ScreenId.storeProfile);
+              if (authState is Authenticated) {
+                // After a scan the back arrow must land on "Mon Carnet",
+                // never back on the scanner: rebase the stack on the home
+                // tab with the vitrine as the only nested screen.
+                _authScreen = ScreenId.clientHome;
+                _activeTab = 'home';
+                _nestedStack
+                  ..clear()
+                  ..add(ScreenId.storeProfile);
+              } else {
+                // Guest scan (no account): keep the scanner underneath so
+                // back returns to it, then to role selection.
+                _pushNestedScreen(ScreenId.storeProfile);
+              }
             });
           },
         );

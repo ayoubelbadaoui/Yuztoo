@@ -875,20 +875,20 @@ class _PromoCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                // Icon
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: MerchantColors.gold.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.local_offer_rounded,
-                    color: MerchantColors.gold,
-                    size: 22,
-                  ),
-                ),
+                // Promo photo when available, generic offer icon otherwise.
+                if (promo.imageUrl != null && promo.imageUrl!.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      promo.imageUrl!,
+                      width: 54,
+                      height: 54,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const _PromoFallbackIcon(),
+                    ),
+                  )
+                else
+                  const _PromoFallbackIcon(),
                 const SizedBox(width: 12),
                 // Content
                 Expanded(
@@ -949,6 +949,27 @@ class _PromoCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PromoFallbackIcon extends StatelessWidget {
+  const _PromoFallbackIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: MerchantColors.gold.withValues(alpha: 0.15),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Icons.local_offer_rounded,
+        color: MerchantColors.gold,
+        size: 22,
       ),
     );
   }

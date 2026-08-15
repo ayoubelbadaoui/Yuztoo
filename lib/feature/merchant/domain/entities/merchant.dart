@@ -157,6 +157,23 @@ class Merchant extends Equatable {
   ClientGratificationConfig get effectiveGratificationConfig =>
       gratificationConfig ?? ClientGratificationConfig.defaults;
 
+  /// Legacy seed value written by an old default; it does not describe the
+  /// business and must never be surfaced to clients.
+  static const String _corruptedLegacyCategory = 'Artisan Jewelry';
+
+  /// Category label safe for client-facing display (discovery cards, fiche
+  /// commerçant…). Prefers the precise onboarding subcategory, then the first
+  /// stored category. Returns null when nothing displayable is stored.
+  String? get displayCategory {
+    final sub = subcategoryTitle?.trim() ?? '';
+    if (sub.isNotEmpty && sub != _corruptedLegacyCategory) return sub;
+    final first = (categories?.isNotEmpty ?? false)
+        ? categories!.first.trim()
+        : '';
+    if (first.isNotEmpty && first != _corruptedLegacyCategory) return first;
+    return null;
+  }
+
   /// Free-tier allows 5 manual notifications per rolling 7-day window.
   bool get canSendNotification {
     if (weeklyNotifResetAt == null) return true;

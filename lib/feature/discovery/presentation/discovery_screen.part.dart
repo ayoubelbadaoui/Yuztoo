@@ -803,8 +803,7 @@ class _BusinessGridCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = merchant.displayName ?? merchant.name;
     final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
-    final category =
-        (merchant.categories?.isNotEmpty == true) ? merchant.categories!.first : null;
+    final category = merchant.displayCategory;
     final isInactive = merchant.status != 'active';
     return GestureDetector(
       onTap: onTap,
