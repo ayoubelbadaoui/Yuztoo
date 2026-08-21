@@ -218,6 +218,10 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   /// Avoids showing the welcome-gift modal twice (follow-then-passage).
   String? _welcomeShownForMerchantId;
 
+  /// Local ±1 adjustment to [publicFollowersCount] right after follow/unfollow
+  /// so the pill updates before Cloud Functions / provider refresh settle.
+  int _followersCountDelta = 0;
+
   /// Anchors the "Suivre ce commerce" CTA so the scan coachmark can spotlight
   /// the real button instead of a duplicate (see [_showFollowPassageCoachmark]).
   final GlobalKey _followCtaKey = GlobalKey();
@@ -273,9 +277,25 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                 return _StoreProfileSkeleton(onBack: widget.onBack);
               }
               if (!isOwnerPreview) {
+                final followedIds = ref
+                        .watch(followedMerchantIdsForCurrentUserProvider)
+                        .valueOrNull ??
+                    const <String>[];
+                final isFollowing = followedIds.contains(merchant.id);
                 return _StoreProfileOffline(
-                  merchantName: merchant.name,
+                  merchantName: merchant.displayName?.isNotEmpty == true
+                      ? merchant.displayName!
+                      : merchant.name,
                   onBack: widget.onBack,
+                  isFollowing: isFollowing,
+                  isUnfollowBusy: _isFollowToggling,
+                  onUnfollow: isFollowing
+                      ? () => _handleFollowToggle(
+                            context: context,
+                            merchant: merchant,
+                            currentlyFollowing: true,
+                          )
+                      : null,
                 );
               }
             }
@@ -377,6 +397,9 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
       );
       return;
     }
+    setState(() {
+      _followersCountDelta += currentlyFollowing ? -1 : 1;
+    });
     ref.invalidate(followedMerchantIdsForCurrentUserProvider);
     ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
     ref.invalidate(clientHomeFeedProvider);
@@ -430,6 +453,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                   if (!context.mounted) return;
                   _setFollowToggling(false);
                   if (undo.isRight) {
+                    setState(() => _followersCountDelta += 1);
                     ref.invalidate(followedMerchantIdsForCurrentUserProvider);
                     ref.invalidate(
                         followedMerchantHeartLevelsForCurrentUserProvider);

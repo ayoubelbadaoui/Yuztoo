@@ -196,14 +196,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
               ),
               Expanded(
                 child: Center(
-                  child: Text(
-                    'Vos clients',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: const YuztooGradientTitle('Vos clients'),
                 ),
               ),
               GestureDetector(
@@ -222,7 +215,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
                   ),
                   child: const Center(
                     child: Icon(
-                      Icons.switch_account,
+                      Icons.person_outline_rounded,
                       color: MerchantColors.gold,
                       size: 20,
                     ),

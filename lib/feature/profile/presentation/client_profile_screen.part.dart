@@ -70,23 +70,6 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                               ),
                             );
                           },
-                        ),
-                        _NavItem(
-                          icon: Icons.no_accounts_outlined,
-                          label: 'Supprimer mon compte',
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (ctx) => DataPrivacyScreen(
-                                  onBack: () => Navigator.of(ctx).pop(),
-                                  onAccountDeleted: () {
-                                    Navigator.of(ctx)
-                                        .popUntil((route) => route.isFirst);
-                                  },
-                                ),
-                              ),
-                            );
-                          },
                           isLast: true,
                         ),
                       ],
@@ -202,14 +185,7 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
             ),
           ),
           child: Center(
-            child: Text(
-              l10n.myProfile,
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: MerchantColors.textWhite,
-              ),
-            ),
+            child: YuztooGradientTitle(l10n.myProfile),
           ),
         ),
       ),

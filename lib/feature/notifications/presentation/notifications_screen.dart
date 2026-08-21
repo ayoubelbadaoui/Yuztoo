@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/snackbar.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';

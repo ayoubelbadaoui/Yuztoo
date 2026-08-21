@@ -16,7 +16,7 @@ import '../../domain/repositories/client_loyalty_repository.dart';
 ///   - loyalty enabled at this merchant
 ///   - merchant has a non-empty welcome gift configured (otherwise the bon
 ///     would have nothing to award — the UI must not surface it either)
-///   - first visit recorded + bon not already claimed (delegated to repo)
+///   - first visit is recorded on claim if missing (first connexion path)
 ///
 /// Idempotency: a second call after the bon is already claimed returns Right
 /// with the unchanged progress (no error). This makes double-tap on the

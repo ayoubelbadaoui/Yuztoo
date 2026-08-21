@@ -391,8 +391,9 @@ final _allClientBonsStreamProvider =
 /// kind (welcome first, then milestone) and then by merchant name.
 ///
 /// Resolution per loyalty entry:
-///   - Welcome bon: loyalty doc has `first_visit_at`, the merchant has a
-///     non-empty welcome gift, AND `welcome_bon_claimed_at` is null.
+///   - Welcome bon: merchant has a non-empty welcome gift AND
+///     `welcome_bon_claimed_at` is null (shown on first connexion / follow,
+///     not only after a physical passage).
 ///   - Milestone bon: progress meets/exceeds the configured threshold (one
 ///     bon shown even if the client is multiple cycles ahead — the merchant's
 ///     "Donner le bon" flow decrements per claim, and the next cycle's bon
@@ -492,10 +493,11 @@ final availableClientRewardsProvider =
         rewardKind: entry.config.rewardKind,
       ));
     } else if (!knownBonKeys.contains(welcomeKey) &&
-        progress.hasFirstVisit &&
         !progress.welcomeBonClaimed &&
         welcomeGift.isNotEmpty) {
-      // Legacy fallback — no doc was ever issued for this merchant.
+      // Production: surface the gift as soon as the client is connected to
+      // the merchant (loyalty feed entry), not only after a first passage.
+      // Claim still creates / updates the loyalty doc if needed.
       rewards.add(ClientRewardItem(
         merchant: entry.merchant,
         kind: ClientRewardKind.welcome,

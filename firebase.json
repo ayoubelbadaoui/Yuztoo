@@ -18,6 +18,7 @@
     "rules": "storage.rules"
   },
   "hosting": {
+    "site": "yuztoo",
     "public": "public",
     "ignore": [
       "firebase.json",
@@ -52,14 +53,6 @@
         "headers": [
           { "key": "Content-Type", "value": "application/json" },
           { "key": "Cache-Control", "value": "public, max-age=3600" }
-        ]
-      },
-      {
-        "source": "**/*.apk",
-        "headers": [
-          { "key": "Content-Type", "value": "application/vnd.android.package-archive" },
-          { "key": "Content-Disposition", "value": "attachment" },
-          { "key": "Cache-Control", "value": "no-cache" }
         ]
       }
     ]

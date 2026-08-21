@@ -24,12 +24,18 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  'Mon carnet Yuztoo',
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: MerchantColors.textWhite,
+                child: ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [Color(0xFFF5F5F5), Color(0xFFD4A017)],
+                    stops: [0.45, 1.0],
+                  ).createShader(bounds),
+                  child: Text(
+                    'Mon carnet',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -86,23 +92,6 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFFF5F5F5), Color(0xFFD4A017)],
-              stops: [0.45, 1.0],
-            ).createShader(bounds),
-            child: Text(
-              'Mon carnet',
-              style: GoogleFonts.outfit(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: -0.3,
-                height: 1.2,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
           Text(
             'Tous les commerces que tu aimes au même endroit',
             style: GoogleFonts.outfit(
@@ -153,6 +142,65 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
         } else {
           onNavigate('store-profile');
         }
+      },
+      onUnfollow: (merchant) async {
+        final userId = ref.read(auth_providers.currentUserIdProvider);
+        if (userId == null) return;
+        final result = await ref.read(toggleMerchantFollowProvider).call(
+              userId: userId,
+              merchantId: merchant.id,
+              currentlyFollowing: true,
+            );
+        if (!context.mounted) return;
+        if (result.isLeft) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Impossible de retirer ce commerce',
+                style: merchantSnackBarTextOnDark().copyWith(fontSize: 13),
+              ),
+              backgroundColor: MerchantColors.bgHeader,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+        ref.invalidate(clientHomeFeedProvider);
+        ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+        ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
+        ref.invalidate(discoveryMerchantsProvider);
+        if (!context.mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 5),
+            content: Text(
+              'Commerce retiré de votre carnet',
+              style: merchantSnackBarTextOnWarmAccent(),
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: MerchantColors.gold,
+            action: SnackBarAction(
+              label: 'Annuler',
+              textColor: MerchantColors.bgHeader,
+              onPressed: () async {
+                final undo = await ref.read(toggleMerchantFollowProvider).call(
+                      userId: userId,
+                      merchantId: merchant.id,
+                      currentlyFollowing: false,
+                    );
+                if (undo.isRight) {
+                  ref.invalidate(clientHomeFeedProvider);
+                  ref.invalidate(followedMerchantIdsForCurrentUserProvider);
+                  ref.invalidate(
+                      followedMerchantHeartLevelsForCurrentUserProvider);
+                  ref.invalidate(discoveryMerchantsProvider);
+                }
+              },
+            ),
+          ),
+        );
       },
       onOrderChanged: (sortIndexes) {
         final userId = ref.read(auth_providers.currentUserIdProvider);
@@ -373,7 +421,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
             _QuickAction(
               icon: Icons.local_offer_outlined,
               label: l10n.offers,
-              onTap: () => onNavigate('discovery'),
+              onTap: () => onNavigate('notifications-promos'),
             ),
           ],
         ),
@@ -559,11 +607,17 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            if (merchantId != null && onStoreSelect != null) {
-              onStoreSelect!(merchantId);
-            } else {
-              onNavigate('store-profile');
+            final mid = merchantId ?? promo.merchantId;
+            if (mid.isEmpty) return;
+            if (onPromotionSelect != null) {
+              onPromotionSelect!(mid, promo.id);
+              return;
             }
+            if (onStoreSelect != null) {
+              onStoreSelect!(mid);
+              return;
+            }
+            onNavigate('store-profile');
           },
           borderRadius: BorderRadius.circular(12),
           child: Container(
@@ -763,6 +817,7 @@ class _CarnetList extends StatefulWidget {
     required this.onMerchantTap,
     this.ownMerchantId,
     this.onOrderChanged,
+    this.onUnfollow,
     this.showYuztooBrandTile = false,
   });
 
@@ -772,8 +827,10 @@ class _CarnetList extends StatefulWidget {
   final void Function(String merchantId) onMerchantTap;
   final String? ownMerchantId;
   final void Function(Map<String, int> sortIndexes)? onOrderChanged;
+  /// Remove a followed merchant from the carnet (incl. offline shops).
+  final Future<void> Function(Merchant merchant)? onUnfollow;
   /// Whether the Yuztoo brand vignette ("Restons Proches") should be
-  /// rendered at the bottom of the carnet. Reserved for users who also
+  /// rendered above « Mon commerce ». Reserved for users who also
   /// hold a merchant account — pure clients never see it.
   final bool showYuztooBrandTile;
 
@@ -813,22 +870,15 @@ class _CarnetListState extends State<_CarnetList> {
     final showSearch = widget.merchants.length > 6;
     final filtered = _filtered;
 
-    // Carnet order: own-merchant tile (dual profile), then followed merchants,
-    // then the Yuztoo « restons proches » brand vignette at the bottom. Hidden during search.
-    Merchant? ownMerchant;
-    if (widget.ownMerchantId != null) {
-      for (final m in filtered) {
-        if (m.id == widget.ownMerchantId) {
-          ownMerchant = m;
-          break;
-        }
-      }
-    }
+    // Production layout: followed (reorderable) → Restons Proches → Mon commerce last.
+    final layout = splitCarnetMerchantsForLayout(
+      merchants: filtered,
+      ownMerchantId: widget.ownMerchantId,
+    );
+    final ownMerchant = layout.ownMerchant;
     final showRestonsProches = _query.isEmpty && widget.showYuztooBrandTile;
     final showOwnMerchant = ownMerchant != null && _query.isEmpty;
-    final reorderableList = showOwnMerchant
-        ? filtered.where((m) => m.id != widget.ownMerchantId).toList()
-        : filtered;
+    final reorderableList = layout.followed;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -868,18 +918,9 @@ class _CarnetListState extends State<_CarnetList> {
             ),
             const SizedBox(height: 16),
           ],
-          if (showOwnMerchant) ...[
-            // Own merchant — pinned at top of list, NOT reorderable.
-            _buildMerchantTile(
-              ownMerchant,
-              isLast: false,
-              isReorderable: false,
-            ),
-            if (reorderableList.isNotEmpty) const SizedBox(height: 16),
-          ],
           if (reorderableList.isNotEmpty && _query.isEmpty) ...[
             Text(
-              'Maintenir une vignette pour réorganiser',
+              'Maintenir une vignette pour réorganiser · menu ⋮ pour ne plus suivre',
               style: GoogleFonts.outfit(
                 fontSize: 12,
                 color: MerchantColors.textGrey,
@@ -891,28 +932,24 @@ class _CarnetListState extends State<_CarnetList> {
             ReorderableListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              // Disable the default drag-handle overlay; use long-press instead.
               buildDefaultDragHandles: false,
               itemCount: reorderableList.length,
               onReorder: (oldIndex, newIndex) {
-                if (_query.isNotEmpty) return; // disable reorder during search
+                if (_query.isNotEmpty) return;
                 setState(() {
-                  if (newIndex > oldIndex) newIndex--;
-                  // Rebuild from the reorderable subset to avoid offset
-                  // arithmetic bugs: simple +1 assumes ownMerchant is always
-                  // at _ordered[0] which is not guaranteed.
-                  final workingList = _ordered
-                      .where((m) => m.id != widget.ownMerchantId)
-                      .toList();
-                  final item = workingList.removeAt(oldIndex);
-                  workingList.insert(newIndex, item);
-                  if (showOwnMerchant && ownMerchant != null) {
-                    _ordered = [ownMerchant, ...workingList];
-                  } else {
-                    _ordered = workingList;
-                  }
+                  final ids = _ordered.map((m) => m.id).toList();
+                  final newIds = applyCarnetReorder(
+                    orderedIds: ids,
+                    ownMerchantId: widget.ownMerchantId,
+                    oldIndex: oldIndex,
+                    newIndex: newIndex,
+                  );
+                  final byId = {for (final m in _ordered) m.id: m};
+                  _ordered = [
+                    for (final id in newIds)
+                      if (byId[id] != null) byId[id]!,
+                  ];
                 });
-                // Persist new order — skip own merchant (not in followed_merchants).
                 final reorderable = _ordered
                     .where((m) => m.id != widget.ownMerchantId)
                     .toList();
@@ -930,18 +967,29 @@ class _CarnetListState extends State<_CarnetList> {
                   enabled: _query.isEmpty && reorderableList.isNotEmpty,
                   child: _buildMerchantTile(
                     merchant,
-                    isLast: index == reorderableList.length - 1,
+                    isLast: index == reorderableList.length - 1 &&
+                        !showRestonsProches &&
+                        !showOwnMerchant,
                     isReorderable: true,
                   ),
                 );
               },
             ),
           if (showRestonsProches) ...[
-            if (showSearch ||
-                showOwnMerchant ||
-                reorderableList.isNotEmpty)
+            if (showSearch || reorderableList.isNotEmpty)
               const SizedBox(height: 16),
             const _RestonsProchesTile(),
+          ],
+          if (showOwnMerchant) ...[
+            if (showSearch ||
+                showRestonsProches ||
+                reorderableList.isNotEmpty)
+              const SizedBox(height: 16),
+            _buildMerchantTile(
+              ownMerchant,
+              isLast: true,
+              isReorderable: false,
+            ),
           ],
         ],
       ),
@@ -1022,6 +1070,30 @@ class _CarnetListState extends State<_CarnetList> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (merchant.status != 'active')
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: MerchantColors.textGrey
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Hors ligne',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: MerchantColors.textLightGrey,
+                                  ),
+                                ),
+                              ),
+                            ),
                           if (isReorderable)
                             Padding(
                               padding: const EdgeInsets.only(right: 6),
@@ -1041,6 +1113,34 @@ class _CarnetListState extends State<_CarnetList> {
                                 child: const Icon(Icons.favorite,
                                     color: MerchantColors.gold, size: 16),
                               ),
+                            ),
+                          if (isFollowed && widget.onUnfollow != null)
+                            PopupMenuButton<String>(
+                              padding: EdgeInsets.zero,
+                              icon: Icon(
+                                Icons.more_vert_rounded,
+                                size: 20,
+                                color: MerchantColors.textGrey
+                                    .withValues(alpha: 0.9),
+                              ),
+                              color: MerchantColors.bgHeader,
+                              onSelected: (value) {
+                                if (value == 'unfollow') {
+                                  widget.onUnfollow?.call(merchant);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                PopupMenuItem<String>(
+                                  value: 'unfollow',
+                                  child: Text(
+                                    'Ne plus suivre',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 14,
+                                      color: MerchantColors.textWhite,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                         ],
                       ),

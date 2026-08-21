@@ -9,10 +9,11 @@ import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import '../../profile/application/user_safety_providers.dart'
     show blockedMerchantIdsProvider;
+import '../domain/discovery_association_filter.dart';
+import '../domain/discovery_proche_filter.dart';
 import '../domain/discovery_recommended_partners.dart';
 
-/// 'proche' = same-city merchants (default), 'recommandes' = partner businesses
-/// of merchants the client follows.
+/// 'proche' | 'recommandes' | 'associations'
 final discoveryMerchantTypeFilterProvider =
     StateProvider<String>((ref) => 'proche');
 
@@ -161,58 +162,33 @@ final discoveryRecommendedMerchantsProvider =
 });
 
 /// Merchants list for Découvrir.
-/// 'proche' tab → city merchants (with followed + own store injected).
-/// 'recommandes' tab → partner businesses of followed merchants.
+/// 'proche' → same-city active, excluding followed + own.
+/// 'recommandes' → partner businesses of followed merchants.
+/// 'associations' → association / artiste slice of the city catalogue.
 final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
   final userId = ref.watch(auth_providers.currentUserIdProvider);
-  final repo = ref.watch(merchantRepositoryProvider);
   final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
 
   if (typeFilter == 'recommandes') {
     return ref.watch(discoveryRecommendedMerchantsProvider.future);
   }
 
-  // 'proche' — city merchants + followed + own store
-  var merchants = await ref.watch(discoveryCityMerchantsProvider.future);
+  final cityMerchants = await ref.watch(discoveryCityMerchantsProvider.future);
+  final followedIds = userId == null
+      ? const <String>[]
+      : await ref.watch(followedMerchantIdsForCurrentUserProvider.future);
 
-  if (userId != null) {
-    final followedIds =
-        await ref.watch(followedMerchantIdsForCurrentUserProvider.future);
+  final proche = filterProcheDeMoiMerchants(
+    cityMerchants: cityMerchants,
+    followedMerchantIds: followedIds.toSet(),
+    currentUserId: userId,
+  );
 
-    final existingIds = merchants.map((m) => m.id).toSet();
-    final missingFollowed = followedIds
-        .where((id) => id != userId && !existingIds.contains(id))
-        .toList();
-
-    if (missingFollowed.isNotEmpty) {
-      final extra = await repo.getMerchantsByIds(missingFollowed);
-      // Keep followed vitrines visible even when status is not yet 'active'.
-      final injected = extra.fold((_) => <Merchant>[], (list) => list);
-      if (injected.isNotEmpty) {
-        merchants = [...injected, ...merchants];
-      }
-    }
-
-    if (followedIds.isNotEmpty) {
-      final followedSet = followedIds.toSet();
-      final followed =
-          merchants.where((m) => followedSet.contains(m.id)).toList();
-      final rest =
-          merchants.where((m) => !followedSet.contains(m.id)).toList();
-      merchants = [...followed, ...rest];
-    }
-
-    if (!merchants.any((m) => m.id == userId)) {
-      final ownResult = await repo.getMerchantById(userId);
-      final own = ownResult.fold((_) => null, (m) => m);
-      if (own != null) {
-        merchants = <Merchant>[own, ...merchants];
-      }
-    }
+  if (typeFilter == 'associations') {
+    return filterAssociationArtisteMerchants(proche);
   }
 
-  final seen = <String>{};
-  return merchants.where((m) => seen.add(m.id)).toList();
+  return proche;
 });
 
 void _invalidateDiscoveryCatalog(

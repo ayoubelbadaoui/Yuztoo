@@ -1743,6 +1743,8 @@ class _RootShellState extends ConsumerState<_RootShell>
           _pushNestedScreen(target);
         }
       });
+    } else if (screen == 'notifications-promos') {
+      _openNotificationsScreen(initialInboxTab: 'promos');
     } else if (screen == 'storefront') {
       setState(() {
         _activeTab = 'storefront';
@@ -2495,6 +2497,17 @@ class _RootShellState extends ConsumerState<_RootShell>
             setState(() {
               _pushNestedScreen(ScreenId.storeProfile);
             });
+          },
+          onPromotionSelect: (merchantId, promotionId) {
+            ref
+                .read(store_profile_providers
+                    .selectedStoreMerchantIdProvider.notifier)
+                .state = merchantId;
+            ref
+                .read(store_profile_providers
+                    .pendingStorePromotionIdProvider.notifier)
+                .state = promotionId.isEmpty ? null : promotionId;
+            setState(() => _pushNestedScreen(ScreenId.storeProfile));
           },
         );
       case ScreenId.guestShell:

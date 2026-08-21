@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';

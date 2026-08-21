@@ -173,7 +173,7 @@ void main() {
 
       final result = await NfcService.readVitrineMerchantId();
 
-      expect((result as NfcError).message, contains('TestFlight'));
+      expect((result as NfcError).message, contains('App Store'));
     });
 
     test('active session conflict maps to retry message', () async {

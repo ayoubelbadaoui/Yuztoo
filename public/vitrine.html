@@ -105,48 +105,34 @@
     </p>
 
     <div class="cta-row">
-      <!-- Already installed: open straight to this merchant's storefront. -->
       <a id="open-app" class="cta" href="#">Ouvrir dans Yuztoo</a>
-
-      <!-- Not installed: platform-aware download (iOS → TestFlight, Android → APK). -->
-      <a id="download" class="cta secondary" href="#">Télécharger l'app</a>
+      <a id="download" class="cta secondary" href="https://yuztoo.web.app/">Télécharger l'app</a>
 
       <div class="divider">ou choisissez manuellement</div>
 
       <div class="badges">
-        <a id="ios" href="#" rel="noopener noreferrer">iPhone<small>TestFlight</small></a>
-        <a id="android" href="#" rel="noopener noreferrer">Android<small>APK</small></a>
+        <a id="ios" href="https://apps.apple.com/app/id6762813533" rel="noopener noreferrer">
+          iPhone<small>App Store</small>
+        </a>
+        <a id="android" href="https://play.google.com/store/apps/details?id=com.yuztoo.app" rel="noopener noreferrer">
+          Android<small>Google Play</small>
+        </a>
       </div>
     </div>
 
     <footer>
       <span>Yuztoo, le carnet de vos commerces préférés.</span><br />
-      <a href="https://yuztoo.web.app">yuztoo.web.app</a>
+      <a href="https://yuztoo.web.app/">yuztoo.web.app</a>
     </footer>
   </main>
 
   <script>
     (function () {
-      // ───────────────────────────────────────────────────────────────────
-      // DOWNLOAD LINKS — replace the two placeholders below with the real
-      // URLs once the beta builds are published.
-      //   • TESTFLIGHT_URL : public TestFlight invite link (iOS beta).
-      //   • APK_URL        : direct .apk download URL (Android).
-      // ───────────────────────────────────────────────────────────────────
-      // iOS download routes to the guided TestFlight install page; the raw
-      // invite link lives there (and below) for anyone who wants it directly.
-      var IOS_URL = '/telecharger-ios';
-      var TESTFLIGHT_URL = 'https://testflight.apple.com/join/BQEPEym5';
-      // Android download routes to the guided install page (auto-starts the
-      // .apk download AND shows the side-load steps). The raw file lives at
-      // /downloads/yuztoo.apk for anyone who wants the direct link.
-      var APK_URL = '/telecharger-android';
-      var APK_FILE_URL = '/downloads/yuztoo.apk';
-      // ───────────────────────────────────────────────────────────────────
+      var APP_STORE_URL = 'https://apps.apple.com/app/id6762813533';
+      var PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.yuztoo.app';
+      // Production landing people should see when the app is not installed.
+      var HOME_URL = 'https://yuztoo.web.app/';
 
-      // Resolve the merchantId from a path that looks like /vitrine/{id}
-      // (rewritten by Firebase Hosting). Fall back to the query string
-      // for local previews.
       var path = window.location.pathname || '';
       var match = path.match(/\/vitrine\/([^\/?#]+)/i);
       var merchantId = match ? decodeURIComponent(match[1])
@@ -154,84 +140,66 @@
 
       var ua = navigator.userAgent || '';
       var isIOS = /iPhone|iPad|iPod/i.test(ua)
-        || (/Macintosh/i.test(ua) && 'ontouchend' in document); // iPadOS desktop UA
+        || (/Macintosh/i.test(ua) && 'ontouchend' in document);
       var isAndroid = /Android/i.test(ua);
 
-      // Custom scheme that the installed app handles. The universal/app link
-      // (https://yuztoo.web.app/vitrine/{id}) usually opens the app first; this is
-      // the explicit in-page fallback when the user lands on the web page.
       var appLink = merchantId
         ? 'yuztoo://vitrine/' + encodeURIComponent(merchantId)
         : 'yuztoo://';
 
-      // Where a NON-installed user should go to get the app for their device.
-      var storeUrl = isIOS ? IOS_URL
-        : isAndroid ? APK_URL
-        : 'https://yuztoo.web.app';
+      // Device store, or the public homepage as universal fallback.
+      var storeUrl = isIOS ? APP_STORE_URL
+        : isAndroid ? PLAY_STORE_URL
+        : HOME_URL;
 
       var openApp = document.getElementById('open-app');
       var download = document.getElementById('download');
       var iosBadge = document.getElementById('ios');
       var androidBadge = document.getElementById('android');
 
-      // Manual store badges always point at the right destination.
-      iosBadge.setAttribute('href', IOS_URL);
-      androidBadge.setAttribute('href', APK_URL);
+      iosBadge.setAttribute('href', APP_STORE_URL);
+      androidBadge.setAttribute('href', PLAY_STORE_URL);
 
-      // "Télécharger l'app" → device-appropriate store. Hide on desktop where
-      // there is no single right target.
+      // Primary download CTA → store on mobile, homepage on desktop.
       if (isIOS || isAndroid) {
         download.setAttribute('href', storeUrl);
       } else {
-        download.setAttribute('hidden', 'hidden');
+        download.setAttribute('href', HOME_URL);
       }
 
-      // "Ouvrir dans Yuztoo": try the installed app; if the OS doesn't switch
-      // away within ~1.2s the app isn't installed, so send to the store.
       openApp.addEventListener('click', function (event) {
         event.preventDefault();
-        var t = setTimeout(function () { window.location.href = storeUrl; }, 1200);
+        // If the app does not open, send the user to the public landing.
+        var t = setTimeout(function () { window.location.href = HOME_URL; }, 1200);
         window.addEventListener('blur', function () { clearTimeout(t); });
         window.addEventListener('pagehide', function () { clearTimeout(t); });
         window.location.href = appLink;
       });
 
-      // On Android, prefer the intent:// scheme so the OS can offer the
-      // installed Yuztoo app even without verified app links; it also carries
-      // a browser_fallback_url straight to the APK.
       if (isAndroid && merchantId) {
         var intentUrl = 'intent://vitrine/' + encodeURIComponent(merchantId)
           + '#Intent;scheme=yuztoo;package=com.yuztoo.app;'
           + 'S.browser_fallback_url='
-          + encodeURIComponent(window.location.origin + APK_URL) + ';end';
+          + encodeURIComponent(HOME_URL) + ';end';
         openApp.setAttribute('href', intentUrl);
       } else {
         openApp.setAttribute('href', appLink);
       }
 
-      // ── Auto-open the app for users who ALREADY have it installed ─────────
-      // Goal: tapping the NFC card should jump straight to this merchant's
-      // storefront inside Yuztoo — no extra tap.
-      //
-      // iOS: Apple universal links already open the app *before* this page
-      //   loads when it's installed, so we must NOT fire the custom scheme
-      //   here (it would error when the app is absent — i.e. the usual case
-      //   for a page that actually rendered). The manual button stays for the
-      //   rare miss.
-      //
-      // Android: app-link verification frequently fails for sideloaded APKs,
-      //   so the card lands here even when the app is installed. We fire the
-      //   intent:// once; if the app is present it opens straight to the
-      //   merchant, otherwise the browser_fallback_url brings us back here
-      //   with ?noapp=1 (guard prevents a redirect loop) and the download
-      //   options are shown.
+      // Android: try the app once; if missing, browser_fallback lands on homepage.
       var alreadyTried = /[?&]noapp=1/.test(window.location.search);
       if (isAndroid && merchantId && !alreadyTried) {
-        var backHere = window.location.origin + window.location.pathname + '?noapp=1';
         var autoIntentUrl = 'intent://vitrine/' + encodeURIComponent(merchantId)
           + '#Intent;scheme=yuztoo;package=com.yuztoo.app;'
-          + 'S.browser_fallback_url=' + encodeURIComponent(backHere) + ';end';
+          + 'S.browser_fallback_url='
+          + encodeURIComponent(HOME_URL + '?noapp=1') + ';end';
         window.location.href = autoIntentUrl;
+      }
+
+      // iOS / desktop without app: after a short beat, surface the homepage
+      // so the scan experience matches https://yuztoo.web.app/
+      if (!isAndroid && alreadyTried) {
+        window.location.replace(HOME_URL);
       }
     })();
   </script>

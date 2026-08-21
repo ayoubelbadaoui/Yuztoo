@@ -165,7 +165,7 @@
   <nav class="nav">
     <span class="brand"><span class="logo">Y</span> Yuztoo</span>
     <span class="spacer"></span>
-    <a class="help" href="/aide.html">Aide</a>
+    <a class="help" href="/aide">Aide</a>
   </nav>
 
   <header class="hero">
@@ -177,12 +177,14 @@
     </p>
 
     <div class="cta-row">
-      <!-- Beta distribution: device-aware primary button routes iOS → TestFlight,
-           Android → APK. Replace both placeholders with the real links. -->
-      <a id="download" class="cta primary" href="#">Télécharger l'app</a>
+      <a id="download" class="cta primary" href="https://apps.apple.com/app/id6762813533">Télécharger l'app</a>
       <div class="store-grid">
-        <a id="ios" class="store" href="/telecharger-ios">iPhone <small>TestFlight</small></a>
-        <a id="android" class="store" href="/telecharger-android">Android <small>APK</small></a>
+        <a id="ios" class="store" href="https://apps.apple.com/app/id6762813533" rel="noopener noreferrer">
+          iPhone <small>App Store</small>
+        </a>
+        <a id="android" class="store" href="https://play.google.com/store/apps/details?id=com.yuztoo.app" rel="noopener noreferrer">
+          Android <small>Google Play</small>
+        </a>
       </div>
     </div>
   </header>
@@ -215,50 +217,38 @@
     <span>© <span id="year"></span> Yuztoo — Le carnet de vos commerces préférés.</span>
     <span class="spacer"></span>
     <a href="https://yuztoo.web.app">yuztoo.web.app</a>
-    <a href="/aide.html">Aide</a>
-    <a href="/confidentialite.html">Confidentialité</a>
-    <a href="/cgu.html">CGU</a>
+    <a href="/aide">Aide</a>
+    <a href="/confidentialite">Confidentialité</a>
+    <a href="/cgu">CGU</a>
   </footer>
 
   <script>
     (function () {
-      // ───────────────────────────────────────────────────────────────────
-      // DOWNLOAD LINKS — replace the two placeholders with the real URLs.
-      //   • TESTFLIGHT_URL : public TestFlight invite link (iOS beta).
-      //   • APK_URL        : direct .apk download URL (Android).
-      // ───────────────────────────────────────────────────────────────────
-      // iOS routes to the guided TestFlight install page (steps + invite link).
-      var IOS_URL = '/telecharger-ios';
-      // Android download routes to the guided install page (auto-starts the
-      // .apk download AND shows the side-load steps).
-      var APK_URL = '/telecharger-android';
-      // ───────────────────────────────────────────────────────────────────
+      // Official store listings (production).
+      var APP_STORE_URL = 'https://apps.apple.com/app/id6762813533';
+      var PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.yuztoo.app';
+      var HOME_URL = 'https://yuztoo.web.app/';
 
       document.getElementById('year').textContent = new Date().getFullYear();
 
       var ua = navigator.userAgent || '';
       var isIOS = /iPhone|iPad|iPod/i.test(ua)
-        || (/Macintosh/i.test(ua) && 'ontouchend' in document); // iPadOS desktop UA
+        || (/Macintosh/i.test(ua) && 'ontouchend' in document);
       var isAndroid = /Android/i.test(ua);
 
       var download = document.getElementById('download');
-      document.getElementById('ios').setAttribute('href', IOS_URL);
-      document.getElementById('android').setAttribute('href', APK_URL);
+      document.getElementById('ios').setAttribute('href', APP_STORE_URL);
+      document.getElementById('android').setAttribute('href', PLAY_STORE_URL);
 
       if (isIOS) {
-        download.setAttribute('href', IOS_URL);
-        download.textContent = 'Télécharger sur iPhone';
+        download.setAttribute('href', APP_STORE_URL);
+        download.textContent = 'Télécharger sur l\'App Store';
       } else if (isAndroid) {
-        download.setAttribute('href', APK_URL);
-        download.textContent = 'Télécharger l\u2019APK';
+        download.setAttribute('href', PLAY_STORE_URL);
+        download.textContent = 'Télécharger sur Google Play';
       } else {
-        // Desktop: no single right target — nudge toward the manual choices.
-        download.setAttribute('href', '#download');
-        download.textContent = 'Télécharger l\u2019app';
-        download.addEventListener('click', function (e) {
-          e.preventDefault();
-          document.getElementById('ios').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
+        download.setAttribute('href', HOME_URL);
+        download.textContent = 'Découvrir Yuztoo';
       }
     })();
   </script>

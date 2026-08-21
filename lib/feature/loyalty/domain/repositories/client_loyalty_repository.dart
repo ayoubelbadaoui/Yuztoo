@@ -82,9 +82,8 @@ abstract class ClientLoyaltyRepository {
   /// `welcomeBonClaimed = true`).
   ///
   /// Preconditions enforced by the implementation:
-  ///   - The loyalty_clients doc must exist (welcome bon only exists post
-  ///     first-visit). Otherwise returns a Left "Aucun bon de bienvenue".
-  ///   - `first_visit_at` must already be set.
+  ///   - Merchant must have a welcome gift configured (checked in use case).
+  ///   - Creates the loyalty_clients doc on first claim when missing.
   Future<Result<ClientMerchantLoyaltyProgress>> claimWelcomeBon({
     required String merchantId,
     required String clientUid,

@@ -48,14 +48,23 @@ class _StoreProfileErrorBack extends StatelessWidget {
 /// Shown when a merchant's status is not 'active' (offline / draft).
 /// Clients who reach the page via QR code or deep link see this instead of
 /// the full storefront so they are never misled by stale content.
+///
+/// When the client already follows this offline shop, they must still be able
+/// to unfollow (production: stuck vignettes in Mon Carnet).
 class _StoreProfileOffline extends StatelessWidget {
   const _StoreProfileOffline({
     required this.merchantName,
     required this.onBack,
+    this.isFollowing = false,
+    this.isUnfollowBusy = false,
+    this.onUnfollow,
   });
 
   final String merchantName;
   final VoidCallback onBack;
+  final bool isFollowing;
+  final bool isUnfollowBusy;
+  final VoidCallback? onUnfollow;
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +144,9 @@ class _StoreProfileOffline extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Revenez plus tard ou contactez-le directement.',
+                      isFollowing
+                          ? 'Vous pouvez le retirer de votre carnet Yuztoo.'
+                          : 'Revenez plus tard ou contactez-le directement.',
                       style: GoogleFonts.outfit(
                         fontSize: 13,
                         color: StorefrontColors.textSecondary,
@@ -143,6 +154,41 @@ class _StoreProfileOffline extends StatelessWidget {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    if (isFollowing && onUnfollow != null) ...[
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: isUnfollowBusy ? null : onUnfollow,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: StorefrontColors.navyDark,
+                            side: const BorderSide(
+                              color: StorefrontColors.primaryGold,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: isUnfollowBusy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: StorefrontColors.primaryGold,
+                                  ),
+                                )
+                              : Text(
+                                  'Ne plus suivre',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 28),
                     TextButton.icon(
                       onPressed: onBack,
@@ -788,9 +834,8 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     bool showOfflinePreviewBanner = false,
   }) {
     final name = merchant.displayName ?? merchant.name;
-    final activity = merchant.categories?.isNotEmpty == true
-        ? merchant.categories!.join(' · ')
-        : (merchant.city.isNotEmpty ? merchant.city : 'Commerçant');
+    final activity = merchant.displayCategory ??
+        (merchant.city.isNotEmpty ? merchant.city : 'Commerçant');
     final hours = merchant.hours != null && merchant.hours!.isNotEmpty
         ? BusinessHours.fromMap(merchant.hours)
         : null;
@@ -834,10 +879,13 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
         : baseHeartLevel;
 
     final fetchedFollowersCount =
-        followersCountAsync.valueOrNull?[merchant.id] ?? 0;
-    final followersCount = isFollowing
-        ? (fetchedFollowersCount < 1 ? 1 : fetchedFollowersCount)
-        : fetchedFollowersCount;
+        followersCountAsync.valueOrNull?[merchant.id] ??
+            merchant.publicFollowersCount;
+    // Optimistic ±1 while CF / provider catch up after a local toggle.
+    // Never invent a floor of 1 merely because the viewer follows — that
+    // made multi-follower counters look stuck at "1 abonné".
+    final followersCount =
+        (fetchedFollowersCount + _followersCountDelta).clamp(0, 1 << 30);
 
     return Stack(
       children: [

@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
-import '../../../core/shared/widgets/app_logo.dart';
 import '../../../core/shared/widgets/snackbar.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 import '../../auth/core/application/user_display_helpers.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
+import '../../client_home/application/providers.dart'
+    show followedMerchantIdsForCurrentUserProvider;
 import '../../storefront/presentation/widgets/storefront_colors.dart';
 import '../../merchant/domain/entities/loyalty_program_config.dart'
     show LoyaltyRewardKind;
@@ -83,6 +85,8 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
     final basics = ref.watch(userProfileBasicsProvider(user.id)).valueOrNull;
     final firstName = resolveDisplayName(user, basics).split(' ').first;
     final feedAsync = ref.watch(clientLoyaltyFeedProvider);
+    final followedIdsAsync =
+        ref.watch(followedMerchantIdsForCurrentUserProvider);
     final rewardsAsync = ref.watch(availableClientRewardsProvider);
     final entries = feedAsync.valueOrNull ?? const <ClientLoyaltyEntry>[];
     final rewards = rewardsAsync.valueOrNull ?? const <ClientRewardItem>[];
@@ -163,6 +167,7 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
                       _GreetingBlock(
                         firstName: firstName,
                         feedAsync: feedAsync,
+                        followedCountAsync: followedIdsAsync,
                       ),
                       const SizedBox(height: 20),
                       if (showCategoryFilter) ...[

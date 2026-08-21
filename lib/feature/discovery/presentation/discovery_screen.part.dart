@@ -27,15 +27,8 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Découvrir',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: MerchantColors.textWhite,
-                        ),
-                      ),
+                    const Expanded(
+                      child: YuztooGradientTitle('Découvrir'),
                     ),
                     IconButton(
                       onPressed: widget.onNotifications,
@@ -51,35 +44,51 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
               // Tab chips — always visible
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  children: [
-                    _typeChip(
-                      label: 'Proche de moi',
-                      icon: Icons.location_on_rounded,
-                      value: 'proche',
-                      current: typeFilter,
-                      onTap: () {
-                        ref
-                            .read(discoveryMerchantTypeFilterProvider.notifier)
-                            .state = 'proche';
-                        ref.invalidate(discoveryCityMerchantsProvider);
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    _typeChip(
-                      label: 'Recommandés',
-                      icon: Icons.star_rounded,
-                      value: 'recommandes',
-                      current: typeFilter,
-                      onTap: () {
-                        ref
-                            .read(discoveryMerchantTypeFilterProvider.notifier)
-                            .state = 'recommandes';
-                        ref.invalidate(discoveryRecommendedMerchantsProvider);
-                        ref.invalidate(discoveryFollowedMerchantsProvider);
-                      },
-                    ),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _typeChip(
+                        label: 'Proche de moi',
+                        icon: Icons.location_on_rounded,
+                        value: 'proche',
+                        current: typeFilter,
+                        onTap: () {
+                          ref
+                              .read(discoveryMerchantTypeFilterProvider.notifier)
+                              .state = 'proche';
+                          ref.invalidate(discoveryCityMerchantsProvider);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _typeChip(
+                        label: 'Recommandés',
+                        icon: Icons.star_rounded,
+                        value: 'recommandes',
+                        current: typeFilter,
+                        onTap: () {
+                          ref
+                              .read(discoveryMerchantTypeFilterProvider.notifier)
+                              .state = 'recommandes';
+                          ref.invalidate(discoveryRecommendedMerchantsProvider);
+                          ref.invalidate(discoveryFollowedMerchantsProvider);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _typeChip(
+                        label: 'Associations',
+                        icon: Icons.groups_rounded,
+                        value: 'associations',
+                        current: typeFilter,
+                        onTap: () {
+                          ref
+                              .read(discoveryMerchantTypeFilterProvider.notifier)
+                              .state = 'associations';
+                          ref.invalidate(discoveryCityMerchantsProvider);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -341,9 +350,11 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
   }
 
   Widget _buildSectionLabel(BuildContext context, String typeFilter) {
-    final label = typeFilter == 'recommandes'
-        ? 'Recommandés par les commerces que vous suivez'
-        : 'Dans votre région';
+    final label = switch (typeFilter) {
+      'recommandes' => 'Recommandés par les commerces que vous suivez',
+      'associations' => 'Associations & artistes près de vous',
+      _ => 'Dans votre région',
+    };
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 10),
       child: Text(
@@ -483,7 +494,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
       return _buildRecommandesEmptyState(context, followedIds);
     }
 
-    // proche empty state
+    final isAssociations = typeFilter == 'associations';
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -499,12 +510,19 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                 border: Border.all(
                     color: MerchantColors.gold.withValues(alpha: 0.25)),
               ),
-              child: const Icon(Icons.storefront_outlined,
-                  color: MerchantColors.gold, size: 30),
+              child: Icon(
+                isAssociations
+                    ? Icons.groups_outlined
+                    : Icons.storefront_outlined,
+                color: MerchantColors.gold,
+                size: 30,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
-              'Aucun commerce dans votre région',
+              isAssociations
+                  ? 'Aucune association ou artiste pour le moment'
+                  : 'Aucun commerce dans votre région',
               style: GoogleFonts.outfit(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -514,7 +532,9 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
             ),
             const SizedBox(height: 8),
             Text(
-              'Utilisez la recherche pour trouver un commerce par nom.',
+              isAssociations
+                  ? 'Revenez bientôt ou cherchez par nom / type.'
+                  : 'Utilisez la recherche pour trouver un commerce par nom ou type.',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 13,

@@ -465,16 +465,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
         bottom: false,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            border: Border(
-              bottom: BorderSide(
-                color: MerchantColors.gold
-                    .withValues(alpha: MerchantColors.goldBorderAlpha),
-                width: 1,
-              ),
-            ),
-          ),
+          color: MerchantColors.bgHeader,
           child: Row(
             children: [
               // Left: trash icon — visible when on alertes tab and list non-empty
@@ -502,14 +493,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'Alertes',
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: MerchantColors.textWhite,
-                      ),
-                    ),
+                    const YuztooGradientTitle('Alertes'),
                     if (unreadCount > 0 && isAlertes) ...[
                       const SizedBox(width: 8),
                       Container(

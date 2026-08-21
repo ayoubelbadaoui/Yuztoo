@@ -140,7 +140,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Maintenir une vignette pour réorganiser'),
+        find.textContaining('Maintenir une vignette pour réorganiser'),
         findsOneWidget,
       );
       expect(find.byIcon(Icons.drag_indicator_rounded), findsNWidgets(2));

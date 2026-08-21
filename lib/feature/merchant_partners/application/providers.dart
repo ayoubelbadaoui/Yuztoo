@@ -21,16 +21,12 @@ final merchantPartnersProvider =
   },
 );
 
-/// Searches merchants by name — approximate, diacritics-insensitive.
+/// Searches merchants by name **and** commerce type/category — approximate,
+/// diacritics-insensitive.
 ///
-/// Fetches up to 200 merchants and matches client-side with
-/// [fuzzyMatchScore] so « cafe » finds « Café », « boul » finds
-/// « La Boulangerie » and one-letter typos still match (« il faut que nous
-/// puissions avoir une recherche approximative »). Results are ranked by
-/// relevance (prefix > substring > approximate), ties broken by name.
-/// Firestore caches results locally so calls after the first load are fast.
-///
-/// [merchantType] post-filters to 'b2b' or 'b2c' when non-null.
+/// Matches `name`, `display_name`, `category_id`, `subcategory_title`, and
+/// `categories[]` so « boulangerie » finds shops typed as such even when the
+/// brand name does not contain the word.
 Future<List<Map<String, dynamic>>> searchMerchantsProvider(
   String query, {
   String? merchantType,
@@ -45,11 +41,38 @@ Future<List<Map<String, dynamic>>> searchMerchantsProvider(
     final data = doc.data();
     final name = data['name'] as String? ?? '';
     final display = data['display_name'] as String? ?? '';
+    final subcategory = data['subcategory_title'] as String? ?? '';
+    final categoryId = data['category_id'] as String? ?? '';
+    final categories = (data['categories'] as List?)
+            ?.whereType<String>()
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        const <String>[];
+
     final nameScore = fuzzyMatchScore(query: query, candidate: name);
     final displayScore = display.isEmpty
         ? 0.0
         : fuzzyMatchScore(query: query, candidate: display);
-    final score = nameScore > displayScore ? nameScore : displayScore;
+    final subScore = subcategory.isEmpty
+        ? 0.0
+        : fuzzyMatchScore(query: query, candidate: subcategory);
+    final categoryIdScore = categoryId.isEmpty
+        ? 0.0
+        : fuzzyMatchScore(query: query, candidate: categoryId.replaceAll('_', ' '));
+    var categoriesScore = 0.0;
+    for (final c in categories) {
+      final s = fuzzyMatchScore(query: query, candidate: c);
+      if (s > categoriesScore) categoriesScore = s;
+    }
+
+    final score = [
+      nameScore,
+      displayScore,
+      subScore,
+      categoryIdScore,
+      categoriesScore,
+    ].reduce((a, b) => a > b ? a : b);
     if (score <= 0) continue;
     final rawType = data['merchant_type'] as String?;
     scored.add((
@@ -60,6 +83,9 @@ Future<List<Map<String, dynamic>>> searchMerchantsProvider(
         'logoUrl': data['logo_url'] as String?,
         'merchantType':
             (rawType == 'b2b' || rawType == 'b2c') ? rawType : 'b2c',
+        'category': subcategory.isNotEmpty
+            ? subcategory
+            : (categories.isNotEmpty ? categories.first : categoryId),
       },
       score: score,
     ));

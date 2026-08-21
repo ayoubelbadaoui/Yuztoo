@@ -107,7 +107,7 @@ class NfcService {
     if (msg.contains('Missing required entitlement')) {
       return const NfcError(
         'NFC indisponible sur cette version de l’app — réinstallez depuis '
-        'TestFlight ou l’App Store après la prochaine mise à jour.',
+        'l’App Store après la prochaine mise à jour.',
       );
     }
     if (msg.contains('406') || msg.contains('active session')) {

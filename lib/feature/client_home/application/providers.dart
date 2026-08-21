@@ -170,7 +170,9 @@ Future<ClientHomeFeed> _buildClientHomeFeed({
   );
 
   if (ownMerchant != null) {
-    merchants.insert(0, ownMerchant);
+    // « Mon commerce » is pinned at the bottom of the carnet UI — keep it
+    // last in the feed so list order matches production layout.
+    merchants.add(ownMerchant);
   }
 
   if (merchants.isEmpty) {

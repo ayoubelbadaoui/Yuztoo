@@ -26,7 +26,7 @@ final firebaseInitializationProvider = FutureProvider<void>((ref) async {
   // remaining bootstrap (Google Sign-In init, FCM token registration, …)
   // is captured. Collection is disabled in debug so iterating locally
   // doesn't pollute the dashboard with developer-induced crashes;
-  // release builds (TestFlight + App Store) collect normally so App
+  // release builds (App Store / Play Store) collect normally so App
   // Review crashes and real-user incidents land in the console.
   await FirebaseCrashlytics.instance
       .setCrashlyticsCollectionEnabled(!kDebugMode);

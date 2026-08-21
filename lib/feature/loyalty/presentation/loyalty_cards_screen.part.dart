@@ -33,16 +33,9 @@ class _Header extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  'Fidélité',
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: MerchantColors.textWhite,
-                  ),
-                ),
+                child: const YuztooGradientTitle('Fidélité'),
               ),
-              // Dual-profile: quick switch back to merchant shell
+              // Dual-profile: storefront icon (not person/account silhouette)
               if (onSwitchToMerchant != null)
                 GestureDetector(
                   onTap: onSwitchToMerchant,
@@ -60,7 +53,7 @@ class _Header extends StatelessWidget {
                     ),
                     child: const Center(
                       child: Icon(
-                        Icons.switch_account,
+                        Icons.storefront_outlined,
                         color: MerchantColors.gold,
                         size: 20,
                       ),
@@ -97,15 +90,18 @@ class _GreetingBlock extends StatelessWidget {
   const _GreetingBlock({
     required this.firstName,
     required this.feedAsync,
+    required this.followedCountAsync,
   });
 
   final String firstName;
   final AsyncValue<List<ClientLoyaltyEntry>> feedAsync;
+  final AsyncValue<List<String>> followedCountAsync;
 
   @override
   Widget build(BuildContext context) {
-    final entries = feedAsync.valueOrNull ?? [];
-    final followedCount = entries.length;
+    // Production: count every followed commerce, not only loyalty-program cards.
+    final followedCount = followedCountAsync.valueOrNull?.length ??
+        (feedAsync.valueOrNull?.length ?? 0);
 
     String subtitle;
     if (followedCount == 0) {
@@ -1271,27 +1267,24 @@ class _EmptyState extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    AppLogo(
-                      size: 100,
-                      fallback: Icon(
-                        Icons.location_on_rounded,
-                        size: 56,
-                        color: MerchantColors.gold.withValues(alpha: 0.85),
-                      ),
+                    Icon(
+                      Icons.card_giftcard_rounded,
+                      size: 56,
+                      color: MerchantColors.gold.withValues(alpha: 0.85),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'yuztoo',
+                      'Mes avantages',
                       style: GoogleFonts.outfit(
-                        fontSize: 22,
+                        fontSize: 20,
                         fontWeight: FontWeight.w700,
                         color: MerchantColors.gold,
-                        letterSpacing: 0.5,
+                        letterSpacing: 0.2,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'pour eux, pour vous',
+                      'Vos bons apparaîtront ici',
                       style: GoogleFonts.outfit(
                         fontSize: 13,
                         color: MerchantColors.textLightGrey,

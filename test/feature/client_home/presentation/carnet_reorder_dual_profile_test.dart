@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/feature/auth/core/application/providers.dart'
     as auth_providers;
 import 'package:flutter_yuztoo/feature/client_home/application/providers.dart';
+import 'package:flutter_yuztoo/feature/client_home/domain/carnet_list_layout.dart';
 import 'package:flutter_yuztoo/feature/client_home/presentation/client_home_screen.dart';
 import 'package:flutter_yuztoo/feature/followed_merchants/domain/repositories/followed_merchants_repository.dart';
 import 'package:flutter_yuztoo/feature/followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
@@ -91,32 +92,22 @@ class _CapturingFollowedRepo implements FollowedMerchantsRepository {
 // ─── Test algorithm ───────────────────────────────────────────────────────────
 
 /// Pure implementation of the fixed reorder algorithm, mirroring
-/// `_CarnetListState.onReorder` so we can unit-test the logic
-/// independently of Flutter widgets.
+/// [applyCarnetReorder] so we can unit-test the logic independently of widgets.
 Map<String, int> _applyReorder({
   required List<String> orderedIds,
   required String? ownMerchantId,
   required int oldIndex,
   required int newIndex,
 }) {
-  var ni = newIndex;
-  if (ni > oldIndex) ni--;
+  final newOrdered = applyCarnetReorder(
+    orderedIds: orderedIds,
+    ownMerchantId: ownMerchantId,
+    oldIndex: oldIndex,
+    newIndex: newIndex,
+  );
 
-  final workingList = orderedIds
-      .where((id) => id != ownMerchantId)
-      .toList();
-  final item = workingList.removeAt(oldIndex);
-  workingList.insert(ni, item);
-
-  final showPinned =
-      ownMerchantId != null && orderedIds.contains(ownMerchantId);
-  final newOrdered = showPinned
-      ? [ownMerchantId, ...workingList]
-      : workingList;
-
-  final reorderable = newOrdered
-      .where((id) => id != ownMerchantId)
-      .toList();
+  final reorderable =
+      newOrdered.where((id) => id != ownMerchantId).toList();
   return {
     for (var i = 0; i < reorderable.length; i++) reorderable[i]: i,
   };
@@ -191,7 +182,7 @@ void main() {
         'dual-profile, ownMerchant at index 0: reorders followers correctly',
         () {
       // ordered = [own, a, b, c]  reorderable = [a, b, c]
-      // drag a (idx 0) to end → reorderable becomes [b, c, a]
+      // drag a (idx 0) to end → reorderable becomes [b, c, a]; own stays last
       final result = _applyReorder(
         orderedIds: ['own', 'a', 'b', 'c'],
         ownMerchantId: 'own',
@@ -232,7 +223,7 @@ void main() {
 
     test('ownMerchant never appears in persisted sort indexes', () {
       final result = _applyReorder(
-        orderedIds: ['own', 'x', 'y', 'z'],
+        orderedIds: ['x', 'y', 'z', 'own'],
         ownMerchantId: 'own',
         oldIndex: 0,
         newIndex: 2,
@@ -289,15 +280,15 @@ void main() {
 
   group('CarnetList dual-profile widget', () {
     testWidgets(
-        'dual-profile: own merchant is pinned above reorderable list',
+        'dual-profile: own merchant is pinned below reorderable list',
         (tester) async {
       final repo = _CapturingFollowedRepo();
       await tester.pumpWidget(
         _buildScreen(
           merchants: [
-            _m('own', 'Mon Commerce'),
             _m('a', 'Alpha Café'),
             _m('b', 'Beta Boulangerie'),
+            _m('own', 'Mon Commerce'),
           ],
           ownMerchantId: 'own',
           repo: repo,
@@ -311,8 +302,11 @@ void main() {
       expect(find.text('Alpha Café'), findsOneWidget);
       expect(find.text('Beta Boulangerie'), findsOneWidget);
       // Reorder hint must be visible (> 0 reorderable items).
-      expect(find.text('Maintenir une vignette pour réorganiser'),
-          findsOneWidget);
+      expect(
+        find.textContaining('Maintenir une vignette pour réorganiser'),
+        findsOneWidget,
+      );
+      expect(find.text('Mon commerce'), findsOneWidget);
     });
 
     testWidgets(
@@ -332,7 +326,7 @@ void main() {
       expect(find.text('Mon Commerce'), findsOneWidget);
       // No reorder hint since no followers below.
       expect(
-        find.text('Maintenir une vignette pour réorganiser'),
+        find.textContaining('Maintenir une vignette pour réorganiser'),
         findsNothing,
       );
     });
@@ -357,8 +351,10 @@ void main() {
       expect(find.text('Alpha'), findsOneWidget);
       expect(find.text('Beta'), findsOneWidget);
       expect(find.text('Gamma'), findsOneWidget);
-      expect(find.text('Maintenir une vignette pour réorganiser'),
-          findsOneWidget);
+      expect(
+        find.textContaining('Maintenir une vignette pour réorganiser'),
+        findsOneWidget,
+      );
     });
   });
 }

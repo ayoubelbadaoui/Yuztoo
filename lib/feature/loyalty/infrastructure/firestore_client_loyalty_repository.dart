@@ -477,16 +477,26 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           final ref = _docRef(merchantId, clientUid);
           final snap = await tx.get(ref);
           if (!snap.exists) {
-            // No loyalty doc yet → no welcome bon to claim. The UI must not
-            // surface the bon in this state, but guard anyway in case a stale
-            // optimistic UI fires the use case.
-            throw StateError('welcome_bon_unavailable');
+            // First connexion: create the loyalty doc and claim in one write.
+            tx.set(
+              ref,
+              <String, dynamic>{
+                'first_visit_at': FieldValue.serverTimestamp(),
+                'welcome_bon_claimed_at': FieldValue.serverTimestamp(),
+                'validated_passages': 0,
+                'cumulative_spend_euros': 0,
+                'updated_at': FieldValue.serverTimestamp(),
+              },
+              SetOptions(merge: true),
+            );
+            return _fromMap(<String, dynamic>{
+              'first_visit_at': Timestamp.now(),
+              'welcome_bon_claimed_at': Timestamp.now(),
+              'validated_passages': 0,
+              'cumulative_spend_euros': 0,
+            });
           }
           final data = snap.data() ?? <String, dynamic>{};
-          final hasFirstVisit = data['first_visit_at'] != null;
-          if (!hasFirstVisit) {
-            throw StateError('welcome_bon_unavailable');
-          }
           // Idempotency: if already claimed, return the current progress
           // unchanged. Two rapid taps on "Utiliser" must NOT race-claim or
           // throw — the user just sees a successful confirmation.
@@ -496,6 +506,8 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           tx.set(
             ref,
             <String, dynamic>{
+              if (data['first_visit_at'] == null)
+                'first_visit_at': FieldValue.serverTimestamp(),
               'welcome_bon_claimed_at': FieldValue.serverTimestamp(),
               'updated_at': FieldValue.serverTimestamp(),
             },
@@ -503,6 +515,7 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
           );
           return _fromMap(<String, dynamic>{
             ...data,
+            'first_visit_at': data['first_visit_at'] ?? Timestamp.now(),
             'welcome_bon_claimed_at': Timestamp.now(),
           });
         },

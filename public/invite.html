@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B1F33" />
+  <title>Invitation Yuztoo</title>
+  <meta name="description" content="Rejoignez Yuztoo — l'app qui connecte commerçants locaux et clients." />
+  <meta property="og:title" content="Rejoins Yuztoo" />
+  <meta property="og:description" content="L'app qui connecte les commerçants locaux et leurs clients." />
+  <meta property="og:image" content="/og-cover.svg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    body { margin: 0; min-height: 100vh; background: #0B1F33; color: #F4EDDD;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.55; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 32px 20px; }
+    .stack { max-width: 420px; width: 100%; text-align: center; }
+    .logo { width: 64px; height: 64px; border-radius: 16px; background: #C9A352;
+      color: #0B1F33; display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 30px; margin-bottom: 20px; }
+    h1 { font-size: 26px; margin: 0 0 12px; }
+    p { color: rgba(244,237,221,.78); margin: 0 0 24px; }
+    a.cta { display: block; width: 100%; box-sizing: border-box; padding: 16px 20px;
+      border-radius: 14px; background: #C9A352; color: #0B1F33; font-weight: 700;
+      text-decoration: none; margin-bottom: 12px; }
+    a.secondary { display: block; padding: 14px; border-radius: 14px;
+      border: 1.5px solid #C9A352; color: #C9A352; text-decoration: none; font-weight: 600; }
+    .row { display: flex; gap: 10px; margin-top: 16px; }
+    .row a { flex: 1; background: #102C49; border: 1px solid rgba(201,163,82,.25);
+      color: #F4EDDD; border-radius: 12px; padding: 12px; text-decoration: none; font-size: 14px; }
+    .row small { display: block; color: rgba(244,237,221,.6); font-size: 11px; margin-top: 2px; }
+    footer { margin-top: 28px; font-size: 12px; color: rgba(244,237,221,.55); }
+    footer a { color: #C9A352; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main class="stack">
+    <div class="logo">Y</div>
+    <h1>Vous êtes invité·e sur Yuztoo</h1>
+    <p>
+      Téléchargez l'app pour découvrir les commerces près de chez vous,
+      suivre vos boutiques préférées et profiter de la fidélité.
+    </p>
+      <a id="open" class="cta" href="yuztoo://">Ouvrir Yuztoo</a>
+    <a id="download" class="secondary" href="https://yuztoo.web.app/">Télécharger l'app</a>
+    <div class="row">
+      <a id="ios" href="https://apps.apple.com/app/id6762813533">iPhone<small>App Store</small></a>
+      <a id="android" href="https://play.google.com/store/apps/details?id=com.yuztoo.app">Android<small>Google Play</small></a>
+    </div>
+    <footer>
+      <a href="/">Accueil</a> · <a href="/aide">Aide</a>
+    </footer>
+  </main>
+  <script>
+    (function () {
+      var APP_STORE_URL = 'https://apps.apple.com/app/id6762813533';
+      var PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.yuztoo.app';
+      var HOME_URL = 'https://yuztoo.web.app/';
+      var params = new URLSearchParams(window.location.search);
+      var ref = params.get('ref') || '';
+      var deep = 'yuztoo://invite' + (ref ? ('?ref=' + encodeURIComponent(ref)) : '');
+      var open = document.getElementById('open');
+      open.href = deep;
+      var ua = navigator.userAgent || '';
+      var isIOS = /iPhone|iPad|iPod/i.test(ua);
+      var isAndroid = /Android/i.test(ua);
+      var download = document.getElementById('download');
+      if (isIOS) download.href = APP_STORE_URL;
+      else if (isAndroid) download.href = PLAY_STORE_URL;
+      else download.href = HOME_URL;
+      setTimeout(function () {
+        try { window.location.href = deep; } catch (e) {}
+      }, 400);
+    })();
+  </script>
+</body>
+</html>

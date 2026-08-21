@@ -12,6 +12,7 @@ firebase deploy --only hosting
 |---|---|
 | `/` | Marketing landing (`index.html`). |
 | `/aide` | Help centre FAQ (`aide.html`). |
+| `/invite` | Share / invitation landing (`invite.html`). Opens app deep link; falls back to iOS/Android download. |
 | `/vitrine/{merchantId}` | NFC tag landing (rewritten by `firebase.json` to `/vitrine.html`). Detects iOS / Android, fires the `yuztoo://` deep link, falls back to App Store / Play Store. |
 | `/.well-known/apple-app-site-association` | Universal Links handshake for iOS. |
 | `/apple-app-site-association` | Same content; some older iOS versions probe the bare path. Both files MUST stay in sync. |

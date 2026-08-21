@@ -5,11 +5,17 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
+import '../../../core/shared/widgets/snackbar.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../application/providers.dart';
+import '../domain/carnet_list_layout.dart';
 import '../domain/carnet_merchant_order.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../discovery/application/providers.dart'
+    show discoveryMerchantsProvider;
+import '../../followed_merchants/application/providers.dart'
+    show toggleMerchantFollowProvider;
 import '../../followed_merchants/infrastructure/followed_merchants_repository_provider.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
@@ -25,6 +31,7 @@ class ClientHomeScreen extends ConsumerWidget {
     super.key,
     required this.onNavigate,
     this.onStoreSelect,
+    this.onPromotionSelect,
     this.isDualProfile = false,
   });
 
@@ -33,6 +40,8 @@ class ClientHomeScreen extends ConsumerWidget {
   final ValueChanged<String> onNavigate;
   /// When user taps a business, call with merchant id so store profile loads that merchant.
   final ValueChanged<String>? onStoreSelect;
+  /// When user taps a promotion row — open the promo sheet on the fiche.
+  final void Function(String merchantId, String promotionId)? onPromotionSelect;
   /// True when this user also has a merchant account — shows the switch-to-merchant icon.
   final bool isDualProfile;
 
