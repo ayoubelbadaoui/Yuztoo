@@ -273,4 +273,15 @@ class MerchantSubcategoryCatalog {
     // 'autre' / 'autres_pro' n'ont volontairement pas de liste : le profil
     // affiche un champ texte libre, et le wizard saute l'étape.
   };
+
+  /// Look up a subcategory/business id (e.g. `bouche_cafe`) across all categories.
+  static String? titleForId(String? subcategoryId) {
+    if (subcategoryId == null || subcategoryId.isEmpty) return null;
+    for (final list in _byCategory.values) {
+      for (final sub in list) {
+        if (sub.id == subcategoryId) return sub.title;
+      }
+    }
+    return null;
+  }
 }

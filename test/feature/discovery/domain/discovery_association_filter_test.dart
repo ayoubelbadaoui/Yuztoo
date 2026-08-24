@@ -5,6 +5,7 @@ import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 Merchant _m({
   required String id,
   String status = 'active',
+  String city = 'Belfort',
   String? categoryId,
   String? subcategoryTitle,
   List<String>? categories,
@@ -15,7 +16,7 @@ Merchant _m({
       name: id,
       email: '$id@test.com',
       phone: '+33600000000',
-      city: 'Paris',
+      city: city,
       status: status,
       categoryId: categoryId,
       subcategoryTitle: subcategoryTitle,
@@ -23,46 +24,94 @@ Merchant _m({
     );
 
 void main() {
-  group('isAssociationOrArtisteMerchant', () {
-    test('matches categoryId association', () {
+  group('isArtisteMerchant', () {
+    test('matches subcategory Artiste', () {
       expect(
-        isAssociationOrArtisteMerchant(_m(id: 'a', categoryId: 'association')),
+        isArtisteMerchant(_m(id: 'a', subcategoryTitle: 'Artiste local')),
         isTrue,
       );
     });
 
-    test('matches subcategory Artiste', () {
+    test('rejects association category even with artist in name', () {
       expect(
-        isAssociationOrArtisteMerchant(
-          _m(id: 'a', subcategoryTitle: 'Artiste local'),
+        isArtisteMerchant(
+          _m(
+            id: 'a',
+            categoryId: 'association',
+            subcategoryTitle: 'Association culturelle',
+          ),
         ),
-        isTrue,
+        isFalse,
       );
     });
 
     test('rejects regular commerce', () {
       expect(
-        isAssociationOrArtisteMerchant(
-          _m(
-            id: 'b',
-            categoryId: 'bouche',
-            subcategoryTitle: 'Boulangerie',
-          ),
+        isArtisteMerchant(
+          _m(id: 'b', categoryId: 'bouche', subcategoryTitle: 'Boulangerie'),
         ),
         isFalse,
       );
     });
   });
 
-  group('filterAssociationArtisteMerchants', () {
-    test('keeps only active association/artiste', () {
-      final out = filterAssociationArtisteMerchants([
+  group('isAssociationMerchant', () {
+    test('matches categoryId association', () {
+      expect(
+        isAssociationMerchant(_m(id: 'a', categoryId: 'association')),
+        isTrue,
+      );
+    });
+
+    test('matches association sportive label', () {
+      expect(
+        isAssociationMerchant(
+          _m(id: 'd', categories: const ['Association sportive']),
+        ),
+        isTrue,
+      );
+    });
+
+    test('rejects pure artiste profile', () {
+      expect(
+        isAssociationMerchant(_m(id: 'a', subcategoryTitle: 'Artiste peintre')),
+        isFalse,
+      );
+    });
+
+    test('rejects regular commerce', () {
+      expect(
+        isAssociationMerchant(
+          _m(id: 'b', categoryId: 'bouche', subcategoryTitle: 'Boulangerie'),
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('filterAssociationMerchants', () {
+    test('keeps all active associations in city catalogue including followed',
+        () {
+      final out = filterAssociationMerchants([
         _m(id: 'a', categoryId: 'association'),
         _m(id: 'b', categoryId: 'association', status: 'inactive'),
         _m(id: 'c', categoryId: 'commerce'),
         _m(id: 'd', categories: const ['Association sportive']),
+        _m(id: 'e', subcategoryTitle: 'Artiste local', city: 'Paris'),
       ]);
       expect(out.map((m) => m.id), ['a', 'd']);
+    });
+  });
+
+  group('filterArtisteMerchants', () {
+    test('keeps artistes from any city', () {
+      final out = filterArtisteMerchants([
+        _m(id: 'a', subcategoryTitle: 'Artiste local', city: 'Paris'),
+        _m(id: 'b', subcategoryTitle: 'Artiste', city: 'Belfort'),
+        _m(id: 'c', categoryId: 'association', city: 'Belfort'),
+        _m(id: 'd', categoryId: 'bouche', city: 'Belfort'),
+      ]);
+      expect(out.map((m) => m.id), ['a', 'b']);
     });
   });
 }

@@ -12,6 +12,9 @@ import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../client_home/application/providers.dart';
+import '../../discovery/application/providers.dart'
+    show discoveryCityMerchantsProvider;
+import '../../notifications/application/providers.dart';
 import '../../client_notification/application/providers.dart';
 import '../../followed_merchants/application/providers.dart'
     show setMuteStateProvider;
@@ -45,13 +48,15 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
-  String _activeTab = 'alertes'; // 'alertes' | 'promos'
+  String _activeTab = 'alertes'; // 'alertes' | 'promos' | 'ville'
   final Map<String, GlobalKey> _notificationRowKeys = <String, GlobalKey>{};
 
   Future<void> _onPullRefresh() async {
     ref.invalidate(clientNotificationsStreamProvider);
     ref.invalidate(clientHomePromotionsProvider);
+    ref.invalidate(clientCityPromotionsProvider);
     ref.invalidate(clientHomeFeedProvider);
+    ref.invalidate(discoveryCityMerchantsProvider);
     await Future<void>.delayed(const Duration(milliseconds: 350));
   }
 
@@ -283,7 +288,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() {
-        if (tab == 'promos' || tab == 'alertes') {
+        if (tab == 'promos' || tab == 'alertes' || tab == 'ville') {
           _activeTab = tab;
         }
       });

@@ -23,20 +23,11 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
           ),
           child: Row(
             children: [
-              Expanded(
-                child: ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFFF5F5F5), Color(0xFFD4A017)],
-                    stops: [0.45, 1.0],
-                  ).createShader(bounds),
-                  child: Text(
-                    'Mon carnet',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+              const Expanded(
+                child: YuztooGradientTitle(
+                  'Mon carnet',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               if (showMerchantSwitch)

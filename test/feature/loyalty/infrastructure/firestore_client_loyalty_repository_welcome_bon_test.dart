@@ -12,9 +12,8 @@ import 'package:flutter_yuztoo/feature/loyalty/infrastructure/firestore_client_l
 //     gets stamped and progress.welcomeBonClaimed becomes true
 //   • idempotency: a second call after the bon is already claimed returns
 //     Right unchanged (NOT an error)
-//   • no doc yet → Left "aucun bon de bienvenue" (UI must not show the bon
-//     in this state, but the use case still has to be safe)
-//   • doc exists without first_visit_at → Left "aucun bon de bienvenue"
+//   • no doc yet → Right: creates loyalty doc and claims on first connexion
+//   • doc exists without first_visit_at → Right: stamps both timestamps
 //
 // Cooldown is unrelated to welcome-bon claim (claim does not write any of
 // the additive counters), so we don't test it here.
@@ -50,25 +49,27 @@ void main() {
   }
 
   group('claimWelcomeBon', () {
-    test('returns Left when loyalty doc does not exist', () async {
+    test('creates loyalty doc and claims when doc does not exist', () async {
       final result = await repo.claimWelcomeBon(
         merchantId: merchantId,
         clientUid: clientUid,
       );
-      expect(result.isLeft, isTrue);
+      expect(result.isRight, isTrue);
       result.fold(
-        (failure) => expect(
-          failure.message.toLowerCase(),
-          contains('bon de bienvenue'),
-        ),
-        (_) => fail('expected Left when no loyalty doc'),
+        (_) => fail('expected Right when no loyalty doc'),
+        (progress) {
+          expect(progress.welcomeBonClaimed, isTrue);
+          expect(progress.hasFirstVisit, isTrue);
+        },
       );
+
+      final snap = await docRef().get();
+      expect(snap.exists, isTrue);
+      expect(snap.data()?['welcome_bon_claimed_at'], isNotNull);
+      expect(snap.data()?['first_visit_at'], isNotNull);
     });
 
-    test('returns Left when first_visit_at is missing', () async {
-      // Doc exists but never had a first visit (defensive — the production
-      // flow always stamps first_visit_at on doc creation, but a stale
-      // fixture could trip this).
+    test('claims when first_visit_at is missing on existing doc', () async {
       await docRef().set({
         'validated_passages': 0,
         'pending_passages': 0,
@@ -79,7 +80,18 @@ void main() {
         merchantId: merchantId,
         clientUid: clientUid,
       );
-      expect(result.isLeft, isTrue);
+      expect(result.isRight, isTrue);
+      result.fold(
+        (_) => fail('expected Right when claiming without first_visit_at'),
+        (progress) {
+          expect(progress.welcomeBonClaimed, isTrue);
+          expect(progress.hasFirstVisit, isTrue);
+        },
+      );
+
+      final snap = await docRef().get();
+      expect(snap.data()?['welcome_bon_claimed_at'], isNotNull);
+      expect(snap.data()?['first_visit_at'], isNotNull);
     });
 
     test('happy path: stamps welcome_bon_claimed_at and reports claimed',

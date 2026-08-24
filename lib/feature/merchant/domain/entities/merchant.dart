@@ -4,6 +4,7 @@ import '../../../../core/utils/city_input.dart';
 import 'client_gratification_config.dart';
 import 'loyalty_program_config.dart';
 import 'merchant_storefront_link.dart';
+import 'merchant_subscription_plan.dart';
 
 /// Domain representation of a merchant business entity.
 /// 
@@ -48,6 +49,7 @@ class Merchant extends Equatable {
     this.gratificationConfig,
     this.publicFollowersCount = 0,
     this.storefrontLinks = const [],
+    this.subscriptionPlan = MerchantSubscriptionPlan.gratuit,
   });
 
   /// Unique identifier for the merchant document
@@ -153,6 +155,9 @@ class Merchant extends Equatable {
   /// Custom vitrine links (reservation, menu, social, etc.).
   final List<MerchantStorefrontLink> storefrontLinks;
 
+  /// Billing tier (`subscription_plan` in Firestore). Drives Découvrir visibility.
+  final MerchantSubscriptionPlan subscriptionPlan;
+
   /// Returns the effective gratification config (never null).
   ClientGratificationConfig get effectiveGratificationConfig =>
       gratificationConfig ?? ClientGratificationConfig.defaults;
@@ -254,6 +259,7 @@ class Merchant extends Equatable {
         gratificationConfig,
         publicFollowersCount,
         storefrontLinks,
+        subscriptionPlan,
       ];
 
   /// Creates a copy of the merchant with updated fields
@@ -295,6 +301,7 @@ class Merchant extends Equatable {
     ClientGratificationConfig? gratificationConfig,
     int? publicFollowersCount,
     List<MerchantStorefrontLink>? storefrontLinks,
+    MerchantSubscriptionPlan? subscriptionPlan,
   }) {
     return Merchant(
       id: id ?? this.id,
@@ -341,6 +348,7 @@ class Merchant extends Equatable {
       publicFollowersCount:
           publicFollowersCount ?? this.publicFollowersCount,
       storefrontLinks: storefrontLinks ?? this.storefrontLinks,
+      subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
     );
   }
 

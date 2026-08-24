@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/text_search.dart';
+import '../../discovery/domain/discovery_merchant_search.dart';
 import '../domain/entities/merchant_partner.dart';
 import '../domain/repositories/i_merchant_partner_repository.dart';
 import '../infrastructure/merchant_partner_repository_impl.dart';
@@ -39,8 +40,16 @@ Future<List<Map<String, dynamic>>> searchMerchantsProvider(
   final scored = <({Map<String, dynamic> row, double score})>[];
   for (final doc in snap.docs) {
     final data = doc.data();
+    final labels = discoverySearchLabelsFromFirestore(data);
+    final score = labels.fold<double>(
+      0,
+      (best, label) {
+        final s = fuzzyMatchScore(query: query, candidate: label);
+        return s > best ? s : best;
+      },
+    );
+    if (score <= 0) continue;
     final name = data['name'] as String? ?? '';
-    final display = data['display_name'] as String? ?? '';
     final subcategory = data['subcategory_title'] as String? ?? '';
     final categoryId = data['category_id'] as String? ?? '';
     final categories = (data['categories'] as List?)
@@ -49,31 +58,6 @@ Future<List<Map<String, dynamic>>> searchMerchantsProvider(
             .where((e) => e.isNotEmpty)
             .toList() ??
         const <String>[];
-
-    final nameScore = fuzzyMatchScore(query: query, candidate: name);
-    final displayScore = display.isEmpty
-        ? 0.0
-        : fuzzyMatchScore(query: query, candidate: display);
-    final subScore = subcategory.isEmpty
-        ? 0.0
-        : fuzzyMatchScore(query: query, candidate: subcategory);
-    final categoryIdScore = categoryId.isEmpty
-        ? 0.0
-        : fuzzyMatchScore(query: query, candidate: categoryId.replaceAll('_', ' '));
-    var categoriesScore = 0.0;
-    for (final c in categories) {
-      final s = fuzzyMatchScore(query: query, candidate: c);
-      if (s > categoriesScore) categoriesScore = s;
-    }
-
-    final score = [
-      nameScore,
-      displayScore,
-      subScore,
-      categoryIdScore,
-      categoriesScore,
-    ].reduce((a, b) => a > b ? a : b);
-    if (score <= 0) continue;
     final rawType = data['merchant_type'] as String?;
     scored.add((
       row: {

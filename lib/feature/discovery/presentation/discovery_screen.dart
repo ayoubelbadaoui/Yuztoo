@@ -11,8 +11,8 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../application/providers.dart';
+import '../domain/discovery_merchant_search.dart';
 import '../../merchant/domain/entities/merchant.dart';
-import '../../merchant_partners/application/providers.dart' as partners_providers;
 
 part 'discovery_screen.part.dart';
 
@@ -54,6 +54,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.invalidate(discoveryCityMerchantsProvider);
+      ref.invalidate(discoveryArtisteMerchantsProvider);
       ref.invalidate(discoveryRecommendedMerchantsProvider);
       ref.invalidate(discoveryFollowedMerchantsProvider);
       ref.invalidate(discoveryMerchantsProvider);
@@ -83,7 +84,19 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
 
   Future<void> _performSearch(String q) async {
     try {
-      final results = await partners_providers.searchMerchantsProvider(q);
+      final cityMerchants =
+          await ref.read(discoveryCityMerchantsProvider.future);
+      final artisteMerchants =
+          await ref.read(discoveryArtisteMerchantsProvider.future);
+      final pool = <String, Merchant>{
+        for (final m in cityMerchants) m.id: m,
+        for (final m in artisteMerchants) m.id: m,
+      };
+      final matches = filterDiscoverySearchMerchants(
+        merchants: pool.values.toList(),
+        query: q,
+      );
+      final results = matches.map(discoverySearchResultRow).toList();
       if (mounted && _searchQuery.trim() == q) {
         setState(() => _searchResults = results);
       }

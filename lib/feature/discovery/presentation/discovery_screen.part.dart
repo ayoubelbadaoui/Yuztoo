@@ -24,11 +24,15 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
             children: [
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Row(
                   children: [
                     const Expanded(
-                      child: YuztooGradientTitle('Découvrir'),
+                      child: YuztooGradientTitle(
+                        'Découvrir',
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     IconButton(
                       onPressed: widget.onNotifications,
@@ -48,6 +52,19 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
+                      _typeChip(
+                        label: 'Artiste',
+                        icon: Icons.palette_rounded,
+                        value: 'artiste',
+                        current: typeFilter,
+                        onTap: () {
+                          ref
+                              .read(discoveryMerchantTypeFilterProvider.notifier)
+                              .state = 'artiste';
+                          ref.invalidate(discoveryArtisteMerchantsProvider);
+                        },
+                      ),
+                      const SizedBox(width: 8),
                       _typeChip(
                         label: 'Proche de moi',
                         icon: Icons.location_on_rounded,
@@ -265,7 +282,8 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
               ),
               const SizedBox(height: 6),
               Text(
-                'Essayez un autre nom ou vérifiez l\'orthographe.',
+                'Essayez un autre nom, une catégorie (ex. Café, Boulangerie…) '
+                'ou vérifiez l\'orthographe.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
                   fontSize: 13,
@@ -351,8 +369,9 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
 
   Widget _buildSectionLabel(BuildContext context, String typeFilter) {
     final label = switch (typeFilter) {
+      'artiste' => 'Artistes — toutes les villes',
       'recommandes' => 'Recommandés par les commerces que vous suivez',
-      'associations' => 'Associations & artistes près de vous',
+      'associations' => 'Associations de votre ville',
       _ => 'Dans votre région',
     };
     return Padding(
@@ -495,6 +514,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     }
 
     final isAssociations = typeFilter == 'associations';
+    final isArtistes = typeFilter == 'artiste';
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -511,18 +531,22 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                     color: MerchantColors.gold.withValues(alpha: 0.25)),
               ),
               child: Icon(
-                isAssociations
-                    ? Icons.groups_outlined
-                    : Icons.storefront_outlined,
+                isArtistes
+                    ? Icons.palette_outlined
+                    : isAssociations
+                        ? Icons.groups_outlined
+                        : Icons.storefront_outlined,
                 color: MerchantColors.gold,
                 size: 30,
               ),
             ),
             const SizedBox(height: 16),
             Text(
-              isAssociations
-                  ? 'Aucune association ou artiste pour le moment'
-                  : 'Aucun commerce dans votre région',
+              isArtistes
+                  ? 'Aucun artiste pour le moment'
+                  : isAssociations
+                      ? 'Aucune association dans votre ville'
+                      : 'Aucun commerce dans votre région',
               style: GoogleFonts.outfit(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -532,9 +556,11 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
             ),
             const SizedBox(height: 8),
             Text(
-              isAssociations
-                  ? 'Revenez bientôt ou cherchez par nom / type.'
-                  : 'Utilisez la recherche pour trouver un commerce par nom ou type.',
+              isArtistes
+                  ? 'Les profils artistes apparaissent ici, quelle que soit leur ville.'
+                  : isAssociations
+                      ? 'Les associations de votre ville restent visibles ici, même si vous les suivez déjà.'
+                      : 'Utilisez la recherche pour trouver un commerce par nom ou type.',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 13,

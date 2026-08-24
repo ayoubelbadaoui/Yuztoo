@@ -4,6 +4,7 @@ import '../../../../core/utils/city_input.dart';
 import '../../domain/entities/merchant_storefront_link.dart';
 import '../../domain/entities/client_gratification_config.dart';
 import '../../domain/entities/merchant.dart';
+import '../../domain/entities/merchant_subscription_plan.dart';
 import '../loyalty_program_firestore_mapper.dart';
 
 /// Data Transfer Object for Merchant entity in Firestore.
@@ -46,6 +47,7 @@ class MerchantDto {
     this.gratificationConfigRaw,
     this.publicFollowersCount = 0,
     this.storefrontLinks = const [],
+    this.subscriptionPlan = MerchantSubscriptionPlan.gratuit,
   });
 
   final String id;
@@ -90,6 +92,8 @@ class MerchantDto {
   final int publicFollowersCount;
 
   final List<MerchantStorefrontLink> storefrontLinks;
+
+  final MerchantSubscriptionPlan subscriptionPlan;
 
   static List<MerchantStorefrontLink> _parseStorefrontLinks(dynamic raw) {
     if (raw is! List) return const [];
@@ -201,6 +205,9 @@ class MerchantDto {
           : null,
       publicFollowersCount: nonNegativeInt(data['public_followers_count']),
       storefrontLinks: _parseStorefrontLinks(data['storefront_links']),
+      subscriptionPlan: MerchantSubscriptionPlan.fromFirestore(
+        data['subscription_plan'] as String?,
+      ),
     );
   }
 
@@ -246,6 +253,7 @@ class MerchantDto {
             : null,
         publicFollowersCount: publicFollowersCount,
         storefrontLinks: storefrontLinks,
+        subscriptionPlan: subscriptionPlan,
       );
   factory MerchantDto.fromDomain(Merchant merchant) => MerchantDto(
         id: merchant.id,
@@ -287,6 +295,7 @@ class MerchantDto {
         gratificationConfigRaw: merchant.gratificationConfig?.toMap(),
         publicFollowersCount: merchant.publicFollowersCount,
         storefrontLinks: merchant.storefrontLinks,
+        subscriptionPlan: merchant.subscriptionPlan,
       );
   /// Note: 'id' is not included as it's the Firestore document ID.
   Map<String, dynamic> toFirestore() => <String, dynamic>{
@@ -314,6 +323,7 @@ class MerchantDto {
         if (rappelsAutoPassageValidation != null) 'rappels_auto_passage_validation': rappelsAutoPassageValidation,
         if (passageCooldownEnabled != null) 'passage_cooldown_enabled': passageCooldownEnabled,
         'merchant_type': merchantType,
+        'subscription_plan': subscriptionPlan.firestoreValue,
         if (welcomeGiftDescription != null)
           'welcome_gift_description': welcomeGiftDescription,
         if (categoryId != null) 'category_id': categoryId,

@@ -44,7 +44,9 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                         )
                       : isGuest
                           ? yuztooRefreshableEmpty(_buildGuestLocked(context))
-                          : _buildPromosTab(context),
+                          : _activeTab == 'ville'
+                              ? _buildCityPromosTab(context)
+                              : _buildPromosTab(context),
                 ),
               ),
             ],
@@ -59,9 +61,11 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
   Widget _buildTabBar() {
     final notificationsAsync = ref.watch(clientNotificationsStreamProvider);
     final promosAsync = ref.watch(clientHomePromotionsProvider);
+    final cityPromosAsync = ref.watch(clientCityPromotionsProvider);
     final unreadNotifs =
         notificationsAsync.valueOrNull?.where((n) => !n.isRead).length ?? 0;
     final promoCount = promosAsync.valueOrNull?.length ?? 0;
+    final cityPromoCount = cityPromosAsync.valueOrNull?.length ?? 0;
 
     return Container(
       color: MerchantColors.bgHeader,
@@ -69,22 +73,32 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Row(
-              children: [
-                _tabPill(
-                  'alertes',
-                  'Alertes',
-                  Icons.notifications_rounded,
-                  badge: unreadNotifs > 0 ? unreadNotifs : null,
-                ),
-                const SizedBox(width: 10),
-                _tabPill(
-                  'promos',
-                  'Promotions',
-                  Icons.local_offer_rounded,
-                  badge: promoCount > 0 ? promoCount : null,
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _tabPill(
+                    'ville',
+                    'Ma ville',
+                    Icons.location_city_outlined,
+                    badge: cityPromoCount > 0 ? cityPromoCount : null,
+                  ),
+                  const SizedBox(width: 10),
+                  _tabPill(
+                    'alertes',
+                    'Alertes',
+                    Icons.notifications_rounded,
+                    badge: unreadNotifs > 0 ? unreadNotifs : null,
+                  ),
+                  const SizedBox(width: 10),
+                  _tabPill(
+                    'promos',
+                    'Promotions',
+                    Icons.local_offer_rounded,
+                    badge: promoCount > 0 ? promoCount : null,
+                  ),
+                ],
+              ),
             ),
           ),
           Divider(
@@ -167,13 +181,52 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
 
   // ── Promos tab ──────────────────────────────────────────────────────────────
 
+  Widget _buildCityPromosTab(BuildContext context) {
+    final promosAsync = ref.watch(clientCityPromotionsProvider);
+    return promosAsync.when(
+      loading: () => yuztooRefreshableEmpty(_buildShimmer()),
+      error: (_, __) => yuztooRefreshableEmpty(
+        _buildPromoEmpty(
+          context,
+          title: 'Aucune promotion dans votre ville',
+          subtitle:
+              'Les offres actives des commerces de votre ville apparaîtront ici.',
+        ),
+      ),
+      data: (promos) => promos.isEmpty
+          ? yuztooRefreshableEmpty(
+              _buildPromoEmpty(
+                context,
+                title: 'Aucune promotion dans votre ville',
+                subtitle:
+                    'Les offres actives des commerces de votre ville apparaîtront ici.',
+              ),
+            )
+          : _buildPromoList(context, promos),
+    );
+  }
+
   Widget _buildPromosTab(BuildContext context) {
     final promosAsync = ref.watch(clientHomePromotionsProvider);
     return promosAsync.when(
       loading: () => yuztooRefreshableEmpty(_buildShimmer()),
-      error: (_, __) => yuztooRefreshableEmpty(_buildPromoEmpty(context)),
+      error: (_, __) => yuztooRefreshableEmpty(
+        _buildPromoEmpty(
+          context,
+          title: 'Aucune promotion active',
+          subtitle:
+              'Les promotions des commerces que vous suivez apparaîtront ici.',
+        ),
+      ),
       data: (promos) => promos.isEmpty
-          ? yuztooRefreshableEmpty(_buildPromoEmpty(context))
+          ? yuztooRefreshableEmpty(
+              _buildPromoEmpty(
+                context,
+                title: 'Aucune promotion active',
+                subtitle:
+                    'Les promotions des commerces que vous suivez apparaîtront ici.',
+              ),
+            )
           : _buildPromoList(context, promos),
     );
   }
@@ -209,7 +262,11 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
     );
   }
 
-  Widget _buildPromoEmpty(BuildContext context) {
+  Widget _buildPromoEmpty(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+  }) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -235,7 +292,8 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
             ),
             const SizedBox(height: 20),
             Text(
-              'Aucune promotion active',
+              title,
+              textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -244,7 +302,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
             ),
             const SizedBox(height: 8),
             Text(
-              'Les promotions des commerces que vous suivez apparaîtront ici.',
+              subtitle,
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 13,
@@ -493,7 +551,11 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const YuztooGradientTitle('Alertes'),
+                    const YuztooGradientTitle(
+                      'Alertes',
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
                     if (unreadCount > 0 && isAlertes) ...[
                       const SizedBox(width: 8),
                       Container(

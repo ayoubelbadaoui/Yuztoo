@@ -12,13 +12,17 @@ import '../../profile/application/user_safety_providers.dart'
 import '../domain/discovery_association_filter.dart';
 import '../domain/discovery_proche_filter.dart';
 import '../domain/discovery_recommended_partners.dart';
+import '../domain/discovery_subscription_visibility.dart';
 
-/// 'proche' | 'recommandes' | 'associations'
+/// 'artiste' | 'proche' | 'recommandes' | 'associations'
 final discoveryMerchantTypeFilterProvider =
     StateProvider<String>((ref) => 'proche');
 
 List<Merchant> _activeOnly(List<Merchant> merchants) =>
     merchants.where((m) => m.status == 'active').toList();
+
+List<Merchant> _discoveryCatalogMerchants(List<Merchant> merchants) =>
+    filterDiscoverySubscriptionVisibility(_activeOnly(merchants));
 
 /// City / global catalogue slice for Découvrir — expensive Firestore scan.
 /// Cached separately so follow/unfollow only refreshes [discoveryMerchantsProvider].
@@ -66,7 +70,16 @@ final discoveryCityMerchantsProvider =
     }
   }
 
-  return _activeOnly(merchants);
+  return _discoveryCatalogMerchants(merchants);
+});
+
+/// National artiste catalogue — no city filter (all active artistes France).
+final discoveryArtisteMerchantsProvider =
+    FutureProvider<List<Merchant>>((ref) async {
+  final repo = ref.watch(merchantRepositoryProvider);
+  final result = await repo.listMerchants(limit: 200, cityFetchCap: 500);
+  final merchants = result.fold((failure) => <Merchant>[], (list) => list);
+  return filterArtisteMerchants(_discoveryCatalogMerchants(merchants));
 });
 
 /// Merchants the current user follows (for Découvrir empty states / previews).
@@ -158,13 +171,14 @@ final discoveryRecommendedMerchantsProvider =
       }
     }
   }
-  return merchants;
+  return _discoveryCatalogMerchants(merchants);
 });
 
 /// Merchants list for Découvrir.
+/// 'artiste' → all active artistes (any city).
 /// 'proche' → same-city active, excluding followed + own.
 /// 'recommandes' → partner businesses of followed merchants.
-/// 'associations' → association / artiste slice of the city catalogue.
+/// 'associations' → all associations in the user's city catalogue.
 final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
   final userId = ref.watch(auth_providers.currentUserIdProvider);
   final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
@@ -173,28 +187,32 @@ final discoveryMerchantsProvider = FutureProvider<List<Merchant>>((ref) async {
     return ref.watch(discoveryRecommendedMerchantsProvider.future);
   }
 
+  if (typeFilter == 'artiste') {
+    return ref.watch(discoveryArtisteMerchantsProvider.future);
+  }
+
   final cityMerchants = await ref.watch(discoveryCityMerchantsProvider.future);
+
+  if (typeFilter == 'associations') {
+    return filterAssociationMerchants(cityMerchants);
+  }
+
   final followedIds = userId == null
       ? const <String>[]
       : await ref.watch(followedMerchantIdsForCurrentUserProvider.future);
 
-  final proche = filterProcheDeMoiMerchants(
+  return filterProcheDeMoiMerchants(
     cityMerchants: cityMerchants,
     followedMerchantIds: followedIds.toSet(),
     currentUserId: userId,
   );
-
-  if (typeFilter == 'associations') {
-    return filterAssociationArtisteMerchants(proche);
-  }
-
-  return proche;
 });
 
 void _invalidateDiscoveryCatalog(
   void Function(ProviderOrFamily provider) invalidate,
 ) {
   invalidate(discoveryCityMerchantsProvider);
+  invalidate(discoveryArtisteMerchantsProvider);
   invalidate(discoveryRecommendedMerchantsProvider);
   invalidate(discoveryFollowedMerchantsProvider);
   invalidate(discoveryMerchantsProvider);

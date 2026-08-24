@@ -33,7 +33,11 @@ class _Header extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: const YuztooGradientTitle('Fidélité'),
+                child: const YuztooGradientTitle(
+                  'Fidélité',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               // Dual-profile: storefront icon (not person/account silhouette)
               if (onSwitchToMerchant != null)
