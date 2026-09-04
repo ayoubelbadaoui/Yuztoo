@@ -302,39 +302,7 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
         return const Right<AuthFailure, bool>(false);
       }
 
-      // Required identity fields written at signup time.
-      // City is intentionally NOT part of completeness: it is optional at
-      // signup (set during onboarding for merchants and via the
-      // `LoginFlowCityRequired` city picker for clients). Including it
-      // here would short-circuit the city picker branch and surface
-      // "Profil incomplet" to users who simply haven't onboarded yet.
-      final hasUid = data['uid'] != null && (data['uid'] as String).isNotEmpty;
-      final hasEmail =
-          data['email'] != null && (data['email'] as String).isNotEmpty;
-      final hasPhone =
-          data['phone'] != null && (data['phone'] as String).isNotEmpty;
-
-      // Roles: canonical `roles` map, or legacy `role` string until patched on login.
-      final hasRoles = data['roles'] != null ||
-          (data['role'] != null &&
-              (data['role'] as String).toString().trim().isNotEmpty);
-      final onboarding = data['onboarding'] as Map<String, dynamic>?;
-      final onboardingMerchant =
-          (onboarding?['merchant'] as String?)?.trim().toLowerCase();
-      final hasOnboarding = onboardingMerchant == 'not_started' ||
-          onboardingMerchant == 'completed';
-      final hasStatus = data['status'] is String &&
-          ((data['status'] as String).trim().isNotEmpty);
-      final hasMerchantIdField = data.containsKey('merchant_id');
-
-      final isComplete = hasUid &&
-          hasEmail &&
-          hasPhone &&
-          hasRoles &&
-          hasOnboarding &&
-          hasStatus &&
-          hasMerchantIdField;
-      return Right<AuthFailure, bool>(isComplete);
+      return Right<AuthFailure, bool>(isUserProfileComplete(data));
     } catch (e, st) {
       LoggerService.logError(
         'Error checking profile completeness',
@@ -342,8 +310,16 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
         stackTrace: st,
         context: {'uid': uid},
       );
-      // On error, assume incomplete (safer default)
-      return const Right<AuthFailure, bool>(false);
+      // Surface a failure instead of "incomplete": callers treat an unknown
+      // result as complete, so a transient Firestore or permission error
+      // never locks a valid account out of login.
+      return Left<AuthFailure, bool>(
+        AuthUnexpectedFailure(
+          message: 'Impossible de vérifier le profil utilisateur.',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
     }
   }
 
