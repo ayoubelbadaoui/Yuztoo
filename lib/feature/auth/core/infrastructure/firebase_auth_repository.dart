@@ -19,6 +19,14 @@ part 'firebase_auth_repository.creds.part.dart';
 part 'firebase_auth_repository.phone.part.dart';
 part 'firebase_auth_repository.session.part.dart';
 
+/// Shown whenever SMS verification is refused for a reason the user cannot act
+/// on — app attestation (Android Play Integrity / iOS silent push), provider
+/// configuration, or an unrecognised backend error. The technical cause goes to
+/// Crashlytics via [LoggerService]; the user gets a way forward instead.
+const String _smsUnavailableMessage =
+    'L\'envoi du code SMS est momentanément indisponible. '
+    'Réessayez dans quelques minutes ou contactez le support si le problème persiste.';
+
 abstract class _FirebaseAuthRepositoryBase {
   _FirebaseAuthRepositoryBase(this._auth, this._firestore);
 
@@ -122,8 +130,7 @@ abstract class _FirebaseAuthRepositoryBase {
         );
       case 'missing-client-identifier':
         return const AuthUnexpectedFailure(
-          message:
-              'Impossible d\'envoyer le SMS (configuration iOS : notifications push / APNs manquantes dans Firebase). Contactez le support.',
+          message: _smsUnavailableMessage,
         );
       case 'captcha-check-failed':
         return const AuthUnexpectedFailure(
@@ -134,8 +141,7 @@ abstract class _FirebaseAuthRepositoryBase {
         return const UserCancelledFailure();
       case 'app-not-authorized':
         return const AuthUnexpectedFailure(
-          message:
-              'L\'application n\'est pas autorisée à utiliser Firebase Auth. Ajoutez l\'empreinte SHA-1 dans la console Firebase.',
+          message: _smsUnavailableMessage,
         );
       case 'internal-error':
         return _mapPhoneOrInternalAuthFailure(error, stackTrace);
@@ -154,13 +160,16 @@ abstract class _FirebaseAuthRepositoryBase {
                 'La vérification par SMS n\'est pas disponible pour le moment. Veuillez réessayer plus tard ou contacter le support.',
           );
         }
-        // Surface the Firebase error code in the user-facing message so
-        // unmapped codes are debuggable from the snackbar (otherwise the
-        // user just sees "une erreur est survenue" and we have to dig in
-        // Crashlytics to identify what actually fired). The code is short
-        // and not sensitive (e.g. "too-many-requests", "operation-not-allowed").
+        // Unmapped code: report it so it shows up as a Crashlytics non-fatal
+        // and can be given proper copy later. The user gets none of this.
+        LoggerService.logError(
+          'Unmapped FirebaseAuthException',
+          error: error,
+          stackTrace: stackTrace,
+          context: {'code': error.code},
+        );
         return AuthUnexpectedFailure(
-          message: 'Connexion impossible (code: ${error.code}). '
+          message: 'Connexion impossible pour le moment. '
               'Réessayez ou contactez le support.',
           cause: error,
           stackTrace: stackTrace,
@@ -190,8 +199,7 @@ abstract class _FirebaseAuthRepositoryBase {
         lower.contains('package certificate hash') ||
         lower.contains('certificate hash')) {
       return const AuthUnexpectedFailure(
-        message:
-            'L\'application n\'est pas autorisée (empreinte SHA-1 Android ou certificat iOS manquant dans Firebase). Contactez le support.',
+        message: _smsUnavailableMessage,
       );
     }
 
@@ -224,8 +232,7 @@ abstract class _FirebaseAuthRepositoryBase {
         lower.contains('cert_hash') ||
         lower.contains('invalid_cert')) {
       return const AuthUnexpectedFailure(
-        message:
-            'Configuration Firebase incorrecte (certificat / SHA-1). Contactez le support.',
+        message: _smsUnavailableMessage,
       );
     }
 
@@ -237,8 +244,7 @@ abstract class _FirebaseAuthRepositoryBase {
     }
 
     return AuthUnexpectedFailure(
-      message:
-          'Impossible d\'envoyer le SMS (erreur interne). Réessayez ou contactez le support.',
+      message: _smsUnavailableMessage,
       cause: error,
       stackTrace: stackTrace,
     );
@@ -284,11 +290,16 @@ abstract class _FirebaseAuthRepositoryBase {
       case 'network-request-failed':
         return AuthNetworkFailure(cause: error, stackTrace: stackTrace);
       default:
-        // Same rationale as _mapAuthException: surface the Firebase code
-        // so an unhandled signup failure is debuggable rather than being
-        // flattened to a generic "unexpected error" message.
+        // Same rationale as _mapAuthException: report the code rather than
+        // showing it, so an unhandled signup failure stays debuggable.
+        LoggerService.logError(
+          'Unmapped signup FirebaseAuthException',
+          error: error,
+          stackTrace: stackTrace,
+          context: {'code': error.code},
+        );
         return AuthUnexpectedFailure(
-          message: 'Inscription impossible (code: ${error.code}). '
+          message: 'Inscription impossible pour le moment. '
               'Réessayez ou contactez le support.',
           cause: error,
           stackTrace: stackTrace,

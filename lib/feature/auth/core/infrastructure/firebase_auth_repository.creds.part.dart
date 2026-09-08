@@ -304,9 +304,17 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
           UserCancelledFailure(),
         );
       }
+      // Raw platform messages are English and internal (e.g. DEVELOPER_ERROR
+      // when a signing certificate is not registered) — report, don't display.
+      LoggerService.logError(
+        'Google Sign-In PlatformException',
+        error: e,
+        context: {'code': e.code, 'message': e.message ?? ''},
+      );
       return Left<AuthFailure, AuthUser>(
         AuthUnexpectedFailure(
-          message: e.message ?? 'Erreur Google Sign-In (${e.code}).',
+          message: 'Connexion Google impossible pour le moment. '
+              'Réessayez ou contactez le support.',
           cause: e,
         ),
       );
@@ -452,9 +460,17 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
           e.message?.toLowerCase().contains('cancel') == true) {
         return const Left<AuthFailure, AuthUser>(UserCancelledFailure());
       }
+      // Raw platform messages are English and internal (e.g. DEVELOPER_ERROR
+      // when a signing certificate is not registered) — report, don't display.
+      LoggerService.logError(
+        'Google Sign-In PlatformException',
+        error: e,
+        context: {'code': e.code, 'message': e.message ?? ''},
+      );
       return Left<AuthFailure, AuthUser>(
         AuthUnexpectedFailure(
-          message: e.message ?? 'Erreur Google Sign-In (${e.code}).',
+          message: 'Connexion Google impossible pour le moment. '
+              'Réessayez ou contactez le support.',
           cause: e,
         ),
       );
