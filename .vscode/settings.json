@@ -3,5 +3,6 @@
   "git.enabled": true,
   "scm.showInStatusBar": true,
   "git.autoRepositoryDetection": true,
-  "git.openRepositoryInParentFolders": "always"
+  "git.openRepositoryInParentFolders": "always",
+  "java.configuration.updateBuildConfiguration": "interactive"
 }

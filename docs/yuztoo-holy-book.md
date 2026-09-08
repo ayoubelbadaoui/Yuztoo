@@ -105,6 +105,7 @@ Use this as a **reminder checklist** when you pick up or finish a task. It match
 1. Did I leak **infra** into **presentation**?
 2. Did I add **rules** in the right layer (domain vs use case)?
 3. **System bars** + **design.md** alignment OK?
+4. If I touched Firebase backend (functions / rules / indexes / storage / hosting): did I deploy to **both** `yuztoo-dev` and `yuztoo`?
 
 ---
 
@@ -114,6 +115,8 @@ Use this as a **reminder checklist** when you pick up or finish a task. It match
 |-----|-----|
 | `design.md` | Visual / UX reference |
 | `docs/flutter-presentation-part-split-guide.md` | Splitting large presentation files |
+| `docs/firebase-dual-env-deploy.md` | **Mandatory** dual-project Firebase deploy (dev + prod) |
 | `.cursor/rules/system-ui-overlay-styling.mdc` | Status & navigation bar styling |
+| `.cursor/rules/firebase-dual-env-deploy.mdc` | Always-on agent rule for dual-env deploys |
 
 This file is a **guideline**, not a spec: if a task genuinely needs an exception, document it in the PR / commit message and keep the exception **narrow**.

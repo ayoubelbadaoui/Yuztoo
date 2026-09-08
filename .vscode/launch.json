@@ -5,21 +5,50 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "flutter_yuztoo",
-      "request": "launch",
-      "type": "dart"
-    },
-    {
-      "name": "flutter_yuztoo (profile mode)",
+      "name": "yuztoo dev (debug mode)",
       "request": "launch",
       "type": "dart",
-      "flutterMode": "profile"
+      "program": "lib/main_dev.dart",
+      "args": ["--flavor", "dev", "--dart-define=APP_ENV=dev"]
     },
     {
-      "name": "flutter_yuztoo (release mode)",
+      "name": "yuztoo dev (profile mode)",
       "request": "launch",
       "type": "dart",
-      "flutterMode": "release"
+      "flutterMode": "profile",
+      "program": "lib/main_dev.dart",
+      "args": ["--flavor", "dev", "--dart-define=APP_ENV=dev"]
+    },
+    {
+      "name": "yuztoo dev (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main_dev.dart",
+      "args": ["--flavor", "dev", "--dart-define=APP_ENV=dev"]
+    },
+    {
+      "name": "yuztoo prod (debug mode)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_prod.dart",
+      "args": ["--flavor", "prod", "--dart-define=APP_ENV=prod"]
+    },
+    {
+      "name": "yuztoo prod (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main_prod.dart",
+      "args": ["--flavor", "prod", "--dart-define=APP_ENV=prod"]
+    },
+    {
+      "name": "yuztoo prod (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main_prod.dart",
+      "args": ["--flavor", "prod", "--dart-define=APP_ENV=prod"]
     }
   ]
 }
