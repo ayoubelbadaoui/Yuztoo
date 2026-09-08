@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr" class="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Yuztoo — Administration</title>
+
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet" />
+
+<script>
+  // Palette mirrors `storefront_colors.dart` so the back-office reads as the
+  // same product as the app.
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          gold: { DEFAULT: "#D4AF37", soft: "#E8CC72", deep: "#A8862A" },
+          navy: { DEFAULT: "#0B162C", light: "#1A2B4D", mid: "#132340" },
+          cream: "#FDFBF7",
+        },
+        fontFamily: { display: ["Outfit", "sans-serif"] },
+        boxShadow: {
+          card: "0 1px 2px rgba(11,22,44,.04), 0 8px 24px -12px rgba(11,22,44,.12)",
+          lift: "0 8px 32px -8px rgba(11,22,44,.18)",
+        },
+      },
+    },
+  };
+</script>
+
+<style type="text/tailwindcss">
+  body { font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; }
+
+  .ms {
+    font-family: 'Material Symbols Rounded';
+    font-weight: normal; font-style: normal; line-height: 1;
+    letter-spacing: normal; text-transform: none; white-space: nowrap;
+    word-wrap: normal; direction: ltr; -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Component classes live in the components layer so that Tailwind's own
+     utilities still win. Emitted at the same level as utilities, the
+     `display` baked into `.btn` / `.badge` by @apply would override a
+     `hidden` class added at runtime — buttons meant to be hidden would stay
+     on screen. */
+  @layer components {
+    /* Buttons */
+    .btn { @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed; }
+    .btn-gold { @apply btn bg-gold text-navy shadow-sm hover:bg-gold-soft hover:shadow-lift active:scale-[.98]; }
+    .btn-ghost { @apply btn border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 active:scale-[.98]; }
+    .btn-danger { @apply btn border border-red-200 bg-white text-red-600 hover:border-red-300 hover:bg-red-50 active:scale-[.98]; }
+    .btn-sm { @apply rounded-lg px-2.5 py-1.5 text-xs; }
+
+    /* Forms */
+    .field { @apply w-full rounded-xl border-slate-200 bg-white text-sm shadow-sm transition focus:border-gold focus:ring-2 focus:ring-gold/25; }
+    .label { @apply mb-1.5 block text-[11px] font-bold uppercase tracking-[.08em] text-slate-400; }
+
+    /* Chrome */
+    .badge { @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide; }
+    .card { @apply rounded-2xl border border-slate-200/80 bg-white shadow-card; }
+
+    /* Sidebar nav */
+    .nav-item { @apply relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 transition-all duration-150 hover:bg-white/5 hover:text-white; }
+    .nav-item.is-active { @apply bg-white/10 text-white; }
+    .nav-item[disabled] { @apply cursor-not-allowed opacity-40 hover:bg-transparent hover:text-slate-400; }
+    .nav-section { @apply px-3 pb-2 pt-5 text-[10px] font-bold uppercase tracking-[.14em] text-slate-600; }
+  }
+
+  .nav-item.is-active::before {
+    content: ""; position: absolute; left: -12px; top: 50%;
+    transform: translateY(-50%); height: 22px; width: 3px;
+    border-radius: 9999px; background: #D4AF37;
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 100% 50% } 100% { background-position: 0 50% } }
+
+  .fade-in { animation: fadeIn .25s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+</style>
+</head>
+
+<body class="bg-cream text-slate-800">
+
+<!-- ── Sign in ─────────────────────────────────────────────────────────── -->
+<section id="login-view" class="hidden min-h-screen items-center justify-center bg-navy px-4">
+  <div class="pointer-events-none fixed inset-0 opacity-[.07]"
+       style="background-image:radial-gradient(circle at 20% 20%, #D4AF37 0, transparent 45%), radial-gradient(circle at 80% 70%, #D4AF37 0, transparent 40%)"></div>
+
+  <div class="relative w-full max-w-[380px]">
+    <div class="mb-7 text-center">
+      <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-gold to-gold-deep shadow-lift">
+        <span class="ms text-3xl text-navy">shield_person</span>
+      </div>
+      <h1 class="text-2xl font-extrabold tracking-tight text-white">Yuztoo Administration</h1>
+      <p class="mt-1.5 text-sm text-slate-400">Console réservée aux administrateurs.</p>
+    </div>
+
+    <form id="login-form" class="space-y-4 rounded-2xl bg-white/[.04] p-6 ring-1 ring-white/10 backdrop-blur">
+      <div>
+        <label class="label !text-slate-500" for="login-email">E-mail</label>
+        <input id="login-email" type="email" autocomplete="username" required
+               class="field border-white/10 bg-white/5 text-white placeholder:text-slate-600" />
+      </div>
+      <div>
+        <label class="label !text-slate-500" for="login-password">Mot de passe</label>
+        <input id="login-password" type="password" autocomplete="current-password" required
+               class="field border-white/10 bg-white/5 text-white placeholder:text-slate-600" />
+      </div>
+      <p id="login-error" class="hidden rounded-xl bg-red-500/15 px-3 py-2.5 text-sm text-red-300 ring-1 ring-red-500/25"></p>
+      <button type="submit" class="btn-gold w-full py-2.5">Se connecter</button>
+    </form>
+
+    <p id="emulator-note" class="mt-5 hidden rounded-xl bg-gold/10 px-3.5 py-2.5 text-xs leading-relaxed text-gold-soft ring-1 ring-gold/20"></p>
+  </div>
+</section>
+
+<!-- ── Console ─────────────────────────────────────────────────────────── -->
+<section id="app-view" class="hidden">
+  <!-- Sidebar -->
+  <!-- Collapses to an icon rail below `lg` so narrow windows keep their
+       content width; labels return automatically on a normal desktop. -->
+  <aside class="fixed inset-y-0 left-0 z-30 flex w-[76px] flex-col bg-navy px-3 py-6 lg:w-[248px] lg:px-5">
+    <div class="flex items-center gap-3 lg:px-1">
+      <div class="mx-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-gold to-gold-deep lg:mx-0">
+        <span class="ms text-2xl text-navy">shield_person</span>
+      </div>
+      <div class="hidden lg:block">
+        <div class="text-sm font-extrabold leading-tight text-white">Yuztoo</div>
+        <div class="text-[11px] font-medium leading-tight text-slate-500">Administration</div>
+      </div>
+    </div>
+
+    <!-- `max-lg:hidden` survives the `hidden` removal in app.js, so the chip
+         never spills out of the collapsed rail. -->
+    <span id="env-chip"
+          class="badge mt-4 hidden max-lg:hidden justify-center bg-gold/15 text-gold-soft ring-1 ring-gold/25"></span>
+
+    <nav class="mt-4 flex-1 overflow-y-auto">
+      <p class="nav-section hidden lg:block">Pilotage</p>
+      <button class="nav-item justify-center lg:justify-start" data-view="dashboard" title="Tableau de bord">
+        <span class="ms text-[20px]">insights</span>
+        <span class="hidden lg:inline">Tableau de bord</span>
+      </button>
+
+      <p class="nav-section hidden lg:block">Gestion</p>
+      <button class="nav-item justify-center lg:justify-start" data-view="stores" title="Boutiques">
+        <span class="ms text-[20px]">storefront</span>
+        <span class="hidden lg:inline">Boutiques</span>
+        <span id="nav-count-stores" class="ml-auto hidden rounded-md bg-white/10 px-1.5 py-0.5 text-[11px] font-bold text-slate-300 lg:inline"></span>
+      </button>
+      <button class="nav-item justify-center lg:justify-start" data-view="clients" title="Clients">
+        <span class="ms text-[20px]">group</span>
+        <span class="hidden lg:inline">Clients</span>
+        <span id="nav-count-clients" class="ml-auto hidden rounded-md bg-white/10 px-1.5 py-0.5 text-[11px] font-bold text-slate-300 lg:inline"></span>
+      </button>
+
+      <p class="nav-section hidden lg:block">Prochainement</p>
+      <button class="nav-item justify-center lg:justify-start" disabled title="Statistiques — V2">
+        <span class="ms text-[20px]">monitoring</span>
+        <span class="hidden lg:inline">Statistiques</span>
+        <span class="ml-auto hidden rounded-md bg-gold/20 px-1.5 py-0.5 text-[10px] font-bold text-gold-soft lg:inline">V2</span>
+      </button>
+      <button class="nav-item justify-center lg:justify-start" disabled title="Journal d'audit — V2">
+        <span class="ms text-[20px]">receipt_long</span>
+        <span class="hidden lg:inline">Journal d'audit</span>
+        <span class="ml-auto hidden rounded-md bg-gold/20 px-1.5 py-0.5 text-[10px] font-bold text-gold-soft lg:inline">V2</span>
+      </button>
+      <button class="nav-item justify-center lg:justify-start" disabled title="Paramètres — V2">
+        <span class="ms text-[20px]">tune</span>
+        <span class="hidden lg:inline">Paramètres</span>
+        <span class="ml-auto hidden rounded-md bg-gold/20 px-1.5 py-0.5 text-[10px] font-bold text-gold-soft lg:inline">V2</span>
+      </button>
+    </nav>
+
+    <div class="mt-4 rounded-xl ring-white/10 lg:bg-white/5 lg:p-3 lg:ring-1">
+      <div class="flex items-center gap-2.5">
+        <div id="admin-avatar" class="mx-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-bold text-gold-soft lg:mx-0"></div>
+        <div class="hidden min-w-0 flex-1 lg:block">
+          <div class="truncate text-xs font-semibold text-white" id="admin-email"></div>
+          <div class="text-[11px] text-slate-500">Administrateur</div>
+        </div>
+      </div>
+      <button id="logout-btn" title="Déconnexion"
+              class="btn btn-sm mt-2.5 w-full border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white">
+        <span class="ms text-base">logout</span>
+        <span class="hidden lg:inline">Déconnexion</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="ml-[76px] flex min-h-screen flex-col lg:ml-[248px]">
+    <header class="sticky top-0 z-20 border-b border-slate-200/70 bg-cream/85 backdrop-blur-md">
+      <div class="flex items-center gap-4 px-5 py-5 lg:px-8">
+        <div class="min-w-0">
+          <h1 id="page-title" class="truncate text-xl font-extrabold tracking-tight text-navy"></h1>
+          <p id="page-subtitle" class="mt-0.5 truncate text-sm text-slate-500"></p>
+        </div>
+        <div id="page-actions" class="ml-auto flex shrink-0 items-center gap-2"></div>
+      </div>
+    </header>
+
+    <main class="flex-1 px-5 pb-12 pt-6 lg:px-8">
+      <!-- Dashboard -->
+      <div id="view-dashboard" class="hidden"></div>
+
+      <!-- Shared list view (stores + clients) -->
+      <div id="view-list" class="hidden">
+        <div class="mb-5 flex flex-wrap items-end gap-3">
+          <div class="min-w-[280px] flex-1">
+            <label class="label" for="search-input">Rechercher</label>
+            <div class="relative">
+              <span class="ms pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">search</span>
+              <input id="search-input" type="search" class="field pl-10" />
+            </div>
+            <p id="search-hint" class="mt-1.5 text-xs text-slate-400"></p>
+          </div>
+
+          <div id="status-filter-wrap" class="w-[170px]">
+            <label class="label" for="status-filter">Statut</label>
+            <select id="status-filter" class="field">
+              <option value="">Tous</option>
+              <option value="active">En ligne</option>
+              <option value="inactive">Hors ligne</option>
+            </select>
+          </div>
+
+          <div class="w-[170px]">
+            <label class="label" for="list-mode">Affichage</label>
+            <select id="list-mode" class="field">
+              <option value="active">Actifs</option>
+              <option value="deleted">Corbeille</option>
+              <option value="all">Tous</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead id="table-head" class="border-b border-slate-200/80 bg-slate-50/60 text-[11px] font-bold uppercase tracking-[.06em] text-slate-500"></thead>
+              <tbody id="table-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+          <div id="table-empty" class="hidden px-6 py-16 text-center"></div>
+        </div>
+
+        <div class="mt-5 flex justify-center">
+          <button id="load-more-btn" class="btn-ghost hidden">
+            <span class="ms text-base">expand_more</span> Charger plus
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ── Modal + toasts ──────────────────────────────────────────────────── -->
+<div id="modal-root" class="hidden fixed inset-0 z-50 items-center justify-center bg-navy/60 p-4 backdrop-blur-sm">
+  <div class="fade-in max-h-[90vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <h2 id="modal-title" class="text-base font-extrabold tracking-tight text-navy"></h2>
+      <button id="modal-close" class="ms rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">close</button>
+    </div>
+    <div id="modal-body" class="max-h-[62vh] overflow-y-auto px-6 py-5"></div>
+    <div id="modal-footer" class="flex justify-end gap-2 border-t border-slate-200 bg-slate-50/60 px-6 py-4"></div>
+  </div>
+</div>
+
+<div id="toast-root" class="fixed bottom-5 right-5 z-[60] flex flex-col gap-2"></div>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

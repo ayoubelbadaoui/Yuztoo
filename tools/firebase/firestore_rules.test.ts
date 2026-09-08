@@ -1645,3 +1645,161 @@ describe("active_validations merchant updates", () => {
     );
   });
 });
+
+// ── Admin CRM ────────────────────────────────────────────────────────────────
+//
+// The back-office writes through Cloud Functions on the Admin SDK, which
+// bypasses these rules entirely. What matters here is the other direction:
+// that a normal client SDK session cannot forge, clear, or work around the
+// fields the back-office owns.
+
+describe("admin CRM — admin-owned fields", () => {
+  test("merchant owner CANNOT set deleted_at on their own store", async () => {
+    await seedMerchant("m1", "owner1", { status: "active" });
+    await assertFails(
+      authDb("owner1")
+        .collection("merchants")
+        .doc("m1")
+        .update({ deleted_at: new Date() })
+    );
+  });
+
+  test("merchant owner CANNOT clear deleted_at to un-delete their store", async () => {
+    await seedMerchant("m1", "owner1", {
+      status: "inactive",
+      deleted_at: new Date(),
+    });
+    await assertFails(
+      authDb("owner1")
+        .collection("merchants")
+        .doc("m1")
+        .update({ deleted_at: null })
+    );
+  });
+
+  test("merchant owner CANNOT republish a soft-deleted store", async () => {
+    // The whole point of the soft delete: flipping status back must fail.
+    await seedMerchant("m1", "owner1", {
+      status: "inactive",
+      deleted_at: new Date(),
+      status_before_delete: "active",
+    });
+    await assertFails(
+      authDb("owner1")
+        .collection("merchants")
+        .doc("m1")
+        .update({ status: "active" })
+    );
+  });
+
+  test("merchant owner CAN still edit a store that is not soft-deleted", async () => {
+    await seedMerchant("m1", "owner1", { status: "active" });
+    await assertSucceeds(
+      authDb("owner1")
+        .collection("merchants")
+        .doc("m1")
+        .update({ status: "inactive", name: "Renamed" })
+    );
+  });
+
+  test("merchant owner CAN edit a store carrying an explicit null deleted_at", async () => {
+    // Stores created by the back-office are stamped `deleted_at: null`; that
+    // must not lock their owner out.
+    await seedMerchant("m1", "owner1", { status: "active", deleted_at: null });
+    await assertSucceeds(
+      authDb("owner1").collection("merchants").doc("m1").update({ name: "Ok" })
+    );
+  });
+
+  test("CANNOT create a merchant pre-stamped with admin-owned fields", async () => {
+    await assertFails(
+      authDb("owner1").collection("merchants").doc("m2").set({
+        owner_uid: "owner1",
+        name: "Sneaky",
+        deleted_at: null,
+      })
+    );
+  });
+
+  test("user CANNOT set deleted_at on their own account", async () => {
+    await seedUser("alice", { status: "active" });
+    await assertFails(
+      authDb("alice")
+        .collection("users")
+        .doc("alice")
+        .update({
+          deleted_at: new Date(),
+          roles: { client: true, merchant: false, provider: false },
+          onboarding: { client: "completed", merchant: "not_started" },
+        })
+    );
+  });
+
+  test("user CANNOT clear deleted_at set by an admin", async () => {
+    await seedUser("alice", { status: "blocked", deleted_at: new Date() });
+    await assertFails(
+      authDb("alice")
+        .collection("users")
+        .doc("alice")
+        .update({
+          deleted_at: null,
+          roles: { client: true, merchant: false, provider: false },
+          onboarding: { client: "completed", merchant: "not_started" },
+        })
+    );
+  });
+
+  test("user CANNOT forge created_by_admin on signup", async () => {
+    await assertFails(
+      authDb("alice").collection("users").doc("alice").set({
+        roles: { client: true, merchant: false, provider: false },
+        onboarding: { client: "not_started", merchant: "not_started" },
+        created_by_admin: "someone",
+      })
+    );
+  });
+
+  test("normal profile edits still work for a non-deleted user", async () => {
+    await seedUser("alice", { status: "active" });
+    await assertSucceeds(
+      authDb("alice")
+        .collection("users")
+        .doc("alice")
+        .update({
+          firstName: "Alice",
+          roles: { client: true, merchant: false, provider: false },
+          onboarding: { client: "completed", merchant: "not_started" },
+        })
+    );
+  });
+});
+
+describe("admin_audit_log", () => {
+  test("signed-in user CANNOT read the audit log", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .collection("admin_audit_log")
+        .doc("e1")
+        .set({ action: "merchant.updated" });
+    });
+    await assertFails(
+      authDb("alice").collection("admin_audit_log").doc("e1").get()
+    );
+  });
+
+  test("signed-in user CANNOT list the audit log", async () => {
+    await assertFails(
+      authDb("alice").collection("admin_audit_log").limit(10).get()
+    );
+  });
+
+  test("signed-in user CANNOT write to the audit log", async () => {
+    await assertFails(
+      authDb("alice")
+        .collection("admin_audit_log")
+        .doc("forged")
+        .set({ action: "merchant.deleted", actor_uid: "alice" })
+    );
+  });
+});

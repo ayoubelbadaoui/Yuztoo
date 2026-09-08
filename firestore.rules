@@ -42,6 +42,47 @@ service cloud.firestore {
       ]);
     }
 
+    // --- Admin CRM ownership ---------------------------------------------
+    // Fields written exclusively by the back-office callables (Admin SDK,
+    // which bypasses these rules). Clients must never create or modify them:
+    // clearing `deleted_at` would let a soft-deleted account un-delete itself
+    // before the retention sweep, and forging it would let anyone queue an
+    // arbitrary document for permanent deletion.
+    function adminOwnedFields() {
+      return [
+        'deleted_at',
+        'deleted_by',
+        'deleted_reason',
+        'deleted_via',
+        'status_before_delete',
+        'created_by_admin'
+      ];
+    }
+
+    function noAdminOwnedFieldsOnCreate() {
+      return !request.resource.data.keys().hasAny(adminOwnedFields());
+    }
+
+    function noAdminOwnedFieldChanges() {
+      return !request.resource.data.diff(resource.data)
+        .affectedKeys().hasAny(adminOwnedFields());
+    }
+
+    // A soft-deleted document is frozen to the client SDK until an admin
+    // restores it (or the sweep removes it for good).
+    function notSoftDeleted() {
+      return resource.data.get('deleted_at', null) == null;
+    }
+
+    // --- /admin_audit_log/{entryId} ---------------------------------------
+    // Immutable record of every back-office action. Written only by the
+    // Admin SDK and read only through the Firebase Console — never exposed
+    // to any client, including admins' browsers, which see it (if at all)
+    // through a callable.
+    match /admin_audit_log/{entryId} {
+      allow read, create, update, delete: if false;
+    }
+
     function onboardingShapeValid() {
       let o = request.resource.data.onboarding;
       return ('onboarding' in request.resource.data)
@@ -94,13 +135,15 @@ service cloud.firestore {
 
       allow create: if isOwner(userId) && (
         !('status' in request.resource.data) || request.resource.data.status == 'active'
-      ) && onboardingShapeValid() && rolesShapeValid() && noLegacyDottedRoleKeys();
+      ) && onboardingShapeValid() && rolesShapeValid() && noLegacyDottedRoleKeys()
+        && noAdminOwnedFieldsOnCreate();
 
       allow update: if isOwner(userId) && (
         !('status' in resource.data)
           ? (!('status' in request.resource.data) || request.resource.data.status == 'active')
           : resource.data.status == request.resource.data.status
-      ) && onboardingShapeValid() && rolesShapeValid() && noLegacyDottedRoleKeys();
+      ) && onboardingShapeValid() && rolesShapeValid() && noLegacyDottedRoleKeys()
+        && noAdminOwnedFieldChanges();
 
       allow delete: if false;
     }
@@ -195,11 +238,17 @@ service cloud.firestore {
       allow read: if true;
 
       allow create: if isSignedIn()
-        && request.resource.data.owner_uid == request.auth.uid;
+        && request.resource.data.owner_uid == request.auth.uid
+        && noAdminOwnedFieldsOnCreate();
 
+      // `notSoftDeleted` is what makes an admin soft delete stick: without it
+      // the owner could simply flip `status` back to 'active' from their own
+      // vitrine and reappear in Découvrir.
       allow update: if isSignedIn()
         && resource.data.owner_uid == request.auth.uid
-        && request.resource.data.owner_uid == resource.data.owner_uid;
+        && request.resource.data.owner_uid == resource.data.owner_uid
+        && notSoftDeleted()
+        && noAdminOwnedFieldChanges();
 
       // Any signed-in user (e.g. a client following the merchant) may increment
       // only the monthly connected-clients counter fields. The diff() check ensures

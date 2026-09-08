@@ -66,3 +66,6 @@ upload-keystore.jks
 # Test-only Apple signing material (never commit keys)
 .test_signing/
 apple_distribution.*
+
+# Real-data snapshots pulled from production (contain customer PII).
+functions/scripts/.local/

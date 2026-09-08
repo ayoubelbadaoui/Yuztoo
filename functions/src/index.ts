@@ -2570,3 +2570,168 @@ export const onAuthUserDeleted = functions
       phone: user.phoneNumber,
     });
   });
+
+// ─── Admin CRM — retention sweep ─────────────────────────────────────────────
+//
+// The back-office never hard-deletes. `adminSoftDeleteUser` /
+// `adminSoftDeleteMerchant` stamp `deleted_at` and revoke access immediately;
+// this job performs the irreversible cascade once the grace period expires,
+// which gives an admin a window to undo a mistake and gives a client a window
+// to dispute.
+//
+// Users are processed before stores on purpose: [cascadeEraseUserData] already
+// removes `merchants/{merchant_id}` for an owner, so a store soft-deleted
+// through the owner cascade is gone by the time the store pass runs, and its
+// query simply finds nothing.
+//
+// Lives here rather than in `admin/` because it reuses [cascadeEraseUserData]
+// — the same cascade behind in-app account deletion and the Auth onDelete
+// trigger. One deletion path, exercised three ways, is far safer than a
+// second implementation that can drift.
+
+const SOFT_DELETE_RETENTION_DAYS = 30;
+
+/** Cap per run so one sweep cannot exhaust the 540s budget. */
+const PURGE_BATCH_LIMIT = 50;
+
+function softDeleteCutoff(): Date {
+  return new Date(
+    Date.now() - SOFT_DELETE_RETENTION_DAYS * 24 * 60 * 60 * 1000
+  );
+}
+
+/** Hard-delete users whose grace period has expired. */
+async function purgeExpiredUsers(cutoff: Date): Promise<number> {
+  const snap = await db
+    .collection("users")
+    .where("deleted_at", "<=", cutoff)
+    .orderBy("deleted_at")
+    .limit(PURGE_BATCH_LIMIT)
+    .get();
+
+  let purged = 0;
+  for (const doc of snap.docs) {
+    const uid = doc.id;
+    try {
+      await cascadeEraseUserData(uid);
+      try {
+        await admin.auth().deleteUser(uid);
+      } catch (e: unknown) {
+        if ((e as { code?: string })?.code !== "auth/user-not-found") throw e;
+      }
+      purged++;
+      functions.logger.info("purgeSoftDeleted: user purged", { uid });
+    } catch (e) {
+      // Leave `deleted_at` in place so the next run retries this account.
+      functions.logger.error("purgeSoftDeleted: user purge failed", {
+        uid,
+        error: e,
+      });
+    }
+  }
+  return purged;
+}
+
+/** Hard-delete stores soft-deleted on their own (owner account retained). */
+async function purgeExpiredMerchants(cutoff: Date): Promise<number> {
+  const snap = await db
+    .collection("merchants")
+    .where("deleted_at", "<=", cutoff)
+    .orderBy("deleted_at")
+    .limit(PURGE_BATCH_LIMIT)
+    .get();
+
+  let purged = 0;
+  for (const doc of snap.docs) {
+    const merchantId = doc.id;
+    const ownerUid = doc.data()?.owner_uid as string | undefined;
+    try {
+      await deleteStoragePrefix(`merchants/${merchantId}`);
+      await db.recursiveDelete(doc.ref);
+
+      // Detach the owner so the app does not route them into a storefront
+      // that no longer exists. The account itself survives.
+      if (ownerUid) {
+        try {
+          await db.collection("users").doc(ownerUid).update({
+            merchant_id: null,
+            updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } catch (e) {
+          functions.logger.warn("purgeSoftDeleted: owner detach failed", {
+            merchantId,
+            ownerUid,
+            error: e,
+          });
+        }
+      }
+
+      purged++;
+      functions.logger.info("purgeSoftDeleted: merchant purged", {
+        merchantId,
+      });
+    } catch (e) {
+      functions.logger.error("purgeSoftDeleted: merchant purge failed", {
+        merchantId,
+        error: e,
+      });
+    }
+  }
+  return purged;
+}
+
+/**
+ * Daily sweep that turns expired soft deletes into real ones.
+ *
+ * Runs at 03:00 Europe/Paris, off-peak. Each failure is logged and left for
+ * the next run rather than aborting the sweep, so one wedged account cannot
+ * block every other pending deletion.
+ */
+export const purgeSoftDeletedRecords = functions
+  .region("europe-west1")
+  .runWith({ timeoutSeconds: 540, memory: "1GB" })
+  .pubsub.schedule("0 3 * * *")
+  .timeZone("Europe/Paris")
+  .onRun(async () => {
+    const cutoff = softDeleteCutoff();
+    functions.logger.info("purgeSoftDeleted: starting", {
+      cutoff: cutoff.toISOString(),
+      retentionDays: SOFT_DELETE_RETENTION_DAYS,
+    });
+
+    const users = await purgeExpiredUsers(cutoff);
+    const merchants = await purgeExpiredMerchants(cutoff);
+
+    functions.logger.info("purgeSoftDeleted: completed", {
+      usersPurged: users,
+      merchantsPurged: merchants,
+    });
+    return null;
+  });
+
+// ─── Admin CRM — callable endpoints ──────────────────────────────────────────
+//
+// Re-exported so the Firebase CLI discovers them. The modules resolve
+// `admin.firestore()` lazily because these `require` calls are hoisted above
+// the `admin.initializeApp()` at the top of this file.
+export {
+  adminListMerchants,
+  adminGetMerchant,
+  adminCreateMerchant,
+  adminUpdateMerchant,
+  adminSetMerchantStatus,
+  adminSoftDeleteMerchant,
+  adminRestoreMerchant,
+} from "./admin/crm_merchants";
+
+export { adminGetOverview } from "./admin/crm_overview";
+
+export {
+  adminListUsers,
+  adminGetUser,
+  adminCreateClient,
+  adminUpdateUser,
+  adminSetUserStatus,
+  adminSoftDeleteUser,
+  adminRestoreUser,
+} from "./admin/crm_clients";
