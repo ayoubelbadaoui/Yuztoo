@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "yuztoo"
+    "default": "yuztoo",
+    "prod": "yuztoo",
+    "dev": "yuztoo-dev"
   }
 }

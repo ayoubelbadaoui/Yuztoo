@@ -31,6 +31,8 @@ lib/
 ## Firebase
 - Initialized in `core/app_bootstrap.dart` via `firebase_providers.dart`.
 - Firebase types must not leak outside infrastructure.
+- **Two Firebase projects:** prod `yuztoo` + dev `yuztoo-dev`. App flavors: `--flavor prod|dev`.
+- **AI / ops rule:** any change to Cloud Functions, Firestore rules/indexes, Storage rules, or Hosting must be deployed to **both** projects. Full checklist: [`docs/firebase-dual-env-deploy.md`](docs/firebase-dual-env-deploy.md).
 
 ## State management
 - Riverpod for DI/state. Providers live in `feature/<feature>/application`.
