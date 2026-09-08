@@ -187,9 +187,11 @@ export const adminListUsers = functions
 
     const items: Record<string, unknown>[] = [];
     let lastExaminedId: string | null = null;
+    let examined = 0;
 
     for (const doc of snap.docs) {
       lastExaminedId = doc.id;
+      examined += 1;
       const deleted = isDeleted(doc.data());
       if (listMode === "active" && deleted) continue;
       if (listMode === "deleted" && !deleted) continue;
@@ -197,9 +199,14 @@ export const adminListUsers = functions
       if (items.length >= limit) break;
     }
 
+    // See the same guard in `adminListMerchants`: a page that fills before the
+    // batch is consumed still has documents behind it, even when the batch came
+    // back short of `fetchSize`.
+    const exhausted = snap.size < fetchSize && examined === snap.size;
+
     return {
       items,
-      nextCursor: snap.size < fetchSize ? null : lastExaminedId,
+      nextCursor: exhausted ? null : lastExaminedId,
     };
   });
 

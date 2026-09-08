@@ -210,9 +210,11 @@ export const adminListMerchants = functions
 
     const items: Record<string, unknown>[] = [];
     let lastExaminedId: string | null = null;
+    let examined = 0;
 
     for (const doc of snap.docs) {
       lastExaminedId = doc.id;
+      examined += 1;
       const deleted = isDeleted(doc.data());
       if (listMode === "active" && deleted) continue;
       if (listMode === "deleted" && !deleted) continue;
@@ -220,11 +222,17 @@ export const adminListMerchants = functions
       if (items.length >= limit) break;
     }
 
+    // The collection is exhausted only when the batch came back short *and* we
+    // read all of it. Filling the page first leaves documents behind, and a
+    // short batch can still contain them — reporting the end there would make
+    // the tail of the collection unreachable.
+    const exhausted = snap.size < fetchSize && examined === snap.size;
+
     return {
       items,
       // Null signals the end of the collection; a non-null cursor with a short
       // page just means deleted rows were filtered out of this batch.
-      nextCursor: snap.size < fetchSize ? null : lastExaminedId,
+      nextCursor: exhausted ? null : lastExaminedId,
     };
   });
 
