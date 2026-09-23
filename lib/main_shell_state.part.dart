@@ -4,6 +4,10 @@ class _RootShellState extends ConsumerState<_RootShell>
     with WidgetsBindingObserver {
   ProviderSubscription<AuthState>? _authStateSub;
   ProviderSubscription<OAuthSignupState>? _oauthSignupSub;
+  // The client-only LoyaltyCelebrationOverlay wraps the shell body as soon as
+  // auth flips to Authenticated (e.g. mid-OTP). Without a GlobalKey the whole
+  // screen subtree is torn down and rebuilt, wiping in-flight screen state.
+  final GlobalKey _shellBodyKey = GlobalKey(debugLabel: 'shellBody');
   // Main navigation screen from provider (auth flow)
   ScreenId? _authScreen; // null = loading
   // Within-app navigation stack layered on top of the base [_authScreen] tab.
@@ -2088,6 +2092,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     // Sharper transitions: key forces AnimatedSwitcher to run transition when screen changes,
     // shorter duration reduces fuzzy crossfade, no layout scaling.
     Widget shellBody = AnimatedSwitcher(
+      key: _shellBodyKey,
       duration: const Duration(milliseconds: 180),
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
@@ -2471,10 +2476,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           password: _signupPassword ?? '',
           role: _role ?? UserRole.client,
           otpUnavailableMessage: _otpUnavailableMessage,
-          onResend: () {
-            // VerificationId will be updated by OTP screen if resend succeeds
-            // This callback can be used for any additional logic if needed
-          },
+          onResend: (verificationId) => _verificationId = verificationId,
         );
       case ScreenId.clientOnboarding:
         return ClientOnboardingScreen(

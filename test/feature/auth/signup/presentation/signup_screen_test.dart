@@ -320,7 +320,7 @@ void main() {
                     builder: (_) => OTPScreen(
                       userId: '',
                       phone: data.phone,
-                      onResend: () {},
+                      onResend: (_) {},
                       email: data.email,
                       password: data.password,
                       role: UserRole.client,

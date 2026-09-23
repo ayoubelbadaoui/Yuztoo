@@ -12,6 +12,10 @@ import '../../core/application/auth_controller.dart';
 import '../../core/application/state/auth_state.dart';
 import '../../core/application/use_cases/sign_out.dart';
 import '../../core/domain/repositories/auth_repository.dart';
+import '../../../../core/domain/core/either.dart';
+import '../../../../core/domain/core/failure.dart';
+import '../../../../core/domain/core/result.dart';
+import '../../../../core/infrastructure/logger_service.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
 import '../domain/signup_roles_map.dart';
@@ -47,7 +51,10 @@ class OTPScreen extends ConsumerStatefulWidget {
   final VoidCallback? onSignupComplete;
   final String userId;
   final String phone;
-  final VoidCallback onResend;
+
+  /// Receives the new verification id after a successful resend, so the
+  /// parent can keep it if this screen is rebuilt.
+  final ValueChanged<String> onResend;
   final String email;
   final String password;
   final UserRole role;
@@ -78,10 +85,15 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
   String? _otpUnavailableMessage;
   Timer? _timer;
 
+  /// A resend issues a new id; the code in the new SMS only validates
+  /// against it, never against [OTPScreen.verificationId].
+  String? _verificationId;
+
   @override
   void initState() {
     super.initState();
     _otpUnavailableMessage = widget.otpUnavailableMessage;
+    _verificationId = widget.verificationId;
 
     // Persist role as a fallback when Firestore is unavailable.
     // This helps ensure merchant users don't get routed as client.
@@ -92,7 +104,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     // Profile creation should ONLY happen after OTP verification is successful
     // Remove auto-verification shortcut - user must always verify OTP code manually
 
-    if (widget.verificationId == null || widget.verificationId!.isEmpty) {
+    if (_verificationId == null || _verificationId!.isEmpty) {
       _otpBlocked = true;
       if (_otpUnavailableMessage == null || _otpUnavailableMessage!.isEmpty) {
         _otpUnavailableMessage =

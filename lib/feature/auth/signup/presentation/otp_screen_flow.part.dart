@@ -1,14 +1,34 @@
 part of 'otp_screen.dart';
 
+/// The pre-sign-in availability reads are advisory: `createUserDocument`
+/// re-checks both indexes inside its transaction. They must never be allowed
+/// to hold the OTP screen indefinitely on a stalled Firestore connection.
+const Duration _availabilityCheckTimeout = Duration(seconds: 8);
+
+Future<Result<Unit>> _availableOnTimeout(
+  Future<Result<Unit>> check,
+  String field,
+) {
+  return check.timeout(_availabilityCheckTimeout, onTimeout: () {
+    LoggerService.logError(
+      'OTP: $field availability check timed out; relying on createUserDocument',
+      context: {'field': field},
+    );
+    return const Right<AppFailure, Unit>(unit);
+  });
+}
+
 extension _OTPScreenFlow on _OTPScreenState {
   Future<void> _verifyOTP(String smsCode) async {
-    if (widget.verificationId == null || widget.verificationId!.isEmpty) {
+    final verificationId = _verificationId;
+    if (verificationId == null || verificationId.isEmpty) {
       if (mounted) {
         showErrorSnackbar(context, 'Erreur: ID de vérification manquant');
       }
       return;
     }
 
+    LoggerService.logInfo('OTP: code complete, starting verification');
     _setVerifying(true);
 
     // Capture EVERYTHING we need from `ref` before the first await. While
@@ -42,9 +62,10 @@ extension _OTPScreenFlow on _OTPScreenState {
       // Both checks are independent Firestore reads — run them in parallel
       // instead of back-to-back to halve the pre-verification latency.
       final checks = await Future.wait([
-        verifyEmail.call(email: email),
-        verifyPhone.call(phoneNumber: phone),
+        _availableOnTimeout(verifyEmail.call(email: email), 'email'),
+        _availableOnTimeout(verifyPhone.call(phoneNumber: phone), 'phone'),
       ]);
+      LoggerService.logInfo('OTP: availability checks done');
       final emailCheck = checks[0];
       final phoneCheck = checks[1];
       var emailBlocked = false;
@@ -100,10 +121,14 @@ extension _OTPScreenFlow on _OTPScreenState {
       pendingNotifier.state = true;
 
       final verifyResult = await verifyPhoneAndCreateUserUseCase.call(
-        verificationId: widget.verificationId!,
+        verificationId: verificationId,
         smsCode: smsCode,
         email: email,
         password: password,
+      );
+      LoggerService.logInfo(
+        'OTP: sign-in finished',
+        context: {'ok': verifyResult.isRight},
       );
 
       await verifyResult.fold<Future<void>>(
@@ -185,6 +210,10 @@ extension _OTPScreenFlow on _OTPScreenState {
       phone: phone,
       roles: roles,
     );
+    LoggerService.logInfo(
+      'OTP: profile write finished',
+      context: {'ok': createResult.isRight},
+    );
 
     await createResult.fold<Future<void>>(
       (failure) async {
@@ -227,6 +256,7 @@ extension _OTPScreenFlow on _OTPScreenState {
         // already disposed this widget — the new Authenticated emission is
         // what lets the shell route the fresh account to onboarding/home.
         await authController.reloadProfile();
+        LoggerService.logInfo('OTP: profile reloaded, handing off to shell');
 
         if (!mounted) return;
 
@@ -312,10 +342,11 @@ extension _OTPScreenFlow on _OTPScreenState {
         }
       },
       (verificationId) {
+        _verificationId = verificationId;
+        widget.onResend(verificationId);
         if (mounted) {
           showSuccessSnackbar(context, 'Code de vérification renvoyé!');
           _startResendTimer();
-          widget.onResend();
         }
       },
     );
