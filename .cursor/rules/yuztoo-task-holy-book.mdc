@@ -27,4 +27,8 @@ Before finishing a task, mentally run this list. **Full detail:** `docs/yuztoo-h
 - Every screen: **system status bar + navigation bar** match adjacent UI; icon brightness correct — see **`system-ui-overlay-styling`** rule (`AnnotatedRegion<SystemUiOverlayStyle>`).
 - New user-visible copy: **l10n** where the app already localizes.
 
+## Firebase backend
+
+- Changing functions / Firestore rules or indexes / Storage rules / hosting → deploy to **both** `yuztoo-dev` and `yuztoo`. See **`docs/firebase-dual-env-deploy.md`** and **`firebase-dual-env-deploy`** rule. Never skip an environment.
+
 If a requirement conflicts with this guide, **ask the human** before inventing a new cross-cutting pattern.

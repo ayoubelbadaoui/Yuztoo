@@ -1,0 +1,25 @@
+---
+description: Always deploy Firebase backend (rules, functions, storage, indexes) to BOTH yuztoo-dev and yuztoo
+alwaysApply: true
+---
+
+# Firebase dual-env deploy (mandatory)
+
+When changing Cloud Functions, Firestore rules/indexes, Storage rules, or Hosting:
+
+1. Deploy to **both** Firebase projects in the **same task**:
+   - **dev** → `yuztoo-dev`
+   - **prod** → `yuztoo`
+2. **Never** deploy only one environment and stop.
+3. Use `npx -y firebase-tools@latest`.
+4. If functions changed: `cd functions && npm ci && npm run build` before deploy.
+5. Canonical commands and checklist: **`docs/firebase-dual-env-deploy.md`**.
+
+Minimal dual deploy:
+
+```bash
+npx -y firebase-tools@latest deploy --project yuztoo-dev --only functions,firestore:rules,firestore:indexes,storage
+npx -y firebase-tools@latest deploy --project yuztoo --only functions,firestore:rules,firestore:indexes,storage
+```
+
+If one project fails (billing / Storage not set up / 403), report the exact blocker and list what still needs deploying. Do not silently skip prod or dev.

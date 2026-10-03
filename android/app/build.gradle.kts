@@ -22,6 +22,7 @@ android {
     namespace = "com.yuztoo.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+    flavorDimensions += "env"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -51,6 +52,19 @@ android {
         versionName = flutter.versionName
     }
 
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appName"] = "Yuztoo Dev"
+        }
+        create("prod") {
+            dimension = "env"
+            manifestPlaceholders["appName"] = "YuzToo"
+        }
+    }
+
     buildTypes {
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {
@@ -64,7 +78,7 @@ android {
 
 // Play Store uploads must not use the debug keystore.
 gradle.taskGraph.whenReady {
-    if (hasTask(":app:assembleRelease") || hasTask(":app:bundleRelease")) {
+    if (hasTask(":app:assembleProdRelease") || hasTask(":app:bundleProdRelease")) {
         if (!keystorePropertiesFile.exists()) {
             throw GradleException(
                 "Release builds require android/key.properties. " +
