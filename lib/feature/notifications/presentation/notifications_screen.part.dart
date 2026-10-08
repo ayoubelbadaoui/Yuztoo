@@ -23,34 +23,29 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
       ),
       child: Scaffold(
         backgroundColor: MerchantColors.bgMain,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              _buildHeader(notificationsAsync),
-              // ── Tab pills ──────────────────────────────────────────────────
-              _buildTabBar(),
-              Expanded(
-                child: YuztooPullRefresh(
-                  onRefresh: _onPullRefresh,
-                  child: _activeTab == 'alertes'
-                      ? notificationsAsync.when(
-                          data: (list) => list.isEmpty
-                              ? yuztooRefreshableEmpty(_buildEmpty(context))
-                              : _buildList(list),
-                          loading: () => yuztooRefreshableEmpty(_buildShimmer()),
-                          error: (_, __) =>
-                              yuztooRefreshableEmpty(_buildEmpty(context)),
-                        )
-                      : isGuest
-                          ? yuztooRefreshableEmpty(_buildGuestLocked(context))
-                          : _activeTab == 'ville'
-                              ? _buildCityPromosTab(context)
-                              : _buildPromosTab(context),
-                ),
+        body: Column(
+          children: [
+            _buildHeader(notificationsAsync),
+            Expanded(
+              child: YuztooPullRefresh(
+                onRefresh: _onPullRefresh,
+                child: _activeTab == 'alertes'
+                    ? notificationsAsync.when(
+                        data: (list) => list.isEmpty
+                            ? yuztooRefreshableEmpty(_buildEmpty(context))
+                            : _buildList(list),
+                        loading: () => yuztooRefreshableEmpty(_buildShimmer()),
+                        error: (_, __) =>
+                            yuztooRefreshableEmpty(_buildEmpty(context)),
+                      )
+                    : isGuest
+                        ? yuztooRefreshableEmpty(_buildGuestLocked(context))
+                        : _activeTab == 'ville'
+                            ? _buildCityPromosTab(context)
+                            : _buildPromosTab(context),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -67,47 +62,34 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
     final promoCount = promosAsync.valueOrNull?.length ?? 0;
     final cityPromoCount = cityPromosAsync.valueOrNull?.length ?? 0;
 
-    return Container(
-      color: MerchantColors.bgHeader,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _tabPill(
-                    'ville',
-                    'Ma ville',
-                    Icons.location_city_outlined,
-                    badge: cityPromoCount > 0 ? cityPromoCount : null,
-                  ),
-                  const SizedBox(width: 10),
-                  _tabPill(
-                    'alertes',
-                    'Alertes',
-                    Icons.notifications_rounded,
-                    badge: unreadNotifs > 0 ? unreadNotifs : null,
-                  ),
-                  const SizedBox(width: 10),
-                  _tabPill(
-                    'promos',
-                    'Promotions',
-                    Icons.local_offer_rounded,
-                    badge: promoCount > 0 ? promoCount : null,
-                  ),
-                ],
-              ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _tabPill(
+              'ville',
+              'Ma ville',
+              Icons.location_city_outlined,
+              badge: cityPromoCount > 0 ? cityPromoCount : null,
             ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: MerchantColors.gold
-                .withValues(alpha: MerchantColors.goldBorderAlpha),
-          ),
-        ],
+            const SizedBox(width: 10),
+            _tabPill(
+              'alertes',
+              'Alertes',
+              Icons.notifications_rounded,
+              badge: unreadNotifs > 0 ? unreadNotifs : null,
+            ),
+            const SizedBox(width: 10),
+            _tabPill(
+              'promos',
+              'Promotions',
+              Icons.local_offer_rounded,
+              badge: promoCount > 0 ? promoCount : null,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -153,12 +135,10 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
             if (badge != null) ...[
               const SizedBox(width: 6),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
-                  color: isActive
-                      ? MerchantColors.bgHeader
-                      : MerchantColors.gold,
+                  color:
+                      isActive ? MerchantColors.bgHeader : MerchantColors.gold,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -247,9 +227,9 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
             promo: promo,
             onTap: () {
               ref.read(recordPromoViewsProvider).call(
-                    merchantId: promo.merchantId,
-                    promotionIds: [promo.id],
-                  );
+                merchantId: promo.merchantId,
+                promotionIds: [promo.id],
+              );
               if (widget.onPromotionTap != null) {
                 widget.onPromotionTap!(promo.merchantId, promo.id);
               } else {
@@ -338,8 +318,8 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                       color: MerchantColors.bgHeader,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: MerchantColors.gold.withValues(
-                            alpha: MerchantColors.goldBorderAlpha),
+                        color: MerchantColors.gold
+                            .withValues(alpha: MerchantColors.goldBorderAlpha),
                       ),
                     ),
                     padding: const EdgeInsets.all(14),
@@ -368,8 +348,8 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                                 height: 11,
                                 width: [130.0, 100.0, 150.0, 80.0][i],
                                 decoration: BoxDecoration(
-                                  color:
-                                      MerchantColors.textGrey.withValues(alpha: 0.2),
+                                  color: MerchantColors.textGrey
+                                      .withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
@@ -378,8 +358,8 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
                                 height: 9,
                                 width: [80.0, 60.0, 90.0, 50.0][i],
                                 decoration: BoxDecoration(
-                                  color:
-                                      MerchantColors.textGrey.withValues(alpha: 0.12),
+                                  color: MerchantColors.textGrey
+                                      .withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
@@ -477,8 +457,8 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
               GestureDetector(
                 onTap: () => widget.onMerchantTap?.call(''),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [MerchantColors.gold, Color(0xFFD4AF37)],
@@ -519,6 +499,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
 
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Alertes'),
+      bottom: _buildTabBar(),
       titleTrailing: (unreadCount > 0 && isAlertes)
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -572,8 +553,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
           return _buildDateLabel(entry.label);
         }
         final n = entry as ClientNotification;
-        final rowKey =
-            _notificationRowKeys.putIfAbsent(n.id, GlobalKey.new);
+        final rowKey = _notificationRowKeys.putIfAbsent(n.id, GlobalKey.new);
         return KeyedSubtree(
           key: rowKey,
           child: Padding(
@@ -1062,8 +1042,7 @@ class _NotificationCard extends StatelessWidget {
                         style: GoogleFonts.outfit(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: MerchantColors.gold
-                              .withValues(alpha: 0.8),
+                          color: MerchantColors.gold.withValues(alpha: 0.8),
                           height: 1.2,
                         ),
                         maxLines: 1,
@@ -1101,8 +1080,8 @@ class _NotificationCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 7, vertical: 2),
                               decoration: BoxDecoration(
-                                color: MerchantColors.gold
-                                    .withValues(alpha: 0.12),
+                                color:
+                                    MerchantColors.gold.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: MerchantColors.gold
