@@ -46,25 +46,27 @@ service firebase.storage {
     // Logo / banner (single file per merchant)
     match /merchants/{merchantId}/logo.png {
       allow read: if true;
-      allow write: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+      allow create, update: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+      allow delete: if isMerchantOwner(merchantId);
     }
 
     match /merchants/{merchantId}/banner.png {
       allow read: if true;
-      allow write: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+      allow create, update: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+      allow delete: if isMerchantOwner(merchantId);
     }
 
     // News / gallery slider images  (merchants/{merchantId}/news/{file})
     match /merchants/{merchantId}/news/{file} {
       allow read: if true;
-      allow write: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+      allow create, update: if isMerchantOwner(merchantId) && sizeOk() && isImage();
       allow delete: if isMerchantOwner(merchantId);
     }
 
     // Promotion images  (merchants/{merchantId}/promotions/{file})
     match /merchants/{merchantId}/promotions/{file} {
       allow read: if true;
-      allow write: if isMerchantOwner(merchantId) && sizeOk() && isImage();
+      allow create, update: if isMerchantOwner(merchantId) && sizeOk() && isImage();
       allow delete: if isMerchantOwner(merchantId);
     }
 
@@ -73,7 +75,7 @@ service firebase.storage {
     // Client avatar
     match /users/{userId}/avatar.jpg {
       allow read: if true;
-      allow write: if isOwnerUid(userId) && sizeOk() && isImage();
+      allow create, update: if isOwnerUid(userId) && sizeOk() && isImage();
       allow delete: if isOwnerUid(userId);
     }
 
