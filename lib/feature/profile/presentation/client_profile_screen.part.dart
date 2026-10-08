@@ -36,145 +36,144 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                     bottom: MediaQuery.of(context).padding.bottom + 80,
                   ),
                   child: Column(
-                  children: [
-                    _buildSection(
-                      sectionLabel: l10n.account,
-                      items: [
-                        _NavItem(
-                          icon: Icons.person_outline,
-                          label: l10n.personalInfo,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => PersonalInformationScreen(
-                                  onCreateProAccount: widget.onCreateProAccount,
-                                  isDualProfile: widget.isDualProfile,
-                                  onOpenLinkedStorefront: () {
-                                    final merchant = ref
-                                        .read(merchant_providers
-                                            .currentMerchantForOwnerProvider)
-                                        .valueOrNull;
-                                    final id = merchant?.id.trim() ?? '';
-                                    if (id.isEmpty) return;
-                                    ref
-                                        .read(store_profile_providers
-                                            .selectedStoreMerchantIdProvider
-                                            .notifier)
-                                        .state = id;
-                                    Navigator.of(context).pop();
-                                    widget.onNavigate?.call('store-profile');
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        _NavItem(
-                          icon: Icons.shield_outlined,
-                          label: 'Sécurité & Confidentialité',
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (ctx) => DataPrivacyScreen(
-                                  onBack: () => Navigator.of(ctx).pop(),
-                                  onAccountDeleted: () {
-                                    Navigator.of(ctx)
-                                        .popUntil((route) => route.isFirst);
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                          isLast: true,
-                        ),
-                      ],
-                    ),
-                    if (widget.isDualProfile) ...[
+                    children: [
                       _buildSection(
-                        sectionLabel: 'Mon commerce',
+                        sectionLabel: l10n.account,
                         items: [
                           _NavItem(
-                            icon: Icons.storefront_outlined,
-                            label: 'Modifier mon profil commerçant',
-                            onTap: () =>
-                                widget.onNavigate?.call('pro-profile'),
+                            icon: Icons.person_outline,
+                            label: l10n.personalInfo,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => PersonalInformationScreen(
+                                    onCreateProAccount:
+                                        widget.onCreateProAccount,
+                                    isDualProfile: widget.isDualProfile,
+                                    onOpenYuztooPage: () {
+                                      final id =
+                                          YuztooOfficialPage.merchantId();
+                                      if (id == null) return;
+                                      ref
+                                          .read(store_profile_providers
+                                              .selectedStoreMerchantIdProvider
+                                              .notifier)
+                                          .state = id;
+                                      Navigator.of(context).pop();
+                                      widget.onNavigate?.call('store-profile');
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                           _NavItem(
-                            icon: Icons.people_outline,
-                            label: 'Tableau de bord commerçant',
-                            onTap: () =>
-                                widget.onNavigate?.call('switch-to-merchant'),
+                            icon: Icons.shield_outlined,
+                            label: 'Sécurité & Confidentialité',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (ctx) => DataPrivacyScreen(
+                                    onBack: () => Navigator.of(ctx).pop(),
+                                    onAccountDeleted: () {
+                                      Navigator.of(ctx)
+                                          .popUntil((route) => route.isFirst);
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
                             isLast: true,
                           ),
                         ],
                       ),
-                    ],
-                    _buildSection(
-                      sectionLabel: l10n.support,
-                      items: [
-                        _NavItem(
-                          icon: Icons.help_outline_rounded,
-                          label: l10n.helpCenter,
-                          onTap: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            final url = Uri.parse('https://yuztoo.web.app/aide');
-                            if (await canLaunchUrl(url)) {
-                              await launchUrl(url,
-                                  mode: LaunchMode.externalApplication);
-                            } else {
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Impossible d\'ouvrir le centre d\'aide',
-                                    style: merchantSnackBarTextOnDark()
-                                        .copyWith(fontSize: 13),
-                                  ),
-                                  backgroundColor: MerchantColors.bgHeader,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        _NavItem(
-                          icon: Icons.article_outlined,
-                          label: l10n.termsOfUse,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const LegalDocumentScreen(
-                                  document: LegalDocument.termsOfService,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        // App Store guideline 5.1.1 mandates an in-app
-                        // privacy view that's reachable without leaving
-                        // the app and that works offline. Pushing the
-                        // bundled-text screen satisfies both — see
-                        // [LegalDocument] for why content is in source.
-                        _NavItem(
-                          icon: Icons.privacy_tip_outlined,
-                          label: l10n.privacyPolicy,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const LegalDocumentScreen(
-                                  document: LegalDocument.privacyPolicy,
-                                ),
-                              ),
-                            );
-                          },
-                          isLast: true,
+                      if (widget.isDualProfile) ...[
+                        _buildSection(
+                          sectionLabel: 'Mon commerce',
+                          items: [
+                            _NavItem(
+                              icon: Icons.storefront_outlined,
+                              label: 'Modifier mon profil commerçant',
+                              onTap: () =>
+                                  widget.onNavigate?.call('pro-profile'),
+                            ),
+                            _NavItem(
+                              icon: Icons.people_outline,
+                              label: 'Tableau de bord commerçant',
+                              onTap: () =>
+                                  widget.onNavigate?.call('switch-to-merchant'),
+                              isLast: true,
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                    _buildLogoutSection(context, l10n),
-                  ],
+                      _buildSection(
+                        sectionLabel: l10n.support,
+                        items: [
+                          _NavItem(
+                            icon: Icons.help_outline_rounded,
+                            label: l10n.helpCenter,
+                            onTap: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final url =
+                                  Uri.parse('https://yuztoo.web.app/aide');
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url,
+                                    mode: LaunchMode.externalApplication);
+                              } else {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Impossible d\'ouvrir le centre d\'aide',
+                                      style: merchantSnackBarTextOnDark()
+                                          .copyWith(fontSize: 13),
+                                    ),
+                                    backgroundColor: MerchantColors.bgHeader,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          _NavItem(
+                            icon: Icons.article_outlined,
+                            label: l10n.termsOfUse,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const LegalDocumentScreen(
+                                    document: LegalDocument.termsOfService,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          // App Store guideline 5.1.1 mandates an in-app
+                          // privacy view that's reachable without leaving
+                          // the app and that works offline. Pushing the
+                          // bundled-text screen satisfies both — see
+                          // [LegalDocument] for why content is in source.
+                          _NavItem(
+                            icon: Icons.privacy_tip_outlined,
+                            label: l10n.privacyPolicy,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const LegalDocumentScreen(
+                                    document: LegalDocument.privacyPolicy,
+                                  ),
+                                ),
+                              );
+                            },
+                            isLast: true,
+                          ),
+                        ],
+                      ),
+                      _buildLogoutSection(context, l10n),
+                    ],
+                  ),
                 ),
               ),
-            ),
             ),
           ],
         ),

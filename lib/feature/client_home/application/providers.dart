@@ -22,7 +22,9 @@ final followedMerchantIdsForCurrentUserProvider =
   if (userId == null) {
     return Stream<List<String>>.value(const <String>[]);
   }
-  return ref.watch(followedMerchantsRepositoryProvider).watchFollowedIds(userId);
+  return ref
+      .watch(followedMerchantsRepositoryProvider)
+      .watchFollowedIds(userId);
 });
 
 /// Followed merchants with heart level (1 or 2), persisted in Firestore.
@@ -36,11 +38,13 @@ final followedMerchantHeartLevelsForCurrentUserProvider =
 });
 
 /// Merchants already opened/viewed by the current user (local persistence).
-final viewedMerchantsLocalServiceProvider = Provider<ViewedMerchantsLocalService>((ref) {
+final viewedMerchantsLocalServiceProvider =
+    Provider<ViewedMerchantsLocalService>((ref) {
   return ViewedMerchantsLocalService();
 });
 
-final viewedMerchantIdsForCurrentUserProvider = FutureProvider<Set<String>>((ref) async {
+final viewedMerchantIdsForCurrentUserProvider =
+    FutureProvider<Set<String>>((ref) async {
   final userId = ref.watch(auth_providers.currentUserIdProvider);
   if (userId == null || userId.isEmpty) return <String>{};
   final service = ref.watch(viewedMerchantsLocalServiceProvider);
@@ -54,7 +58,8 @@ final viewedMerchantIdsForCurrentUserProvider = FutureProvider<Set<String>>((ref
 /// create/delete. Avoids client-side collection-group aggregate queries that
 /// security rules deny for non-owners.
 final followersCountByMerchantIdsProvider =
-    FutureProvider.family<Map<String, int>, List<String>>((ref, merchantIds) async {
+    FutureProvider.family<Map<String, int>, List<String>>(
+        (ref, merchantIds) async {
   if (merchantIds.isEmpty) return const <String, int>{};
   final distinct = merchantIds.toSet().toList();
   final merchantRepo = ref.watch(merchantRepositoryProvider);
@@ -77,11 +82,14 @@ final followersCountByMerchantIdsProvider =
 /// the inner one settled — causing perpetual loading.
 typedef ClientHomeFeed = ({
   List<Merchant> merchants,
+
   /// IDs of merchants the user is actively following (excludes own merchant).
   List<String> followedIds,
   List<Promotion> promotions,
+
   /// Merchant ID owned by the current user (shown as "Mon commerce"), or null.
   String? ownMerchantId,
+
   /// Saved carnet sort indexes (merchantId → position). Empty = not yet reordered.
   Map<String, int> sortIndexes,
 });
@@ -194,9 +202,8 @@ Future<ClientHomeFeed> _buildClientHomeFeed({
     result.fold((_) => null, (list) => allPromos.addAll(list));
   }
   final now = DateTime.now();
-  final filteredPromos = allPromos
-      .where((p) => p.isOnline && p.dateTo.isAfter(now))
-      .toList();
+  final filteredPromos =
+      allPromos.where((p) => p.isOnline && p.dateTo.isAfter(now)).toList();
   filteredPromos.sort((a, b) => b.dateTo.compareTo(a.dateTo));
 
   return (
@@ -260,6 +267,7 @@ final clientHomeMerchantsProvider = Provider<AsyncValue<List<Merchant>>>((ref) {
 });
 
 /// Derived — resolves from [clientHomeFeedProvider] stream.
-final clientHomePromotionsProvider = Provider<AsyncValue<List<Promotion>>>((ref) {
+final clientHomePromotionsProvider =
+    Provider<AsyncValue<List<Promotion>>>((ref) {
   return ref.watch(clientHomeFeedProvider).whenData((f) => f.promotions);
 });

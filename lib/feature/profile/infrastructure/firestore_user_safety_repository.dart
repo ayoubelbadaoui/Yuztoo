@@ -16,7 +16,10 @@ class FirestoreUserSafetyRepository implements UserSafetyRepository {
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> _blocksOf(String userId) =>
-      _firestore.collection('users').doc(userId).collection('blocked_merchants');
+      _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('blocked_merchants');
 
   @override
   Stream<Set<String>> watchBlockedMerchantIds(String userId) {

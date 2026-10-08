@@ -65,6 +65,7 @@ import 'feature/client_notification/application/providers.dart'
 import 'feature/client_notification/infrastructure/fcm_token_service.dart';
 import 'feature/client_notification/infrastructure/notification_service.dart';
 import 'core/config/vitrine_qr_config.dart';
+import 'core/config/yuztoo_official_page.dart';
 import 'core/infrastructure/ble_proximity_notifier.dart';
 import 'core/infrastructure/logger_service.dart';
 import 'feature/loyalty/application/active_validation_providers.dart';

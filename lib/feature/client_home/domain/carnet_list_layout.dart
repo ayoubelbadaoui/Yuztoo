@@ -38,8 +38,7 @@ List<String> applyCarnetReorder({
   var ni = newIndex;
   if (ni > oldIndex) ni--;
 
-  final workingList =
-      orderedIds.where((id) => id != ownMerchantId).toList();
+  final workingList = orderedIds.where((id) => id != ownMerchantId).toList();
   if (oldIndex < 0 || oldIndex >= workingList.length) {
     return List<String>.from(orderedIds);
   }

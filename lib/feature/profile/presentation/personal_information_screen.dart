@@ -13,7 +13,8 @@ import '../../../core/utils/image_crop_utils.dart';
 import '../../auth/core/application/providers.dart'
     show updateAuthUserProfileProvider, updateUserCityProvider;
 import '../../auth/core/application/user_display_helpers.dart';
-import '../../storage/application/providers.dart' show uploadClientAvatarProvider;
+import '../../storage/application/providers.dart'
+    show uploadClientAvatarProvider;
 import '../application/providers.dart';
 
 part 'personal_information_screen.part.dart';
@@ -25,7 +26,7 @@ class PersonalInformationScreen extends ConsumerStatefulWidget {
     this.createOtherRoleLabel,
     this.onBack,
     this.isDualProfile = false,
-    this.onOpenLinkedStorefront,
+    this.onOpenYuztooPage,
   });
 
   /// When true, shows the Yuztoo loyalty preview card (« Présentez votre carte »)
@@ -33,9 +34,8 @@ class PersonalInformationScreen extends ConsumerStatefulWidget {
   /// contexts. Single-role users do not see this block.
   final bool isDualProfile;
 
-  /// Opens the linked merchant storefront (coordonnées, vitrine) when the
-  /// Yuztoo card is tapped — typically the dual-profile owner commerce.
-  final VoidCallback? onOpenLinkedStorefront;
+  /// Opens the YuzToo company storefront when the Yuztoo card is tapped.
+  final VoidCallback? onOpenYuztooPage;
 
   /// Tapped when the user wants to add their secondary role.
   ///
@@ -151,8 +151,7 @@ class _PersonalInformationScreenState
               .read(updateAuthUserProfileProvider)
               .call(displayName: newDisplay);
         }
-        final cityChanged =
-            _selectedCity != null && _selectedCity!.isNotEmpty;
+        final cityChanged = _selectedCity != null && _selectedCity!.isNotEmpty;
         await refreshUserProfileCacheWidget(
           ref,
           uid: uid,
@@ -210,7 +209,8 @@ class _PersonalInformationScreenState
 
     final hasDob = basics?.dateOfBirth != null;
     int completionPercent = 0;
-    if (fullName != 'Utilisateur' && fullName.isNotEmpty) completionPercent += 20;
+    if (fullName != 'Utilisateur' && fullName.isNotEmpty)
+      completionPercent += 20;
     if (email != '—') completionPercent += 15;
     if (phone != '—') completionPercent += 15;
     if (city != '—') completionPercent += 10;
@@ -248,12 +248,9 @@ class _PersonalInformationScreenState
       hasDob: hasDob,
       photoUrl: user?.photoUrl,
       photoUploading: _photoUploading,
-      onPhotoTap: uid != null
-          ? () => _pickAndUploadPhoto(uid)
-          : null,
-      onCreateProAccount: resolvedLabel == null
-          ? null
-          : widget.onCreateProAccount,
+      onPhotoTap: uid != null ? () => _pickAndUploadPhoto(uid) : null,
+      onCreateProAccount:
+          resolvedLabel == null ? null : widget.onCreateProAccount,
       createOtherRoleLabel: resolvedLabel,
       isDualProfile: widget.isDualProfile,
     );

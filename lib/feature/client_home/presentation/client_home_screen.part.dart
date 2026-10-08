@@ -80,15 +80,13 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
           onNavigate('store-profile');
         }
       },
-      onYuztooBrandTap: ownMerchantId == null
-          ? null
-          : (id) {
-              if (onStoreSelect != null) {
-                onStoreSelect!(id);
-              } else {
-                onNavigate('store-profile');
-              }
-            },
+      onYuztooBrandTap: (id) {
+        if (onStoreSelect != null) {
+          onStoreSelect!(id);
+        } else {
+          onNavigate('store-profile');
+        }
+      },
       onUnfollow: (merchant) async {
         final userId = ref.read(auth_providers.currentUserIdProvider);
         if (userId == null) return;
@@ -230,11 +228,12 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
               onTap: () {
                 ref.invalidate(clientHomeFeedProvider);
                 ref.invalidate(followedMerchantIdsForCurrentUserProvider);
-                ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
+                ref.invalidate(
+                    followedMerchantHeartLevelsForCurrentUserProvider);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
@@ -335,16 +334,13 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
           const SizedBox(height: 16),
           if (showYuztooBrandTile)
             _RestonsProchesTile(
-              merchantId: ownMerchantId,
-              onOpenStorefront: ownMerchantId == null
-                  ? null
-                  : (id) {
-                      if (onStoreSelect != null) {
-                        onStoreSelect!(id);
-                      } else {
-                        onNavigate('store-profile');
-                      }
-                    },
+              onOpenStorefront: (id) {
+                if (onStoreSelect != null) {
+                  onStoreSelect!(id);
+                } else {
+                  onNavigate('store-profile');
+                }
+              },
             ),
         ],
       ),
@@ -361,7 +357,8 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
           color: MerchantColors.bgHeader,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: MerchantColors.gold.withValues(alpha: MerchantColors.goldBorderAlpha),
+            color: MerchantColors.gold
+                .withValues(alpha: MerchantColors.goldBorderAlpha),
           ),
         ),
         child: Row(
@@ -556,9 +553,8 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
     String? merchantId,
   ) {
     final now = DateTime.now();
-    final daysLeft = promo.dateTo.isAfter(now)
-        ? promo.dateTo.difference(now).inDays
-        : 0;
+    final daysLeft =
+        promo.dateTo.isAfter(now) ? promo.dateTo.difference(now).inDays : 0;
     final expiresText = daysLeft > 0 ? '$daysLeft jours' : 'Expiré';
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -685,8 +681,7 @@ class _CarnetCta extends StatelessWidget {
           color: outlined ? Colors.transparent : null,
           borderRadius: BorderRadius.circular(12),
           border: outlined
-              ? Border.all(
-                  color: MerchantColors.gold.withValues(alpha: 0.6))
+              ? Border.all(color: MerchantColors.gold.withValues(alpha: 0.6))
               : null,
           boxShadow: outlined
               ? null
@@ -703,18 +698,15 @@ class _CarnetCta extends StatelessWidget {
           children: [
             Icon(icon,
                 size: 18,
-                color: outlined
-                    ? MerchantColors.gold
-                    : MerchantColors.bgHeader),
+                color:
+                    outlined ? MerchantColors.gold : MerchantColors.bgHeader),
             const SizedBox(width: 6),
             Text(
               label,
               style: GoogleFonts.outfit(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: outlined
-                    ? MerchantColors.gold
-                    : MerchantColors.bgHeader,
+                color: outlined ? MerchantColors.gold : MerchantColors.bgHeader,
               ),
             ),
           ],
@@ -787,12 +779,15 @@ class _CarnetList extends StatefulWidget {
   final void Function(String merchantId) onMerchantTap;
   final String? ownMerchantId;
   final void Function(Map<String, int> sortIndexes)? onOrderChanged;
+
   /// Remove a followed merchant from the carnet (incl. offline shops).
   final Future<void> Function(Merchant merchant)? onUnfollow;
+
   /// Whether the Yuztoo brand vignette ("Restons Proches") should be
   /// rendered above « Mon commerce ». Reserved for users who also
   /// hold a merchant account — pure clients never see it.
   final bool showYuztooBrandTile;
+
   /// Opens the linked merchant storefront (coordonnées, vitrine, …).
   final void Function(String merchantId)? onYuztooBrandTap;
 
@@ -941,14 +936,11 @@ class _CarnetListState extends State<_CarnetList> {
             if (showSearch || reorderableList.isNotEmpty)
               const SizedBox(height: 16),
             _RestonsProchesTile(
-              merchantId: widget.ownMerchantId,
               onOpenStorefront: widget.onYuztooBrandTap,
             ),
           ],
           if (showOwnMerchant) ...[
-            if (showSearch ||
-                showRestonsProches ||
-                reorderableList.isNotEmpty)
+            if (showSearch || showRestonsProches || reorderableList.isNotEmpty)
               const SizedBox(height: 16),
             _buildMerchantTile(
               ownMerchant,
@@ -973,8 +965,7 @@ class _CarnetListState extends State<_CarnetList> {
     final displayName = merchant.displayName ?? merchant.name;
     final imageUrl = merchant.bannerUrl ?? merchant.logoUrl;
     final isFollowed = widget.followedSet.contains(merchant.id);
-    final heartLevel =
-        isFollowed ? (widget.heartLevels[merchant.id] ?? 1) : 0;
+    final heartLevel = isFollowed ? (widget.heartLevels[merchant.id] ?? 1) : 0;
 
     return Padding(
       padding: EdgeInsets.only(bottom: (isReorderable && !isLast) ? 16 : 0),
@@ -985,8 +976,8 @@ class _CarnetListState extends State<_CarnetList> {
             color: MerchantColors.bgHeader,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: MerchantColors.gold.withValues(
-                  alpha: MerchantColors.goldBorderAlpha),
+              color: MerchantColors.gold
+                  .withValues(alpha: MerchantColors.goldBorderAlpha),
             ),
           ),
           child: Padding(
@@ -1015,12 +1006,11 @@ class _CarnetListState extends State<_CarnetList> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: MerchantColors.gold
-                              .withValues(alpha: 0.15),
+                          color: MerchantColors.gold.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: MerchantColors.gold
-                                  .withValues(alpha: 0.5)),
+                              color:
+                                  MerchantColors.gold.withValues(alpha: 0.5)),
                         ),
                         child: Text(
                           'Mon commerce',
@@ -1073,8 +1063,7 @@ class _CarnetListState extends State<_CarnetList> {
                             ...List.generate(
                               heartLevel.clamp(0, 3),
                               (i) => Padding(
-                                padding:
-                                    EdgeInsets.only(left: i == 0 ? 0 : 3),
+                                padding: EdgeInsets.only(left: i == 0 ? 0 : 3),
                                 child: const Icon(Icons.favorite,
                                     color: MerchantColors.gold, size: 16),
                               ),
@@ -1139,11 +1128,9 @@ class _CarnetListState extends State<_CarnetList> {
                             height: 36,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color:
-                                  Colors.black.withValues(alpha: 0.45),
+                              color: Colors.black.withValues(alpha: 0.45),
                               border: Border.all(
-                                  color: MerchantColors.gold,
-                                  width: 1.5),
+                                  color: MerchantColors.gold, width: 1.5),
                             ),
                             alignment: Alignment.center,
                             child: const Icon(Icons.star_rounded,
@@ -1180,16 +1167,14 @@ class _CarnetListState extends State<_CarnetList> {
 // ─── Yuztoo "Restons Proches" brand vignette ────────────────────────────────
 //
 // Shown for dual-profile merchants in the client carnet. Tap opens the
-// linked merchant storefront (address / maps / coordonnées) — the real
-// Yuztoo compte commerce — instead of a brand-only sheet.
+// YuzToo company storefront ([YuztooOfficialPage]); the brand sheet is only
+// a fallback for projects without that page.
 
 class _RestonsProchesTile extends StatelessWidget {
   const _RestonsProchesTile({
-    this.merchantId,
     this.onOpenStorefront,
   });
 
-  final String? merchantId;
   final void Function(String merchantId)? onOpenStorefront;
 
   void _showBrandSheet(BuildContext context) {
@@ -1213,8 +1198,7 @@ class _RestonsProchesTile extends StatelessWidget {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color:
-                        MerchantColors.textGrey.withValues(alpha: 0.3),
+                    color: MerchantColors.textGrey.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1275,8 +1259,8 @@ class _RestonsProchesTile extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        final id = merchantId?.trim() ?? '';
-        if (id.isNotEmpty && onOpenStorefront != null) {
+        final id = YuztooOfficialPage.merchantId();
+        if (id != null && onOpenStorefront != null) {
           onOpenStorefront!(id);
           return;
         }
@@ -1328,8 +1312,8 @@ class _RestonsProchesTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: MerchantColors.gold,
                       borderRadius: BorderRadius.circular(8),
@@ -1372,8 +1356,7 @@ class _RestonsProchesTile extends StatelessWidget {
                           style: GoogleFonts.outfit(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color:
-                                MerchantColors.textLightGrey,
+                            color: MerchantColors.textLightGrey,
                           ),
                         ),
                       ],
@@ -1388,4 +1371,3 @@ class _RestonsProchesTile extends StatelessWidget {
     );
   }
 }
-

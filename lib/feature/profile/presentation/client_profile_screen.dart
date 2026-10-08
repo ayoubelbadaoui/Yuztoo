@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/config/yuztoo_official_page.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/shared/widgets/logout_confirm_dialog.dart';
@@ -16,8 +17,8 @@ import 'personal_information_screen.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
-import '../../merchant/application/providers.dart' as merchant_providers;
-import '../../store_profile/application/providers.dart' as store_profile_providers;
+import '../../store_profile/application/providers.dart'
+    as store_profile_providers;
 import '../application/refresh_user_profile_cache.dart';
 import '../application/user_safety_providers.dart';
 
@@ -33,8 +34,10 @@ class ClientProfileScreen extends ConsumerStatefulWidget {
   });
 
   final VoidCallback? onCreateProAccount;
+
   /// True when the user has both client and merchant roles.
   final bool isDualProfile;
+
   /// Called with a route name when the user wants to navigate (e.g.
   /// `'storefront-edit-profile'` to edit merchant storefront).
   final void Function(String route)? onNavigate;

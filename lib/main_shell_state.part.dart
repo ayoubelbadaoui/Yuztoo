@@ -2766,12 +2766,9 @@ class _RootShellState extends ConsumerState<_RootShell>
           isDualProfile: _isDualProfile,
           createOtherRoleLabel: 'Créer un carnet Yuztoo',
           onCreateProAccount: () => unawaited(_switchToClient()),
-          onOpenLinkedStorefront: () {
-            final merchant =
-                ref.read(merchant_providers.currentMerchantForOwnerProvider)
-                    .valueOrNull;
-            final id = merchant?.id.trim() ?? '';
-            if (id.isEmpty) return;
+          onOpenYuztooPage: () {
+            final id = YuztooOfficialPage.merchantId();
+            if (id == null) return;
             ref
                 .read(store_profile_providers
                     .selectedStoreMerchantIdProvider.notifier)

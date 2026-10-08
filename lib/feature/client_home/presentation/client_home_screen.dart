@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/config/yuztoo_official_page.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
 import '../../../core/shared/widgets/snackbar.dart';
@@ -23,7 +24,6 @@ import '../../merchant/domain/entities/merchant.dart';
 import '../../promotions/domain/entities/promotion.dart';
 import '../../loyalty/presentation/widgets/welcome_bons_highlight.dart';
 
-
 part 'client_home_screen.part.dart';
 
 /// Client Accueil – "Mon carnet Yuztoo". Shows real merchants from the database.
@@ -39,10 +39,13 @@ class ClientHomeScreen extends ConsumerWidget {
   static String get path => '/client-home';
 
   final ValueChanged<String> onNavigate;
+
   /// When user taps a business, call with merchant id so store profile loads that merchant.
   final ValueChanged<String>? onStoreSelect;
+
   /// When user taps a promotion row — open the promo sheet on the fiche.
   final void Function(String merchantId, String promotionId)? onPromotionSelect;
+
   /// True when this user also has a merchant account — shows the switch-to-merchant icon.
   final bool isDualProfile;
 
@@ -73,7 +76,8 @@ class ClientHomeScreen extends ConsumerWidget {
                 onRefresh: () async {
                   ref.invalidate(clientHomeFeedProvider);
                   ref.invalidate(followedMerchantIdsForCurrentUserProvider);
-                  ref.invalidate(followedMerchantHeartLevelsForCurrentUserProvider);
+                  ref.invalidate(
+                      followedMerchantHeartLevelsForCurrentUserProvider);
                   await ref.read(clientHomeFeedProvider.future);
                 },
                 child: SingleChildScrollView(

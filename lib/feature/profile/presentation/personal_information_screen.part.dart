@@ -303,7 +303,8 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: MerchantColors.gold.withValues(alpha: 0.35),
+                                color:
+                                    MerchantColors.gold.withValues(alpha: 0.35),
                                 blurRadius: 16,
                                 spreadRadius: -2,
                                 offset: const Offset(0, 6),
@@ -328,7 +329,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                       const SizedBox(height: 28),
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: widget.onOpenLinkedStorefront,
+                        onTap: widget.onOpenYuztooPage,
                         child: _buildYuztooCard(fullName),
                       ),
                     ],
@@ -400,8 +401,8 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                   behavior: HitTestBehavior.opaque,
                   onTap: _saving ? null : () => _save(uid),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFFD4AF37), Color(0xFFD4A017)],
@@ -493,8 +494,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
             onTap: _pickDob,
             child: Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
               decoration: BoxDecoration(
                 color: const Color(0xFF0B2540),
                 borderRadius: BorderRadius.circular(12),
@@ -528,8 +528,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
             onTap: () => _pickCity(context),
             child: Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
               decoration: BoxDecoration(
                 color: const Color(0xFF0B2540),
                 borderRadius: BorderRadius.circular(12),
@@ -545,9 +544,10 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                           ? _selectedCity!
                           : 'Sélectionner',
                       style: GoogleFonts.outfit(
-                        color: _selectedCity != null && _selectedCity!.isNotEmpty
-                            ? MerchantColors.textWhite
-                            : MerchantColors.textGrey,
+                        color:
+                            _selectedCity != null && _selectedCity!.isNotEmpty
+                                ? MerchantColors.textWhite
+                                : MerchantColors.textGrey,
                         fontSize: 15,
                       ),
                     ),
@@ -842,8 +842,7 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
             ),
             const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: completionPercent == 100
                     ? MerchantColors.gold
@@ -1078,8 +1077,7 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
                             thickness: 1,
                             indent: 20,
                             endIndent: 20,
-                            color:
-                                MerchantColors.gold.withValues(alpha: 0.08),
+                            color: MerchantColors.gold.withValues(alpha: 0.08),
                           ),
                           itemBuilder: (_, i) {
                             final city = filtered[i];
@@ -1097,11 +1095,12 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
                                       .showSnackBar(
                                     SnackBar(content: Text(f.message)),
                                   ),
-                                  (_) => unawaited(refreshUserProfileCacheWidget(
-                                        ref,
-                                        uid: uid,
-                                        cityChanged: true,
-                                      )),
+                                  (_) =>
+                                      unawaited(refreshUserProfileCacheWidget(
+                                    ref,
+                                    uid: uid,
+                                    cityChanged: true,
+                                  )),
                                 );
                               },
                               child: Padding(
@@ -1152,8 +1151,7 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
       String uid, String cityName, List<String> current) async {
     if (current.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Vous devez avoir au moins une ville.')),
+        const SnackBar(content: Text('Vous devez avoir au moins une ville.')),
       );
       return;
     }
@@ -1167,10 +1165,10 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
         SnackBar(content: Text(f.message)),
       ),
       (_) => unawaited(refreshUserProfileCacheWidget(
-            ref,
-            uid: uid,
-            cityChanged: true,
-          )),
+        ref,
+        uid: uid,
+        cityChanged: true,
+      )),
     );
   }
 
