@@ -19,6 +19,7 @@ import '../../../core/debug/nfc_debug_ui_helpers.dart';
 import '../../../core/infrastructure/nfc_service.dart';
 import '../../qr_scanner/presentation/widgets/nfc_debug_emulator_sheet.dart';
 import '../../merchant/application/providers.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 /// NFC plaque programming is enabled on **both** Android and iOS. Apple
 /// allows third-party apps to write NDEF records via the Core NFC tag
@@ -207,27 +208,11 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onBack,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold, size: 20),
-                ),
-              ),
+              const SizedBox(width: 44),
               const SizedBox(width: 4),
-              Expanded(
+              const Expanded(
                 child: Center(
-                  child: Text(
-                    'Mon QR Code',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: YuztooGradientTitle('Mon QR Code'),
                 ),
               ),
               const SizedBox(width: 44),

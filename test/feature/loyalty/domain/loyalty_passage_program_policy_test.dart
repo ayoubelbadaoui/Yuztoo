@@ -153,6 +153,102 @@ void main() {
     });
   });
 
+  group('isPassageSessionAutoConfirmed', () {
+    const visitProgram = LoyaltyProgramConfig(
+      programEnabled: true,
+      passageValidation: LoyaltyPassageValidation.automatic,
+      triggerType: LoyaltyTriggerType.visitCount,
+    );
+
+    Merchant merchantWith(LoyaltyProgramConfig program) => Merchant(
+          id: 'm1',
+          ownerUid: 'o1',
+          name: 'Shop',
+          email: 'a@b.c',
+          phone: '+33600000000',
+          city: 'Paris',
+          loyaltyEnabled: true,
+          loyaltyProgram: program,
+        );
+
+    ActiveValidationRequest sessionWith(
+      LoyaltyProgramConfig snapshot, {
+      ActiveValidationSource source = ActiveValidationSource.vitrine,
+    }) =>
+        ActiveValidationRequest(
+          merchantId: 'm1',
+          clientUid: 'c1',
+          clientDisplayName: 'A',
+          status: ActiveValidationStatus.awaiting,
+          programSnapshot: snapshot,
+          source: source,
+        );
+
+    test('true for an automatic visit-count vitrine session', () {
+      expect(
+        isPassageSessionAutoConfirmed(
+          merchant: merchantWith(visitProgram),
+          session: sessionWith(visitProgram),
+        ),
+        isTrue,
+      );
+    });
+
+    test('false for an automatic amount-based programme', () {
+      // Production config of La Boutique Des Lunetiers (849 € lost).
+      expect(
+        isPassageSessionAutoConfirmed(
+          merchant: _merchant,
+          session: sessionWith(_merchant.loyaltyProgram!),
+        ),
+        isFalse,
+      );
+      expect(
+        loyaltyProgramRequiresSpendAmount(_merchant.loyaltyProgram!),
+        isTrue,
+      );
+    });
+
+    test('false when the client is enrolled on amount-based terms', () {
+      expect(
+        isPassageSessionAutoConfirmed(
+          merchant: merchantWith(visitProgram),
+          session: sessionWith(visitProgram),
+          clientProgress: const ClientMerchantLoyaltyProgress(
+            validatedPassages: 0,
+            cumulativeSpendEuros: 40,
+            enrolledProgram: LoyaltyProgramConfig(
+              programEnabled: true,
+              triggerType: LoyaltyTriggerType.purchaseTotal,
+            ),
+          ),
+        ),
+        isFalse,
+      );
+    });
+
+    test('false for BLE sessions', () {
+      expect(
+        isPassageSessionAutoConfirmed(
+          merchant: merchantWith(visitProgram),
+          session: sessionWith(
+            visitProgram,
+            source: ActiveValidationSource.ble,
+          ),
+        ),
+        isFalse,
+      );
+    });
+
+    test('scans open a session in every mode while loyalty is on', () {
+      expect(isScanPassageSessionAllowedForMerchant(_merchant), isTrue);
+      expect(
+        isScanPassageSessionAllowedForMerchant(merchantWith(visitProgram)),
+        isTrue,
+      );
+    });
+  });
+
   group('merchantPassageCooldownEnabled', () {
     test('defaults to true when field is null', () {
       expect(merchantPassageCooldownEnabled(_merchant), isTrue);

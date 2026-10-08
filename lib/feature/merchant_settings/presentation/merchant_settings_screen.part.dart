@@ -224,22 +224,15 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
               ),
             ),
           ),
-          child: Row(
+          child: const Row(
             children: [
-              const SizedBox(width: 44),
+              SizedBox(width: 44),
               Expanded(
                 child: Center(
-                  child: Text(
-                    'Paramètres Pro',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: YuztooGradientTitle('Paramètres Pro'),
                 ),
               ),
-              const SizedBox(width: 44),
+              SizedBox(width: 44),
             ],
           ),
         ),

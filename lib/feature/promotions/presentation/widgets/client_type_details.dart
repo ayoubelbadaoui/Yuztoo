@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../merchant/domain/notification_quota_policy.dart';
 import '../../domain/entities/promotion.dart';
 
 part 'client_type_details.part.dart';

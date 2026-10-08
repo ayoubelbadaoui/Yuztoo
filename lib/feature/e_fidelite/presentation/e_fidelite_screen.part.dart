@@ -234,28 +234,12 @@ class _EFideliteHeader extends StatelessWidget {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onBack,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: MerchantColors.gold,
-                    size: 20,
-                  ),
-                ),
-              ),
+              const SizedBox(width: 44),
               const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  'E-Fidélité',
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+              const Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: YuztooGradientTitle('E-Fidélité'),
                 ),
               ),
               if (showSave)

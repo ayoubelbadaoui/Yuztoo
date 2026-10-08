@@ -25,12 +25,17 @@ class PersonalInformationScreen extends ConsumerStatefulWidget {
     this.createOtherRoleLabel,
     this.onBack,
     this.isDualProfile = false,
+    this.onOpenLinkedStorefront,
   });
 
   /// When true, shows the Yuztoo loyalty preview card (« Présentez votre carte »)
   /// at the bottom — only relevant when the user has both client and merchant
   /// contexts. Single-role users do not see this block.
   final bool isDualProfile;
+
+  /// Opens the linked merchant storefront (coordonnées, vitrine) when the
+  /// Yuztoo card is tapped — typically the dual-profile owner commerce.
+  final VoidCallback? onOpenLinkedStorefront;
 
   /// Tapped when the user wants to add their secondary role.
   ///

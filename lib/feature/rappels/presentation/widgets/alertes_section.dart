@@ -7,12 +7,17 @@ import '../../application/providers.dart' as rappels_providers;
 import '../../domain/entities/rappel_alert.dart';
 import 'rappels_section_header.dart';
 
-/// "Alertes" section on the Rappels screen.
+/// "Alertes" section shown at the top of Vos clients › Aperçu.
 /// Shows computed alerts (expiring promos, pending loyalty, reward-ready clients).
 class AlertesSection extends ConsumerWidget {
-  const AlertesSection({super.key, required this.merchantId});
+  const AlertesSection({
+    super.key,
+    required this.merchantId,
+    this.padding = const EdgeInsets.fromLTRB(24, 20, 24, 20),
+  });
 
   final String merchantId;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,7 +27,7 @@ class AlertesSection extends ConsumerWidget {
         ref.watch(rappels_providers.rappelsAlertsProvider(merchantId));
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

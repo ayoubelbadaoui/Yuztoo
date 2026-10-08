@@ -12,6 +12,20 @@ import {
   shouldSendConnectionAnniversary,
   shouldSendInactiveReturn,
 } from "./auto_notification_core";
+import {
+  isInsidePassageCooldown,
+  isPassageSessionAutoConfirmed,
+  merchantPassageValidationIsAutomatic,
+  parisYearMonth,
+  passageValidatedNotification,
+  resolvePassageProgram,
+  rewardUnlockedNotification,
+  visitRewardJustUnlocked,
+} from "./passage_auto_confirm_core";
+import {
+  isOverWeeklyNotificationQuota,
+  NOTIFICATION_QUOTA_WINDOW_MS,
+} from "./notification_quota_core";
 
 admin.initializeApp();
 
@@ -82,18 +96,6 @@ async function sendHighPriorityAlertPush(
     },
   };
   await messaging.send(message);
-}
-
-function merchantPassageValidationIsAutomatic(
-  merchantData: admin.firestore.DocumentData | undefined
-): boolean {
-  if (!merchantData) return false;
-  const autoToggle = merchantData.rappels_auto_passage_validation;
-  if (typeof autoToggle === "boolean") return autoToggle;
-  const lp = merchantData.loyalty_program as
-    | Record<string, unknown>
-    | undefined;
-  return lp?.passage_validation === "automatic";
 }
 
 /** In-app inbox doc → [onNotificationCreated] sends the FCM push. */
@@ -1088,6 +1090,145 @@ export const cleanupStaleActiveValidations = functions
 // ─── 2b. Client requests passage validation (merchant push) ─────────────────
 
 /**
+ * Automatic mode: records the passage the merchant would have validated, in
+ * the same transaction shape as the app's `applyPassageDeltas` +
+ * `ConfirmActiveValidation`. The client phone may not write
+ * `loyalty_clients`, so without this the passage was silently lost.
+ * The merchant app races this on the same `awaiting` guard; one side wins.
+ */
+async function autoConfirmPassageSession(
+  merchantId: string,
+  clientUid: string,
+  merchantData: admin.firestore.DocumentData | undefined
+): Promise<void> {
+  const merchantRef = db.collection("merchants").doc(merchantId);
+  const sessionRef = merchantRef.collection("active_validations").doc(clientUid);
+  const loyaltyRef = merchantRef.collection("loyalty_clients").doc(clientUid);
+  const cooldownEnabled = merchantData?.passage_cooldown_enabled !== false;
+
+  type Outcome =
+    | { kind: "completed"; validatedAfter: number; program: Record<string, unknown> }
+    | { kind: "cooldown" }
+    | { kind: "stale" };
+
+  const outcome = await db.runTransaction(async (tx): Promise<Outcome> => {
+    const sessionSnap = await tx.get(sessionRef);
+    const loyaltySnap = await tx.get(loyaltyRef);
+    const session = sessionSnap.data();
+    if (!session || session.status !== "awaiting") return { kind: "stale" };
+
+    const loyalty = loyaltySnap.data() ?? {};
+    const program = resolvePassageProgram(loyaltySnap.data(), session);
+    const ts = admin.firestore.FieldValue.serverTimestamp();
+    const lastPassageAt = loyalty.last_passage_at;
+    const lastMs =
+      lastPassageAt instanceof admin.firestore.Timestamp
+        ? lastPassageAt.toMillis()
+        : null;
+
+    if (isInsidePassageCooldown(lastMs, Date.now(), cooldownEnabled)) {
+      tx.update(sessionRef, {
+        status: "cancelled",
+        cancel_reason: "passage_cooldown",
+        completed_at: ts,
+      });
+      return { kind: "cooldown" };
+    }
+
+    const validatedAfter = (Number(loyalty.validated_passages) || 0) + 1;
+    tx.set(
+      loyaltyRef,
+      {
+        validated_passages: validatedAfter,
+        cumulative_spend_euros: Number(loyalty.cumulative_spend_euros) || 0,
+        updated_at: ts,
+        last_passage_at: ts,
+        ...(loyaltySnap.exists
+          ? {}
+          : {
+              first_visit_at: ts,
+              enrolled_loyalty_program: program,
+              enrolled_at: ts,
+              program_status: "active",
+            }),
+      },
+      { merge: true }
+    );
+    tx.update(sessionRef, {
+      status: "completed",
+      completed_at: ts,
+      result_validated_delta: 1,
+      result_spend_delta: 0,
+    });
+    return { kind: "completed", validatedAfter, program };
+  });
+
+  functions.logger.info("autoConfirmPassageSession", {
+    merchantId,
+    clientUid,
+    outcome: outcome.kind,
+  });
+  if (outcome.kind !== "completed") return;
+
+  // Best-effort, like the app: the passage is already recorded.
+  try {
+    await incrementMonthlyValidatedPassages(merchantRef);
+  } catch (e) {
+    functions.logger.warn("monthly validated passages increment failed", {
+      merchantId,
+      error: e,
+    });
+  }
+
+  const merchantName = resolveMerchantPublicName(merchantData);
+  try {
+    await writeClientInAppNotification(clientUid, {
+      merchantId,
+      merchantName,
+      type: "loyalty",
+      ...passageValidatedNotification(
+        merchantName,
+        outcome.program,
+        outcome.validatedAfter
+      ),
+    });
+    if (visitRewardJustUnlocked(outcome.program, outcome.validatedAfter)) {
+      await writeClientInAppNotification(clientUid, {
+        merchantId,
+        merchantName,
+        type: "loyalty",
+        ...rewardUnlockedNotification(merchantName, outcome.program),
+      });
+    }
+  } catch (e) {
+    functions.logger.warn("auto-confirmed passage notification failed", {
+      merchantId,
+      clientUid,
+      error: e,
+    });
+  }
+}
+
+async function incrementMonthlyValidatedPassages(
+  merchantRef: admin.firestore.DocumentReference
+): Promise<void> {
+  const currentYm = parisYearMonth(new Date());
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(merchantRef);
+    const storedYm = snap.data()?.rappels_monthly_validated_ym;
+    tx.set(
+      merchantRef,
+      {
+        rappels_monthly_validated_passages:
+          storedYm === currentYm ? admin.firestore.FieldValue.increment(1) : 1,
+        rappels_monthly_validated_ym: currentYm,
+      },
+      { merge: true }
+    );
+  });
+}
+
+/**
  * When an `active_validations` session is created (`awaiting`) or completed,
  * notify both the merchant owner and the client (FCM + client inbox on request).
  */
@@ -1116,10 +1257,26 @@ export const onActiveValidationAwaiting = functions
     const clientName: string =
       (after.client_display_name as string) || "Un client";
 
-    // ── Client requested validation (manual mode) ───────────────────────────
+    // ── Client requested validation ─────────────────────────────────────────
     if (statusAfter === "awaiting" && statusBefore !== "awaiting") {
-      if (merchantPassageValidationIsAutomatic(merchantData)) {
-        functions.logger.info("Skip passage push: automatic validation", {
+      const loyaltySnap = await db
+        .collection("merchants")
+        .doc(merchantId)
+        .collection("loyalty_clients")
+        .doc(clientUid)
+        .get();
+      if (isPassageSessionAutoConfirmed(merchantData, after, loyaltySnap.data())) {
+        await autoConfirmPassageSession(merchantId, clientUid, merchantData);
+        return null;
+      }
+      // BLE sessions are accepted on the merchant device (proximity), never
+      // via this push. Amount-based programmes fall through even in
+      // automatic mode: only the merchant can type the purchase.
+      if (
+        merchantPassageValidationIsAutomatic(merchantData) &&
+        after.source === "ble"
+      ) {
+        functions.logger.info("Skip passage push: automatic BLE session", {
           merchantId,
           clientUid,
         });
@@ -2128,8 +2285,9 @@ export const dailyBonExpirationScan = functions
 // "processing" intermediate is only kept in-memory for the same
 // invocation; persisted final states are sent / failed / cancelled.
 //
-// Quota: same 5-per-rolling-week cap as immediate sends. If the merchant
-// is already at the cap when a scheduled notif fires, the doc is marked
+// Quota: same rule as immediate sends (see notification_quota_core.ts —
+// currently disabled). If the merchant is over quota when a scheduled
+// notif fires, the doc is marked
 // `failed` with reason `quota_exceeded` rather than dropped — the
 // merchant can see why it didn't go out.
 //
@@ -2187,9 +2345,8 @@ export const processScheduledNotifications = functions
         });
         if (!claimed) return;
 
-        // Quota check — same 5/week rolling-window logic the immediate
-        // path uses. Read merchant doc, check weekly_notif_sent_count
-        // against the reset window. Failing this is a final state.
+        // Quota check — same rule as the app (free plan only, and only once
+        // the quota is enabled). Failing this is a final state.
         const merchantSnap = await db
           .collection("merchants")
           .doc(merchantId)
@@ -2198,16 +2355,8 @@ export const processScheduledNotifications = functions
         // Resolve at quick-send time too — same root reason as
         // [fireAutoNotification].
         const merchantName: string = resolveMerchantPublicName(merchantData);
-        const weeklyCount: number =
-          Number(merchantData.weekly_notif_sent_count ?? 0);
-        const resetAt = merchantData.weekly_notif_reset_at;
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        const windowOpen =
-          resetAt &&
-          (now.toMillis() - resetAt.toMillis()) < sevenDaysMs;
-        const overQuota = windowOpen && weeklyCount >= 5;
 
-        if (overQuota) {
+        if (isOverWeeklyNotificationQuota(merchantData, now.toMillis())) {
           await doc.ref.update({
             status: "failed",
             failure_reason: "quota_exceeded",
@@ -2334,7 +2483,7 @@ export const processScheduledNotifications = functions
           const fReset = fdata.weekly_notif_reset_at;
           const fWindowOpen =
             fReset &&
-            (now.toMillis() - fReset.toMillis()) < sevenDaysMs;
+            (now.toMillis() - fReset.toMillis()) < NOTIFICATION_QUOTA_WINDOW_MS;
           tx.update(merchantRef, {
             weekly_notif_sent_count: fWindowOpen ? fCount + 1 : 1,
             weekly_notif_reset_at: fWindowOpen

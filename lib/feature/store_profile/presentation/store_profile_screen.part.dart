@@ -5,9 +5,7 @@ part of 'store_profile_screen.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StoreProfileErrorBack extends StatelessWidget {
-  const _StoreProfileErrorBack({required this.onBack});
-
-  final VoidCallback onBack;
+  const _StoreProfileErrorBack();
 
   @override
   Widget build(BuildContext context) {
@@ -26,19 +24,6 @@ class _StoreProfileErrorBack extends StatelessWidget {
               color: StorefrontColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 16),
-          TextButton.icon(
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: StorefrontColors.primaryGold, size: 18),
-            label: Text(
-              'Retour',
-              style: GoogleFonts.outfit(
-                color: StorefrontColors.primaryGold,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -54,14 +39,12 @@ class _StoreProfileErrorBack extends StatelessWidget {
 class _StoreProfileOffline extends StatelessWidget {
   const _StoreProfileOffline({
     required this.merchantName,
-    required this.onBack,
     this.isFollowing = false,
     this.isUnfollowBusy = false,
     this.onUnfollow,
   });
 
   final String merchantName;
-  final VoidCallback onBack;
   final bool isFollowing;
   final bool isUnfollowBusy;
   final VoidCallback? onUnfollow;
@@ -71,36 +54,6 @@ class _StoreProfileOffline extends StatelessWidget {
     return SafeArea(
       child: Column(
         children: [
-          // Minimal back header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: onBack,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: StorefrontColors.creamLight,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 16,
-                    color: StorefrontColors.navyDark,
-                  ),
-                ),
-              ),
-            ),
-          ),
           Expanded(
             child: Center(
               child: Padding(
@@ -189,22 +142,6 @@ class _StoreProfileOffline extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 28),
-                    TextButton.icon(
-                      onPressed: onBack,
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: StorefrontColors.primaryGold,
-                        size: 16,
-                      ),
-                      label: Text(
-                        'Retour',
-                        style: GoogleFonts.outfit(
-                          color: StorefrontColors.primaryGold,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -365,7 +302,7 @@ class _PromotionsList extends StatelessWidget {
                                   color: StorefrontColors.textSecondary,
                                   height: 1.4,
                                 ),
-                                maxLines: 2,
+                                maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 8),
@@ -1092,13 +1029,6 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           ),
         ),
 
-        // ── Back button overlay (always visible on top of banner) ────────────
-        Positioned(
-          top: MediaQuery.of(context).padding.top + 8,
-          left: 12,
-          child: _BackButton(onTap: widget.onBack),
-        ),
-
         // ── Safety menu overlay (block / report) ─────────────────────────────
         // Hidden on the merchant's OWN storefront (preview view) — there's
         // nothing meaningful to block or report on yourself. Hidden for
@@ -1475,8 +1405,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                   ),
           style: TextButton.styleFrom(
             foregroundColor: StorefrontColors.textSecondary,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             minimumSize: const Size(0, 0),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
@@ -1788,10 +1717,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
       final anchorCtx = _followCtaKey.currentContext;
       final overlay = Overlay.maybeOf(context);
       final box = anchorCtx?.findRenderObject() as RenderBox?;
-      if (anchorCtx == null ||
-          overlay == null ||
-          box == null ||
-          !box.hasSize) {
+      if (anchorCtx == null || overlay == null || box == null || !box.hasSize) {
         _showScanFollowFirstSheet(context, merchant, userId);
         return;
       }
@@ -1976,7 +1902,9 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      loyaltyActive ? 'Suivre et continuer' : 'Suivre ce commerce',
+                      loyaltyActive
+                          ? 'Suivre et continuer'
+                          : 'Suivre ce commerce',
                       style: GoogleFonts.outfit(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -2252,59 +2180,57 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
     required String? userId,
     required ScanVisitResult result,
   }) {
-      switch (result) {
-        case ScanVisitGuest():
-          // "au premier scan ... on doit proposer de suivre la boutique":
-          // guests get a dismissible connect sheet — they can still browse
-          // the storefront via "Continuer sans compte".
-          _showScanGuestConnectSheet(context, merchant);
-        case ScanVisitNotFollowing():
-          // Logged-in non-follower → spotlight the real "Suivre" CTA with a
-          // coachmark ("Suivez pour valider votre passage"). Tapping it follows
-          // AND continues to the fidélité flow in one shot (no second scan),
-          // because [_handleFollowToggle] already chains _afterScanFollowSuccess
-          // → record passage (automatic) / open active_validation (manual).
-          // Falls back to the bottom sheet if the button isn't laid out yet.
-          _showFollowPassageCoachmark(context, merchant, userId!);
-        case ScanVisitFollowListNotReady():
-        case ScanVisitLoyaltyInactive():
-          // Profile only — nothing actionable to propose.
-          break;
-        case ScanVisitVisitRecorded():
-          ref.invalidate(
-              clientLoyaltyProgressForMerchantProvider(merchant.id));
-          ref
-              .read(pendingDirectVisitCelebrationProvider.notifier)
-              .state = merchant.id;
-          break;
-        case ScanVisitAwaitingMerchant():
-          // The session listener (clientActiveValidationSessionProvider)
-          // surfaces the live banner — no extra UI needed here.
-          break;
-        case ScanVisitCooldownBlocked(:final userMessage):
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                userMessage,
-                style: GoogleFonts.outfit(color: Colors.white),
-              ),
-              backgroundColor: StorefrontColors.primaryGold,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
+    switch (result) {
+      case ScanVisitGuest():
+        // "au premier scan ... on doit proposer de suivre la boutique":
+        // guests get a dismissible connect sheet — they can still browse
+        // the storefront via "Continuer sans compte".
+        _showScanGuestConnectSheet(context, merchant);
+      case ScanVisitNotFollowing():
+        // Logged-in non-follower → spotlight the real "Suivre" CTA with a
+        // coachmark ("Suivez pour valider votre passage"). Tapping it follows
+        // AND continues to the fidélité flow in one shot (no second scan),
+        // because [_handleFollowToggle] already chains _afterScanFollowSuccess
+        // → record passage (automatic) / open active_validation (manual).
+        // Falls back to the bottom sheet if the button isn't laid out yet.
+        _showFollowPassageCoachmark(context, merchant, userId!);
+      case ScanVisitFollowListNotReady():
+      case ScanVisitLoyaltyInactive():
+        // Profile only — nothing actionable to propose.
+        break;
+      case ScanVisitVisitRecorded():
+        ref.invalidate(clientLoyaltyProgressForMerchantProvider(merchant.id));
+        ref.read(pendingDirectVisitCelebrationProvider.notifier).state =
+            merchant.id;
+        break;
+      case ScanVisitAwaitingMerchant():
+        // The session listener (clientActiveValidationSessionProvider)
+        // surfaces the live banner — no extra UI needed here.
+        break;
+      case ScanVisitCooldownBlocked(:final userMessage):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              userMessage,
+              style: GoogleFonts.outfit(color: Colors.white),
             ),
-          );
-        case ScanVisitError(:final userMessage):
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                userMessage,
-                style: GoogleFonts.outfit(color: Colors.white),
-              ),
-              backgroundColor: Colors.red.shade700,
-              behavior: SnackBarBehavior.floating,
+            backgroundColor: StorefrontColors.primaryGold,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      case ScanVisitError(:final userMessage):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              userMessage,
+              style: GoogleFonts.outfit(color: Colors.white),
             ),
-          );
-      }
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    }
   }
 
   /// Consumes [pendingStorePromotionIdProvider] once per screen visit.
@@ -2374,164 +2300,166 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0D8CC),
-                  borderRadius: BorderRadius.circular(2),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0D8CC),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
 
-            // Promo image (if available)
-            if (promo.imageUrl != null && promo.imageUrl!.isNotEmpty)
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-                child: Image.network(
-                  promo.imageUrl!,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              )
-            else
-              const SizedBox(height: 8),
-
-            const SizedBox(height: 16),
-
-            // Icon + title
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color:
-                          StorefrontColors.primaryGold.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(
-                      Icons.local_offer_rounded,
-                      color: StorefrontColors.primaryGold,
-                      size: 24,
-                    ),
+              // Promo image (if available)
+              if (promo.imageUrl != null && promo.imageUrl!.isNotEmpty)
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          promo.title,
-                          style: GoogleFonts.outfit(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: StorefrontColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          promo.subtitle,
-                          style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            color: StorefrontColors.textSecondary,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: AdaptiveImage(
+                    image: NetworkImage(promo.imageUrl!),
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.4,
+                    backgroundColor: StorefrontColors.creamLight,
+                    errorBuilder: (_, __, ___) => const SizedBox(height: 8),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Divider(height: 1, color: StorefrontColors.creamLight),
-            const SizedBox(height: 14),
+                )
+              else
+                const SizedBox(height: 8),
 
-            // Validity dates
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_today_outlined,
-                      size: 14, color: StorefrontColors.primaryGold),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Du ${fmt(promo.dateFrom)} au ${fmt(promo.dateTo)}',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: StorefrontColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+              const SizedBox(height: 16),
 
-            // View count
-            if (promo.viewCount > 0) ...[
-              const SizedBox(height: 10),
+              // Icon + title
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
                   children: [
-                    Icon(Icons.visibility_outlined,
-                        size: 14,
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
                         color: StorefrontColors.primaryGold
-                            .withValues(alpha: 0.7)),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${promo.viewCount} vue${promo.viewCount > 1 ? 's' : ''}',
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        color: StorefrontColors.textSecondary,
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.local_offer_rounded,
+                        color: StorefrontColors.primaryGold,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            promo.title,
+                            style: GoogleFonts.outfit(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: StorefrontColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            promo.subtitle,
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              color: StorefrontColors.textSecondary,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: StorefrontColors.creamLight),
+              const SizedBox(height: 14),
 
-            const SizedBox(height: 22),
-            // Close CTA
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                  24, 0, 24, MediaQuery.of(context).padding.bottom + 20),
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: StorefrontColors.navyDark,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Fermer',
+              // Validity dates
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today_outlined,
+                        size: 14, color: StorefrontColors.primaryGold),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Du ${fmt(promo.dateFrom)} au ${fmt(promo.dateTo)}',
                       style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: StorefrontColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // View count
+              if (promo.viewCount > 0) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: [
+                      Icon(Icons.visibility_outlined,
+                          size: 14,
+                          color: StorefrontColors.primaryGold
+                              .withValues(alpha: 0.7)),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${promo.viewCount} vue${promo.viewCount > 1 ? 's' : ''}',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: StorefrontColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 22),
+              // Close CTA
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                    24, 0, 24, MediaQuery.of(context).padding.bottom + 20),
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: StorefrontColors.navyDark,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Fermer',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2543,34 +2471,6 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Gold back button with a frosted-glass circular background — sits on the banner.
-class _BackButton extends StatelessWidget {
-  const _BackButton({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.35),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.2),
-          ),
-        ),
-        child: const Icon(
-          Icons.arrow_back_ios_new_rounded,
-          color: Colors.white,
-          size: 18,
-        ),
-      ),
-    );
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab content widgets
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2770,7 +2670,8 @@ class _AccueilTab extends ConsumerWidget {
                   _InfoTile(
                     icon: Icons.language_outlined,
                     label: 'Site web',
-                    value: merchant.websiteUrl!,
+                    value:
+                        MerchantStorefrontLink.shortUrl(merchant.websiteUrl!),
                     isFirst: false,
                     onTap: () => _launchWebsite(context, merchant.websiteUrl!),
                   ),
@@ -2783,7 +2684,7 @@ class _AccueilTab extends ConsumerWidget {
                         ? Icons.open_in_new_rounded
                         : Icons.info_outline_rounded,
                     label: link.label,
-                    value: link.value,
+                    value: link.displayValue,
                     isFirst: false,
                     onTap: link.isLaunchableUrl
                         ? () => _launchWebsite(context, link.value)

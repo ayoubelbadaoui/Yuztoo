@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../core/shared/widgets/cupertino_picker_sheet.dart';
+import '../../../merchant/domain/notification_quota_policy.dart';
 import '../../application/personal_birthday_broadcast_detector.dart';
 import '../../domain/entities/scheduled_notification.dart';
 import '../../domain/entities/sent_notification.dart';
@@ -52,7 +53,7 @@ class QuickSendSection extends ConsumerStatefulWidget {
     required this.onSend,
     this.history = const [],
     this.historyLoading = false,
-    this.quotaLabel = '0/5',
+    this.quotaLabel,
     this.quotaExceeded = false,
   });
 
@@ -73,8 +74,8 @@ class QuickSendSection extends ConsumerStatefulWidget {
   final List<SentNotification> history;
   final bool historyLoading;
 
-  /// E.g. "2/5" — shown as quota indicator.
-  final String quotaLabel;
+  /// E.g. "2/5" — shown as quota indicator. Null = unlimited, row hidden.
+  final String? quotaLabel;
 
   /// When true, the send button is disabled.
   final bool quotaExceeded;

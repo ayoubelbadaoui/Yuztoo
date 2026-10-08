@@ -16,16 +16,15 @@ import '../../merchant/domain/entities/merchant.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;
 import '../../storefront/domain/entities/storefront.dart';
 import '../application/providers.dart' as rappels_providers;
-import 'widgets/alertes_section.dart';
 import 'widgets/pending_clients_section.dart';
 import 'widgets/notifications_auto_entry.dart';
 import 'widgets/quick_send_section.dart';
-import 'widgets/rappels_clients_section.dart';
 // Kept while RappelsProductSection is hidden (see rappels_screen.part.dart)
 // so re-enabling the NFC plaque marketing block is a single-line revert.
 // ignore: unused_import
 import 'widgets/rappels_product_section.dart';
 import 'widgets/rappels_toggles_section.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 part 'rappels_screen.part.dart';
 
@@ -41,8 +40,6 @@ class RappelsScreen extends ConsumerStatefulWidget {
 }
 
 class _RappelsScreenState extends ConsumerState<RappelsScreen> {
-  final GlobalKey _togglesSectionKey = GlobalKey();
-
   bool _welcomePopupScheduled = false;
 
   static String _welcomePopupPrefsKey(String merchantId) =>
@@ -148,20 +145,6 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
         ),
       ),
     );
-  }
-
-  void _scrollToToggles() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ctx = _togglesSectionKey.currentContext;
-      if (ctx != null && mounted) {
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutCubic,
-          alignment: 0.1,
-        );
-      }
-    });
   }
 
   Future<void> _onQuickSend(

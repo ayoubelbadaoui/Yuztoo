@@ -94,7 +94,8 @@ class ClientHomeScreen extends ConsumerWidget {
                           heartLevelsAsync.valueOrNull ?? const <String, int>{},
                           followedIds: feed.followedIds,
                           ownMerchantId: feed.ownMerchantId,
-                          showYuztooBrandTile: hasProAccount,
+                          showYuztooBrandTile: hasProAccount ||
+                              (feed.ownMerchantId?.isNotEmpty ?? false),
                         ),
                         loading: () => feedAsync.valueOrNull != null
                             ? _buildBusinessCard(
@@ -106,7 +107,10 @@ class ClientHomeScreen extends ConsumerWidget {
                                 followedIds: feedAsync.valueOrNull!.followedIds,
                                 ownMerchantId:
                                     feedAsync.valueOrNull!.ownMerchantId,
-                                showYuztooBrandTile: hasProAccount,
+                                showYuztooBrandTile: hasProAccount ||
+                                    (feedAsync.valueOrNull!.ownMerchantId
+                                            ?.isNotEmpty ??
+                                        false),
                               )
                             : _buildBusinessCardLoading(context),
                         error: (e, _) => feedAsync.valueOrNull != null
@@ -119,7 +123,10 @@ class ClientHomeScreen extends ConsumerWidget {
                                 followedIds: feedAsync.valueOrNull!.followedIds,
                                 ownMerchantId:
                                     feedAsync.valueOrNull!.ownMerchantId,
-                                showYuztooBrandTile: hasProAccount,
+                                showYuztooBrandTile: hasProAccount ||
+                                    (feedAsync.valueOrNull!.ownMerchantId
+                                            ?.isNotEmpty ??
+                                        false),
                               )
                             : _buildBusinessCardError(context, ref),
                       ),

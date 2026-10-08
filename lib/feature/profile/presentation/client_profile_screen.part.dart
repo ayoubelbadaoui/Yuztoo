@@ -49,6 +49,21 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                                 builder: (_) => PersonalInformationScreen(
                                   onCreateProAccount: widget.onCreateProAccount,
                                   isDualProfile: widget.isDualProfile,
+                                  onOpenLinkedStorefront: () {
+                                    final merchant = ref
+                                        .read(merchant_providers
+                                            .currentMerchantForOwnerProvider)
+                                        .valueOrNull;
+                                    final id = merchant?.id.trim() ?? '';
+                                    if (id.isEmpty) return;
+                                    ref
+                                        .read(store_profile_providers
+                                            .selectedStoreMerchantIdProvider
+                                            .notifier)
+                                        .state = id;
+                                    Navigator.of(context).pop();
+                                    widget.onNavigate?.call('store-profile');
+                                  },
                                 ),
                               ),
                             );
@@ -185,7 +200,11 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
             ),
           ),
           child: Center(
-            child: YuztooGradientTitle(l10n.myProfile),
+            child: YuztooGradientTitle(
+              l10n.myProfile,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),

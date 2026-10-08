@@ -57,6 +57,36 @@ bool isVitrinePassageRequestAllowedForMerchant(Merchant merchant) {
   return !merchantPassageValidationIsAutomatic(merchant);
 }
 
+/// Un scan (NFC, QR, lien) ouvre toujours une session `active_validations`,
+/// quel que soit le mode : `loyalty_clients` n'est écrit que par le
+/// commerçant ou par le backend, jamais par le téléphone du client.
+bool isScanPassageSessionAllowedForMerchant(Merchant merchant) =>
+    isMerchantLoyaltyPassageActive(merchant);
+
+/// Programme au montant : seul le commerçant peut saisir l'achat.
+bool loyaltyProgramRequiresSpendAmount(LoyaltyProgramConfig config) =>
+    config.triggerType == LoyaltyTriggerType.purchaseTotal ||
+    config.rewardKind == LoyaltyRewardKind.loyaltyPoints;
+
+/// Session confirmée par le backend sans le commerçant : mode automatique,
+/// hors BLE (proximité à confirmer) et sans montant à saisir. Doit rester
+/// aligné avec `isPassageSessionAutoConfirmed` dans `functions/src/index.ts`.
+bool isPassageSessionAutoConfirmed({
+  required Merchant merchant,
+  required ActiveValidationRequest session,
+  ClientMerchantLoyaltyProgress? clientProgress,
+}) {
+  if (session.isBle) return false;
+  if (!isAutomaticPassageAllowedForMerchant(merchant)) return false;
+  return !loyaltyProgramRequiresSpendAmount(
+    resolveLoyaltyProgramForPassage(
+      merchant: merchant,
+      session: session,
+      clientProgress: clientProgress,
+    ),
+  );
+}
+
 /// Rules applied when recording a passage (sheet + [ConfirmActiveValidation]).
 ///
 /// - Live merchant doc gates whether fidélité is on at all.

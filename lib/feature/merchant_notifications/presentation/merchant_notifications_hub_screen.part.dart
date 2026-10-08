@@ -93,29 +93,10 @@ extension _HubUi on _MerchantNotificationsHubScreenState {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: widget.onBack,
-                behavior: HitTestBehavior.opaque,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: MerchantColors.gold,
-                    size: 20,
-                  ),
-                ),
-              ),
-              Expanded(
+              const SizedBox(width: 44),
+              const Expanded(
                 child: Center(
-                  child: Text(
-                    'Vos notifications',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: YuztooGradientTitle('Vos notifications'),
                 ),
               ),
               // Auto-notifications shortcut icon

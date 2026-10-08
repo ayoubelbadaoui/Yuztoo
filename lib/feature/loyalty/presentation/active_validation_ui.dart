@@ -16,9 +16,12 @@ Future<void> showMerchantActiveValidationSheet({
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     isDismissible: false,
-    builder: (_) => ActiveValidationSheet(
-      merchant: merchant,
-      session: session,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+      child: ActiveValidationSheet(
+        merchant: merchant,
+        session: session,
+      ),
     ),
   );
 }

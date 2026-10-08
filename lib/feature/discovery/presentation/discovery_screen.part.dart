@@ -53,15 +53,16 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                   child: Row(
                     children: [
                       _typeChip(
-                        label: 'Artiste',
-                        icon: Icons.palette_rounded,
-                        value: 'artiste',
+                        label: 'Recommandés',
+                        icon: Icons.star_rounded,
+                        value: 'recommandes',
                         current: typeFilter,
                         onTap: () {
                           ref
                               .read(discoveryMerchantTypeFilterProvider.notifier)
-                              .state = 'artiste';
-                          ref.invalidate(discoveryArtisteMerchantsProvider);
+                              .state = 'recommandes';
+                          ref.invalidate(discoveryRecommendedMerchantsProvider);
+                          ref.invalidate(discoveryFollowedMerchantsProvider);
                         },
                       ),
                       const SizedBox(width: 8),
@@ -79,20 +80,6 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                       ),
                       const SizedBox(width: 8),
                       _typeChip(
-                        label: 'Recommandés',
-                        icon: Icons.star_rounded,
-                        value: 'recommandes',
-                        current: typeFilter,
-                        onTap: () {
-                          ref
-                              .read(discoveryMerchantTypeFilterProvider.notifier)
-                              .state = 'recommandes';
-                          ref.invalidate(discoveryRecommendedMerchantsProvider);
-                          ref.invalidate(discoveryFollowedMerchantsProvider);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _typeChip(
                         label: 'Associations',
                         icon: Icons.groups_rounded,
                         value: 'associations',
@@ -102,6 +89,19 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                               .read(discoveryMerchantTypeFilterProvider.notifier)
                               .state = 'associations';
                           ref.invalidate(discoveryCityMerchantsProvider);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _typeChip(
+                        label: 'Artiste',
+                        icon: Icons.palette_rounded,
+                        value: 'artiste',
+                        current: typeFilter,
+                        onTap: () {
+                          ref
+                              .read(discoveryMerchantTypeFilterProvider.notifier)
+                              .state = 'artiste';
+                          ref.invalidate(discoveryArtisteMerchantsProvider);
                         },
                       ),
                     ],

@@ -16,6 +16,8 @@ import 'personal_information_screen.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../auth/core/application/providers.dart';
 import '../../auth/core/application/state/auth_state.dart';
+import '../../merchant/application/providers.dart' as merchant_providers;
+import '../../store_profile/application/providers.dart' as store_profile_providers;
 import '../application/refresh_user_profile_cache.dart';
 import '../application/user_safety_providers.dart';
 

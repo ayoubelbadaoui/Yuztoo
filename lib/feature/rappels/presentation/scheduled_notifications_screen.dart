@@ -149,21 +149,7 @@ class _ScheduledNotificationsScreenState
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: widget.onBack,
-                behavior: HitTestBehavior.opaque,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(width: 44),
               Expanded(
                 child: Center(
                   child: Text(

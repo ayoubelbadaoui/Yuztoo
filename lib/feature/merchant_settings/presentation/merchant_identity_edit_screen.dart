@@ -314,11 +314,7 @@ class _MerchantIdentityEditScreenState
           ),
           child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                    color: MerchantColors.textWhite, size: 20),
-                onPressed: widget.onBack,
-              ),
+              const SizedBox(width: 44),
               Expanded(
                 child: Text(
                   'Informations personnelles',

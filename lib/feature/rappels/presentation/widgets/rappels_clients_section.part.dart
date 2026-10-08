@@ -3,16 +3,18 @@ part of 'rappels_clients_section.dart';
 extension _RappelsClientsSectionUi on RappelsClientsSection {
   Widget _buildRappelsClientsBody(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: MerchantColors.gold
-                .withValues(alpha: MerchantColors.goldBorderAlpha),
-            width: 1,
-          ),
-        ),
-      ),
+      padding: padding,
+      decoration: showBottomBorder
+          ? BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: MerchantColors.gold
+                      .withValues(alpha: MerchantColors.goldBorderAlpha),
+                  width: 1,
+                ),
+              ),
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -59,33 +61,35 @@ extension _RappelsClientsSectionUi on RappelsClientsSection {
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        Tooltip(
-          message: 'Appuyez pour modifier le mode de validation',
-          child: GestureDetector(
-            onTap: onAutoTap,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-              decoration: BoxDecoration(
-                color: MerchantColors.navyCard,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: MerchantColors.gold.withValues(alpha: 0.4),
-                  width: 1,
+        if (onAutoTap != null) ...[
+          const SizedBox(width: 12),
+          Tooltip(
+            message: 'Appuyez pour modifier le mode de validation',
+            child: GestureDetector(
+              onTap: onAutoTap,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                decoration: BoxDecoration(
+                  color: MerchantColors.navyCard,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
                 ),
-              ),
-              child: Text(
-                'Auto',
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: MerchantColors.textLightGrey,
+                child: Text(
+                  'Auto',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantColors.textLightGrey,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -123,8 +127,8 @@ extension _RappelsClientsSectionUi on RappelsClientsSection {
         color: MerchantColors.navyCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color:
-              MerchantColors.gold.withValues(alpha: MerchantColors.goldBorderAlpha),
+          color: MerchantColors.gold
+              .withValues(alpha: MerchantColors.goldBorderAlpha),
           width: 1,
         ),
       ),
@@ -165,5 +169,4 @@ extension _RappelsClientsSectionUi on RappelsClientsSection {
       ),
     );
   }
-
 }

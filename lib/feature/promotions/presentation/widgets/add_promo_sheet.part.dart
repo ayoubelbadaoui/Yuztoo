@@ -1,7 +1,7 @@
 part of 'add_promo_sheet.dart';
 
 const int _kTitleMax = 40;
-const int _kDescMax = 80;
+const int _kDescMax = 150;
 
 extension _AddPromoSheetUi on _AddPromoSheetState {
   // ── sheet header ───────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
           onTap: _pickImage,
           child: Container(
             width: double.infinity,
-            height: 160,
+            height: _imagePath == null ? 160 : null,
             decoration: BoxDecoration(
               color: _imagePath != null
                   ? Colors.transparent
@@ -106,7 +106,11 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
             ),
             clipBehavior: Clip.antiAlias,
             child: _imagePath != null
-                ? Image.file(File(_imagePath!), fit: BoxFit.cover)
+                ? AdaptiveImage(
+                    image: FileImage(File(_imagePath!)),
+                    maxHeight: 280,
+                    backgroundColor: MerchantColors.navyCard,
+                  )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -136,7 +140,7 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Recommandé : 800 × 800 px',
+                        'Tous formats : carré, portrait ou paysage',
                         style: GoogleFonts.outfit(
                           fontSize: 10,
                           color: MerchantColors.textGrey,
@@ -151,8 +155,8 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
           Positioned(
             top: 8,
             right: 8,
-              child: GestureDetector(
-                  onTap: _clearImage,
+            child: GestureDetector(
+              onTap: _clearImage,
               child: Container(
                 width: 30,
                 height: 30,
@@ -161,8 +165,8 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
                   shape: BoxShape.circle,
                 ),
                 child: const Center(
-                  child: Icon(Icons.close_rounded,
-                      color: Colors.white, size: 16),
+                  child:
+                      Icon(Icons.close_rounded, color: Colors.white, size: 16),
                 ),
               ),
             ),
@@ -223,8 +227,7 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
             const Spacer(),
             if (!invalid)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: MerchantColors.gold.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
@@ -246,16 +249,14 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
             Expanded(
               child: GestureDetector(
                 onTap: () => _pickDate(isFrom: true),
-                child: _buildDateBox('Du ${_fmtD(_dateFrom)}',
-                    isError: false),
+                child: _buildDateBox('Du ${_fmtD(_dateFrom)}', isError: false),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: GestureDetector(
                 onTap: () => _pickDate(isFrom: false),
-                child: _buildDateBox('au ${_fmtD(_dateTo)}',
-                    isError: invalid),
+                child: _buildDateBox('au ${_fmtD(_dateTo)}', isError: invalid),
               ),
             ),
           ],
@@ -269,8 +270,8 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
               const SizedBox(width: 4),
               Text(
                 'La fin doit être après le début',
-                style: GoogleFonts.outfit(
-                    fontSize: 10, color: Colors.redAccent),
+                style:
+                    GoogleFonts.outfit(fontSize: 10, color: Colors.redAccent),
               ),
             ],
           ),
@@ -293,8 +294,7 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
         const SizedBox(height: 4),
         Text('Envoyée à vos clients abonnés à votre vitrine.',
             style: GoogleFonts.outfit(
-                fontSize: 11,
-                color: MerchantColors.textGrey)),
+                fontSize: 11, color: MerchantColors.textGrey)),
         const SizedBox(height: 12),
       ],
     );
@@ -303,8 +303,8 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
   // ── submit ─────────────────────────────────────────────────────────────────
 
   Widget _buildSubmitButton() {
-    final canSubmit = _titleCtrl.text.trim().isNotEmpty &&
-        _dateTo.isAfter(_dateFrom);
+    final canSubmit =
+        _titleCtrl.text.trim().isNotEmpty && _dateTo.isAfter(_dateFrom);
     return GestureDetector(
       onTap: canSubmit ? _submit : null,
       child: AnimatedOpacity(
@@ -358,6 +358,7 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
     String hint, {
     required int maxLength,
     String? label,
+    int maxLines = 1,
   }) {
     final count = controller.text.length;
     final nearLimit = count >= (maxLength * 0.8).round();
@@ -377,12 +378,16 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
           controller: controller,
           style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
           maxLength: maxLength,
-          buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
+          minLines: 1,
+          maxLines: maxLines,
+          keyboardType: maxLines > 1 ? TextInputType.multiline : null,
+          buildCounter: (_,
+                  {required currentLength, required isFocused, maxLength}) =>
               null, // Hide default counter; we draw our own below
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle:
-                GoogleFonts.outfit(color: MerchantColors.textGrey, fontSize: 14),
+            hintStyle: GoogleFonts.outfit(
+                color: MerchantColors.textGrey, fontSize: 14),
             filled: true,
             fillColor: MerchantColors.inputFill,
             contentPadding:
@@ -414,9 +419,7 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
               '$count / $maxLength',
               style: GoogleFonts.outfit(
                 fontSize: 10,
-                color: nearLimit
-                    ? Colors.redAccent
-                    : MerchantColors.textGrey,
+                color: nearLimit ? Colors.redAccent : MerchantColors.textGrey,
               ),
             ),
           ),
@@ -427,8 +430,7 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
 
   Widget _buildSubtitlePreview() {
     if (_subtitleCtrl.text.trim().isNotEmpty) return const SizedBox.shrink();
-    final preview =
-        'Valide du ${_fmtD(_dateFrom)} au ${_fmtD(_dateTo)}';
+    final preview = 'Valide du ${_fmtD(_dateFrom)} au ${_fmtD(_dateTo)}';
     return Padding(
       padding: const EdgeInsets.only(top: 6, left: 2),
       child: Row(
@@ -436,12 +438,14 @@ extension _AddPromoSheetUi on _AddPromoSheetState {
           const Icon(Icons.auto_awesome_rounded,
               size: 11, color: MerchantColors.gold),
           const SizedBox(width: 5),
-          Text(
-            'Aperçu → $preview',
-            style: GoogleFonts.outfit(
-              fontSize: 10,
-              fontStyle: FontStyle.italic,
-              color: MerchantColors.textLightGrey,
+          Flexible(
+            child: Text(
+              'Aperçu → $preview',
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+                color: MerchantColors.textLightGrey,
+              ),
             ),
           ),
         ],

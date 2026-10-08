@@ -4,6 +4,7 @@ import '../../../../core/utils/city_input.dart';
 import 'client_gratification_config.dart';
 import 'loyalty_program_config.dart';
 import 'merchant_storefront_link.dart';
+import '../notification_quota_policy.dart';
 import 'merchant_subscription_plan.dart';
 
 /// Domain representation of a merchant business entity.
@@ -179,22 +180,24 @@ class Merchant extends Equatable {
     return null;
   }
 
-  /// Free-tier allows 5 manual notifications per rolling 7-day window.
-  bool get canSendNotification {
-    if (weeklyNotifResetAt == null) return true;
-    final daysSinceReset = DateTime.now().difference(weeklyNotifResetAt!).inDays;
-    if (daysSinceReset >= 7) return true;
-    return weeklyNotifSentCount < 5;
-  }
+  /// Whether manual notifications are capped for this merchant
+  /// (see `weeklyNotificationQuotaApplies`).
+  bool get hasWeeklyNotificationQuota =>
+      weeklyNotificationQuotaApplies(subscriptionPlan);
 
-  /// Current week quota label, e.g. "2/5".
-  String get weeklyQuotaLabel {
-    if (weeklyNotifResetAt == null ||
-        DateTime.now().difference(weeklyNotifResetAt!).inDays >= 7) {
-      return '0/5';
-    }
-    return '${weeklyNotifSentCount.clamp(0, 5)}/5';
-  }
+  /// False only when the merchant has a quota and has used it up.
+  bool get canSendNotification => canSendManualNotification(
+        plan: subscriptionPlan,
+        sentCount: weeklyNotifSentCount,
+        resetAt: weeklyNotifResetAt,
+      );
+
+  /// Current week quota label, e.g. "2/5"; null when sends are unlimited.
+  String? get weeklyQuotaLabel => manualNotificationQuotaLabel(
+        plan: subscriptionPlan,
+        sentCount: weeklyNotifSentCount,
+        resetAt: weeklyNotifResetAt,
+      );
 
   /// Merchant visibility: `active` = en ligne, `inactive` = hors ligne (défaut)
   final String status;

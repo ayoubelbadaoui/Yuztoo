@@ -1,10 +1,8 @@
 import '../../../auth/core/domain/entities/auth_user.dart';
 import '../../../merchant/domain/entities/merchant.dart';
 import '../../domain/entities/client_merchant_loyalty_progress.dart';
-import '../../domain/failures/passage_cooldown_failure.dart';
 import '../../domain/loyalty_passage_program_policy.dart';
 import '../analytics/nfc_analytics.dart';
-import 'record_client_visit_passage.dart';
 import 'request_active_validation.dart';
 
 /// Outcome of a vitrine scan (NFC tag tap, in-app NFC read, QR scan,
@@ -40,26 +38,29 @@ final class ScanVisitLoyaltyInactive extends ScanVisitResult {
   const ScanVisitLoyaltyInactive();
 }
 
-/// Automatic mode succeeded: the visit was written silently. UI must
-/// invalidate `clientLoyaltyProgressForMerchantProvider` and play the
-/// celebration overlay.
+/// The visit was written directly and the UI must invalidate
+/// `clientLoyaltyProgressForMerchantProvider` and play the celebration
+/// overlay. No longer produced by [ProcessVitrineScanVisit] (every scan now
+/// opens a session); kept for the NFC debug scenarios.
 final class ScanVisitVisitRecorded extends ScanVisitResult {
   const ScanVisitVisitRecorded(this.progress);
 
   final ClientMerchantLoyaltyProgress progress;
 }
 
-/// Manual mode: an `active_validations` session was created. The
-/// merchant queue listener will pop the per-program form. The client
-/// listens on its own session doc to render the live "validation en
-/// cours" banner.
+/// An `active_validations` session was created. The merchant fills the
+/// per-program form (manual mode, or any amount-based programme), or the
+/// backend confirms it on its own (automatic mode, visit count). The
+/// client listens on its own session doc to render the live "validation
+/// en cours" banner and the celebration.
 final class ScanVisitAwaitingMerchant extends ScanVisitResult {
   const ScanVisitAwaitingMerchant();
 }
 
-/// Last passage at this merchant is still inside the 1-hour cooldown.
-/// The message is the canonical French copy from
-/// [PassageCooldownFailure] — surface it as an info snackbar (not red).
+/// Last passage at this merchant is still inside the 1-hour cooldown —
+/// surface it as an info snackbar (not red). No longer produced by
+/// [ProcessVitrineScanVisit]: the backend now cancels the session with
+/// `cancel_reason: 'passage_cooldown'`. Kept for the NFC debug scenarios.
 final class ScanVisitCooldownBlocked extends ScanVisitResult {
   const ScanVisitCooldownBlocked(this.userMessage);
 
@@ -96,14 +97,11 @@ final class ScanVisitError extends ScanVisitResult {
 /// [ScanVisitResult] subtype with French-localised copy.
 class ProcessVitrineScanVisit {
   const ProcessVitrineScanVisit({
-    required RecordClientVisitPassage recordVisit,
     required RequestActiveValidation requestValidation,
     NfcAnalytics analytics = const NfcAnalytics(),
-  })  : _recordVisit = recordVisit,
-        _requestValidation = requestValidation,
+  })  : _requestValidation = requestValidation,
         _analytics = analytics;
 
-  final RecordClientVisitPassage _recordVisit;
   final RequestActiveValidation _requestValidation;
   final NfcAnalytics _analytics;
 
@@ -155,38 +153,18 @@ class ProcessVitrineScanVisit {
     if (!isFollowing) {
       return const ScanVisitNotFollowing();
     }
-    if (!isMerchantLoyaltyPassageActive(merchant)) {
+    if (!isScanPassageSessionAllowedForMerchant(merchant)) {
       return const ScanVisitLoyaltyInactive();
     }
 
-    if (isVitrinePassageRequestAllowedForMerchant(merchant)) {
-      final outcome = await _requestValidation(
-        client: client,
-        merchant: merchant,
-      );
-      return outcome.fold(
-        (failure) => ScanVisitError(failure.message),
-        (_) => const ScanVisitAwaitingMerchant(),
-      );
-    }
-
-    if (isAutomaticPassageAllowedForMerchant(merchant)) {
-      final outcome = await _recordVisit(
-        clientUid: clientUid,
-        merchant: merchant,
-      );
-      return outcome.fold(
-        (failure) {
-          if (failure is PassageCooldownFailure) {
-            return ScanVisitCooldownBlocked(failure.message);
-          }
-          return ScanVisitError(failure.message);
-        },
-        ScanVisitVisitRecorded.new,
-      );
-    }
-
-    return const ScanVisitLoyaltyInactive();
+    final outcome = await _requestValidation(
+      client: client,
+      merchant: merchant,
+    );
+    return outcome.fold(
+      (failure) => ScanVisitError(failure.message),
+      (_) => const ScanVisitAwaitingMerchant(),
+    );
   }
 
   static String _eventForResult(ScanVisitResult result) {

@@ -1229,7 +1229,7 @@ abstract class AppLocalizations {
   /// No description provided for @navRappels.
   ///
   /// In en, this message translates to:
-  /// **'Rappels'**
+  /// **'Notifications'**
   String get navRappels;
 }
 

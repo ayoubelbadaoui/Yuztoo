@@ -18,6 +18,7 @@ import 'widgets/auto_notification_health_panel.dart';
 import 'widgets/compose_section.dart';
 import 'widgets/step_header.dart';
 import 'widgets/trigger_grid.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 part 'notifications_auto_screen.part.dart';
 

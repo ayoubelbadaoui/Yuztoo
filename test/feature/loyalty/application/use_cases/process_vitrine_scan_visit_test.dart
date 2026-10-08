@@ -3,90 +3,15 @@ import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/auth/core/domain/entities/auth_user.dart';
 import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/process_vitrine_scan_visit.dart';
-import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/record_client_visit_passage.dart';
 import 'package:flutter_yuztoo/feature/loyalty/application/use_cases/request_active_validation.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/entities/active_validation_request.dart';
-import 'package:flutter_yuztoo/feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
-import 'package:flutter_yuztoo/feature/loyalty/domain/entities/loyalty_pending_client_row.dart';
-import 'package:flutter_yuztoo/feature/loyalty/domain/failures/passage_cooldown_failure.dart';
 import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/active_validation_repository.dart';
-import 'package:flutter_yuztoo/feature/loyalty/domain/repositories/client_loyalty_repository.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 
-class _FakeLoyaltyRepo implements ClientLoyaltyRepository {
-  _FakeLoyaltyRepo({this.failure});
-  final dynamic failure;
-  int applyCalls = 0;
-
-  @override
-  Future<ClientMerchantLoyaltyProgress> readProgress(
-    String merchantId,
-    String clientUid,
-  ) async =>
-      const ClientMerchantLoyaltyProgress.empty();
-
-  @override
-  Future<Result<ClientMerchantLoyaltyProgress>> applyPassageDeltas({
-    required String merchantId,
-    required String clientUid,
-    int validatedPassagesDelta = 0,
-    double cumulativeSpendEurosDelta = 0,
-    LoyaltyProgramConfig? enrollProgram,
-    ActiveValidationCompletion? completeActiveValidation,
-    bool enforcePassageCooldown = true,
-  }) async {
-    applyCalls += 1;
-    if (failure != null) {
-      return Left(failure);
-    }
-    return const Right(
-      ClientMerchantLoyaltyProgress(
-        validatedPassages: 1,
-        cumulativeSpendEuros: 0,
-        isFirstVisit: true,
-      ),
-    );
-  }
-
-  @override
-  Stream<ClientMerchantLoyaltyProgress> watchProgress(
-    String merchantId,
-    String clientUid,
-  ) async* {}
-
-  @override
-  Stream<List<LoyaltyPendingClientRow>> watchClientsWithRewardAvailable({
-    required String merchantId,
-    required int visitsRequired,
-    required double spendRequiredEuros,
-    required bool iSpendBased,
-  }) async* {}
-
-  @override
-  Future<Result<ClientMerchantLoyaltyProgress>> redeemReward({
-    required String merchantId,
-    required String clientUid,
-    required int visitsRequired,
-    required double spendRequiredEuros,
-    required bool isSpendBased,
-  }) async =>
-      throw UnimplementedError();
-
-  @override
-  Future<Result<ClientMerchantLoyaltyProgress>> claimWelcomeBon({
-    required String merchantId,
-    required String clientUid,
-  }) async =>
-      throw UnimplementedError();
-
-  @override
-  Future<Map<String, String>> getClientSegments(String merchantId) async =>
-      const {};
-}
-
 class _FakeActiveValidationRepo implements ActiveValidationRepository {
   int createCalls = 0;
+  LoyaltyProgramConfig? lastSnapshot;
 
   @override
   Future<Result<void>> createForClient({
@@ -97,6 +22,7 @@ class _FakeActiveValidationRepo implements ActiveValidationRepository {
     required LoyaltyProgramConfig programSnapshot,
   }) async {
     createCalls += 1;
+    lastSnapshot = programSnapshot;
     return const Right(null);
   }
 
@@ -170,6 +96,7 @@ class _FakeActiveValidationRepo implements ActiveValidationRepository {
 Merchant _merchant({
   bool loyaltyEnabled = true,
   LoyaltyPassageValidation validation = LoyaltyPassageValidation.automatic,
+  LoyaltyTriggerType trigger = LoyaltyTriggerType.visitCount,
 }) {
   return Merchant(
     id: 'merchant-1',
@@ -182,6 +109,7 @@ Merchant _merchant({
     loyaltyProgram: LoyaltyProgramConfig.initial().copyWith(
       programEnabled: loyaltyEnabled,
       passageValidation: validation,
+      triggerType: trigger,
     ),
   );
 }
@@ -192,14 +120,8 @@ const _client = AuthUser(
   displayName: 'Client',
 );
 
-ProcessVitrineScanVisit _useCase({
-  _FakeLoyaltyRepo? loyaltyRepo,
-  _FakeActiveValidationRepo? activeRepo,
-}) {
-  final loyalty = loyaltyRepo ?? _FakeLoyaltyRepo();
-  final active = activeRepo ?? _FakeActiveValidationRepo();
+ProcessVitrineScanVisit _useCase(_FakeActiveValidationRepo active) {
   return ProcessVitrineScanVisit(
-    recordVisit: RecordClientVisitPassage(loyalty),
     requestValidation: RequestActiveValidation(active),
   );
 }
@@ -207,79 +129,63 @@ ProcessVitrineScanVisit _useCase({
 void main() {
   group('ProcessVitrineScanVisit', () {
     test('guest scan returns ScanVisitGuest', () async {
-      final result = await _useCase().call(
+      final active = _FakeActiveValidationRepo();
+      final result = await _useCase(active).call(
         client: null,
         merchant: _merchant(),
         isFollowing: false,
         isFollowListReady: true,
       );
       expect(result, isA<ScanVisitGuest>());
+      expect(active.createCalls, 0);
     });
 
     test('follow list not ready returns waiting state, no Firestore writes',
         () async {
-      final loyalty = _FakeLoyaltyRepo();
       final active = _FakeActiveValidationRepo();
-      final result = await _useCase(loyaltyRepo: loyalty, activeRepo: active)
-          .call(
+      final result = await _useCase(active).call(
         client: _client,
         merchant: _merchant(),
         isFollowing: false,
         isFollowListReady: false,
       );
       expect(result, isA<ScanVisitFollowListNotReady>());
-      expect(loyalty.applyCalls, 0);
       expect(active.createCalls, 0);
     });
 
     test('non-follower returns ScanVisitNotFollowing without writing',
         () async {
-      final loyalty = _FakeLoyaltyRepo();
       final active = _FakeActiveValidationRepo();
-      final result = await _useCase(loyaltyRepo: loyalty, activeRepo: active)
-          .call(
+      final result = await _useCase(active).call(
         client: _client,
         merchant: _merchant(),
         isFollowing: false,
         isFollowListReady: true,
       );
       expect(result, isA<ScanVisitNotFollowing>());
-      expect(loyalty.applyCalls, 0);
       expect(active.createCalls, 0);
     });
 
     test('follower with loyalty disabled returns ScanVisitLoyaltyInactive',
         () async {
-      final loyalty = _FakeLoyaltyRepo();
-      final result = await _useCase(loyaltyRepo: loyalty).call(
+      final active = _FakeActiveValidationRepo();
+      final result = await _useCase(active).call(
         client: _client,
         merchant: _merchant(loyaltyEnabled: false),
         isFollowing: true,
         isFollowListReady: true,
       );
       expect(result, isA<ScanVisitLoyaltyInactive>());
-      expect(loyalty.applyCalls, 0);
+      expect(active.createCalls, 0);
     });
 
-    test('follower + automatic mode records visit and returns progress',
-        () async {
-      final loyalty = _FakeLoyaltyRepo();
-      final result = await _useCase(loyaltyRepo: loyalty).call(
+    test(
+        'automatic visit-count mode opens a session for the backend to '
+        'confirm instead of writing loyalty_clients from the client', () async {
+      final active = _FakeActiveValidationRepo();
+      final result = await _useCase(active).call(
         client: _client,
         merchant: _merchant(),
-        isFollowing: true,
-        isFollowListReady: true,
-      );
-      expect(result, isA<ScanVisitVisitRecorded>());
-      expect((result as ScanVisitVisitRecorded).progress.validatedPassages, 1);
-      expect(loyalty.applyCalls, 1);
-    });
-
-    test('follower + manual mode creates active_validation session', () async {
-      final active = _FakeActiveValidationRepo();
-      final result = await _useCase(activeRepo: active).call(
-        client: _client,
-        merchant: _merchant(validation: LoyaltyPassageValidation.manual),
         isFollowing: true,
         isFollowListReady: true,
       );
@@ -287,17 +193,31 @@ void main() {
       expect(active.createCalls, 1);
     });
 
-    test('cooldown failure surfaces as ScanVisitCooldownBlocked', () async {
-      final loyalty = _FakeLoyaltyRepo(failure: const PassageCooldownFailure());
-      final result = await _useCase(loyaltyRepo: loyalty).call(
+    test(
+        'automatic amount-based mode opens a session so the merchant can '
+        'enter the purchase', () async {
+      final active = _FakeActiveValidationRepo();
+      final result = await _useCase(active).call(
         client: _client,
-        merchant: _merchant(),
+        merchant: _merchant(trigger: LoyaltyTriggerType.purchaseTotal),
         isFollowing: true,
         isFollowListReady: true,
       );
-      expect(result, isA<ScanVisitCooldownBlocked>());
-      final blocked = result as ScanVisitCooldownBlocked;
-      expect(blocked.userMessage, contains('Patientez 1 heure'));
+      expect(result, isA<ScanVisitAwaitingMerchant>());
+      expect(active.createCalls, 1);
+      expect(active.lastSnapshot?.triggerType, LoyaltyTriggerType.purchaseTotal);
+    });
+
+    test('follower + manual mode creates active_validation session', () async {
+      final active = _FakeActiveValidationRepo();
+      final result = await _useCase(active).call(
+        client: _client,
+        merchant: _merchant(validation: LoyaltyPassageValidation.manual),
+        isFollowing: true,
+        isFollowListReady: true,
+      );
+      expect(result, isA<ScanVisitAwaitingMerchant>());
+      expect(active.createCalls, 1);
     });
   });
 }

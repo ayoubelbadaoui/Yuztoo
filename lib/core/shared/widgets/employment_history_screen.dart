@@ -108,13 +108,8 @@ class _EmploymentHistoryScreenState extends State<EmploymentHistoryScreen> {
       pinned: true,
       stretch: true,
       backgroundColor: _Pal.navy,
-      leading: widget.onBack != null
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white, size: 20),
-              onPressed: widget.onBack,
-            )
-          : null,
+      automaticallyImplyLeading: false,
+      leading: null,
       flexibleSpace: FlexibleSpaceBar(
         stretchModes: const [StretchMode.zoomBackground],
         background: Container(

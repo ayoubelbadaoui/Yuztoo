@@ -6,13 +6,15 @@ import 'rappels_section_header.dart';
 
 part 'rappels_clients_section.part.dart';
 
-/// "Nouveaux clients et Passage" section of the Rappels screen.
+/// "Nouveaux clients et Passages" monthly overview (Vos clients › Aperçu).
 class RappelsClientsSection extends StatelessWidget {
   const RappelsClientsSection({
     super.key,
     required this.connectedClientsThisMonth,
     required this.validatedPassagesThisMonth,
     this.onAutoTap,
+    this.padding = const EdgeInsets.all(24),
+    this.showBottomBorder = true,
   });
 
   /// Clients connectés ce mois (Firestore `rappels_monthly_connected_clients`).
@@ -21,8 +23,12 @@ class RappelsClientsSection extends StatelessWidget {
   /// Passages validés ce mois (Firestore `rappels_monthly_validated_passages`).
   final int validatedPassagesThisMonth;
 
-  /// Tapping the toggle shortcut scrolls to the toggles section.
+  /// Tapping the "Auto" shortcut opens the validation toggles; the shortcut
+  /// is hidden when null.
   final VoidCallback? onAutoTap;
+
+  final EdgeInsetsGeometry padding;
+  final bool showBottomBorder;
 
   @override
   Widget build(BuildContext context) => _buildRappelsClientsBody(context);

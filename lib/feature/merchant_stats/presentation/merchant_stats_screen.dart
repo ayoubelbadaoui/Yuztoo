@@ -15,6 +15,7 @@ import '../../rappels/domain/entities/pending_client_row.dart';
 import '../../rappels/domain/entities/sent_notification.dart';
 import '../../storefront/application/providers.dart' as storefront_providers;
 import '../../storefront/domain/entities/storefront.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 part 'merchant_stats_screen.part.dart';
 

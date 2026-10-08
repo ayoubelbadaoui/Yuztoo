@@ -49,7 +49,6 @@ final claimWelcomeBonProvider = Provider<ClaimWelcomeBon>((ref) {
 final processVitrineScanVisitProvider =
     Provider<ProcessVitrineScanVisit>((ref) {
   return ProcessVitrineScanVisit(
-    recordVisit: ref.watch(recordClientVisitPassageProvider),
     requestValidation: ref.watch(requestActiveValidationProvider),
   );
 });

@@ -17,6 +17,7 @@ import '../application/providers.dart';
 import 'widgets/settings_preferences_section.dart';
 import 'widgets/settings_services_section.dart';
 import 'widgets/settings_storefront_section.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 part 'merchant_settings_screen.part.dart';
 

@@ -1688,56 +1688,20 @@ class _StepHoursState extends State<_StepHours> {
     _hours = BusinessHours.fromMap(widget.initialHours);
   }
 
-  void _updateDay(String dayKey, DayHours updated) {
-    setState(() {
-      _hours = BusinessHours(
-        hasExceptionalClosure: _hours.hasExceptionalClosure,
-        monday: dayKey == 'monday' ? updated : _hours.monday,
-        tuesday: dayKey == 'tuesday' ? updated : _hours.tuesday,
-        wednesday: dayKey == 'wednesday' ? updated : _hours.wednesday,
-        thursday: dayKey == 'thursday' ? updated : _hours.thursday,
-        friday: dayKey == 'friday' ? updated : _hours.friday,
-        saturday: dayKey == 'saturday' ? updated : _hours.saturday,
-        sunday: dayKey == 'sunday' ? updated : _hours.sunday,
-      );
-      widget.onChanged(_hours.toMap());
-    });
+  void _setHours(BusinessHours hours) {
+    setState(() => _hours = hours);
+    widget.onChanged(hours.toMap());
   }
 
-  void _toggleDay(String dayKey, DayHours day) {
-    _updateDay(
-        dayKey,
-        DayHours(
-          dayName: day.dayName,
-          isEnabled: !day.isEnabled,
-          timeSlots: day.isEnabled
-              ? []
-              : [
-                  const TimeSlot(start: '8h', end: '12h'),
-                  const TimeSlot(start: '14h', end: '18h')
-                ],
-        ));
-  }
+  void _toggleDay(String dayKey) => _setHours(_hours.toggleDay(dayKey));
 
-  void _updateSlots(String dayKey, DayHours day, List<TimeSlot> slots) {
-    _updateDay(
-        dayKey,
-        DayHours(
-            dayName: day.dayName, isEnabled: day.isEnabled, timeSlots: slots));
-  }
+  void _updateSlots(String dayKey, List<TimeSlot> slots) =>
+      _setHours(_hours.withSlotsCascading(dayKey, slots));
 
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    final dayKeys = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday'
-    ];
+    const dayKeys = BusinessHours.dayKeys;
     final days = _hours.allDays;
 
     return SingleChildScrollView(
@@ -1757,7 +1721,8 @@ class _StepHoursState extends State<_StepHours> {
           _StepEntrance(
             delayMs: 80,
             child: Text(
-              'Optionnel — modifiables à tout moment depuis votre profil.',
+              'Optionnel — modifiables à tout moment depuis votre profil.\n'
+              'Saisissez le lundi : les jours suivants reprennent les mêmes horaires.',
               style: GoogleFonts.outfit(
                 fontSize: 13,
                 color: MerchantOnboardingColors.textGrey,
@@ -1781,9 +1746,8 @@ class _StepHoursState extends State<_StepHours> {
                   for (int i = 0; i < days.length; i++) ...[
                     _OnboardingDayRow(
                       dayHours: days[i],
-                      onToggle: () => _toggleDay(dayKeys[i], days[i]),
-                      onSave: (slots) =>
-                          _updateSlots(dayKeys[i], days[i], slots),
+                      onToggle: () => _toggleDay(dayKeys[i]),
+                      onSave: (slots) => _updateSlots(dayKeys[i], slots),
                     ),
                     if (i < days.length - 1)
                       const Divider(

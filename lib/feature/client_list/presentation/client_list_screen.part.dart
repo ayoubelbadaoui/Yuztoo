@@ -181,22 +181,14 @@ extension _ClientListScreenUi on _ClientListScreenState {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onBack,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: MerchantColors.gold,
-                    size: 20,
-                  ),
-                ),
-              ),
+              const SizedBox(width: 44),
               Expanded(
                 child: Center(
-                  child: const YuztooGradientTitle('Vos clients'),
+                  child: const YuztooGradientTitle(
+                    'Vos clients',
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               GestureDetector(
@@ -746,6 +738,10 @@ extension _ClientListScreenUi on _ClientListScreenState {
     AsyncValue<List<MerchantClientRow>> clientsAsync,
     String merchantId,
   ) {
+    final merchant = ref
+        .watch(merchant_providers.currentMerchantForOwnerProvider)
+        .valueOrNull;
+
     // Resolve the effective unfiltered client list (real or dummy)
     final allClients = clientsAsync.when(
       data: (list) => list,
@@ -803,6 +799,18 @@ extension _ClientListScreenUi on _ClientListScreenState {
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          AlertesSection(
+            merchantId: merchantId,
+            padding: const EdgeInsets.only(bottom: 20),
+          ),
+          RappelsClientsSection(
+            connectedClientsThisMonth: merchant?.rappelsMonthlyConnectedClients ?? 0,
+            validatedPassagesThisMonth:
+                merchant?.rappelsMonthlyValidatedPassages ?? 0,
+            padding: const EdgeInsets.only(bottom: 20),
+            showBottomBorder: false,
+          ),
+
           // ── period filter ─────────────────────────────────────────────────
           _buildApercuPeriodRow(),
           const SizedBox(height: 16),

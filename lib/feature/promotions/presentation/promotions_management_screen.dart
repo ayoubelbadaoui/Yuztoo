@@ -6,18 +6,21 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/snackbar.dart';
-import '../../../core/utils/image_crop_utils.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../client_notification/application/providers.dart';
-import '../../merchant/application/providers.dart' show currentMerchantForOwnerProvider;
-import '../../merchant_partners/application/providers.dart' as partners_providers;
+import '../../merchant/application/providers.dart'
+    show currentMerchantForOwnerProvider;
+import '../../merchant_partners/application/providers.dart'
+    as partners_providers;
 import '../../merchant_partners/domain/entities/merchant_partner.dart';
 import '../../merchant_partners/presentation/partner_invite_sheet.dart';
 import '../application/providers.dart';
 import '../domain/entities/promotion.dart';
+import 'promotion_image_crop.dart';
 import 'widgets/add_promo_sheet.dart';
 import 'widgets/promo_analytics.dart';
 import 'widgets/promo_card.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 part 'promotions_management_screen.part.dart';
 
@@ -204,8 +207,9 @@ class _PromotionsManagementScreenState
           final authState = ref.read(authStateProvider);
           if (authState is Authenticated) {
             ref.read(currentMerchantForOwnerProvider.future).then((merchant) {
-              final merchantName =
-                  merchant?.name ?? authState.user.displayName ?? 'Votre commerce';
+              final merchantName = merchant?.name ??
+                  authState.user.displayName ??
+                  'Votre commerce';
               ref.read(notifyFollowersOfPromotionProvider).call(
                     merchantId: authState.user.id,
                     merchantName: merchantName,
@@ -258,18 +262,13 @@ class _PromotionsManagementScreenState
     try {
       final picked = await _picker.pickImage(
         source: source,
-        maxWidth: 1200,
-        maxHeight: 675,
-        imageQuality: 85,
+        maxWidth: promotionImagePickMaxSide.toDouble(),
+        maxHeight: promotionImagePickMaxSide.toDouble(),
+        imageQuality: 95,
       );
       if (picked == null || !context.mounted) return;
 
-      // Crop to 16:9 banner format before uploading.
-      final croppedPath = await cropImage(
-        picked.path,
-        ratioX: 16,
-        ratioY: 9,
-      );
+      final croppedPath = await cropPromotionImage(picked.path);
       if (croppedPath == null || !context.mounted) return;
 
       setState(() => _isUpdatingImage = true);

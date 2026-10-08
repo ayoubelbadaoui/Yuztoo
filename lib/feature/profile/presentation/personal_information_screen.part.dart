@@ -326,7 +326,11 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                     ],
                     if (isDualProfile) ...[
                       const SizedBox(height: 28),
-                      _buildYuztooCard(fullName),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: widget.onOpenLinkedStorefront,
+                        child: _buildYuztooCard(fullName),
+                      ),
                     ],
                   ],
                 ),
@@ -357,30 +361,29 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _editing
-                    ? _cancelEdit
-                    : (widget.onBack ?? () => Navigator.of(context).pop()),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border:
-                        Border.all(color: MerchantColors.gold, width: 1.5),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      _editing
-                          ? Icons.close_rounded
-                          : Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold,
-                      size: 15,
+              if (_editing)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _cancelEdit,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border:
+                          Border.all(color: MerchantColors.gold, width: 1.5),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: MerchantColors.gold,
+                        size: 15,
+                      ),
                     ),
                   ),
-                ),
-              ),
+                )
+              else
+                const SizedBox(width: 36),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

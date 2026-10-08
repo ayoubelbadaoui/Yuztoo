@@ -149,26 +149,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onBack ?? () => Navigator.of(context).maybePop(),
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold, size: 20),
-                ),
-              ),
-              Expanded(
+              const SizedBox(width: 44),
+              const Expanded(
                 child: Center(
-                  child: Text(
-                    'Notifications auto.',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: YuztooGradientTitle('Notifications auto.'),
                 ),
               ),
               const SizedBox(width: 44),

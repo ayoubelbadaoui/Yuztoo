@@ -811,26 +811,7 @@ class _ClientBleBroadcastScreenState
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: MerchantColors.gold
-                      .withValues(alpha: MerchantColors.goldBorderAlpha),
-                ),
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: MerchantColors.gold,
-                size: 18,
-              ),
-            ),
-          ),
+          const SizedBox(width: 44),
           const SizedBox(width: 16),
           Expanded(
             child: Text(

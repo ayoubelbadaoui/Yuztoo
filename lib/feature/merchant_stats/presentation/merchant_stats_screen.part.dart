@@ -167,29 +167,10 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onBack,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: MerchantColors.gold,
-                    size: 20,
-                  ),
-                ),
-              ),
-              Expanded(
+              const SizedBox(width: 44),
+              const Expanded(
                 child: Center(
-                  child: Text(
-                    'Statistiques',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: YuztooGradientTitle('Statistiques'),
                 ),
               ),
               const SizedBox(width: 44),

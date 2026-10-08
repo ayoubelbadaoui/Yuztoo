@@ -118,20 +118,10 @@ class _GreetingBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFF5F5F5), Color(0xFFD4A017)],
-            stops: [0.5, 1.0],
-          ).createShader(bounds),
-          child: Text(
-            'Bonjour $firstName 👋',
-            style: GoogleFonts.outfit(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: -0.3,
-            ),
-          ),
+        YuztooGradientTitle(
+          'Bonjour $firstName 👋',
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
         ),
         const SizedBox(height: 6),
         Text(

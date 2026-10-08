@@ -21,7 +21,7 @@ class YuztooGradientTitle extends StatelessWidget {
 
   static const LinearGradient gradient = LinearGradient(
     colors: [Color(0xFFF5F5F5), Color(0xFFD4A017)],
-    stops: [0.45, 1.0],
+    stops: [0.1, 0.8],
   );
 
   @override

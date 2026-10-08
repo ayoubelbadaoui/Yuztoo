@@ -15,6 +15,7 @@ import '../application/e_fidelite_providers.dart';
 import '../application/loyalty_program_editing_notifier.dart';
 import '../application/loyalty_program_flow.dart';
 import 'widgets/loyalty_configuration_wizard.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 part 'e_fidelite_screen.part.dart';
 part 'loyalty_program_recap.part.dart';

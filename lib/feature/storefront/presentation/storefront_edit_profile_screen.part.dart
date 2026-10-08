@@ -353,7 +353,7 @@ class _AddressField extends StatelessWidget {
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.place, color: StorefrontColors.textTertiary),
             suffixIcon: const Icon(Icons.search, color: StorefrontColors.primaryGold),
-            hintText: 'Appuyez pour rechercher une adresse',
+            hintText: 'Appuyez pour saisir une adresse',
             hintStyle: const TextStyle(
               fontSize: 14,
               color: StorefrontColors.textTertiary,
@@ -390,11 +390,19 @@ class _AddressField extends StatelessWidget {
   }
 
   void _showGooglePlacesPicker(BuildContext context) {
-    // Google Places Autocomplete implementation (DDD: presentation layer)
-    // Note: Requires Google Places API key in production
+    // Free-text address entry. Google Places autocomplete is not wired yet
+    // (no API key) — never show an infinite spinner for empty suggestions.
     final searchController = TextEditingController(text: controller.text);
-    final suggestions = <String>[];
-    
+
+    void applyAddress(String raw) {
+      final value = raw.trim();
+      if (value.isEmpty) return;
+      controller.text = value;
+      onPlaceSelected(value);
+      onChanged(value);
+      Navigator.of(context).pop();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -404,15 +412,9 @@ class _AddressField extends StatelessWidget {
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
-          void searchPlaces(String query) async {
-            if (query.trim().isEmpty) {
-              setModalState(() => suggestions.clear());
-              return;
-            }
-            // TODO: Call Google Places API for real address suggestions
-            setModalState(() => suggestions.clear());
-          }
-          
+          final typed = searchController.text.trim();
+          final canConfirm = typed.length >= 3;
+
           return Container(
             color: Colors.white,
             padding: EdgeInsets.only(
@@ -435,17 +437,28 @@ class _AddressField extends StatelessWidget {
                   ),
                 ),
                 const Text(
-                  'Rechercher une adresse',
+                  'Saisir une adresse',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: StorefrontColors.textPrimary,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  'La suggestion automatique n’est pas disponible pour le moment. '
+                  'Entrez l’adresse complète puis validez.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: Colors.grey[600],
+                  ),
+                ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: searchController,
                   autofocus: true,
+                  textInputAction: TextInputAction.done,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -453,12 +466,13 @@ class _AddressField extends StatelessWidget {
                   ),
                   cursorColor: StorefrontColors.primaryGold,
                   decoration: InputDecoration(
-                    hintText: 'Tapez une adresse...',
+                    hintText: 'Ex. 46 Grande Rue, 90130 Petit-Croix',
                     hintStyle: const TextStyle(
                       fontSize: 14,
                       color: StorefrontColors.textTertiary,
                     ),
-                    prefixIcon: const Icon(Icons.search, color: StorefrontColors.primaryGold),
+                    prefixIcon: const Icon(Icons.place_outlined,
+                        color: StorefrontColors.primaryGold),
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
@@ -477,44 +491,35 @@ class _AddressField extends StatelessWidget {
                       ),
                     ),
                   ),
-                  onChanged: searchPlaces,
-                  onSubmitted: (value) {
-                    if (value.trim().isNotEmpty) {
-                      controller.text = value.trim();
-                      onPlaceSelected(value.trim());
-                      onChanged(value.trim());
-                      Navigator.of(context).pop();
-                    }
-                  },
+                  onChanged: (_) => setModalState(() {}),
+                  onSubmitted: applyAddress,
                 ),
                 const SizedBox(height: 16),
-                if (suggestions.isNotEmpty)
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: suggestions.length,
-                      itemBuilder: (context, index) {
-                        final suggestion = suggestions[index];
-                        return ListTile(
-                          leading: const Icon(Icons.place, color: StorefrontColors.primaryGold),
-                          title: Text(suggestion),
-                          onTap: () {
-                            controller.text = suggestion;
-                            onPlaceSelected(suggestion);
-                            onChanged(suggestion);
-                            Navigator.of(context).pop();
-                          },
-                        );
-                      },
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: canConfirm
+                        ? () => applyAddress(searchController.text)
+                        : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: StorefrontColors.primaryGold,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey[200],
+                      disabledForegroundColor: Colors.grey[500],
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
-                  )
-                else if (searchController.text.length > 2)
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(
-                      child: CircularProgressIndicator(),
+                    child: const Text(
+                      'Utiliser cette adresse',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
+                ),
                 const SizedBox(height: 16),
               ],
             ),
@@ -1225,25 +1230,7 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () {
-                  if (widget.onBack != null) {
-                    widget.onBack!();
-                  } else {
-                    Navigator.of(context).pop();
-                  }
-                },
-                behavior: HitTestBehavior.opaque,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: StorefrontColors.primaryGold,
-                    size: 20,
-                  ),
-                ),
-              ),
+              const SizedBox(width: 44),
               Expanded(
                 child: Center(
                   child: Text(

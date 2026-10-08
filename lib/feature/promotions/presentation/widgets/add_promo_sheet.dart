@@ -6,8 +6,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/shared/widgets/cupertino_picker_sheet.dart';
-import '../../../../core/utils/image_crop_utils.dart';
+import '../../../../core/shared/widgets/adaptive_image.dart';
 import '../../domain/entities/promotion.dart';
+import '../promotion_image_crop.dart';
 import 'client_type_details.dart';
 
 part 'add_promo_sheet.part.dart';
@@ -97,18 +98,13 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
     try {
       final picked = await _picker.pickImage(
         source: source,
-        maxWidth: 1200,
-        maxHeight: 675,
-        imageQuality: 85,
+        maxWidth: promotionImagePickMaxSide.toDouble(),
+        maxHeight: promotionImagePickMaxSide.toDouble(),
+        imageQuality: 95,
       );
       if (picked == null || !mounted) return;
 
-      // Crop to 16:9 banner format, matching the promo card display ratio.
-      final croppedPath = await cropImage(
-        picked.path,
-        ratioX: 16,
-        ratioY: 9,
-      );
+      final croppedPath = await cropPromotionImage(picked.path);
       if (croppedPath == null || !mounted) return;
       setState(() => _imagePath = croppedPath);
     } catch (_) {}
@@ -186,62 +182,63 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
     return PopScope(
       canPop: true,
       child: Container(
-      margin: const EdgeInsets.only(top: 80),
-      padding: EdgeInsets.only(
-          bottom: bottomInset == 0
-              ? MediaQuery.of(context).padding.bottom
-              : bottomInset),
-      decoration: const BoxDecoration(
-        color: MerchantColors.bgMain,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSheetHeader(),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildImagePicker(),
-                  const SizedBox(height: 20),
-                  _buildField(
-                    _titleCtrl,
-                    'Ex. : -20 % sur toute la carte',
-                    maxLength: _kTitleMax,
-                    label: 'Titre de la promotion',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildField(
-                    _subtitleCtrl,
-                    'Description (optionnel)',
-                    maxLength: _kDescMax,
-                  ),
-                  _buildSubtitlePreview(),
-                  const SizedBox(height: 20),
-                  _buildDateSection(),
-                  const SizedBox(height: 20),
-                  _buildClientTypeChips(),
-                  const SizedBox(height: 16),
-                  ClientTypeDetails(
-                    clientType: ClientType.gratuit,
-                    selectedSegments: _selectedSegments,
-                    selectedDistanceIndex: _selectedDistanceIndex,
-                    onSegmentToggled: _onSegmentToggled,
-                    onDistanceChanged: _onDistanceChanged,
-                  ),
-                  const SizedBox(height: 24),
-                  _buildSubmitButton(),
-                  const SizedBox(height: 16),
-                ],
+        margin: const EdgeInsets.only(top: 80),
+        padding: EdgeInsets.only(
+            bottom: bottomInset == 0
+                ? MediaQuery.of(context).padding.bottom
+                : bottomInset),
+        decoration: const BoxDecoration(
+          color: MerchantColors.bgMain,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSheetHeader(),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildImagePicker(),
+                    const SizedBox(height: 20),
+                    _buildField(
+                      _titleCtrl,
+                      'Ex. : -20 % sur toute la carte',
+                      maxLength: _kTitleMax,
+                      label: 'Titre de la promotion',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildField(
+                      _subtitleCtrl,
+                      'Description (optionnel)',
+                      maxLength: _kDescMax,
+                      maxLines: 4,
+                    ),
+                    _buildSubtitlePreview(),
+                    const SizedBox(height: 20),
+                    _buildDateSection(),
+                    const SizedBox(height: 20),
+                    _buildClientTypeChips(),
+                    const SizedBox(height: 16),
+                    ClientTypeDetails(
+                      clientType: ClientType.gratuit,
+                      selectedSegments: _selectedSegments,
+                      selectedDistanceIndex: _selectedDistanceIndex,
+                      onSegmentToggled: _onSegmentToggled,
+                      onDistanceChanged: _onDistanceChanged,
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSubmitButton(),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }

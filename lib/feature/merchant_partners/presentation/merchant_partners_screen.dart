@@ -8,6 +8,7 @@ import '../../merchant/application/providers.dart' as merchant_providers;
 import '../application/providers.dart' as partners_providers;
 import '../domain/entities/merchant_partner.dart';
 import 'partner_invite_sheet.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 part 'merchant_partners_screen.part.dart';
 

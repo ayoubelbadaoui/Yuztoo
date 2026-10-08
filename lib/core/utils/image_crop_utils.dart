@@ -3,6 +3,26 @@ import 'dart:developer' as developer;
 import 'package:image_cropper/image_cropper.dart';
 import '../shared/constants/merchant_colors.dart';
 
+/// Same list image_cropper uses when none is given.
+const List<CropAspectRatioPresetData> _defaultPresets = [
+  CropAspectRatioPreset.original,
+  CropAspectRatioPreset.square,
+  CropAspectRatioPreset.ratio3x2,
+  CropAspectRatioPreset.ratio4x3,
+  CropAspectRatioPreset.ratio16x9,
+];
+
+/// Vertical 4:5 format (portrait product / storefront photos).
+class CropAspectRatioPortrait4x5 implements CropAspectRatioPresetData {
+  const CropAspectRatioPortrait4x5();
+
+  @override
+  String get name => '4x5';
+
+  @override
+  (int, int)? get data => (4, 5);
+}
+
 /// Launches the uCrop UI to let the user trim an image.
 ///
 /// Pass [ratioX] + [ratioY] to lock the crop to a specific aspect ratio
@@ -11,6 +31,9 @@ import '../shared/constants/merchant_colors.dart';
 ///
 /// Pass [circleShape] = true for profile-photo flows — uCrop shows a circle
 /// guide (output is still a square file, ready for circular clipping in Flutter).
+///
+/// Pass [presets] to choose which formats the user can switch between when
+/// the ratio is not locked, and [maxWidth] / [maxHeight] to cap the output.
 ///
 /// Returns the cropped file path on success, or `null` if the user cancels.
 ///
@@ -25,6 +48,10 @@ Future<String?> cropImage(
   double? ratioX,
   double? ratioY,
   bool circleShape = false,
+  List<CropAspectRatioPresetData>? presets,
+  int? maxWidth,
+  int? maxHeight,
+  int compressQuality = 90,
 }) async {
   final double rx = ratioX ?? 0;
   final double ry = ratioY ?? 0;
@@ -51,6 +78,9 @@ Future<String?> cropImage(
     final cropped = await ImageCropper().cropImage(
       sourcePath: sourcePath,
       aspectRatio: aspectRatio,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+      compressQuality: compressQuality,
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Recadrer',
@@ -61,6 +91,7 @@ Future<String?> cropImage(
           lockAspectRatio: hasRatio,
           hideBottomControls: false,
           cropStyle: style,
+          aspectRatioPresets: presets ?? _defaultPresets,
         ),
         IOSUiSettings(
           title: 'Recadrer',
@@ -69,6 +100,7 @@ Future<String?> cropImage(
           aspectRatioLockEnabled: hasRatio,
           resetAspectRatioEnabled: !hasRatio,
           cropStyle: style,
+          aspectRatioPresets: presets ?? _defaultPresets,
         ),
       ],
     );

@@ -92,29 +92,10 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => widget.onBack?.call(),
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: MerchantColors.gold,
-                    size: 20,
-                  ),
-                ),
-              ),
-              Expanded(
+              const SizedBox(width: 44),
+              const Expanded(
                 child: Center(
-                  child: Text(
-                    'Mon profil',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: YuztooGradientTitle('Mon profil'),
                 ),
               ),
               const SizedBox(width: 44),

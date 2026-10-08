@@ -31,8 +31,10 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
           _buildCompose(context),
           const SizedBox(height: 14),
           _buildAudienceChips(),
-          const SizedBox(height: 10),
-          _buildQuotaRow(),
+          if (widget.quotaLabel != null) ...[
+            const SizedBox(height: 10),
+            _buildQuotaRow(widget.quotaLabel!),
+          ],
           const SizedBox(height: 12),
           _buildScheduleRow(context),
           const SizedBox(height: 16),
@@ -179,7 +181,7 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
 
   // ── Quota row ─────────────────────────────────────────────────────────────
 
-  Widget _buildQuotaRow() {
+  Widget _buildQuotaRow(String quotaLabel) {
     final exceeded = widget.quotaExceeded;
     return Row(
       children: [
@@ -195,11 +197,13 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
             // We lead with the cap and use plain words ("envois utilisés",
             // "plafond 5") so the ratio can't be misread as the limit.
             exceeded
-                ? 'Limite hebdomadaire atteinte (${widget.quotaLabel} envois '
-                    'utilisés sur 5 max). Patientez — la fenêtre glissante '
-                    'de 7 jours libère un envoi à la fois.'
-                : 'Quota hebdomadaire : ${widget.quotaLabel} envois utilisés '
-                    '— plafond 5 sur une fenêtre glissante de 7 jours.',
+                ? 'Limite hebdomadaire atteinte ($quotaLabel envois '
+                    'utilisés sur $kFreePlanWeeklyNotificationQuota max). '
+                    'Patientez — la fenêtre glissante de 7 jours libère un '
+                    'envoi à la fois.'
+                : 'Quota hebdomadaire : $quotaLabel envois utilisés '
+                    '— plafond $kFreePlanWeeklyNotificationQuota sur une '
+                    'fenêtre glissante de 7 jours.',
             style: GoogleFonts.outfit(
               fontSize: 11,
               color: exceeded ? Colors.red[300] : MerchantColors.textGrey,

@@ -88,6 +88,13 @@ class TimeSlot {
 
   Map<String, dynamic> toMap() => {'start': start, 'end': end};
 
+  @override
+  bool operator ==(Object other) =>
+      other is TimeSlot && other.start == start && other.end == end;
+
+  @override
+  int get hashCode => Object.hash(start, end);
+
   static TimeSlot fromMap(Map<String, dynamic> map) {
     return TimeSlot(
       start: normalizeTimeString(
@@ -161,6 +168,23 @@ class BusinessHours {
   final DayHours sunday;
   final bool hasExceptionalClosure;
 
+  /// Firestore keys, Monday first — same order as [allDays].
+  static const List<String> dayKeys = [
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+  ];
+
+  /// Slots given to a day opened before any other day has hours.
+  static const List<TimeSlot> defaultSlots = [
+    TimeSlot(start: '8h', end: '12h'),
+    TimeSlot(start: '14h', end: '18h'),
+  ];
+
   List<DayHours> get allDays => [
         monday,
         tuesday,
@@ -170,6 +194,75 @@ class BusinessHours {
         saturday,
         sunday,
       ];
+
+  DayHours day(String dayKey) => allDays[dayKeys.indexOf(dayKey)];
+
+  BusinessHours withDay(String dayKey, DayHours updated) => BusinessHours(
+        hasExceptionalClosure: hasExceptionalClosure,
+        monday: dayKey == 'monday' ? updated : monday,
+        tuesday: dayKey == 'tuesday' ? updated : tuesday,
+        wednesday: dayKey == 'wednesday' ? updated : wednesday,
+        thursday: dayKey == 'thursday' ? updated : thursday,
+        friday: dayKey == 'friday' ? updated : friday,
+        saturday: dayKey == 'saturday' ? updated : saturday,
+        sunday: dayKey == 'sunday' ? updated : sunday,
+      );
+
+  /// Slots for a day the merchant is opening: the closest earlier open day
+  /// (so Tuesday reuses Monday), else the closest later one, else
+  /// [defaultSlots].
+  List<TimeSlot> suggestedSlotsFor(String dayKey) {
+    final days = allDays;
+    final index = dayKeys.indexOf(dayKey);
+    for (var i = index - 1; i >= 0; i--) {
+      if (!days[i].isClosed) return days[i].timeSlots;
+    }
+    for (var i = index + 1; i < days.length; i++) {
+      if (!days[i].isClosed) return days[i].timeSlots;
+    }
+    return defaultSlots;
+  }
+
+  /// Opens or closes [dayKey]; an opened day gets [suggestedSlotsFor].
+  BusinessHours toggleDay(String dayKey) {
+    final current = day(dayKey);
+    return withDay(
+      dayKey,
+      DayHours(
+        dayName: current.dayName,
+        isEnabled: !current.isEnabled,
+        timeSlots: current.isEnabled ? const [] : suggestedSlotsFor(dayKey),
+      ),
+    );
+  }
+
+  /// Sets [dayKey]'s slots and carries them over to the following open days
+  /// that still had the same hours as [dayKey] — i.e. days that were copies
+  /// of it. Days with their own custom hours are left untouched.
+  BusinessHours withSlotsCascading(String dayKey, List<TimeSlot> slots) {
+    final previous = day(dayKey).timeSlots;
+    var result = this;
+    final start = dayKeys.indexOf(dayKey);
+    for (var i = start; i < dayKeys.length; i++) {
+      final d = allDays[i];
+      final follows =
+          i == start || (!d.isClosed && _sameSlots(d.timeSlots, previous));
+      if (!follows) continue;
+      result = result.withDay(
+        dayKeys[i],
+        DayHours(dayName: d.dayName, isEnabled: d.isEnabled, timeSlots: slots),
+      );
+    }
+    return result;
+  }
+
+  static bool _sameSlots(List<TimeSlot> a, List<TimeSlot> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 
   /// Serialize for Firestore.
   Map<String, dynamic> toMap() => {
@@ -209,14 +302,11 @@ class BusinessHours {
       tuesday: DayHours.fromMap(safeDay('tuesday'), dayNameFallback: 'Mardi'),
       wednesday:
           DayHours.fromMap(safeDay('wednesday'), dayNameFallback: 'Mercredi'),
-      thursday:
-          DayHours.fromMap(safeDay('thursday'), dayNameFallback: 'Jeudi'),
-      friday:
-          DayHours.fromMap(safeDay('friday'), dayNameFallback: 'Vendredi'),
+      thursday: DayHours.fromMap(safeDay('thursday'), dayNameFallback: 'Jeudi'),
+      friday: DayHours.fromMap(safeDay('friday'), dayNameFallback: 'Vendredi'),
       saturday:
           DayHours.fromMap(safeDay('saturday'), dayNameFallback: 'Samedi'),
-      sunday:
-          DayHours.fromMap(safeDay('sunday'), dayNameFallback: 'Dimanche'),
+      sunday: DayHours.fromMap(safeDay('sunday'), dayNameFallback: 'Dimanche'),
     );
   }
 }

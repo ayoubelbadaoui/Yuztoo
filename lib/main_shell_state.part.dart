@@ -1263,11 +1263,6 @@ class _RootShellState extends ConsumerState<_RootShell>
         return;
       }
 
-      if (isAutomaticPassageAllowedForMerchant(merchant)) {
-        _clearPendingPassageValidationPush();
-        return;
-      }
-
       if (_activeValidationSheetOpen) return;
 
       ActiveValidationRequest? session;
@@ -1297,6 +1292,9 @@ class _RootShellState extends ConsumerState<_RootShell>
       }
 
       _clearPendingPassageValidationPush();
+
+      if (await _isSessionAutoConfirmed(merchant, session)) return;
+      if (!mounted) return;
 
       final key = _activeValidationSessionKey(session);
       if (_handledActiveValidationKeys.contains(key)) return;
@@ -1369,7 +1367,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       if (merchant != null &&
           merchant.id == session.merchantId &&
           isAutomaticPassageAllowedForMerchant(merchant)) {
-        unawaited(_autoConfirmPassageSession(session, merchant));
+        unawaited(_autoConfirmOrOpenPassageSession(session, merchant, key));
         continue;
       }
       _openActiveValidationSheet(session);
@@ -1377,12 +1375,41 @@ class _RootShellState extends ConsumerState<_RootShell>
     }
   }
 
-  /// When passage validation is automatic, confirm immediately — no sheet,
-  /// no client "validation en cours" wait (handles desynced legacy sessions).
-  Future<void> _autoConfirmPassageSession(
+  Future<bool> _isSessionAutoConfirmed(
+    Merchant merchant,
+    ActiveValidationRequest session,
+  ) async {
+    ClientMerchantLoyaltyProgress? progress;
+    try {
+      progress = await ref
+          .read(clientLoyaltyRepositoryProvider)
+          .readProgress(merchant.id, session.clientUid);
+    } catch (_) {}
+    return isPassageSessionAutoConfirmed(
+      merchant: merchant,
+      session: session,
+      clientProgress: progress,
+    );
+  }
+
+  /// Automatic mode: confirm immediately when nothing has to be entered
+  /// (the backend races us on the same transaction guard — only one wins).
+  /// Amount-based programmes still need the merchant's form.
+  Future<void> _autoConfirmOrOpenPassageSession(
     ActiveValidationRequest session,
     Merchant merchant,
+    String key,
   ) async {
+    if (!await _isSessionAutoConfirmed(merchant, session)) {
+      if (!mounted) return;
+      if (_activeValidationSheetOpen) {
+        // Picked up again when the open sheet closes and the queue re-runs.
+        _handledActiveValidationKeys.remove(key);
+        return;
+      }
+      await _openActiveValidationSheet(session);
+      return;
+    }
     final result = await ref.read(confirmActiveValidationProvider).call(
           actingOwnerUid: merchant.ownerUid,
           merchant: merchant,
@@ -2739,6 +2766,18 @@ class _RootShellState extends ConsumerState<_RootShell>
           isDualProfile: _isDualProfile,
           createOtherRoleLabel: 'Créer un carnet Yuztoo',
           onCreateProAccount: () => unawaited(_switchToClient()),
+          onOpenLinkedStorefront: () {
+            final merchant =
+                ref.read(merchant_providers.currentMerchantForOwnerProvider)
+                    .valueOrNull;
+            final id = merchant?.id.trim() ?? '';
+            if (id.isEmpty) return;
+            ref
+                .read(store_profile_providers
+                    .selectedStoreMerchantIdProvider.notifier)
+                .state = id;
+            setState(() => _pushNestedScreen(ScreenId.storeProfile));
+          },
         );
       case ScreenId.merchantSecurity:
         return IdentificationSecurityScreen(

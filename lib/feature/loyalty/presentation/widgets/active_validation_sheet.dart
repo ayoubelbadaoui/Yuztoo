@@ -184,6 +184,7 @@ class _ActiveValidationSheetState extends ConsumerState<ActiveValidationSheet> {
   }
 
   Future<void> _confirm() async {
+    FocusScope.of(context).unfocus();
     final spend = _parseSpend();
     if (_spendRequired && (spend == null || spend <= 0)) {
       setState(() => _error = 'Indiquez le montant de l\'achat.');
@@ -232,6 +233,7 @@ class _ActiveValidationSheetState extends ConsumerState<ActiveValidationSheet> {
 
   Future<void> _refuse() async {
     if (_submitting) return;
+    FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
     HapticFeedback.lightImpact();
     final useCase = ref.read(cancelActiveValidationProvider);
@@ -272,159 +274,162 @@ class _ActiveValidationSheetState extends ConsumerState<ActiveValidationSheet> {
         24,
         MediaQuery.of(context).padding.bottom + 28,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 24),
-            decoration: BoxDecoration(
-              color: MerchantColors.textGrey.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          // Avatar — photo from session (client vitrine request) or initials.
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: MerchantColors.gold.withValues(alpha: 0.15),
-              border: Border.all(
-                color: MerchantColors.gold.withValues(alpha: 0.4),
-                width: 2,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 24),
+              decoration: BoxDecoration(
+                color: MerchantColors.textGrey.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: _buildClientAvatar(),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Validation de passage',
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: MerchantColors.textGrey,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            widget.session.clientDisplayName.isNotEmpty
-                ? widget.session.clientDisplayName
-                : 'Client',
-            style: GoogleFonts.outfit(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: MerchantColors.textWhite,
-            ),
-          ),
-          const SizedBox(height: 14),
-          // Program chip
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              color: MerchantColors.gold.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: MerchantColors.gold.withValues(alpha: 0.3),
-                width: 1,
+            // Avatar — photo from session (client vitrine request) or initials.
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: MerchantColors.gold.withValues(alpha: 0.15),
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.4),
+                  width: 2,
+                ),
               ),
+              clipBehavior: Clip.antiAlias,
+              child: _buildClientAvatar(),
             ),
-            child: Text(
-              '${_rewardPreview()} ${_triggerPreview()}',
-              textAlign: TextAlign.center,
+            const SizedBox(height: 16),
+            Text(
+              'Validation de passage',
               style: GoogleFonts.outfit(
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: MerchantColors.gold,
+                fontWeight: FontWeight.w600,
+                color: MerchantColors.textGrey,
+                letterSpacing: 0.8,
               ),
             ),
-          ),
-          if (_spendVisible) ...[
-            const SizedBox(height: 22),
-            _SpendField(
-              controller: _spendController,
-              required: _spendRequired,
-              minimumPerVisitEuros: _minimumPerVisitEuros,
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
+            const SizedBox(height: 6),
+            Text(
+              widget.session.clientDisplayName.isNotEmpty
+                  ? widget.session.clientDisplayName
+                  : 'Client',
+              style: GoogleFonts.outfit(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: MerchantColors.textWhite,
+              ),
             ),
-          ] else
-            const SizedBox(height: 22),
-          if (_error != null) ...[
             const SizedBox(height: 14),
+            // Program chip
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+                color: MerchantColors.gold.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: MerchantColors.gold.withValues(alpha: 0.3),
+                  width: 1,
+                ),
               ),
               child: Text(
-                _error!,
+                '${_rewardPreview()} ${_triggerPreview()}',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
-                    fontSize: 13, color: Colors.red.shade300),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: MerchantColors.gold,
+                ),
+              ),
+            ),
+            if (_spendVisible) ...[
+              const SizedBox(height: 22),
+              _SpendField(
+                controller: _spendController,
+                required: _spendRequired,
+                minimumPerVisitEuros: _minimumPerVisitEuros,
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
+              ),
+            ] else
+              const SizedBox(height: 22),
+            if (_error != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+                ),
+                child: Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                      fontSize: 13, color: Colors.red.shade300),
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: GestureDetector(
+                onTap: _submitting ? null : _confirm,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _submitting
+                        ? MerchantColors.gold.withValues(alpha: 0.4)
+                        : MerchantColors.gold,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: StorefrontColors.navyDark,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : Text(
+                            'Valider le passage',
+                            style: GoogleFonts.outfit(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: StorefrontColors.navyDark,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _submitting ? null : _refuse,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Refuser',
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    color: MerchantColors.textGrey,
+                  ),
+                ),
               ),
             ),
           ],
-          const SizedBox(height: 22),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: GestureDetector(
-              onTap: _submitting ? null : _confirm,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _submitting
-                      ? MerchantColors.gold.withValues(alpha: 0.4)
-                      : MerchantColors.gold,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Center(
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            color: StorefrontColors.navyDark,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : Text(
-                          'Valider le passage',
-                          style: GoogleFonts.outfit(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: StorefrontColors.navyDark,
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: _submitting ? null : _refuse,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'Refuser',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  color: MerchantColors.textGrey,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -462,6 +467,11 @@ class _SpendField extends StatelessWidget {
         TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          // The iOS decimal pad has no return key: tapping anywhere else is
+          // the only way the merchant can put the keyboard away.
+          textInputAction: TextInputAction.done,
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
+          onSubmitted: (_) => FocusScope.of(context).unfocus(),
           style: const TextStyle(color: MerchantColors.textWhite),
           onChanged: onChanged,
           decoration: const InputDecoration(

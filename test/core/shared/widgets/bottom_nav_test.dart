@@ -28,6 +28,10 @@ void main() {
 
       expect(find.byIcon(Icons.campaign_rounded), findsOneWidget);
       expect(find.byIcon(Icons.notifications_none_rounded), findsNothing);
+      // Nav labels are rendered uppercase.
+      expect(find.text('NOTIFICATIONS'), findsOneWidget);
+      expect(find.text('COMMUNIQUER'), findsNothing);
+      expect(find.text('ALERTES'), findsNothing);
     });
 
     testWidgets('client notifications tab still uses bell icon', (tester) async {

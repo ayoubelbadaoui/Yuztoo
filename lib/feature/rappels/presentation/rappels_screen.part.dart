@@ -59,26 +59,6 @@ extension _RappelsScreenUi on _RappelsScreenState {
                       error: (_, __) =>
                           const _RappelsSectionPlaceholder(height: 220, isError: true),
                     ),
-                    // ── Clients + stats ─────────────────────────────────────
-                    storefrontAsync.when(
-                      data: (storefront) => RappelsClientsSection(
-                        connectedClientsThisMonth:
-                            storefront?.rappelsMonthlyConnectedClients ?? 0,
-                        validatedPassagesThisMonth:
-                            storefront?.rappelsMonthlyValidatedPassages ?? 0,
-                        onAutoTap: _scrollToToggles,
-                      ),
-                      loading: () => RappelsClientsSection(
-                        connectedClientsThisMonth: 0,
-                        validatedPassagesThisMonth: 0,
-                        onAutoTap: _scrollToToggles,
-                      ),
-                      error: (_, __) => RappelsClientsSection(
-                        connectedClientsThisMonth: 0,
-                        validatedPassagesThisMonth: 0,
-                        onAutoTap: _scrollToToggles,
-                      ),
-                    ),
                     // ── Récompenses à remettre (bons disponibles) ───────────
                     merchantAsync.when(
                       data: (Merchant? m) {
@@ -98,14 +78,6 @@ extension _RappelsScreenUi on _RappelsScreenState {
                       loading: () => const _RappelsSectionPlaceholder(height: 120),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
-                    // Alertes — actionable items first, before promotional content
-                    storefrontAsync.when(
-                      data: (storefront) => AlertesSection(
-                        merchantId: storefront?.id ?? '',
-                      ),
-                      loading: () => const _RappelsSectionPlaceholder(height: 100),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
                     // RappelsProductSection (the NFC plaque marketing
                     // block) is hidden while plaque-programming is out
                     // of scope. Kept in source as a SizedBox.shrink()
@@ -121,18 +93,15 @@ extension _RappelsScreenUi on _RappelsScreenState {
                         final autoPassage =
                             storefront?.rappelsAutoPassageValidation ?? true;
                         final sid = storefront?.id;
-                        return KeyedSubtree(
-                          key: _togglesSectionKey,
-                          child: RappelsTogglesSection(
-                            autoClientValidation: autoClient,
-                            autoPassageValidation: autoPassage,
-                            onClientChanged: sid != null
-                                ? (v) => _saveRappels(ref, sid, v, autoPassage)
-                                : (_) {},
-                            onPassageChanged: sid != null
-                                ? (v) => _saveRappels(ref, sid, autoClient, v)
-                                : (_) {},
-                          ),
+                        return RappelsTogglesSection(
+                          autoClientValidation: autoClient,
+                          autoPassageValidation: autoPassage,
+                          onClientChanged: sid != null
+                              ? (v) => _saveRappels(ref, sid, v, autoPassage)
+                              : (_) {},
+                          onPassageChanged: sid != null
+                              ? (v) => _saveRappels(ref, sid, autoClient, v)
+                              : (_) {},
                         );
                       },
                       loading: () => const _RappelsTogglesSkeleton(),
@@ -175,22 +144,15 @@ extension _RappelsScreenUi on _RappelsScreenState {
               ),
             ),
           ),
-          child: Row(
+          child: const Row(
             children: [
-              const SizedBox(width: 44),
+              SizedBox(width: 44),
               Expanded(
                 child: Center(
-                  child: Text(
-                    'Notifications',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: YuztooGradientTitle('Notifications'),
                 ),
               ),
-              const SizedBox(width: 44),
+              SizedBox(width: 44),
             ],
           ),
         ),

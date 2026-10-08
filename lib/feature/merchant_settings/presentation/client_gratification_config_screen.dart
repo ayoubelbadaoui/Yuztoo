@@ -230,25 +230,7 @@ class _ClientGratificationConfigScreenState
           ),
           child: Row(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onBack ?? () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MerchantColors.gold, width: 1.5),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold,
-                      size: 15,
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(width: 44),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

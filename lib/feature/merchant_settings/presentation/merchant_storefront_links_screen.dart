@@ -218,11 +218,7 @@ class _MerchantStorefrontLinksScreenState
       padding: const EdgeInsets.fromLTRB(8, 8, 16, 16),
       child: Row(
         children: [
-          IconButton(
-            onPressed: widget.onBack,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: Colors.white, size: 20),
-          ),
+          const SizedBox(width: 44),
           Expanded(
             child: Text(
               'Liens personnalisés',
@@ -335,8 +331,10 @@ class _MerchantStorefrontLinksScreenState
             const SizedBox(height: 8),
             Text(
               isUrl
-                  ? 'Sera cliquable sur la vitrine'
+                  ? 'Cliquable, affiché « ${MerchantStorefrontLink.shortUrl(preview)} »'
                   : 'Affiché comme texte (non cliquable)',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.outfit(
                 fontSize: 11,
                 color: isUrl

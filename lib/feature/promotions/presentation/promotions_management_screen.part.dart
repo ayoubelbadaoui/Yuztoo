@@ -187,35 +187,13 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
           ),
           child: Row(
             children: [
-              if (widget.onBack != null)
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: widget.onBack,
-                  child: const SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold,
-                      size: 20,
-                    ),
-                  ),
-                )
-              else
-                const SizedBox(width: 44),
+              const SizedBox(width: 44),
               Expanded(
                 child: Center(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Promotions',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                      const YuztooGradientTitle('Promotions'),
                       if (activeCount > 0) ...[
                         const SizedBox(width: 8),
                         Container(

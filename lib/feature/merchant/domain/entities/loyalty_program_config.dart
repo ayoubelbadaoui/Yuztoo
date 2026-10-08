@@ -93,7 +93,7 @@ class LoyaltyProgramConfig extends Equatable {
     final validationPart =
         passageValidation == LoyaltyPassageValidation.automatic
             ? 'Validation des passages : automatique.'
-            : 'Validation des passages : manuelle (depuis Rappels).';
+            : 'Validation des passages : manuelle (depuis Notifications).';
     final amountPart = effectiveAskClientPurchaseAmount
         ? 'Le client saisit le montant de l\'achat à chaque passage.'
         : '';
@@ -125,7 +125,7 @@ class LoyaltyProgramConfig extends Equatable {
   String get recapValidationLabel =>
       passageValidation == LoyaltyPassageValidation.automatic
           ? 'Automatique (BLE + scan)'
-          : 'Manuelle (Rappels)';
+          : 'Manuelle (Notifications)';
 
   String? get recapValidityLabel {
     if (!rewardValidityEnabled ||

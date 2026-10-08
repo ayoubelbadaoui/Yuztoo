@@ -279,16 +279,7 @@ class _IdentificationSecurityScreenState
           ),
           child: Row(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onBack,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(Icons.arrow_back_ios_new_rounded,
-                      color: MerchantColors.gold, size: 20),
-                ),
-              ),
+              const SizedBox(width: 44),
               const SizedBox(width: 12),
               Text(
                 'Identification et sécurité',

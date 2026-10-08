@@ -14,10 +14,15 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
       padding: const EdgeInsets.all(14),
       decoration: _detailBox,
       child: Text(
-        'Pour vos envois manuels depuis Rappels, le plafond du plan gratuit '
-        'est de 5 notifications par fenêtre glissante de 7 jours (compteur X/5 '
-        'dans Rappels). Pour cette diffusion gratuite, évitez aussi de '
-        'sur-solliciter vos abonnés.',
+        kFreePlanWeeklyNotificationQuotaEnabled
+            ? 'Pour vos envois manuels depuis Notifications, le plafond du plan '
+                'gratuit est de $kFreePlanWeeklyNotificationQuota notifications '
+                'par fenêtre glissante de 7 jours (compteur X/'
+                '$kFreePlanWeeklyNotificationQuota dans Notifications). Pour '
+                'cette diffusion gratuite, évitez aussi de sur-solliciter vos '
+                'abonnés.'
+            : 'Pour cette diffusion gratuite, évitez de sur-solliciter vos '
+                'abonnés.',
         textAlign: TextAlign.center,
         style: GoogleFonts.outfit(
           fontSize: 11,

@@ -198,18 +198,16 @@ class BusinessHoursNotifier extends StateNotifier<BusinessHours> {
   BusinessHoursNotifier(super.state);
 
   void toggleDay(String dayName, bool enabled) {
-    // Helper to get the day hours with default time slots if enabling a closed day
     DayHours getUpdatedDay(DayHours currentDay, bool enabled) {
       if (currentDay.dayName == dayName) {
-        // If enabling and has no time slots, add default ones (symmetric with other days)
+        // Enabling a day without slots reuses the nearest open day's hours.
         if (enabled && currentDay.timeSlots.isEmpty) {
+          final dayKey = BusinessHours
+              .dayKeys[state.allDays.indexWhere((d) => d.dayName == dayName)];
           return DayHours(
             dayName: dayName,
             isEnabled: enabled,
-            timeSlots: const [
-              TimeSlot(start: '8h', end: '12h'),
-              TimeSlot(start: '14h', end: '18h'),
-            ],
+            timeSlots: state.suggestedSlotsFor(dayKey),
           );
         }
         // Otherwise just update enabled state

@@ -12,6 +12,7 @@ import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../application/active_validation_providers.dart';
 import '../../application/client_loyalty_providers.dart';
 import '../../domain/entities/active_validation_request.dart';
+import '../../domain/failures/passage_cooldown_failure.dart';
 
 /// Wraps a body widget and listens for the client's session transitioning to
 /// `completed` at any followed merchant. When it does, slides in a gold "✓
@@ -96,12 +97,15 @@ class _LoyaltyCelebrationOverlayState
       final k = '${session.merchantId}__${session.clientUid}__cancelled';
       if (_cancelledNotified.contains(k)) return;
       _cancelledNotified.add(k);
+      final message = session.cancelReason == 'passage_cooldown'
+          ? const PassageCooldownFailure().message
+          : 'Demande de passage annulée ou refusée.';
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text(
-              'Demande de passage annulée ou refusée.',
+              message,
               style: GoogleFonts.outfit(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,

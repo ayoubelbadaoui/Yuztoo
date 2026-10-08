@@ -4,14 +4,14 @@ import '../../../../core/domain/core/result.dart';
 import '../../../auth/core/domain/entities/auth_user.dart';
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../../merchant/domain/entities/merchant.dart';
-import '../../domain/failures/ble_passage_failure.dart';
 import '../../domain/loyalty_passage_program_policy.dart';
 import '../../domain/repositories/active_validation_repository.dart';
 
 /// Client-side: opens a synchronous validation session at the merchant. The
 /// merchant's app sees the new doc instantly via [watchMerchantQueue] and
-/// pops a smart per-program form. Replaces the legacy
-/// `RecordLoyaltyPassage → pending_passages += 1` flow.
+/// pops a smart per-program form — or, in automatic mode without an amount
+/// to enter, `onActiveValidationAwaiting` confirms it server-side. Replaces
+/// the legacy `RecordLoyaltyPassage → pending_passages += 1` flow.
 class RequestActiveValidation {
   RequestActiveValidation(this._repository);
 
@@ -26,17 +26,9 @@ class RequestActiveValidation {
         UnexpectedFailure(message: 'Utilisateur non connecté'),
       );
     }
-    if (!isVitrinePassageRequestAllowedForMerchant(merchant)) {
-      if (!isMerchantLoyaltyPassageActive(merchant)) {
-        return const Left<AppFailure, void>(
-          UnexpectedFailure(message: 'Le programme de fidélité est désactivé'),
-        );
-      }
+    if (!isScanPassageSessionAllowedForMerchant(merchant)) {
       return const Left<AppFailure, void>(
-        BlePassageSessionFailure(
-          'Présentez-vous au comptoir : ce commerce valide les passages '
-          'en proximité (BLE).',
-        ),
+        UnexpectedFailure(message: 'Le programme de fidélité est désactivé'),
       );
     }
 

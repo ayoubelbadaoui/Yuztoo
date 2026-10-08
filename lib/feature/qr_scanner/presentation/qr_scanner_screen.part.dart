@@ -238,16 +238,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
                 children: [
                   Row(
                 children: [
-                  GestureDetector(
-                    onTap: widget.onBack,
-                    behavior: HitTestBehavior.opaque,
-                    child: const SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: Icon(Icons.arrow_back_ios_new_rounded,
-                          color: MerchantColors.gold, size: 22),
-                    ),
-                  ),
+                  const SizedBox(width: 44),
                   const SizedBox(width: 8),
                   Container(
                     width: 40,

@@ -115,6 +115,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
       return _buildEmptyCarnet(
         context,
         showYuztooBrandTile: showYuztooBrandTile,
+        ownMerchantId: ownMerchantId,
       );
     }
 
@@ -134,6 +135,15 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
           onNavigate('store-profile');
         }
       },
+      onYuztooBrandTap: ownMerchantId == null
+          ? null
+          : (id) {
+              if (onStoreSelect != null) {
+                onStoreSelect!(id);
+              } else {
+                onNavigate('store-profile');
+              }
+            },
       onUnfollow: (merchant) async {
         final userId = ref.read(auth_providers.currentUserIdProvider);
         if (userId == null) return;
@@ -305,6 +315,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
   Widget _buildEmptyCarnet(
     BuildContext context, {
     bool showYuztooBrandTile = false,
+    String? ownMerchantId,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -377,7 +388,19 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
             ),
           ),
           const SizedBox(height: 16),
-          if (showYuztooBrandTile) const _RestonsProchesTile(),
+          if (showYuztooBrandTile)
+            _RestonsProchesTile(
+              merchantId: ownMerchantId,
+              onOpenStorefront: ownMerchantId == null
+                  ? null
+                  : (id) {
+                      if (onStoreSelect != null) {
+                        onStoreSelect!(id);
+                      } else {
+                        onNavigate('store-profile');
+                      }
+                    },
+            ),
         ],
       ),
     );
@@ -810,6 +833,7 @@ class _CarnetList extends StatefulWidget {
     this.onOrderChanged,
     this.onUnfollow,
     this.showYuztooBrandTile = false,
+    this.onYuztooBrandTap,
   });
 
   final List<Merchant> merchants;
@@ -824,6 +848,8 @@ class _CarnetList extends StatefulWidget {
   /// rendered above « Mon commerce ». Reserved for users who also
   /// hold a merchant account — pure clients never see it.
   final bool showYuztooBrandTile;
+  /// Opens the linked merchant storefront (coordonnées, vitrine, …).
+  final void Function(String merchantId)? onYuztooBrandTap;
 
   @override
   State<_CarnetList> createState() => _CarnetListState();
@@ -969,7 +995,10 @@ class _CarnetListState extends State<_CarnetList> {
           if (showRestonsProches) ...[
             if (showSearch || reorderableList.isNotEmpty)
               const SizedBox(height: 16),
-            const _RestonsProchesTile(),
+            _RestonsProchesTile(
+              merchantId: widget.ownMerchantId,
+              onOpenStorefront: widget.onYuztooBrandTap,
+            ),
           ],
           if (showOwnMerchant) ...[
             if (showSearch ||
@@ -1205,15 +1234,18 @@ class _CarnetListState extends State<_CarnetList> {
 
 // ─── Yuztoo "Restons Proches" brand vignette ────────────────────────────────
 //
-// Pinned at the top of the client carnet (above followed merchants). It is
-// purely a brand surface (no real merchant doc), so taps open an
-// informational bottom sheet rather than a vitrine. The visual style
-// mirrors the surrounding carnet tiles (dark navy, gold border, banner-
-// height aspect ratio) but uses gradient + Yuztoo iconography to read as
-// "Yuztoo, not a shop".
+// Shown for dual-profile merchants in the client carnet. Tap opens the
+// linked merchant storefront (address / maps / coordonnées) — the real
+// Yuztoo compte commerce — instead of a brand-only sheet.
 
 class _RestonsProchesTile extends StatelessWidget {
-  const _RestonsProchesTile();
+  const _RestonsProchesTile({
+    this.merchantId,
+    this.onOpenStorefront,
+  });
+
+  final String? merchantId;
+  final void Function(String merchantId)? onOpenStorefront;
 
   void _showBrandSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -1297,7 +1329,14 @@ class _RestonsProchesTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => _showBrandSheet(context),
+      onTap: () {
+        final id = merchantId?.trim() ?? '';
+        if (id.isNotEmpty && onOpenStorefront != null) {
+          onOpenStorefront!(id);
+          return;
+        }
+        _showBrandSheet(context);
+      },
       child: Container(
         decoration: BoxDecoration(
           color: MerchantColors.bgHeader,

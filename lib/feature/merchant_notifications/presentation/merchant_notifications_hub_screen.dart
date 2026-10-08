@@ -12,6 +12,7 @@ import '../../merchant_partners/application/providers.dart' as partners_provider
 import '../../merchant_partners/domain/entities/merchant_partner.dart';
 import '../../rappels/application/providers.dart' as rappels_providers;
 import '../../rappels/presentation/widgets/quick_send_section.dart';
+import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 part 'merchant_notifications_hub_screen.part.dart';
 

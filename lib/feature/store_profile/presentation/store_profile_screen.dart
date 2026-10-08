@@ -8,11 +8,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/application/precache_network_images.dart';
 import '../../../core/debug/nfc_debug_flags.dart';
+import '../../../core/shared/widgets/adaptive_image.dart';
 import '../../auth/core/application/providers.dart' show authStateProvider;
 import '../../auth/core/application/state/auth_state.dart' show Authenticated;
 import '../../merchant_partners/application/providers.dart'
     as partners_providers;
 import '../../merchant/domain/entities/merchant.dart';
+import '../../merchant/domain/entities/merchant_storefront_link.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../promotions/application/providers.dart'
     show recordPromoViewsProvider;
@@ -32,8 +34,7 @@ part 'store_profile_follow_coachmark.part.dart';
 // ── Skeleton loading screen ────────────────────────────────────────────────────
 
 class _StoreProfileSkeleton extends StatefulWidget {
-  const _StoreProfileSkeleton({required this.onBack});
-  final VoidCallback onBack;
+  const _StoreProfileSkeleton();
 
   @override
   State<_StoreProfileSkeleton> createState() => _StoreProfileSkeletonState();
@@ -149,27 +150,6 @@ class _StoreProfileSkeletonState extends State<_StoreProfileSkeleton>
             ],
           ),
         ),
-        // Back button still works during loading
-        Positioned(
-          top: top + 8,
-          left: 12,
-          child: GestureDetector(
-            onTap: widget.onBack,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.25),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -262,19 +242,18 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
           data: (data) {
             final merchant = data.merchant;
             if (merchant == null) {
-              return _StoreProfileErrorBack(onBack: widget.onBack);
+              return const _StoreProfileErrorBack();
             }
             final ownerAsync =
                 ref.watch(merchant_providers.currentMerchantForOwnerProvider);
-            final isOwnerPreview =
-                ownerAsync.valueOrNull?.id == merchant.id;
+            final isOwnerPreview = ownerAsync.valueOrNull?.id == merchant.id;
             // Guard: inactive merchants must not show a full storefront to
             // clients who arrive via QR / deep link / saved follows.
             // Discovery already hides them; this closes the direct-ID path.
             // Merchants previewing their own vitrine (Aperçu) always see it.
             if (merchant.status != 'active') {
               if (ownerAsync.isLoading) {
-                return _StoreProfileSkeleton(onBack: widget.onBack);
+                return const _StoreProfileSkeleton();
               }
               if (!isOwnerPreview) {
                 final followedIds = ref
@@ -286,7 +265,6 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                   merchantName: merchant.displayName?.isNotEmpty == true
                       ? merchant.displayName!
                       : merchant.name,
-                  onBack: widget.onBack,
                   isFollowing: isFollowing,
                   isUnfollowBusy: _isFollowToggling,
                   onUnfollow: isFollowing
@@ -316,8 +294,8 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                   merchant.status != 'active' && isOwnerPreview,
             );
           },
-          loading: () => _StoreProfileSkeleton(onBack: widget.onBack),
-          error: (_, __) => _StoreProfileErrorBack(onBack: widget.onBack),
+          loading: () => const _StoreProfileSkeleton(),
+          error: (_, __) => const _StoreProfileErrorBack(),
         ),
       ),
     );

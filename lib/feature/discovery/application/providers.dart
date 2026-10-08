@@ -14,9 +14,9 @@ import '../domain/discovery_proche_filter.dart';
 import '../domain/discovery_recommended_partners.dart';
 import '../domain/discovery_subscription_visibility.dart';
 
-/// 'artiste' | 'proche' | 'recommandes' | 'associations'
+/// 'recommandes' | 'proche' | 'associations' | 'artiste'
 final discoveryMerchantTypeFilterProvider =
-    StateProvider<String>((ref) => 'proche');
+    StateProvider<String>((ref) => 'recommandes');
 
 List<Merchant> _activeOnly(List<Merchant> merchants) =>
     merchants.where((m) => m.status == 'active').toList();

@@ -151,8 +151,13 @@ abstract final class NfcDebugPassageEmulator {
 
     String expectedOutcome;
     if (isAutomaticPassageAllowedForMerchant(m)) {
-      expectedOutcome =
-          'Passage enregistré dans Firestore (mode auto) + overlay célébration.';
+      expectedOutcome = loyaltyProgramRequiresSpendAmount(
+        merchantLiveLoyaltyProgram(m),
+      )
+          ? 'Session active_validations créée — programme au montant : '
+              'le commerçant saisit l’achat.'
+          : 'Session active_validations confirmée automatiquement par le '
+              'serveur + overlay célébration.';
       checks.add(const NfcDebugPassageCheck(
         label: 'Mode passage : automatique (NFC/QR)',
         ok: true,

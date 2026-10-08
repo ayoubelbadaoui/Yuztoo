@@ -75,9 +75,7 @@ class ConfirmActiveValidation {
       );
     }
 
-    final bool spendRequired =
-        config.triggerType == LoyaltyTriggerType.purchaseTotal ||
-            config.rewardKind == LoyaltyRewardKind.loyaltyPoints;
+    final bool spendRequired = loyaltyProgramRequiresSpendAmount(config);
     final double spend = declaredSpendEuros ?? 0;
 
     if (spendRequired && spend <= 0) {

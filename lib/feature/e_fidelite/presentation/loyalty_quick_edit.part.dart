@@ -157,7 +157,7 @@ class _LoyaltyQuickEditFormState extends ConsumerState<LoyaltyQuickEditForm> {
             helper: config.passageValidation ==
                     LoyaltyPassageValidation.automatic
                 ? 'Le passage est validé automatiquement au scan.'
-                : 'Vous validez chaque passage depuis Rappels.',
+                : 'Vous validez chaque passage depuis Notifications.',
             value: config.passageValidation,
             items: const [
               DropdownMenuItem(

@@ -69,7 +69,9 @@ import 'core/infrastructure/ble_proximity_notifier.dart';
 import 'core/infrastructure/logger_service.dart';
 import 'feature/loyalty/application/active_validation_providers.dart';
 import 'feature/loyalty/domain/entities/active_validation_request.dart';
+import 'feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
 import 'feature/loyalty/infrastructure/active_validation_repository_provider.dart';
+import 'feature/loyalty/infrastructure/client_loyalty_repository_provider.dart';
 import 'feature/loyalty/domain/loyalty_passage_program_policy.dart';
 import 'feature/loyalty/presentation/merchant_passage_validation_flow.dart';
 import 'feature/loyalty/presentation/widgets/loyalty_celebration_overlay.dart';
@@ -124,8 +126,11 @@ class YuztooApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Yuztoo',
       theme: buildTheme(),
+      // Product copy is French-first; ignore the device language so EN phones
+      // never show the half-translated / mixed strings.
+      locale: const Locale('fr'),
+      supportedLocales: const [Locale('fr')],
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
       home: const _RootShell(),
     );
   }
