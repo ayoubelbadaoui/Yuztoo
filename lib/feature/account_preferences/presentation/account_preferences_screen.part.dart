@@ -74,35 +74,8 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Container(
-      color: MerchantColors.bgHeader,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            border: Border(
-              bottom: BorderSide(
-                color: MerchantColors.gold
-                    .withValues(alpha: MerchantColors.goldBorderAlpha),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 44),
-              const Expanded(
-                child: Center(
-                  child: YuztooGradientTitle('Mon profil'),
-                ),
-              ),
-              const SizedBox(width: 44),
-            ],
-          ),
-        ),
-      ),
+    return YuztooTabHeader(
+      title: YuztooTabHeader.gradientTitle('Mon profil'),
     );
   }
 

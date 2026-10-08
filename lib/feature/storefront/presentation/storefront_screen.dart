@@ -18,6 +18,7 @@ import 'widgets/news_section.dart';
 import 'widgets/hours_section.dart';
 import 'storefront_edit_profile_screen.dart';
 import '../application/profile_edit_state.dart';
+import '../../../core/shared/widgets/yuztoo_tab_header.dart';
 import '../domain/entities/storefront.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../storage/application/providers.dart' as storage_providers;

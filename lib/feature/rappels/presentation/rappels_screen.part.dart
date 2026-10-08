@@ -128,35 +128,8 @@ extension _RappelsScreenUi on _RappelsScreenState {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Container(
-      color: MerchantColors.bgHeader,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            border: Border(
-              bottom: BorderSide(
-                color: MerchantColors.gold
-                    .withValues(alpha: MerchantColors.goldBorderAlpha),
-                width: 1,
-              ),
-            ),
-          ),
-          child: const Row(
-            children: [
-              SizedBox(width: 44),
-              Expanded(
-                child: Center(
-                  child: YuztooGradientTitle('Notifications'),
-                ),
-              ),
-              SizedBox(width: 44),
-            ],
-          ),
-        ),
-      ),
+    return YuztooTabHeader(
+      title: YuztooTabHeader.gradientTitle('Notifications'),
     );
   }
 }

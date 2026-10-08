@@ -208,35 +208,8 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
   }
 
   Widget _buildHeader() {
-    return Container(
-      color: MerchantColors.bgHeader,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            border: Border(
-              bottom: BorderSide(
-                color: MerchantColors.gold
-                    .withValues(alpha: MerchantColors.goldBorderAlpha),
-                width: 1,
-              ),
-            ),
-          ),
-          child: const Row(
-            children: [
-              SizedBox(width: 44),
-              Expanded(
-                child: Center(
-                  child: YuztooGradientTitle('Paramètres Pro'),
-                ),
-              ),
-              SizedBox(width: 44),
-            ],
-          ),
-        ),
-      ),
+    return YuztooTabHeader(
+      title: YuztooTabHeader.gradientTitle('Paramètres Pro'),
     );
   }
 

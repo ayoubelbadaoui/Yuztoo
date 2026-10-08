@@ -13,77 +13,21 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: MerchantColors.bgHeader,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            border: Border(
-              bottom: BorderSide(
-                color: MerchantColors.gold
-                    .withValues(alpha: MerchantColors.goldBorderStronger),
-                width: 1,
-              ),
-            ),
+    return YuztooTabHeader(
+      title: YuztooTabHeader.gradientTitle('Fidélité'),
+      actions: [
+        // Dual-profile: storefront icon (not person/account silhouette)
+        if (onSwitchToMerchant != null)
+          YuztooHeaderAction(
+            icon: Icons.storefront_outlined,
+            onTap: onSwitchToMerchant,
+            outlined: true,
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: const YuztooGradientTitle(
-                  'Fidélité',
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              // Dual-profile: storefront icon (not person/account silhouette)
-              if (onSwitchToMerchant != null)
-                GestureDetector(
-                  onTap: onSwitchToMerchant,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: MerchantColors.gold
-                            .withValues(alpha: MerchantColors.goldBorderAlpha),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.storefront_outlined,
-                        color: MerchantColors.gold,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-              if (onSwitchToMerchant != null) const SizedBox(width: 8),
-              GestureDetector(
-                onTap: onNotifications,
-                behavior: HitTestBehavior.opaque,
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Center(
-                    child: Icon(
-                      Icons.notifications_outlined,
-                      color: MerchantColors.gold,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        YuztooHeaderAction(
+          icon: Icons.notifications_outlined,
+          onTap: onNotifications,
         ),
-      ),
+      ],
     );
   }
 }

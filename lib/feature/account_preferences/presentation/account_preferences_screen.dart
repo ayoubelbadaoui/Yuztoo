@@ -8,7 +8,7 @@ import '../application/providers.dart';
 import 'widgets/cities_section.dart';
 import 'widgets/profile_avatar_section.dart';
 import 'widgets/yuztoo_card_box.dart';
-import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
+import '../../../core/shared/widgets/yuztoo_tab_header.dart';
 
 part 'account_preferences_screen.part.dart';
 

@@ -3,115 +3,82 @@ part of 'discovery_screen.dart';
 extension _DiscoveryScreenUi on _DiscoveryScreenState {
   Widget _buildHeader(BuildContext context) {
     final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
-    return Container(
-      color: MerchantColors.bgHeader,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            border: Border(
-              bottom: BorderSide(
-                color: MerchantColors.gold.withValues(
-                  alpha: MerchantColors.goldBorderStronger,
-                ),
-                width: 1,
+    return YuztooTabHeader(
+      title: YuztooTabHeader.gradientTitle('Découvrir'),
+      actions: [
+        YuztooHeaderAction(
+          icon: Icons.notifications_outlined,
+          onTap: widget.onNotifications,
+        ),
+      ],
+      bottom: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tab chips — always visible
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _typeChip(
+                    label: 'Recommandés',
+                    icon: Icons.star_rounded,
+                    value: 'recommandes',
+                    current: typeFilter,
+                    onTap: () {
+                      ref
+                          .read(discoveryMerchantTypeFilterProvider.notifier)
+                          .state = 'recommandes';
+                      ref.invalidate(discoveryRecommendedMerchantsProvider);
+                      ref.invalidate(discoveryFollowedMerchantsProvider);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _typeChip(
+                    label: 'Proche de moi',
+                    icon: Icons.location_on_rounded,
+                    value: 'proche',
+                    current: typeFilter,
+                    onTap: () {
+                      ref
+                          .read(discoveryMerchantTypeFilterProvider.notifier)
+                          .state = 'proche';
+                      ref.invalidate(discoveryCityMerchantsProvider);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _typeChip(
+                    label: 'Associations',
+                    icon: Icons.groups_rounded,
+                    value: 'associations',
+                    current: typeFilter,
+                    onTap: () {
+                      ref
+                          .read(discoveryMerchantTypeFilterProvider.notifier)
+                          .state = 'associations';
+                      ref.invalidate(discoveryCityMerchantsProvider);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _typeChip(
+                    label: 'Artiste',
+                    icon: Icons.palette_rounded,
+                    value: 'artiste',
+                    current: typeFilter,
+                    onTap: () {
+                      ref
+                          .read(discoveryMerchantTypeFilterProvider.notifier)
+                          .state = 'artiste';
+                      ref.invalidate(discoveryArtisteMerchantsProvider);
+                    },
+                  ),
+                ],
               ),
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: YuztooGradientTitle(
-                        'Découvrir',
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: widget.onNotifications,
-                      icon: const Icon(
-                        Icons.notifications_outlined,
-                        color: MerchantColors.gold,
-                        size: 24,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Tab chips — always visible
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _typeChip(
-                        label: 'Recommandés',
-                        icon: Icons.star_rounded,
-                        value: 'recommandes',
-                        current: typeFilter,
-                        onTap: () {
-                          ref
-                              .read(discoveryMerchantTypeFilterProvider.notifier)
-                              .state = 'recommandes';
-                          ref.invalidate(discoveryRecommendedMerchantsProvider);
-                          ref.invalidate(discoveryFollowedMerchantsProvider);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _typeChip(
-                        label: 'Proche de moi',
-                        icon: Icons.location_on_rounded,
-                        value: 'proche',
-                        current: typeFilter,
-                        onTap: () {
-                          ref
-                              .read(discoveryMerchantTypeFilterProvider.notifier)
-                              .state = 'proche';
-                          ref.invalidate(discoveryCityMerchantsProvider);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _typeChip(
-                        label: 'Associations',
-                        icon: Icons.groups_rounded,
-                        value: 'associations',
-                        current: typeFilter,
-                        onTap: () {
-                          ref
-                              .read(discoveryMerchantTypeFilterProvider.notifier)
-                              .state = 'associations';
-                          ref.invalidate(discoveryCityMerchantsProvider);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _typeChip(
-                        label: 'Artiste',
-                        icon: Icons.palette_rounded,
-                        value: 'artiste',
-                        current: typeFilter,
-                        onTap: () {
-                          ref
-                              .read(discoveryMerchantTypeFilterProvider.notifier)
-                              .state = 'artiste';
-                          ref.invalidate(discoveryArtisteMerchantsProvider);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
+          const SizedBox(height: 12),
+        ],
       ),
     );
   }
@@ -181,12 +148,13 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchQueryChanged,
-        style: GoogleFonts.outfit(fontSize: 14, color: MerchantColors.textWhite),
+        style:
+            GoogleFonts.outfit(fontSize: 14, color: MerchantColors.textWhite),
         cursorColor: MerchantColors.gold,
         decoration: InputDecoration(
           hintText: 'Rechercher un commerce…',
-          hintStyle: GoogleFonts.outfit(
-              fontSize: 14, color: MerchantColors.textGrey),
+          hintStyle:
+              GoogleFonts.outfit(fontSize: 14, color: MerchantColors.textGrey),
           prefixIcon: const Icon(Icons.search_rounded,
               color: MerchantColors.gold, size: 20),
           suffixIcon: _searchQuery.isNotEmpty
@@ -209,8 +177,8 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-                color: MerchantColors.gold.withValues(alpha: 0.18)),
+            borderSide:
+                BorderSide(color: MerchantColors.gold.withValues(alpha: 0.18)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -256,45 +224,45 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     if (_searchResults.isEmpty) {
       return yuztooRefreshableEmpty(
         Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: MerchantColors.gold.withValues(alpha: 0.08),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: MerchantColors.gold.withValues(alpha: 0.08),
+                  ),
+                  child: const Icon(Icons.search_off_rounded,
+                      color: MerchantColors.gold, size: 26),
                 ),
-                child: const Icon(Icons.search_off_rounded,
-                    color: MerchantColors.gold, size: 26),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Aucun commerce trouvé',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                const SizedBox(height: 14),
+                Text(
+                  'Aucun commerce trouvé',
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Essayez un autre nom, une catégorie (ex. Café, Boulangerie…) '
-                'ou vérifiez l\'orthographe.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  color: MerchantColors.textGrey,
-                  height: 1.4,
+                const SizedBox(height: 6),
+                Text(
+                  'Essayez un autre nom, une catégorie (ex. Café, Boulangerie…) '
+                  'ou vérifiez l\'orthographe.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: MerchantColors.textGrey,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
       );
     }
 
@@ -760,12 +728,11 @@ class _SearchResultCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color:
-                                MerchantColors.gold.withValues(alpha: 0.12),
+                            color: MerchantColors.gold.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: MerchantColors.gold
-                                  .withValues(alpha: 0.35),
+                              color:
+                                  MerchantColors.gold.withValues(alpha: 0.35),
                             ),
                           ),
                           child: Text(
@@ -803,8 +770,7 @@ class _SearchResultCard extends StatelessWidget {
             const SizedBox(width: 8),
             if (isFollowed)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: MerchantColors.gold.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
@@ -954,8 +920,8 @@ class _BusinessGridCard extends StatelessWidget {
                 top: 8,
                 left: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),

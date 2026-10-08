@@ -169,60 +169,26 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
         .where((p) => p.isOnline && p.dateTo.isAfter(DateTime.now()))
         .length;
 
-    return Container(
-      color: MerchantColors.bgHeader,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            border: Border(
-              bottom: BorderSide(
-                color: MerchantColors.gold
-                    .withValues(alpha: MerchantColors.goldBorderAlpha),
-                width: 1,
+    return YuztooTabHeader(
+      title: YuztooTabHeader.gradientTitle('Promotions'),
+      titleTrailing: activeCount > 0
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: MerchantColors.gold,
+                borderRadius: BorderRadius.circular(10),
               ),
-            ),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 44),
-              Expanded(
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const YuztooGradientTitle('Promotions'),
-                      if (activeCount > 0) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: MerchantColors.gold,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '$activeCount',
-                            style: GoogleFonts.outfit(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: MerchantColors.bgHeader,
-                              height: 1.2,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+              child: Text(
+                '$activeCount',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: MerchantColors.bgHeader,
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(width: 44),
-            ],
-          ),
-        ),
-      ),
+            )
+          : null,
     );
   }
 

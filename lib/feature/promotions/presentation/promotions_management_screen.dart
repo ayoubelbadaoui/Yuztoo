@@ -20,7 +20,7 @@ import 'promotion_image_crop.dart';
 import 'widgets/add_promo_sheet.dart';
 import 'widgets/promo_analytics.dart';
 import 'widgets/promo_card.dart';
-import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
+import '../../../core/shared/widgets/yuztoo_tab_header.dart';
 
 part 'promotions_management_screen.part.dart';
 

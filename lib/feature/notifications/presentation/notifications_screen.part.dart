@@ -517,104 +517,40 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
     final hasAny = list.isNotEmpty;
     final isAlertes = _activeTab == 'alertes';
 
-    return Container(
-      color: MerchantColors.bgHeader,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          color: MerchantColors.bgHeader,
-          child: Row(
-            children: [
-              // Left: trash icon — visible when on alertes tab and list non-empty
-              SizedBox(
-                width: 68,
-                height: 44,
-                child: (isAlertes && hasAny)
-                    ? GestureDetector(
-                        onTap: _deleteAll,
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.delete_outline_rounded,
-                            color: MerchantColors.textGrey,
-                            size: 20,
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
+    return YuztooTabHeader(
+      title: YuztooTabHeader.gradientTitle('Alertes'),
+      titleTrailing: (unreadCount > 0 && isAlertes)
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: MerchantColors.gold,
+                borderRadius: BorderRadius.circular(20),
               ),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const YuztooGradientTitle(
-                      'Alertes',
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    if (unreadCount > 0 && isAlertes) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: MerchantColors.gold,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '$unreadCount',
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: MerchantColors.bgHeader,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+              child: Text(
+                '$unreadCount',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: MerchantColors.bgHeader,
+                  height: 1.2,
                 ),
               ),
-              // Right: mark-all-read icon — visible only on alertes tab
-              // when there are unread alerts. Designed to mirror the
-              // trash icon on the left (44×44 tap target, no pill chip)
-              // so the header reads as a clean, symmetric toolbar
-              // instead of fighting the title for visual weight.
-              SizedBox(
-                width: 68,
-                height: 44,
-                child: (unreadCount > 0 && isAlertes)
-                    ? Align(
-                        alignment: Alignment.centerRight,
-                        child: Tooltip(
-                          message: 'Tout marquer comme lu',
-                          child: GestureDetector(
-                            onTap: _markAllRead,
-                            behavior: HitTestBehavior.opaque,
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.done_all_rounded,
-                                color: MerchantColors.gold,
-                                size: 22,
-                                semanticLabel: 'Tout marquer comme lu',
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
+            )
+          : null,
+      actions: [
+        if (unreadCount > 0 && isAlertes)
+          YuztooHeaderAction(
+            icon: Icons.done_all_rounded,
+            onTap: _markAllRead,
+            tooltip: 'Tout marquer comme lu',
           ),
-        ),
-      ),
+        if (isAlertes && hasAny)
+          YuztooHeaderAction(
+            icon: Icons.delete_outline_rounded,
+            onTap: _deleteAll,
+            color: MerchantColors.textGrey,
+          ),
+      ],
     );
   }
 

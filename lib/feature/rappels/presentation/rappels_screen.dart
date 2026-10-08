@@ -24,7 +24,7 @@ import 'widgets/quick_send_section.dart';
 // ignore: unused_import
 import 'widgets/rappels_product_section.dart';
 import 'widgets/rappels_toggles_section.dart';
-import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
+import '../../../core/shared/widgets/yuztoo_tab_header.dart';
 
 part 'rappels_screen.part.dart';
 

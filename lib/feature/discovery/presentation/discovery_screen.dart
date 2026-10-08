@@ -8,7 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../client_home/application/providers.dart' as client_home_providers;
 import '../../../core/shared/constants/merchant_colors.dart';
-import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
+import '../../../core/shared/widgets/yuztoo_tab_header.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../application/providers.dart';
 import '../domain/discovery_merchant_search.dart';

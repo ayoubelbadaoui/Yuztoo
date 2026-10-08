@@ -72,62 +72,27 @@ class _StorefrontScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: StorefrontColors.backgroundLight,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          decoration: BoxDecoration(
-            color: StorefrontColors.backgroundLight,
-            border: Border(
-              bottom: BorderSide(
-                color: StorefrontColors.primaryGold.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 44),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    'Votre vitrine',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: StorefrontColors.textPrimary,
-                    ),
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: onSwitchRole,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: StorefrontColors.navyDark.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.switch_account,
-                      color: StorefrontColors.navyDark,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+    return YuztooTabHeader(
+      backgroundColor: StorefrontColors.backgroundLight,
+      borderColor: StorefrontColors.primaryGold.withValues(alpha: 0.3),
+      title: Text(
+        'Votre vitrine',
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.outfit(
+          fontSize: YuztooTabHeader.titleFontSize,
+          fontWeight: FontWeight.w700,
+          color: StorefrontColors.textPrimary,
         ),
       ),
+      actions: [
+        if (onSwitchRole != null)
+          YuztooHeaderAction(
+            icon: Icons.switch_account,
+            onTap: onSwitchRole,
+            color: StorefrontColors.navyDark,
+            outlined: true,
+          ),
+      ],
     );
   }
 }

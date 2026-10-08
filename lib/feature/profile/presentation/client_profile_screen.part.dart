@@ -183,31 +183,8 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
   }
 
   Widget _buildHeader(AppLocalizations l10n) {
-    return Container(
-      color: MerchantColors.bgHeader,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            border: Border(
-              bottom: BorderSide(
-                color: MerchantColors.gold
-                    .withValues(alpha: MerchantColors.goldBorderAlpha),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Center(
-            child: YuztooGradientTitle(
-              l10n.myProfile,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
+    return YuztooTabHeader(
+      title: YuztooTabHeader.gradientTitle(l10n.myProfile),
     );
   }
 

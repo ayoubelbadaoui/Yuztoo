@@ -165,61 +165,15 @@ extension _ClientListScreenUi on _ClientListScreenState {
   // ── header ──────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(BuildContext context) {
-    return Container(
-      color: MerchantColors.bgHeader,
-      child: SafeArea(
-        bottom: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            border: Border(
-              bottom: BorderSide(
-                color: MerchantColors.gold
-                    .withValues(alpha: MerchantColors.goldBorderAlpha),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 44),
-              Expanded(
-                child: Center(
-                  child: const YuztooGradientTitle(
-                    'Vos clients',
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: widget.onSwitchRole,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: MerchantColors.gold
-                          .withValues(alpha: MerchantColors.goldBorderAlpha),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.person_outline_rounded,
-                      color: MerchantColors.gold,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+    return YuztooTabHeader(
+      title: YuztooTabHeader.gradientTitle('Vos clients'),
+      actions: [
+        YuztooHeaderAction(
+          icon: Icons.person_outline_rounded,
+          onTap: widget.onSwitchRole,
+          outlined: true,
         ),
-      ),
+      ],
     );
   }
 
