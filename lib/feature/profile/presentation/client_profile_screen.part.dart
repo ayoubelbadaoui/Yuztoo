@@ -50,18 +50,13 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
                                     onCreateProAccount:
                                         widget.onCreateProAccount,
                                     isDualProfile: widget.isDualProfile,
-                                    onOpenYuztooPage: () {
-                                      final id =
-                                          YuztooOfficialPage.merchantId();
-                                      if (id == null) return;
-                                      ref
-                                          .read(store_profile_providers
-                                              .selectedStoreMerchantIdProvider
-                                              .notifier)
-                                          .state = id;
-                                      Navigator.of(context).pop();
-                                      widget.onNavigate?.call('store-profile');
-                                    },
+                                    onOpenYuztooPage: () =>
+                                        Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            const YuztooContactScreen(),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               );

@@ -80,13 +80,6 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
           onNavigate('store-profile');
         }
       },
-      onYuztooBrandTap: (id) {
-        if (onStoreSelect != null) {
-          onStoreSelect!(id);
-        } else {
-          onNavigate('store-profile');
-        }
-      },
       onUnfollow: (merchant) async {
         final userId = ref.read(auth_providers.currentUserIdProvider);
         if (userId == null) return;
@@ -333,15 +326,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
           ),
           const SizedBox(height: 16),
           if (showYuztooBrandTile)
-            _RestonsProchesTile(
-              onOpenStorefront: (id) {
-                if (onStoreSelect != null) {
-                  onStoreSelect!(id);
-                } else {
-                  onNavigate('store-profile');
-                }
-              },
-            ),
+            const _RestonsProchesTile(),
         ],
       ),
     );
@@ -770,7 +755,6 @@ class _CarnetList extends StatefulWidget {
     this.onOrderChanged,
     this.onUnfollow,
     this.showYuztooBrandTile = false,
-    this.onYuztooBrandTap,
   });
 
   final List<Merchant> merchants;
@@ -787,9 +771,6 @@ class _CarnetList extends StatefulWidget {
   /// rendered above « Mon commerce ». Reserved for users who also
   /// hold a merchant account — pure clients never see it.
   final bool showYuztooBrandTile;
-
-  /// Opens the linked merchant storefront (coordonnées, vitrine, …).
-  final void Function(String merchantId)? onYuztooBrandTap;
 
   @override
   State<_CarnetList> createState() => _CarnetListState();
@@ -935,9 +916,7 @@ class _CarnetListState extends State<_CarnetList> {
           if (showRestonsProches) ...[
             if (showSearch || reorderableList.isNotEmpty)
               const SizedBox(height: 16),
-            _RestonsProchesTile(
-              onOpenStorefront: widget.onYuztooBrandTap,
-            ),
+            const _RestonsProchesTile(),
           ],
           if (showOwnMerchant) ...[
             if (showSearch || showRestonsProches || reorderableList.isNotEmpty)
@@ -1167,15 +1146,11 @@ class _CarnetListState extends State<_CarnetList> {
 // ─── Yuztoo "Restons Proches" brand vignette ────────────────────────────────
 //
 // Shown for dual-profile merchants in the client carnet. Tap opens the
-// YuzToo company storefront ([YuztooOfficialPage]); the brand sheet is only
-// a fallback for projects without that page.
+// YuzToo contact page ([YuztooContactScreen]); the brand sheet is only a
+// fallback for projects without a YuzToo page.
 
 class _RestonsProchesTile extends StatelessWidget {
-  const _RestonsProchesTile({
-    this.onOpenStorefront,
-  });
-
-  final void Function(String merchantId)? onOpenStorefront;
+  const _RestonsProchesTile();
 
   void _showBrandSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -1259,12 +1234,13 @@ class _RestonsProchesTile extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        final id = YuztooOfficialPage.merchantId();
-        if (id != null && onOpenStorefront != null) {
-          onOpenStorefront!(id);
+        if (YuztooOfficialPage.merchantId() == null) {
+          _showBrandSheet(context);
           return;
         }
-        _showBrandSheet(context);
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const YuztooContactScreen()),
+        );
       },
       child: Container(
         decoration: BoxDecoration(

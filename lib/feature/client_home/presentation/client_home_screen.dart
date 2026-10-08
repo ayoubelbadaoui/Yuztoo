@@ -23,6 +23,7 @@ import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../promotions/domain/entities/promotion.dart';
 import '../../loyalty/presentation/widgets/welcome_bons_highlight.dart';
+import '../../yuztoo_contact/presentation/yuztoo_contact_screen.dart';
 
 part 'client_home_screen.part.dart';
 
