@@ -2,8 +2,9 @@ part of 'client_list_screen.dart';
 
 extension _ClientListScreenUi on _ClientListScreenState {
   Widget _buildValidateFab(BuildContext context) {
-    final merchant =
-        ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
+    final merchant = ref
+        .read(merchant_providers.currentMerchantForOwnerProvider)
+        .valueOrNull;
     return FloatingActionButton.extended(
       onPressed: merchant == null
           ? null
@@ -86,7 +87,9 @@ extension _ClientListScreenUi on _ClientListScreenState {
       child: Stack(
         children: [
           Positioned(
-            left: 0, right: 0, bottom: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             child: Container(
               height: 1,
               color: MerchantColors.gold
@@ -133,8 +136,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
                       fontSize: 12,
-                      fontWeight:
-                          active ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                       color: active
                           ? MerchantColors.gold
                           : MerchantColors.textGrey,
@@ -238,8 +240,8 @@ extension _ClientListScreenUi on _ClientListScreenState {
           hintText: 'Rechercher un client…',
           hintStyle:
               GoogleFonts.outfit(fontSize: 14, color: MerchantColors.textGrey),
-          prefixIcon:
-              const Icon(Icons.search_rounded, color: MerchantColors.textGrey, size: 20),
+          prefixIcon: const Icon(Icons.search_rounded,
+              color: MerchantColors.textGrey, size: 20),
           suffixIcon: _searchQuery.isNotEmpty
               ? GestureDetector(
                   onTap: clearSearch,
@@ -295,7 +297,9 @@ extension _ClientListScreenUi on _ClientListScreenState {
         children: [
           // Bottom border
           Positioned(
-            left: 0, right: 0, bottom: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             child: Container(
               height: 1,
               color: MerchantColors.gold
@@ -405,7 +409,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
   ) {
     return clientsAsync.when(
       loading: _buildLoading,
-      error: (err, __) => _buildError(),
+      error: (err, __) => _buildError(err),
       data: (clients) {
         if (clients.isEmpty) return _buildEmptyClients();
         final filtered = _applyFilters(clients);
@@ -465,7 +469,8 @@ extension _ClientListScreenUi on _ClientListScreenState {
                   height: 10,
                   width: 80,
                   decoration: BoxDecoration(
-                    color: MerchantColors.navyCard.withValues(alpha: opacity * 0.7),
+                    color: MerchantColors.navyCard
+                        .withValues(alpha: opacity * 0.7),
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -486,7 +491,8 @@ extension _ClientListScreenUi on _ClientListScreenState {
     );
   }
 
-  Widget _buildError() {
+  Widget _buildError(Object err) {
+    final detail = _clientListErrorDetail(err);
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
       child: Padding(
@@ -501,7 +507,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
                 shape: BoxShape.circle,
                 color: Colors.red.shade900.withValues(alpha: 0.12),
               ),
-              child: Icon(Icons.wifi_off_rounded,
+              child: Icon(Icons.error_outline_rounded,
                   color: Colors.red.shade300, size: 28),
             ),
             const SizedBox(height: 16),
@@ -516,7 +522,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
             ),
             const SizedBox(height: 8),
             Text(
-              'Vérifiez votre connexion et tirez\nvers le bas pour réessayer.',
+              detail,
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 13,
@@ -524,10 +530,36 @@ extension _ClientListScreenUi on _ClientListScreenState {
                 height: 1.5,
               ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Tirez vers le bas pour réessayer.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: MerchantColors.textGrey.withValues(alpha: 0.8),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  static String _clientListErrorDetail(Object err) {
+    final code = err is FirebaseException ? err.code : '';
+    switch (code) {
+      case 'unavailable':
+      case 'deadline-exceeded':
+        return 'Pas de connexion au serveur. Vérifiez votre connexion internet.';
+      case 'permission-denied':
+      case 'unauthenticated':
+        return 'Votre session a expiré. Reconnectez-vous pour voir vos clients.';
+      case 'failed-precondition':
+        return 'Le service est en cours de mise à jour. Réessayez dans quelques minutes.';
+      case 'resource-exhausted':
+        return 'Trop de demandes en ce moment. Réessayez dans quelques instants.';
+    }
+    return 'Une erreur est survenue de notre côté. Réessayez dans quelques instants.';
   }
 
   Widget _buildEmptyClients() {
@@ -650,8 +682,8 @@ extension _ClientListScreenUi on _ClientListScreenState {
                 setSegmentFilter(null);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [MerchantColors.gold, Color(0xFFD4AF37)],
@@ -681,10 +713,8 @@ extension _ClientListScreenUi on _ClientListScreenState {
     );
   }
 
-  Widget _buildList(
-      List<MerchantClientRow> clients,
-      List<MerchantClientRow> allClients,
-      String merchantId) {
+  Widget _buildList(List<MerchantClientRow> clients,
+      List<MerchantClientRow> allClients, String merchantId) {
     final isFiltered = _segmentFilter != null || _searchQuery.isNotEmpty;
     return YuztooPullRefresh(
       onRefresh: () => _refreshClients(merchantId),
@@ -730,7 +760,6 @@ extension _ClientListScreenUi on _ClientListScreenState {
     );
   }
 
-
   // ── Aperçu tab ───────────────────────────────────────────────────────────────
 
   Widget _buildApercu(
@@ -754,8 +783,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
     final nouveaux = cutoff == null
         ? allClients.length
         : allClients
-            .where((c) =>
-                c.followedAt != null && c.followedAt!.isAfter(cutoff))
+            .where((c) => c.followedAt != null && c.followedAt!.isAfter(cutoff))
             .length;
 
     final total = allClients.length;
@@ -797,85 +825,86 @@ extension _ClientListScreenUi on _ClientListScreenState {
         padding: EdgeInsets.fromLTRB(
             16, 16, 16, MediaQuery.of(context).padding.bottom + 32),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AlertesSection(
-            merchantId: merchantId,
-            padding: const EdgeInsets.only(bottom: 20),
-          ),
-          RappelsClientsSection(
-            connectedClientsThisMonth: merchant?.rappelsMonthlyConnectedClients ?? 0,
-            validatedPassagesThisMonth:
-                merchant?.rappelsMonthlyValidatedPassages ?? 0,
-            padding: const EdgeInsets.only(bottom: 20),
-            showBottomBorder: false,
-          ),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AlertesSection(
+              merchantId: merchantId,
+              padding: const EdgeInsets.only(bottom: 20),
+            ),
+            RappelsClientsSection(
+              connectedClientsThisMonth:
+                  merchant?.rappelsMonthlyConnectedClients ?? 0,
+              validatedPassagesThisMonth:
+                  merchant?.rappelsMonthlyValidatedPassages ?? 0,
+              padding: const EdgeInsets.only(bottom: 20),
+              showBottomBorder: false,
+            ),
 
-          // ── period filter ─────────────────────────────────────────────────
-          _buildApercuPeriodRow(),
-          const SizedBox(height: 16),
+            // ── period filter ─────────────────────────────────────────────────
+            _buildApercuPeriodRow(),
+            const SizedBox(height: 16),
 
-          // ── stats grid ────────────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: _statCard(
-                  icon: Icons.people_outline_rounded,
-                  value: '$total',
-                  label: 'Total des abonnés',
-                  color: MerchantColors.gold,
+            // ── stats grid ────────────────────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: _statCard(
+                    icon: Icons.people_outline_rounded,
+                    value: '$total',
+                    label: 'Total des abonnés',
+                    color: MerchantColors.gold,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _statCard(
-                  icon: Icons.person_add_alt_1_rounded,
-                  value: '$nouveaux',
-                  label: _apercuPeriod == _ApercuPeriod.all
-                      ? 'Total des nouveaux'
-                      : 'Nouveaux (${_apercuPeriod.label})',
-                  color: const Color(0xFF4FC3F7),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _statCard(
+                    icon: Icons.person_add_alt_1_rounded,
+                    value: '$nouveaux',
+                    label: _apercuPeriod == _ApercuPeriod.all
+                        ? 'Total des nouveaux'
+                        : 'Nouveaux (${_apercuPeriod.label})',
+                    color: const Color(0xFF4FC3F7),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _statCard(
-                  icon: Icons.workspace_premium_rounded,
-                  value: '$vipCount',
-                  label: 'Clients VIP',
-                  color: const Color(0xFFFFD700),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _statCard(
+                    icon: Icons.workspace_premium_rounded,
+                    value: '$vipCount',
+                    label: 'Clients VIP',
+                    color: const Color(0xFFFFD700),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _statCard(
-                  icon: Icons.visibility_outlined,
-                  value: promoViews,
-                  label: 'Vues des promotions',
-                  color: const Color(0xFF64B5F6),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _statCard(
+                    icon: Icons.visibility_outlined,
+                    value: promoViews,
+                    label: 'Vues des promotions',
+                    color: const Color(0xFF64B5F6),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _statCardWide(
-            icon: Icons.trending_up_rounded,
-            value: '$engagePct%',
-            label: 'Taux d\'engagement (VIP + Habitués / total)',
-            color: const Color(0xFF4CAF50),
-          ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _statCardWide(
+              icon: Icons.trending_up_rounded,
+              value: '$engagePct%',
+              label: 'Taux d\'engagement (VIP + Habitués / total)',
+              color: const Color(0xFF4CAF50),
+            ),
 
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-          // ── segment chart ─────────────────────────────────────────────────
-          _buildSegmentChart(segCounts),
-        ],
+            // ── segment chart ─────────────────────────────────────────────────
+            _buildSegmentChart(segCounts),
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -890,12 +919,9 @@ extension _ClientListScreenUi on _ClientListScreenState {
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: active
-                    ? MerchantColors.gold
-                    : MerchantColors.navyCard,
+                color: active ? MerchantColors.gold : MerchantColors.navyCard,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: active
@@ -909,9 +935,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
                 style: GoogleFonts.outfit(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: active
-                      ? MerchantColors.darkOverlay
-                      : Colors.white,
+                  color: active ? MerchantColors.darkOverlay : Colors.white,
                 ),
               ),
             ),
@@ -1204,8 +1228,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
           if (isFiltered) ...[
             const SizedBox(width: 6),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: MerchantColors.gold.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
@@ -1290,8 +1313,7 @@ class _ClientDetailSheet extends ConsumerStatefulWidget {
   final String merchantId;
 
   @override
-  ConsumerState<_ClientDetailSheet> createState() =>
-      _ClientDetailSheetState();
+  ConsumerState<_ClientDetailSheet> createState() => _ClientDetailSheetState();
 }
 
 class _ClientDetailSheetState extends ConsumerState<_ClientDetailSheet> {
@@ -1311,8 +1333,7 @@ class _ClientDetailSheetState extends ConsumerState<_ClientDetailSheet> {
     // dismissing the sheet. Falls back to the snapshot passed in if the row
     // isn't in the list yet (race during initial open).
     final liveClient = ref
-            .watch(
-                crm_providers.merchantClientsProvider(widget.merchantId))
+            .watch(crm_providers.merchantClientsProvider(widget.merchantId))
             .valueOrNull
             ?.firstWhere(
               (c) => c.clientUid == widget.client.clientUid,
@@ -1404,8 +1425,7 @@ class _ClientDetailSheetState extends ConsumerState<_ClientDetailSheet> {
           const SizedBox(height: 6),
 
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: segColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
@@ -1492,8 +1512,7 @@ class _ClientDetailSheetState extends ConsumerState<_ClientDetailSheet> {
                       setState(() => _saving = true);
                       try {
                         await ref
-                            .read(crm_providers
-                                .setClientManualSegmentProvider)
+                            .read(crm_providers.setClientManualSegmentProvider)
                             .call(
                               merchantId: widget.merchantId,
                               clientUid: liveClient.clientUid,
@@ -1653,8 +1672,18 @@ class _ClientDetailSheetState extends ConsumerState<_ClientDetailSheet> {
 
   String _formatDate(DateTime dt) {
     final months = [
-      'jan', 'fév', 'mar', 'avr', 'mai', 'jun',
-      'jul', 'aoû', 'sep', 'oct', 'nov', 'déc',
+      'jan',
+      'fév',
+      'mar',
+      'avr',
+      'mai',
+      'jun',
+      'jul',
+      'aoû',
+      'sep',
+      'oct',
+      'nov',
+      'déc',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
@@ -1754,9 +1783,7 @@ class _Chip extends StatelessWidget {
               : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected
-                ? color
-                : Colors.white.withValues(alpha: 0.12),
+            color: selected ? color : Colors.white.withValues(alpha: 0.12),
             width: selected ? 1.5 : 1,
           ),
         ),
