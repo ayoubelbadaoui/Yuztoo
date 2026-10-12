@@ -23,7 +23,8 @@ final class StoragePermissionDeniedFailure extends StorageFailure {
     Object? cause,
     StackTrace? stackTrace,
   }) : super(
-          'Permission refusée',
+          'Envoi refusé : vous n\'avez pas l\'autorisation d\'ajouter '
+          'cette image. Contactez le support Yuztoo si cela persiste.',
           cause: cause,
           stackTrace: stackTrace,
         );

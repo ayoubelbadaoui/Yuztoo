@@ -22,6 +22,7 @@ import '../../../core/shared/widgets/yuztoo_tab_header.dart';
 import '../domain/entities/storefront.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../storage/application/providers.dart' as storage_providers;
+import '../../storage/domain/storage_failure.dart';
 
 part 'storefront_screen.part.dart';
 
@@ -82,8 +83,14 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     if (imageUrl == null) {
       if (!mounted) return;
       setState(() => _isUploadingNewsImage = false);
+      final message = uploadResult.fold(
+        (failure) => failure is StoragePermissionDeniedFailure
+            ? failure.message
+            : 'Échec du téléversement de l\'image',
+        (_) => '',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Échec du téléversement de l\'image')),
+        SnackBar(content: Text(message)),
       );
       return;
     }

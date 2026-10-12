@@ -69,7 +69,9 @@ class FirebaseStorageRepository implements StorageRepository {
         },
       );
 
-      if (e.code == 'permission-denied') {
+      // Firebase Storage reports a rules rejection (HTTP 403) as
+      // `unauthorized`; `permission-denied` is kept for older SDKs.
+      if (e.code == 'unauthorized' || e.code == 'permission-denied') {
         return const Left<StorageFailure, String>(
           StoragePermissionDeniedFailure(),
         );
@@ -131,7 +133,7 @@ class FirebaseStorageRepository implements StorageRepository {
         },
       );
 
-      if (e.code == 'permission-denied') {
+      if (e.code == 'unauthorized' || e.code == 'permission-denied') {
         return const Left<StorageFailure, Unit>(
           StoragePermissionDeniedFailure(),
         );
