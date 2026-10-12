@@ -82,34 +82,94 @@ class BleProximityService {
 
   // ─── Client (Peripheral) ───────────────────────────────────────────────────
 
+  /// Android 12+ runtime permissions the `ble_peripheral` plugin needs:
+  /// `BLUETOOTH_CONNECT` for `initialize()` (GattServer registration) and
+  /// `BLUETOOTH_ADVERTISE` for `startAdvertising()`. Both belong to the
+  /// "Appareils à proximité" group, so requesting them together shows a
+  /// single system prompt.
+  static const List<Permission> _androidPeripheralPermissions = [
+    Permission.bluetoothConnect,
+    Permission.bluetoothAdvertise,
+  ];
+
+  /// Requests the Android peripheral permissions (no-op on iOS, where
+  /// `CBPeripheralManager` triggers its own prompt). Returns true when
+  /// advertising can be started.
+  static Future<bool> requestClientBroadcastPermissions() =>
+      _ensureAndroidPeripheralPermissions(
+        prompt: true,
+        caller: 'requestClientBroadcastPermissions',
+      );
+
+  static Future<bool> _ensureAndroidPeripheralPermissions({
+    required bool prompt,
+    required String caller,
+  }) async {
+    if (!Platform.isAndroid) return true;
+    final Map<Permission, PermissionStatus> statuses;
+    if (prompt) {
+      statuses = await _androidPeripheralPermissions.request();
+    } else {
+      statuses = {
+        for (final p in _androidPeripheralPermissions) p: await p.status,
+      };
+    }
+    final granted = statuses.values.every((s) => s.isGranted);
+    LoggerService.logInfo(
+      'BLE $caller — peripheral permissions',
+      context: <String, Object?>{
+        'prompted': prompt,
+        'granted': granted,
+        for (final e in statuses.entries) e.key.toString(): e.value.name,
+      },
+    );
+    return granted;
+  }
+
+  /// A denied Bluetooth permission is a user choice, not a bug — keep it out
+  /// of Crashlytics.
+  static bool _isPermissionError(Object e) {
+    final text = e.toString();
+    return text.contains('SecurityException') ||
+        text.contains('BLUETOOTH_CONNECT') ||
+        text.contains('BLUETOOTH_ADVERTISE');
+  }
+
+  static void _logPeripheralFailure(String message, Object e, StackTrace st) {
+    if (_isPermissionError(e)) {
+      LoggerService.logInfo(
+        '$message (Bluetooth permission missing)',
+        context: <String, Object?>{'error': e.toString()},
+      );
+      return;
+    }
+    LoggerService.logError(message, error: e, stackTrace: st);
+  }
+
   /// Starts advertising the Yuztoo service and exposes [clientId] via a
   /// readable GATT characteristic. Returns true if advertising started OK.
-  static Future<bool> startClientBroadcast(String clientId) async {
+  ///
+  /// With [requestPermissions] false (background start from the app shell)
+  /// the Android permissions are only checked — the OS prompt is never shown
+  /// unsolicited; the passage-validation screen is where the user grants it.
+  static Future<bool> startClientBroadcast(
+    String clientId, {
+    bool requestPermissions = true,
+  }) async {
     LoggerService.logInfo(
       'BLE startClientBroadcast — start',
       context: <String, Object?>{
         'clientId': clientId,
         'platform': Platform.operatingSystem,
+        'requestPermissions': requestPermissions,
       },
     );
     try {
-      // Android 12+: `BLUETOOTH_ADVERTISE` is a dangerous runtime
-      // permission that must be granted before `startAdvertising` —
-      // otherwise it throws a SecurityException at the native layer that
-      // kills the isolate before Dart can catch it. iOS: skip — the
-      // `ble_peripheral` plugin instantiates `CBPeripheralManager` which
-      // triggers the system Bluetooth prompt automatically using
-      // `NSBluetoothPeripheralUsageDescription` from Info.plist. No
-      // permission_handler needed (and using it on iOS silently denies
-      // unless we ship a Podfile macro — we don't).
-      if (Platform.isAndroid) {
-        final advertise = await Permission.bluetoothAdvertise.request();
-        LoggerService.logInfo(
-          'BLE startClientBroadcast — bluetoothAdvertise result',
-          context: <String, Object?>{'status': advertise.toString()},
-        );
-        if (!advertise.isGranted) return false;
-      }
+      final permitted = await _ensureAndroidPeripheralPermissions(
+        prompt: requestPermissions,
+        caller: 'startClientBroadcast',
+      );
+      if (!permitted) return false;
       await peripheral.BlePeripheral.initialize();
       await peripheral.BlePeripheral.clearServices();
 
@@ -158,11 +218,7 @@ class BleProximityService {
       );
       return true;
     } catch (e, st) {
-      LoggerService.logError(
-        'BLE startClientBroadcast — failed',
-        error: e,
-        stackTrace: st,
-      );
+      _logPeripheralFailure('BLE startClientBroadcast — failed', e, st);
       return false;
     }
   }
@@ -197,10 +253,11 @@ class BleProximityService {
       },
     );
     try {
-      if (Platform.isAndroid) {
-        final advertise = await Permission.bluetoothAdvertise.request();
-        if (!advertise.isGranted) return false;
-      }
+      final permitted = await _ensureAndroidPeripheralPermissions(
+        prompt: true,
+        caller: 'startMerchantBeacon',
+      );
+      if (!permitted) return false;
       _merchantBeaconWriteHandler = onClientUidWritten;
 
       // iOS: tear down any prior peripheral session (client broadcast or a
@@ -305,11 +362,7 @@ class BleProximityService {
       LoggerService.logInfo('BLE startMerchantBeacon — advertising started');
       return true;
     } catch (e, st) {
-      LoggerService.logError(
-        'BLE startMerchantBeacon — failed',
-        error: e,
-        stackTrace: st,
-      );
+      _logPeripheralFailure('BLE startMerchantBeacon — failed', e, st);
       _merchantBeaconWriteHandler = null;
       return false;
     }
@@ -545,19 +598,19 @@ class BleProximityService {
 
   static Future<bool> _androidRequestBluetooth() async {
     LoggerService.logInfo('BLE requestMerchantPermissions (Android) — start');
-    final scan = await Permission.bluetoothScan.request();
+    final statuses = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+    ].request();
+    final granted = statuses.values.every((s) => s.isGranted);
     LoggerService.logInfo(
-      'BLE requestMerchantPermissions (Android) — bluetoothScan result',
-      context: <String, Object?>{'status': scan.toString()},
+      'BLE requestMerchantPermissions (Android) — result',
+      context: <String, Object?>{
+        'granted': granted,
+        for (final e in statuses.entries) e.key.toString(): e.value.name,
+      },
     );
-    if (!scan.isGranted) return false;
-    final connect = await Permission.bluetoothConnect.request();
-    LoggerService.logInfo(
-      'BLE requestMerchantPermissions (Android) — bluetoothConnect result',
-      context: <String, Object?>{'status': connect.toString()},
-    );
-    if (!connect.isGranted) return false;
-    return true;
+    return granted;
   }
 
   /// Opens the system Settings page for the app so the user can flip the

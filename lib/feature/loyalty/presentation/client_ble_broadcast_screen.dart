@@ -205,6 +205,17 @@ class _ClientBleBroadcastScreenState
       return;
     }
 
+    final permitted =
+        await BleProximityService.requestClientBroadcastPermissions();
+    if (!mounted) return;
+    if (!permitted) {
+      setState(() {
+        _bleUnavailable = true;
+        _broadcasting = false;
+      });
+      return;
+    }
+
     // A few transient failures are common right after permission grant or when
     // the peripheral stack was used recently — retry before showing "indisponible".
     const maxAttempts = 4;
@@ -213,7 +224,10 @@ class _ClientBleBroadcastScreenState
         await BleProximityService.stopClientBroadcast();
         await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
       }
-      final ok = await BleProximityService.startClientBroadcast(auth.user.id);
+      final ok = await BleProximityService.startClientBroadcast(
+        auth.user.id,
+        requestPermissions: false,
+      );
       if (!mounted) return;
       if (ok) {
         setState(() {

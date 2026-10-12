@@ -78,8 +78,11 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
     BleStopScanFn? stopScan,
     BleMerchantPermissionsGrantedFn? merchantPermissionsGranted,
     FirebaseFirestore? firestore,
-  })  : _startBroadcast =
-            startBroadcast ?? BleProximityService.startClientBroadcast,
+  })  : _startBroadcast = startBroadcast ??
+            ((uid) => BleProximityService.startClientBroadcast(
+                  uid,
+                  requestPermissions: false,
+                )),
         _isAvailable = isAvailable ?? (() => BleProximityService.isAvailable),
         _readClientId = readClientId ?? BleProximityService.readClientId,
         _startScan = startScan ??
@@ -130,6 +133,10 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
 
   /// Starts BLE advertising so nearby merchant apps can detect this client.
   /// Safe to call repeatedly — stops any existing mode first.
+  ///
+  /// Never prompts for Bluetooth permissions: if "Appareils à proximité" is
+  /// not granted yet, advertising stays idle until the client opens the
+  /// passage-validation screen, which asks for it.
   Future<void> startAsClient(String uid) async {
     if (uid.isEmpty) return;
     _lastClientUid = uid;
