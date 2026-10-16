@@ -104,6 +104,7 @@ Future<PushPermissionStatus> defaultPushPermissionResolver() async {
       case AuthorizationStatus.authorized:
         return PushPermissionStatus.granted;
       case AuthorizationStatus.denied:
+      case AuthorizationStatus.deniedPermanently:
         return PushPermissionStatus.denied;
       case AuthorizationStatus.provisional:
         return PushPermissionStatus.provisional;

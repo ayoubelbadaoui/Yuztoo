@@ -4,12 +4,20 @@ import UserNotifications
 import FirebaseMessaging
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
+    // Under the UIScene lifecycle (mandatory from the iOS 27 SDK) UIKit no
+    // longer calls applicationDidBecomeActive, but still posts this
+    // notification for the app as a whole.
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(clearBadge),
+      name: UIApplication.didBecomeActiveNotification,
+      object: nil
+    )
 
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self
@@ -23,6 +31,12 @@ import FirebaseMessaging
     application.registerForRemoteNotifications()
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // Plugins must be registered here rather than in didFinishLaunching: with
+  // UIScene the Flutter engine is created only once the scene connects.
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
   }
 
   // Forward the APNs token to Firebase Messaging. With swizzling enabled this
@@ -52,9 +66,8 @@ import FirebaseMessaging
 
   // Clear the app icon badge as soon as the user opens the app.
   // This mirrors the behaviour of Instagram, WhatsApp, and Messenger.
-  override func applicationDidBecomeActive(_ application: UIApplication) {
-    application.applicationIconBadgeNumber = 0
-    super.applicationDidBecomeActive(application)
+  @objc private func clearBadge() {
+    UIApplication.shared.applicationIconBadgeNumber = 0
   }
 
   // Called when a notification arrives while the app is in the FOREGROUND.

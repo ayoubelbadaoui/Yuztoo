@@ -59,6 +59,11 @@ Use this as a **reminder checklist** when you pick up or finish a task. It match
 
 - Handle loading / empty / error states explicitly (no infinite spinners without messaging).
 - Prefer `const` constructors where possible; avoid unnecessary rebuilds.
+- Network reads that feed a stream/provider must catch `FirebaseException` (e.g. `unavailable` on weak Wi-Fi). An uncaught error there is a **fatal crash** in production.
+
+**iOS (production)**
+
+- Flutter **≥ 3.41** and the **UIScene** lifecycle are mandatory (iOS 27 kills non-scene apps at launch). Never touch `UIApplicationSceneManifest` in `Info.plist` or move plugin registration out of `didInitializeImplicitFlutterEngine`. Details: **`docs/firebase-dual-env-deploy.md`** → *iOS store builds*.
 
 **Quality bar**
 

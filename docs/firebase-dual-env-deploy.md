@@ -126,6 +126,21 @@ flutter run --flavor dev
 flutter run --flavor prod
 ```
 
+### iOS store builds — UIScene (mandatory)
+
+Since the iOS 27 SDK (Xcode 27), Apple kills UIKit apps that do not use the
+`UIScene` lifecycle **at launch**. Version 1.0.4 crashed on open for iOS 27
+users for this reason.
+
+- Build with **Flutter ≥ 3.41** (enforced by `environment.flutter` in `pubspec.yaml`). Check with `flutter --version` before `flutter build ipa`.
+- `ios/Runner/Info.plist` must keep `UIApplicationSceneManifest` with `FlutterSceneDelegate`. Never remove it or rename it to `_UIApplicationSceneManifest`.
+- `AppDelegate` conforms to `FlutterImplicitEngineDelegate`; plugins are registered in `didInitializeImplicitFlutterEngine`, **not** in `didFinishLaunchingWithOptions`.
+- UIKit no longer calls `applicationDidBecomeActive` / `applicationWillResignActive` etc. Use `UIApplication.didBecomeActiveNotification` or a `SceneDelegate` subclassing `FlutterSceneDelegate`.
+- New iOS plugins that receive URLs (deep links, OAuth callbacks) must support UIScene (`FlutterSceneLifeCycleDelegate`), otherwise links silently stop arriving.
+- Crashlytics dSYMs are uploaded by the `[firebase_crashlytics] Crashlytics Upload Symbols` build phase — keep it in the Runner target.
+
+Before submitting an iOS build, test on a real iPhone: cold launch, deep link (`yuztoo://` and `https://yuztoo.web.app/...`), Google / Apple sign-in, SMS code login, push notification tap, image pick + crop, QR scan, NFC, Bluetooth passage.
+
 Native Firebase files:
 
 - Android: `android/app/src/dev/google-services.json`, `android/app/src/prod/google-services.json`  
