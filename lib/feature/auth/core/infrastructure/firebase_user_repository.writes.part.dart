@@ -386,10 +386,9 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
       return const Right<AuthFailure, bool>(false);
     }
     try {
-      final snap = await _firestore
-          .collection('email_index')
-          .doc(normalizedEmail)
-          .get();
+      final snap = await _getWithTransientRetry(
+        _firestore.collection('email_index').doc(normalizedEmail),
+      );
       if (snap.exists) {
         return const Right<AuthFailure, bool>(true);
       }
@@ -412,6 +411,25 @@ mixin _FirebaseUserRepositoryWrites on _FirebaseUserRepositoryBase {
     // Firebase Auth 6+ removed fetchSignInMethodsForEmail (email enumeration).
     // Registered emails are tracked in Firestore `email_index` above.
     return const Right<AuthFailure, bool>(false);
+  }
+
+  /// `unavailable` / `deadline-exceeded` are transient per the Firestore
+  /// docs (flaky mobile network at signup); retry with backoff before
+  /// surfacing an error to the user.
+  Future<DocumentSnapshot<Map<String, dynamic>>> _getWithTransientRetry(
+    DocumentReference<Map<String, dynamic>> ref,
+  ) async {
+    const delays = [Duration(milliseconds: 500), Duration(milliseconds: 1500)];
+    for (var attempt = 0;; attempt++) {
+      try {
+        return await ref.get();
+      } on FirebaseException catch (e) {
+        final transient =
+            e.code == 'unavailable' || e.code == 'deadline-exceeded';
+        if (!transient || attempt >= delays.length) rethrow;
+        await Future<void>.delayed(delays[attempt]);
+      }
+    }
   }
 
   Future<Result<Unit>> addSecondaryClientRole(String uid) async {

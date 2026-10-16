@@ -76,6 +76,10 @@ flutter:
     - assets/branding/logo.png
     - assets/branding/app_icon.png
     - assets/branding/app_icon_monochrome.png
+    # Bundled so google_fonts never needs the network (offline first launch
+    # used to throw "Failed to load font"). Files are the exact gstatic
+    # binaries google_fonts would download; names must stay Family-Weight.ttf.
+    - assets/google_fonts/
 # ──────────────────────────────────────────────────────────────────────────────
 flutter_launcher_icons:
   image_path: "assets/branding/app_icon.png"
