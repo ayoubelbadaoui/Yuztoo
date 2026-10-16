@@ -124,10 +124,13 @@ void main() {
 class YuztooApp extends StatelessWidget {
   const YuztooApp({super.key});
 
+  static final _crashlyticsObserver = CrashlyticsNavigatorObserver();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [_crashlyticsObserver],
       title: 'Yuztoo',
       theme: buildTheme(),
       // Product copy is French-first; ignore the device language so EN phones

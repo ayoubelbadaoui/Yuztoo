@@ -94,3 +94,11 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Same BoM as firebase_core (FirebaseSDKVersion in its gradle.properties);
+    // bump together when upgrading FlutterFire. NDK reporting captures native
+    // engine/plugin crashes (SIGSEGV) the Dart-side handlers can never see.
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-crashlytics-ndk")
+}

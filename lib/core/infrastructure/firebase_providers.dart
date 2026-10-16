@@ -7,6 +7,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'crash_guard.dart';
+
 // Web OAuth 2.0 Client ID (type 3) — required by google_sign_in v7+ for idToken on Android.
 const _kGoogleWebClientId =
     '20266054150-bhrvh3cj1fnkgc6vhu7h340pr2j32ans.apps.googleusercontent.com';
@@ -27,6 +29,7 @@ final firebaseInitializationProvider = FutureProvider<void>((ref) async {
   // Error handlers themselves are installed by CrashGuard in main().
   await FirebaseCrashlytics.instance
       .setCrashlyticsCollectionEnabled(!kDebugMode);
+  CrashGuard.attachContext();
   // The iOS keychain persists Firebase Auth sessions across app reinstalls —
   // and even across server-side account deletion (e.g. the signup rollback
   // that removes an orphan user). A restored session whose account no longer

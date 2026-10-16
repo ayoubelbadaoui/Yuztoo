@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/infrastructure/crash_guard.dart';
 import '../../../../core/utils/city_input.dart';
 import '../../../../types.dart';
 
@@ -31,6 +32,7 @@ class RoleCacheService {
   /// When [userId] is set, storage is scoped per account so another login
   /// on the same device does not inherit the previous user's session.
   Future<void> saveLastSelectedRole(UserRole role, {String? userId}) async {
+    CrashGuard.setRole(role.name);
     final prefs = await SharedPreferences.getInstance();
     if (userId != null && userId.isNotEmpty) {
       await prefs.setString(_roleKeyForUser(userId), role.name);

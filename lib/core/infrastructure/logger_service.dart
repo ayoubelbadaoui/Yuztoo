@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:logger/logger.dart';
 
+import 'crash_guard.dart';
+
 /// Centralized logging service for infrastructure layer
 /// Logs failures and errors with proper formatting
 class LoggerService {
@@ -116,6 +118,8 @@ class LoggerService {
   /// Log info messages
   static void logInfo(String message, {Map<String, dynamic>? context}) {
     _logger.i(message);
+    // Message only: context may hold PII and stays in the local console.
+    if (_reportToCrashlytics) CrashGuard.breadcrumb(message);
     if (context != null && context.isNotEmpty) {
       _logger.d('Context: $context');
     }
