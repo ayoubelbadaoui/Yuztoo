@@ -68,9 +68,9 @@ class ClientGratificationConfig extends Equatable {
         vipLabel: (map['vip_label'] as String?)?.trim().isNotEmpty == true
             ? map['vip_label'] as String
             : 'VIP',
-        habituelThreshold: (map['habituel_threshold'] as int?) ?? 3,
-        vipThreshold: (map['vip_threshold'] as int?) ?? 10,
-        inactifAfterDays: (map['inactif_after_days'] as int?) ?? 60,
+        habituelThreshold: (map['habituel_threshold'] as num?)?.toInt() ?? 3,
+        vipThreshold: (map['vip_threshold'] as num?)?.toInt() ?? 10,
+        inactifAfterDays: (map['inactif_after_days'] as num?)?.toInt() ?? 60,
         showTierToClient: (map['show_tier_to_client'] as bool?) ?? true,
       );
 

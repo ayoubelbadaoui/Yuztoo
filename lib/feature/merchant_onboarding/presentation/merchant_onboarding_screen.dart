@@ -99,9 +99,10 @@ class _MerchantOnboardingScreenState extends State<MerchantOnboardingScreen>
   }
 
   void _continue() {
-    if (_selectedCategoryId == null) return;
-    final selected =
-        _visibleCategories.firstWhere((c) => c.id == _selectedCategoryId);
+    final matches =
+        _visibleCategories.where((c) => c.id == _selectedCategoryId);
+    if (matches.isEmpty) return;
+    final selected = matches.first;
     final container = ProviderScope.containerOf(context, listen: false);
     container.read(selectedMerchantCategoryTitleProvider.notifier).state =
         selected.title;

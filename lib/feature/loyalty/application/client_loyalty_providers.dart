@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/infrastructure/logger_service.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../client_notification/infrastructure/client_notification_repository_provider.dart';
@@ -275,6 +276,17 @@ final clientLoyaltyFeedProvider =
   final controller = StreamController<List<ClientLoyaltyEntry>>.broadcast();
   final progressSubs = <StreamSubscription<ClientMerchantLoyaltyProgress>>[];
   StreamSubscription<List<String>>? followedSub;
+  var hasEmitted = false;
+
+  // Keep the last good carnet on errors; only unblock the first load so the
+  // screen never spins forever on a dead connection.
+  void onFeedError(Object error, StackTrace stack) {
+    LoggerService.logError('clientLoyaltyFeed', error: error, stackTrace: stack);
+    if (!hasEmitted && !controller.isClosed) {
+      hasEmitted = true;
+      controller.add(const <ClientLoyaltyEntry>[]);
+    }
+  }
 
   void emitEntries({
     required String? excludeMerchantId,
@@ -282,6 +294,7 @@ final clientLoyaltyFeedProvider =
     required Map<String, ClientMerchantLoyaltyProgress> progressByMerchant,
   }) {
     if (controller.isClosed) return;
+    hasEmitted = true;
     controller.add(
       _loyaltyEntriesFromCandidates(
         followedMerchants: followedMerchants,
@@ -330,31 +343,35 @@ final clientLoyaltyFeedProvider =
               progressByMerchant,
             ),
           );
-        }),
+        }, onError: onFeedError),
       );
     }
   }
 
   followedSub = followedRepo.watchFollowedIds(userId).listen((ids) async {
-    var ownMerchantResult = await merchantRepo.getMerchantByOwnerUid(userId);
-    var ownMerchant = ownMerchantResult.fold((_) => null, (m) => m);
-    if (ownMerchant == null) {
-      final legacyResult = await merchantRepo.getMerchantById(userId);
-      ownMerchant = legacyResult.fold((_) => null, (m) => m);
+    try {
+      var ownMerchantResult = await merchantRepo.getMerchantByOwnerUid(userId);
+      var ownMerchant = ownMerchantResult.fold((_) => null, (m) => m);
+      if (ownMerchant == null) {
+        final legacyResult = await merchantRepo.getMerchantById(userId);
+        ownMerchant = legacyResult.fold((_) => null, (m) => m);
+      }
+      final ownMerchantId = ownMerchant?.id;
+      final filteredIds = ids
+          .where((id) => id != userId && id != ownMerchantId)
+          .toList();
+      final followedMerchants = filteredIds.isEmpty
+          ? <Merchant>[]
+          : (await merchantRepo.getMerchantsByIds(filteredIds))
+              .fold((_) => <Merchant>[], (list) => list);
+      await bindProgressStreams(
+        excludeMerchantId: ownMerchantId,
+        followedMerchants: followedMerchants,
+      );
+    } catch (e, st) {
+      onFeedError(e, st);
     }
-    final ownMerchantId = ownMerchant?.id;
-    final filteredIds = ids
-        .where((id) => id != userId && id != ownMerchantId)
-        .toList();
-    final followedMerchants = filteredIds.isEmpty
-        ? <Merchant>[]
-        : (await merchantRepo.getMerchantsByIds(filteredIds))
-            .fold((_) => <Merchant>[], (list) => list);
-    await bindProgressStreams(
-      excludeMerchantId: ownMerchantId,
-      followedMerchants: followedMerchants,
-    );
-  });
+  }, onError: onFeedError);
 
   ref.onDispose(() async {
     await followedSub?.cancel();

@@ -110,7 +110,7 @@ final currentMerchantForOwnerProvider =
     }
 
     final result = await merchantRepo.getMerchantById(merchantId);
-    return result.fold((_) => null, (m) => m);
+    return result.fold<Merchant?>((_) => null, (m) => m);
   } catch (e, st) {
     LoggerService.logError(
       'currentMerchantForOwnerProvider: load failed',

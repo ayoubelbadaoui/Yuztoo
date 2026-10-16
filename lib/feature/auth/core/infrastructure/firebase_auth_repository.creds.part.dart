@@ -152,7 +152,7 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
         },
       );
 
-      return completer.future.timeout(
+      return await completer.future.timeout(
         const Duration(seconds: 90),
         onTimeout: () {
           if (!completer.isCompleted) {

@@ -14,7 +14,7 @@ Future<bool> clientOnboardingCompletedFromFirestore(
   try {
     final uc = IsClientOnboardingCompleted(repository);
     final result = await uc.call(uid);
-    return result.fold((_) => false, (c) {
+    return result.fold<bool>((_) => false, (c) {
       if (c == null) return true;
       return c;
     });

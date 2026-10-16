@@ -338,10 +338,12 @@ extension _AutoNotificationHealthPanelUi
       // Granting it here means the same tap covers permission + delivery.
       if (report.pushPermission == PushPermissionStatus.notDetermined) {
         try {
-          await FirebaseMessaging.instance.requestPermission(
-            alert: true,
-            badge: true,
-            sound: true,
+          await PermissionRequestQueue.run(
+            () => FirebaseMessaging.instance.requestPermission(
+              alert: true,
+              badge: true,
+              sound: true,
+            ),
           );
         } catch (_) {}
       }

@@ -92,7 +92,7 @@ class FirestoreMerchantCrmRepository implements IMerchantCrmRepository {
 
           final ts = doc.data()['followed_at'];
           final followedAt = ts is Timestamp ? ts.toDate() : null;
-          final heartLevel = (doc.data()['heart_level'] as int?) ?? 1;
+          final heartLevel = (doc.data()['heart_level'] as num?)?.toInt() ?? 1;
 
           final loyalty = loyaltyMap[clientUid];
           final validatedPassages =

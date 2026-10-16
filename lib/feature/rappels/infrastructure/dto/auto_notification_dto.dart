@@ -53,7 +53,7 @@ class AutoNotificationDto {
           : const [],
       isEnabled: data['is_enabled'] as bool? ?? true,
       createdAt: parseTimestamp(data['created_at']),
-      sentCount: data['sent_count'] as int? ?? 0,
+      sentCount: (data['sent_count'] as num?)?.toInt() ?? 0,
       lastSentAt: parseTimestamp(data['last_sent_at']),
     );
   }

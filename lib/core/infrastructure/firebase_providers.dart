@@ -24,20 +24,9 @@ final firebaseInitializationProvider = FutureProvider<void>((ref) async {
   // doesn't pollute the dashboard with developer-induced crashes;
   // release builds (App Store / Play Store) collect normally so App
   // Review crashes and real-user incidents land in the console.
+  // Error handlers themselves are installed by CrashGuard in main().
   await FirebaseCrashlytics.instance
       .setCrashlyticsCollectionEnabled(!kDebugMode);
-  // Forward all Flutter framework errors. recordFlutterError preserves
-  // the original FlutterErrorDetails (library, context, silent flag)
-  // so the dashboard groups them sensibly.
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterError;
-  // Forward platform-dispatcher errors (uncaught async errors that
-  // bubble past the framework) as fatal, since they would otherwise
-  // crash the isolate. Returning true tells the dispatcher we handled
-  // the error so it doesn't double-log to stderr.
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
   // The iOS keychain persists Firebase Auth sessions across app reinstalls —
   // and even across server-side account deletion (e.g. the signup rollback
   // that removes an orphan user). A restored session whose account no longer

@@ -255,10 +255,12 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// state. Safe to call repeatedly — Android shows the dialog only when needed.
   Future<void> _requestRuntimePermissions() async {
     try {
-      await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
+      await PermissionRequestQueue.run(
+        () => FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        ),
       );
       // iOS: play sound + update badge in foreground; suppress system banner
       // since the Flutter overlay (NotificationService) handles the visual.

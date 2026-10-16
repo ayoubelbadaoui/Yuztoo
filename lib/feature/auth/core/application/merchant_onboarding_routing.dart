@@ -10,7 +10,7 @@ Future<bool> merchantOnboardingCompletedFromFirestore(
   try {
     final uc = IsMerchantOnboardingCompleted(repository);
     final result = await uc.call(uid);
-    return result.fold((_) => false, (c) => c ?? false);
+    return result.fold<bool>((_) => false, (c) => c ?? false);
   } catch (_) {
     return false;
   }

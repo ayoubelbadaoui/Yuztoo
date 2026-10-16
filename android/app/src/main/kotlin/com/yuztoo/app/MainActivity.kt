@@ -84,7 +84,15 @@ class MainActivity : FlutterActivity() {
      * messages extra (foreground dispatch), and finally the live tag's cached
      * NDEF message.
      */
-    private fun extractNfcUrl(intent: Intent?): String? {
+    private fun extractNfcUrl(intent: Intent?): String? = try {
+        extractNfcUrlOrThrow(intent)
+    } catch (_: Exception) {
+        // A malformed tag can make the parcelable extras throw while
+        // unparcelling; that must never take the activity down.
+        null
+    }
+
+    private fun extractNfcUrlOrThrow(intent: Intent?): String? {
         if (intent == null) return null
         when (intent.action) {
             NfcAdapter.ACTION_NDEF_DISCOVERED,
@@ -189,7 +197,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) try {
             val manager = getSystemService(NotificationManager::class.java) ?: return
             // Delete old channel so blocked state doesn't carry over.
             manager.deleteNotificationChannel("yuztoo_promotions")
@@ -203,6 +211,7 @@ class MainActivity : FlutterActivity() {
                 enableLights(true)
             }
             manager.createNotificationChannel(channel)
+        } catch (_: Exception) {
         }
     }
 }

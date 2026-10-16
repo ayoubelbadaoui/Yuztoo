@@ -41,10 +41,22 @@ class AppBootstrap extends ConsumerWidget {
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Impossible d\'initialiser Firebase : $error',
-                    style: const TextStyle(color: Colors.white70, fontSize: 15),
-                    textAlign: TextAlign.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Connexion impossible pour le moment.\n'
+                        'Vérifiez votre connexion Internet puis réessayez.',
+                        style: TextStyle(color: Colors.white70, fontSize: 15),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        onPressed: () =>
+                            ref.invalidate(firebaseInitializationProvider),
+                        child: const Text('Réessayer'),
+                      ),
+                    ],
                   ),
                 ),
               ),

@@ -67,7 +67,9 @@ import 'feature/client_notification/infrastructure/notification_service.dart';
 import 'core/config/vitrine_qr_config.dart';
 import 'feature/yuztoo_contact/presentation/yuztoo_contact_screen.dart';
 import 'core/infrastructure/ble_proximity_notifier.dart';
+import 'core/infrastructure/crash_guard.dart';
 import 'core/infrastructure/logger_service.dart';
+import 'core/infrastructure/permission_request_queue.dart';
 import 'feature/loyalty/application/active_validation_providers.dart';
 import 'feature/loyalty/domain/entities/active_validation_request.dart';
 import 'feature/loyalty/domain/entities/client_merchant_loyalty_progress.dart';
@@ -93,6 +95,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  CrashGuard.install();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(
     ProviderScope(

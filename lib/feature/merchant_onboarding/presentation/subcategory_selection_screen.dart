@@ -97,9 +97,10 @@ class _SubcategorySelectionScreenState
   }
 
   void _continue() {
-    if (_selectedSubcategoryId == null) return;
-    final selected =
-        _subcategories.firstWhere((s) => s.id == _selectedSubcategoryId);
+    final matches =
+        _subcategories.where((s) => s.id == _selectedSubcategoryId);
+    if (matches.isEmpty) return;
+    final selected = matches.first;
     ref.read(selectedMerchantSubcategoryTitleProvider.notifier).state =
         selected.title;
     ref.read(onboardingFlowProvider.notifier).setSubcategoryTitle(selected.title);

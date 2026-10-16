@@ -7,6 +7,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'logger_service.dart';
+import 'permission_request_queue.dart';
 
 /// Carries information about a client device discovered via BLE scan.
 /// The [clientId] is read from the GATT characteristic after connecting;
@@ -108,7 +109,9 @@ class BleProximityService {
     if (!Platform.isAndroid) return true;
     final Map<Permission, PermissionStatus> statuses;
     if (prompt) {
-      statuses = await _androidPeripheralPermissions.request();
+      statuses = await PermissionRequestQueue.run(
+        _androidPeripheralPermissions.request,
+      );
     } else {
       statuses = {
         for (final p in _androidPeripheralPermissions) p: await p.status,
@@ -598,10 +601,12 @@ class BleProximityService {
 
   static Future<bool> _androidRequestBluetooth() async {
     LoggerService.logInfo('BLE requestMerchantPermissions (Android) — start');
-    final statuses = await [
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-    ].request();
+    final statuses = await PermissionRequestQueue.run(
+      [
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+      ].request,
+    );
     final granted = statuses.values.every((s) => s.isGranted);
     LoggerService.logInfo(
       'BLE requestMerchantPermissions (Android) — result',

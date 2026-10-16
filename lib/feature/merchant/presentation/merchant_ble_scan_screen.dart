@@ -156,9 +156,13 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
 
   bool _blePassageAllowed(Merchant m) => isAutomaticPassageAllowedForMerchant(m);
 
+  // Riverpod forbids `ref` inside dispose(), so the notifier is captured here.
+  late final BleProximityNotifier _bleNotifier;
+
   @override
   void initState() {
     super.initState();
+    _bleNotifier = ref.read(bleProximityProvider.notifier);
     _radarController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
@@ -183,8 +187,7 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
 
   @override
   void dispose() {
-    // Capture the notifier before super.dispose() — ref.read is unsafe after.
-    final bleNotifier = ref.read(bleProximityProvider.notifier);
+    final bleNotifier = _bleNotifier;
     _scanSub?.cancel();
     _scanSub = null;
     // Stop our scan/beacon first, then resume the shell scan. Doing these

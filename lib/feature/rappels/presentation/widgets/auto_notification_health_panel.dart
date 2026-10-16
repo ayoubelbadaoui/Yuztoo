@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/infrastructure/firebase_providers.dart';
+import '../../../../core/infrastructure/permission_request_queue.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../auth/core/application/providers.dart' as auth_providers;

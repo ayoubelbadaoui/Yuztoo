@@ -24,7 +24,7 @@ class App : Application() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) try {
             val manager = getSystemService(NotificationManager::class.java) ?: return
             // Remove the old channel so any "blocked" state doesn't carry over.
             manager.deleteNotificationChannel("yuztoo_promotions")
@@ -38,6 +38,7 @@ class App : Application() {
                 enableLights(true)
             }
             manager.createNotificationChannel(channel)
+        } catch (_: Exception) {
         }
     }
 }
