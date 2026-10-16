@@ -23,12 +23,15 @@ service firebase.storage {
     }
 
     /// Verify the authenticated user owns the given merchant document.
-    /// Reads merchants/{merchantId}.owner_uid from Firestore to confirm.
+    /// The merchant doc id equals the owner uid, and onboarding uploads the
+    /// logo/banner before that doc is created, so the uid match must not
+    /// depend on the Firestore read.
     function isMerchantOwner(merchantId) {
-      return isSignedIn()
-        && firestore.exists(/databases/(default)/documents/merchants/$(merchantId))
-        && firestore.get(/databases/(default)/documents/merchants/$(merchantId)).data.owner_uid
-             == request.auth.uid;
+      return isOwnerUid(merchantId)
+        || (isSignedIn()
+          && firestore.exists(/databases/(default)/documents/merchants/$(merchantId))
+          && firestore.get(/databases/(default)/documents/merchants/$(merchantId)).data.owner_uid
+               == request.auth.uid);
     }
 
     /// 5 MB file size cap for all uploads.

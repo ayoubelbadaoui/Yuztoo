@@ -115,8 +115,18 @@ class FirestoreClientLoyaltyRepository implements ClientLoyaltyRepository {
     if (merchantId.isEmpty || clientUid.isEmpty) {
       return const ClientMerchantLoyaltyProgress.empty();
     }
-    final snap = await _docRef(merchantId, clientUid).get();
-    return _fromMap(snap.data());
+    try {
+      final snap = await _docRef(merchantId, clientUid).get();
+      return _fromMap(snap.data());
+    } on FirebaseException catch (e) {
+      // Transient (e.g. `unavailable` on weak network): callers also listen
+      // via watchProgress, which delivers the real value once reachable.
+      LoggerService.logInfo(
+        'readProgress failed',
+        context: {'merchantId': merchantId, 'code': e.code},
+      );
+      return const ClientMerchantLoyaltyProgress.empty();
+    }
   }
 
   @override
