@@ -30,6 +30,7 @@ import 'widgets/store_profile_banner_section.dart';
 
 part 'store_profile_screen.part.dart';
 part 'store_profile_follow_coachmark.part.dart';
+part 'store_profile_top_bar.part.dart';
 
 // ── Skeleton loading screen ────────────────────────────────────────────────────
 
@@ -216,9 +217,13 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   /// even the no-op network round-trip on each frame.
   String? _profileViewRecordedFor;
 
+  /// Drives the top bar from transparent (over the banner) to solid cream.
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void dispose() {
     _removeFollowCoachmark();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -242,7 +247,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
           data: (data) {
             final merchant = data.merchant;
             if (merchant == null) {
-              return const _StoreProfileErrorBack();
+              return _StoreProfileErrorBack(onBack: widget.onBack);
             }
             final ownerAsync =
                 ref.watch(merchant_providers.currentMerchantForOwnerProvider);
@@ -262,6 +267,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                     const <String>[];
                 final isFollowing = followedIds.contains(merchant.id);
                 return _StoreProfileOffline(
+                  onBack: widget.onBack,
                   merchantName: merchant.displayName?.isNotEmpty == true
                       ? merchant.displayName!
                       : merchant.name,
@@ -295,7 +301,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
             );
           },
           loading: () => const _StoreProfileSkeleton(),
-          error: (_, __) => const _StoreProfileErrorBack(),
+          error: (_, __) => _StoreProfileErrorBack(onBack: widget.onBack),
         ),
       ),
     );

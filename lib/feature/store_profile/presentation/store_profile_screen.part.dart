@@ -5,27 +5,36 @@ part of 'store_profile_screen.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StoreProfileErrorBack extends StatelessWidget {
-  const _StoreProfileErrorBack();
+  const _StoreProfileErrorBack({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.store_outlined,
-              size: 48, color: StorefrontColors.primaryGold),
-          const SizedBox(height: 16),
-          Text(
-            'Commerce introuvable',
-            style: GoogleFonts.outfit(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: StorefrontColors.textSecondary,
+    return Column(
+      children: [
+        _StoreProfileTopBar(title: 'Commerce', onBack: onBack),
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.store_outlined,
+                    size: 48, color: StorefrontColors.primaryGold),
+                const SizedBox(height: 16),
+                Text(
+                  'Commerce introuvable',
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: StorefrontColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -39,116 +48,127 @@ class _StoreProfileErrorBack extends StatelessWidget {
 class _StoreProfileOffline extends StatelessWidget {
   const _StoreProfileOffline({
     required this.merchantName,
+    required this.onBack,
     this.isFollowing = false,
     this.isUnfollowBusy = false,
     this.onUnfollow,
   });
 
   final String merchantName;
+  final VoidCallback onBack;
   final bool isFollowing;
   final bool isUnfollowBusy;
   final VoidCallback? onUnfollow;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color:
-                            StorefrontColors.primaryGold.withValues(alpha: 0.1),
-                      ),
-                      child: const Icon(
-                        Icons.storefront_outlined,
-                        size: 36,
-                        color: StorefrontColors.primaryGold,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      merchantName,
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: StorefrontColors.navyDark,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Ce commerce est actuellement hors ligne.',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        color: StorefrontColors.textSecondary,
-                        height: 1.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      isFollowing
-                          ? 'Vous pouvez le retirer de votre carnet Yuztoo.'
-                          : 'Revenez plus tard ou contactez-le directement.',
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        color: StorefrontColors.textSecondary,
-                        height: 1.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (isFollowing && onUnfollow != null) ...[
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: isUnfollowBusy ? null : onUnfollow,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: StorefrontColors.navyDark,
-                            side: const BorderSide(
+    return Column(
+      children: [
+        _StoreProfileTopBar(title: merchantName, onBack: onBack),
+        Expanded(
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 40),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: StorefrontColors.primaryGold
+                                  .withValues(alpha: 0.1),
+                            ),
+                            child: const Icon(
+                              Icons.storefront_outlined,
+                              size: 36,
                               color: StorefrontColors.primaryGold,
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
                           ),
-                          child: isUnfollowBusy
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                          const SizedBox(height: 20),
+                          Text(
+                            merchantName,
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: StorefrontColors.navyDark,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Ce commerce est actuellement hors ligne.',
+                            style: GoogleFonts.outfit(
+                              fontSize: 14,
+                              color: StorefrontColors.textSecondary,
+                              height: 1.5,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            isFollowing
+                                ? 'Vous pouvez le retirer de votre carnet Yuztoo.'
+                                : 'Revenez plus tard ou contactez-le directement.',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              color: StorefrontColors.textSecondary,
+                              height: 1.5,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          if (isFollowing && onUnfollow != null) ...[
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: isUnfollowBusy ? null : onUnfollow,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: StorefrontColors.navyDark,
+                                  side: const BorderSide(
                                     color: StorefrontColors.primaryGold,
                                   ),
-                                )
-                              : Text(
-                                  'Ne plus suivre',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
-                        ),
+                                child: isUnfollowBusy
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: StorefrontColors.primaryGold,
+                                        ),
+                                      )
+                                    : Text(
+                                        'Ne plus suivre',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
-                  ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -857,6 +877,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
               }
             },
             child: SingleChildScrollView(
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics()),
               padding: EdgeInsets.only(
@@ -1029,23 +1050,35 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
           ),
         ),
 
-        // ── Safety menu overlay (block / report) ─────────────────────────────
-        // Hidden on the merchant's OWN storefront (preview view) — there's
-        // nothing meaningful to block or report on yourself. Hidden for
-        // guests too: blocking a shop is a per-account preference and
-        // signalements need a verified reporter for moderation triage.
-        if (userId != null && userId.isNotEmpty && userId != merchant.id)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            right: 12,
-            child: _StorefrontMoreMenuButton(
-              onTap: () => _openSafetyMenu(
-                context,
-                merchant: merchant,
-                userId: userId,
-              ),
-            ),
+        // ── Top bar: back + business name + safety menu ──────────────────────
+        // Safety menu (block / report) is hidden on the merchant's OWN
+        // storefront (preview) and for guests: blocking is a per-account
+        // preference and signalements need a verified reporter.
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: AnimatedBuilder(
+            animation: _scrollController,
+            builder: (context, _) {
+              final offset =
+                  _scrollController.hasClients ? _scrollController.offset : 0.0;
+              return _StoreProfileTopBar(
+                title: name,
+                progress: (offset - 60) / 80,
+                onBack: widget.onBack,
+                onMore:
+                    userId != null && userId.isNotEmpty && userId != merchant.id
+                        ? () => _openSafetyMenu(
+                              context,
+                              merchant: merchant,
+                              userId: userId,
+                            )
+                        : null,
+              );
+            },
           ),
+        ),
       ],
     );
   }
@@ -3120,33 +3153,6 @@ class _FollowersPill extends StatelessWidget {
 /// Round dark button mirroring the back-arrow button on the opposite
 /// banner edge. The vertical 3-dot icon signals "more actions" without
 /// committing visual real-estate to either action label.
-class _StorefrontMoreMenuButton extends StatelessWidget {
-  const _StorefrontMoreMenuButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.25),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Icons.more_vert_rounded,
-          color: Colors.white,
-          size: 20,
-        ),
-      ),
-    );
-  }
-}
-
 /// Bottom sheet listing the safety actions for a storefront. The labels
 /// adapt to whether the user has already blocked the merchant —
 /// "Bloquer" / "Débloquer" — so the sheet is always actionable.
