@@ -73,10 +73,18 @@ void main() {
       expect(readiness.canEnterClientHomeDirectly, isFalse);
       expect(readiness.missingRequiredFields, [
         ClientProfileMissingField.firstName,
-        ClientProfileMissingField.dateOfBirth,
       ]);
-      // Dialog copy lists identity gaps only — photo is omitted.
-      expect(readiness.missingFieldsLabelFr, 'prénom, date de naissance');
+      // Dialog copy lists identity gaps only — DOB and photo are optional.
+      expect(readiness.missingFieldsLabelFr, 'prénom');
+    });
+
+    test('missing date of birth alone does not block re-entry', () {
+      const readiness = ClientProfileReadiness(
+        hasClientRole: true,
+        onboardingCompleted: false,
+        missingForClientHome: [ClientProfileMissingField.dateOfBirth],
+      );
+      expect(readiness.canEnterClientHomeDirectly, isTrue);
     });
 
     test('missing client role blocks re-entry even with full identity', () {

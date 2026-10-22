@@ -382,8 +382,7 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
 
   void _updateCanProceed() {
     final can = widget.firstNameController.text.trim().isNotEmpty &&
-        widget.lastNameController.text.trim().isNotEmpty &&
-        _dob != null;
+        widget.lastNameController.text.trim().isNotEmpty;
     if (can != _canProceed) setState(() => _canProceed = can);
   }
 
@@ -489,7 +488,9 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      _dob != null ? _formatDate(_dob!) : 'Date de naissance',
+                      _dob != null
+                          ? _formatDate(_dob!)
+                          : 'Date de naissance (facultatif)',
                       style: GoogleFonts.outfit(
                         fontSize: 15,
                         color: _dob != null

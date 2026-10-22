@@ -80,7 +80,7 @@ void main() {
       );
     });
 
-    test('returns false when dateOfBirth is null', () {
+    test('returns true when only dateOfBirth is null (DOB is optional)', () {
       expect(
         resolveMerchantOnboardingSkipPersonalInfo(
           requested: true,
@@ -88,10 +88,8 @@ void main() {
           lastName: 'Lovelace',
           dateOfBirth: null,
         ),
-        isFalse,
-        reason:
-            'OAuth/OTP signup never asks for DOB — that field is the most '
-            'common missing piece on legacy clients upgrading to merchant.',
+        isTrue,
+        reason: 'App Store Guideline 5.1.1(v): DOB must not be required.',
       );
     });
   });

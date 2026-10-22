@@ -26,6 +26,6 @@ bool resolveMerchantOnboardingSkipPersonalInfo({
   if (!requested) return false;
   final hasFirstName = (firstName ?? '').trim().isNotEmpty;
   final hasLastName = (lastName ?? '').trim().isNotEmpty;
-  final hasDob = dateOfBirth != null;
-  return hasFirstName && hasLastName && hasDob;
+  // Date of birth is optional (App Store Guideline 5.1.1(v)).
+  return hasFirstName && hasLastName;
 }

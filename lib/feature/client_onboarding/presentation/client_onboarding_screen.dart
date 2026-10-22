@@ -103,8 +103,6 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
     if (ok != _canProceedName) setState(() => _canProceedName = ok);
   }
 
-  bool get _canProceedDob => _selectedDob != null;
-
   @override
   void dispose() {
     _firstNameController.removeListener(_onNameChanged);
@@ -201,7 +199,6 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     if (firstName.isEmpty || lastName.isEmpty) return;
-    if (_selectedDob == null) return;
     final displayName = '$firstName $lastName';
 
     setState(() => _isSaving = true);

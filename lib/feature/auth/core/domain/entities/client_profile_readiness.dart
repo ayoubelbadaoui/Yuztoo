@@ -33,9 +33,10 @@ final class ClientProfileReadiness {
   });
 
   /// Fields the client onboarding wizard itself hard-requires
-  /// (see ClientOnboardingScreen._finish: first name, last name and
-  /// date of birth block the finish button; the photo step is skippable
-  /// and city can stay empty).
+  /// (see ClientOnboardingScreen._finish: first name and last name block
+  /// the finish button; date of birth, photo and city are optional).
+  ///
+  /// Date of birth must never be required (App Store Guideline 5.1.1(v)).
   ///
   /// The re-entry gate below MUST stay in sync with this set: requiring
   /// more here than onboarding does means a valid, completed client
@@ -44,7 +45,6 @@ final class ClientProfileReadiness {
   static const Set<ClientProfileMissingField> requiredFields = {
     ClientProfileMissingField.firstName,
     ClientProfileMissingField.lastName,
-    ClientProfileMissingField.dateOfBirth,
   };
 
   final bool hasClientRole;

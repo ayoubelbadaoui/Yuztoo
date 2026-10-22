@@ -295,7 +295,16 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
           _buildStepHero(Icons.cake_outlined),
           const SizedBox(height: 32),
           _buildStepTitle('Date de naissance'),
-          const SizedBox(height: 32),
+          const SizedBox(height: 8),
+          Text(
+            'Facultatif — pour recevoir une attention le jour de votre anniversaire.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: MerchantOnboardingColors.textGrey,
+            ),
+          ),
+          const SizedBox(height: 24),
           GestureDetector(
             onTap: _isSaving ? null : _pickDob,
             child: Container(
@@ -344,8 +353,8 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
           ),
           const SizedBox(height: 32),
           _buildGoldButton(
-            label: 'Suivant',
-            enabled: _canProceedDob && !_isSaving,
+            label: hasDob ? 'Suivant' : 'Passer cette étape',
+            enabled: !_isSaving,
             onTap: _goNext,
           ),
         ],
