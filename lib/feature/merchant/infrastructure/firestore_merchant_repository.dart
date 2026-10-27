@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import '../domain/entities/merchant_storefront_link.dart';
 import '../domain/entities/client_gratification_config.dart';

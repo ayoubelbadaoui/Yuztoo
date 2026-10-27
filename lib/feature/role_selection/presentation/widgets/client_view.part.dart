@@ -214,8 +214,7 @@ extension _ClientViewUi on _ClientViewState {
                 style: GoogleFonts.outfit(
                   fontSize: 12,
                   color: RoleSelectionColors.textGrey,
-                  decoration: TextDecoration.underline,
-                  decorationColor: RoleSelectionColors.textGrey,
+                  decoration: TextDecoration.none,
                 ),
               ),
             ),

@@ -21,7 +21,10 @@ extension _MessagesScreenUi on MessagesScreen {
               padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
               child: Row(
                 children: [
-                  const SizedBox(width: 44),
+                  YBackButton(
+                    onPressed: onBack,
+                    iconColor: YColors.primary,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     AppLocalizations.of(context)!.messages,

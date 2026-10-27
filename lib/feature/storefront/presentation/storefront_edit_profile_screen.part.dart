@@ -957,7 +957,12 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  12,
+                  24,
+                  32 + MediaQuery.paddingOf(context).bottom,
+                ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1230,7 +1235,16 @@ extension _StorefrontEditProfileScreenUi on _StorefrontEditProfileScreenState {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              YBackButton(
+                onPressed: () {
+                  if (widget.onBack != null) {
+                    widget.onBack!();
+                  } else {
+                    Navigator.of(context).maybePop();
+                  }
+                },
+                iconColor: StorefrontColors.primaryGold,
+              ),
               Expanded(
                 child: Center(
                   child: Text(
@@ -1568,7 +1582,9 @@ class _GalleryEditorSectionState extends ConsumerState<_GalleryEditorSection> {
   final Set<String> _deletingUrls = {};
 
   Future<void> _addImage(String merchantId) async {
-    final picked = await _picker.pickImage(
+    final picked = await safePickImage(
+      context: context,
+      picker: _picker,
       source: ImageSource.gallery,
       maxWidth: 1400,
       imageQuality: 86,

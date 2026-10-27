@@ -384,7 +384,15 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
                   ),
                 )
               else
-                const SizedBox(width: 36),
+                YBackButton(
+                  onPressed: () {
+                    if (widget.onBack != null) {
+                      widget.onBack!();
+                    } else {
+                      Navigator.of(context).maybePop();
+                    }
+                  },
+                ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

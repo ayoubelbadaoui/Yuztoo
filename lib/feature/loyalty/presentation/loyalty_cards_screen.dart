@@ -145,6 +145,7 @@ class _LoyaltyCardsScreenState extends ConsumerState<LoyaltyCardsScreen> {
           body: Column(
             children: [
               _Header(
+                onBack: widget.onBack,
                 onNotifications: widget.onNotifications,
                 onSwitchToMerchant: widget.onSwitchToMerchant,
               ),

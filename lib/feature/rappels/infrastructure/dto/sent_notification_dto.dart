@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/infrastructure/firestore_field_readers.dart';
 
 import '../../domain/entities/sent_notification.dart';
 
@@ -29,15 +30,15 @@ class SentNotificationDto {
     final d = doc.data() ?? {};
     return SentNotificationDto(
       id: doc.id,
-      merchantId: d['merchant_id'] as String? ?? '',
-      text: d['text'] as String? ?? '',
-      audience: d['audience'] as String? ?? 'Tous mes clients',
+      merchantId: fsString(d['merchant_id']) ?? '',
+      text: fsString(d['text']) ?? '',
+      audience: fsString(d['audience']) ?? 'Tous mes clients',
       segments: d['segments'] is List
-          ? List<String>.from(d['segments'] as List)
+          ? fsStringList(d['segments'])
           : const [],
-      sentCount: (d['sent_count'] as num?)?.toInt() ?? 0,
-      openCount: (d['open_count'] as num?)?.toInt() ?? 0,
-      sentAt: (d['sent_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      sentCount: fsNum(d['sent_count'])?.toInt() ?? 0,
+      openCount: fsNum(d['open_count'])?.toInt() ?? 0,
+      sentAt: fsTimestamp(d['sent_at'])?.toDate() ?? DateTime.now(),
     );
   }
 

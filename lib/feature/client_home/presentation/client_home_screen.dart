@@ -72,6 +72,12 @@ class ClientHomeScreen extends ConsumerWidget {
         body: Column(
           children: [
             _buildHeader(context, showMerchantSwitch: hasProAccount),
+            // Tagline + Scanner / Fidélité / Offres stay pinned under the
+            // header so clients always see the shortcuts while scrolling
+            // the carnet / promos below.
+            _buildTagline(context),
+            _buildQuickActions(context),
+            const SizedBox(height: 12),
             Expanded(
               child: YuztooPullRefresh(
                 onRefresh: () async {
@@ -90,7 +96,6 @@ class ClientHomeScreen extends ConsumerWidget {
                   ),
                   child: Column(
                     children: [
-                      _buildTagline(context),
                       feedAsync.when(
                         data: (feed) => _buildBusinessCard(
                           context,
@@ -135,8 +140,6 @@ class ClientHomeScreen extends ConsumerWidget {
                               )
                             : _buildBusinessCardError(context, ref),
                       ),
-                      const SizedBox(height: 24),
-                      _buildQuickActions(context),
                       const SizedBox(height: 24),
                       // Welcome bons surface here as a separate, prominent
                       // section because they used to be buried in "Mes

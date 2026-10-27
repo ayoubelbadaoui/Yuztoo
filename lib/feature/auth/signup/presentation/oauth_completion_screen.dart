@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/presentation/responsive_scroll_body.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/shared/widgets/edge_swipe_back.dart';
 import '../../../../types.dart';
 import '../../core/application/oauth_identity_helpers.dart';
 import '../../core/application/oauth_post_signup_routing.dart';

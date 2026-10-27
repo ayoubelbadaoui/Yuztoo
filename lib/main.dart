@@ -11,6 +11,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'l10n/app_localizations.dart';
 
 import 'core/app_bootstrap.dart';
+import 'core/config/vitrine_qr_config.dart';
+import 'core/infrastructure/deferred_vitrine_link.dart';
 import 'feature/auth/core/application/auth_controller.dart';
 import 'feature/auth/core/application/client_profile_readiness_logic.dart';
 import 'feature/auth/core/application/providers.dart';
@@ -21,6 +23,8 @@ import 'feature/auth/core/domain/entities/auth_user.dart';
 import 'theme.dart';
 import 'types.dart';
 import 'core/shared/widgets/bottom_nav.dart';
+import 'core/shared/widgets/edge_swipe_back.dart';
+import 'core/shared/widgets/keyboard_dismiss_on_tap.dart';
 import 'feature/client_home/application/providers.dart';
 import 'feature/client_list/application/screens.dart';
 import 'feature/splash/application/screens.dart';
@@ -138,6 +142,16 @@ class YuztooApp extends StatelessWidget {
       locale: const Locale('fr'),
       supportedLocales: const [Locale('fr')],
       localizationsDelegates: AppLocalizations.localizationsDelegates,
+      // Tap outside any field → dismiss keyboard on every route / sheet.
+      builder: (context, child) {
+        return KeyboardDismissOnTap(
+          // Kill Flutter's debug/fallback underlines on bare text styles.
+          child: DefaultTextStyle.merge(
+            style: const TextStyle(decoration: TextDecoration.none),
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
       home: const _RootShell(),
     );
   }

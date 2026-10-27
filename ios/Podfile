@@ -126,14 +126,18 @@ post_install do |installer|
 
   # Pods_Runner.framework is built at ${PODS_CONFIGURATION_BUILD_DIR}/; generated xcconfigs only list
   # per-pod subfolders, so linking fails with "Framework 'Pods_Runner' not found" without this path.
+  # Also strip EXCLUDED_ARCHS=arm64 from generated xcconfigs — CocoaPods still writes it for
+  # MLKit/mobile_scanner, which breaks Apple Silicon + iOS 26 simulators (arm64 required).
   Dir.glob(File.join(installer.sandbox.root, 'Target Support Files', 'Pods-Runner', 'Pods-Runner.*.xcconfig')).each do |xcconfig_path|
     contents = File.read(xcconfig_path)
-    next if contents.include?('$(inherited) "${PODS_CONFIGURATION_BUILD_DIR}" "${PODS_CONFIGURATION_BUILD_DIR}/')
-
-    patched = contents.sub(
-      /FRAMEWORK_SEARCH_PATHS = \$\(inherited\) /,
-      'FRAMEWORK_SEARCH_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}" '
-    )
+    patched = contents.gsub(/^\s*EXCLUDED_ARCHS\[sdk=iphonesimulator\*\]\s*=\s*.*\n/, '')
+    unless patched.include?('$(inherited) "${PODS_CONFIGURATION_BUILD_DIR}" "${PODS_CONFIGURATION_BUILD_DIR}/') ||
+           patched.include?('$(inherited) "${PODS_CONFIGURATION_BUILD_DIR}" ')
+      patched = patched.sub(
+        /FRAMEWORK_SEARCH_PATHS = \$\(inherited\) /,
+        'FRAMEWORK_SEARCH_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}" '
+      )
+    end
     File.write(xcconfig_path, patched) if patched != contents
   end
 end

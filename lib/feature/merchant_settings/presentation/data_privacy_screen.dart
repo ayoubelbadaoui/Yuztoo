@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../auth/core/application/providers.dart' show authStateProvider;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../auth/signup/application/delete_account_exception.dart';
@@ -351,7 +352,10 @@ class _DataPrivacyScreenState extends ConsumerState<DataPrivacyScreen> {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              if (widget.onBack != null)
+                YBackButton(onPressed: widget.onBack!)
+              else
+                const SizedBox(width: 44),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

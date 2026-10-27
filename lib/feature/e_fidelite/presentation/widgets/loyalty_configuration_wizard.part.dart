@@ -52,50 +52,55 @@ class _WizardPageBody extends StatelessWidget {
           ),
         ),
         // ── Bottom navigation bar ────────────────────────────────────────────
-        Container(
-          width: double.infinity,
-          // Scaffold resizeToAvoidBottomInset already lifts the body; no
-          // extra keyboard offset needed here.
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgMain,
-            border: Border(
-              top: BorderSide(
-                color: MerchantColors.gold.withValues(alpha: 0.28),
-                width: 1,
+        // SafeArea keeps Suivant / Enregistrer above Samsung (and other)
+        // system nav buttons; without it those OS controls steal the taps.
+        SafeArea(
+          top: false,
+          child: Container(
+            width: double.infinity,
+            // Scaffold resizeToAvoidBottomInset already lifts the body; no
+            // extra keyboard offset needed here.
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            decoration: BoxDecoration(
+              color: MerchantColors.bgMain,
+              border: Border(
+                top: BorderSide(
+                  color: MerchantColors.gold.withValues(alpha: 0.28),
+                  width: 1,
+                ),
               ),
             ),
-          ),
-          child: Row(
-            children: [
-              // Précédent — invisible on step 0 to keep layout balanced.
-              Opacity(
-                opacity: stepIndex > 0 ? 1.0 : 0.0,
-                child: IgnorePointer(
-                  ignoring: stepIndex <= 0,
-                  child: _NavButton(
-                    label: 'Précédent',
-                    onTap: () => onGoTo(stepIndex - 1),
-                    primary: false,
+            child: Row(
+              children: [
+                // Précédent — invisible on step 0 to keep layout balanced.
+                Opacity(
+                  opacity: stepIndex > 0 ? 1.0 : 0.0,
+                  child: IgnorePointer(
+                    ignoring: stepIndex <= 0,
+                    child: _NavButton(
+                      label: 'Précédent',
+                      onTap: () => onGoTo(stepIndex - 1),
+                      primary: false,
+                    ),
                   ),
                 ),
-              ),
-              const Spacer(),
-              if (!isLast)
-                _NavButton(
-                  label: 'Suivant',
-                  onTap: () => onGoTo(stepIndex + 1),
-                  primary: true,
-                )
-              else
-                _NavButton(
-                  label: saving ? 'En cours…' : 'Enregistrer',
-                  onTap: saveEnabled && !saving ? onSave : null,
-                  primary: true,
-                  icon: saving ? null : Icons.check_rounded,
-                  loading: saving,
-                ),
-            ],
+                const Spacer(),
+                if (!isLast)
+                  _NavButton(
+                    label: 'Suivant',
+                    onTap: () => onGoTo(stepIndex + 1),
+                    primary: true,
+                  )
+                else
+                  _NavButton(
+                    label: saving ? 'En cours…' : 'Enregistrer',
+                    onTap: saveEnabled && !saving ? onSave : null,
+                    primary: true,
+                    icon: saving ? null : Icons.check_rounded,
+                    loading: saving,
+                  ),
+              ],
+            ),
           ),
         ),
       ],

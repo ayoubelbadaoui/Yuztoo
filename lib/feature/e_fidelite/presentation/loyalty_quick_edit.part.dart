@@ -52,9 +52,10 @@ class _LoyaltyQuickEditFormState extends ConsumerState<LoyaltyQuickEditForm> {
     final config = ref.watch(loyaltyProgramEditingProvider);
     final isVisit = config.triggerType == LoyaltyTriggerType.visitCount;
 
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 36 + bottomInset),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

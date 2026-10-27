@@ -84,6 +84,10 @@ extension _DayRowStateUi on _DayRowState {
                 ),
               ),
             ),
+            if (widget.otherDayNames.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _buildApplyToOtherDays(),
+            ],
             const SizedBox(height: 12),
             GestureDetector(
               onTap: _saveChanges,
@@ -109,6 +113,65 @@ extension _DayRowStateUi on _DayRowState {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildApplyToOtherDays() {
+    final short = <String, String>{
+      'Lundi': 'Lun',
+      'Mardi': 'Mar',
+      'Mercredi': 'Mer',
+      'Jeudi': 'Jeu',
+      'Vendredi': 'Ven',
+      'Samedi': 'Sam',
+      'Dimanche': 'Dim',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Appliquer aussi à',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: StorefrontColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final name in widget.otherDayNames)
+              _ApplyDayChip(
+                label: short[name] ?? name,
+                selected: _applyToOtherDays.contains(name),
+                onTap: () => _toggleApplyDay(name),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _ApplyQuickLink(
+              label: 'Semaine',
+              onTap: _selectWeekdays,
+            ),
+            const SizedBox(width: 12),
+            _ApplyQuickLink(
+              label: 'Tous',
+              onTap: _selectAllOtherDays,
+            ),
+            if (_applyToOtherDays.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              _ApplyQuickLink(
+                label: 'Aucun',
+                onTap: () => setState(_applyToOtherDays.clear),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 
@@ -160,6 +223,72 @@ extension _DayRowStateUi on _DayRowState {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _ApplyDayChip extends StatelessWidget {
+  const _ApplyDayChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? StorefrontColors.primaryGold
+              : StorefrontColors.primaryGold.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? StorefrontColors.primaryGold
+                : StorefrontColors.primaryGold.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : StorefrontColors.primaryGold,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ApplyQuickLink extends StatelessWidget {
+  const _ApplyQuickLink({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: StorefrontColors.primaryGold,
+          decoration: TextDecoration.underline,
+          decorationColor: StorefrontColors.primaryGold,
+        ),
+      ),
     );
   }
 }

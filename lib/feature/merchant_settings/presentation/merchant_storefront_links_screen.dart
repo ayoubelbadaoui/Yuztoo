@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../merchant/domain/entities/merchant_storefront_link.dart';
 import '../application/providers.dart';
 import '../../store_profile/application/providers.dart'
@@ -218,7 +219,10 @@ class _MerchantStorefrontLinksScreenState
       padding: const EdgeInsets.fromLTRB(8, 8, 16, 16),
       child: Row(
         children: [
-          const SizedBox(width: 44),
+          if (widget.onBack != null)
+            YBackButton(onPressed: widget.onBack!)
+          else
+            const SizedBox(width: 44),
           Expanded(
             child: Text(
               'Liens personnalisés',

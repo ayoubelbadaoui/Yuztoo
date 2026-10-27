@@ -18,6 +18,7 @@ import '../../../core/infrastructure/ble_proximity_notifier.dart';
 import '../../../core/infrastructure/ble_proximity_service.dart';
 import '../../client_home/application/providers.dart' as client_home_providers;
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../../core/shared/widgets/proximity_list_avatar.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../followed_merchants/application/providers.dart';
@@ -825,7 +826,9 @@ class _ClientBleBroadcastScreenState
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          const SizedBox(width: 44),
+          YBackButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(

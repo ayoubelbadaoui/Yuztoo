@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../../core/shared/widgets/cupertino_dob_picker.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
@@ -314,7 +315,10 @@ class _MerchantIdentityEditScreenState
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              if (widget.onBack != null)
+                YBackButton(onPressed: widget.onBack!)
+              else
+                const SizedBox(width: 44),
               Expanded(
                 child: Text(
                   'Informations personnelles',

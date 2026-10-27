@@ -22,8 +22,9 @@ void main() {
             body: DayRow(
               dayHours: day,
               isDisabled: false,
+              otherDayNames: const ['Mardi', 'Mercredi'],
               onToggle: (_) {},
-              onSave: (_) {},
+              onSave: (_, __) {},
             ),
           ),
         ),
@@ -35,10 +36,14 @@ void main() {
       expect(find.byType(TimeSlotPicker), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
       expect(find.text('Enregistrer'), findsOneWidget);
+      expect(find.text('Appliquer aussi à'), findsOneWidget);
+      expect(find.text('Mar'), findsOneWidget);
+      expect(find.text('Mer'), findsOneWidget);
     });
 
-    testWidgets('onSave receives slots after edit flow', (tester) async {
+    testWidgets('onSave receives slots and selected other days', (tester) async {
       List<TimeSlot>? saved;
+      Set<String>? also;
       const day = DayHours(
         dayName: 'Mardi',
         isEnabled: true,
@@ -53,8 +58,12 @@ void main() {
             body: DayRow(
               dayHours: day,
               isDisabled: false,
+              otherDayNames: const ['Lundi', 'Mercredi', 'Jeudi'],
               onToggle: (_) {},
-              onSave: (slots) => saved = slots,
+              onSave: (slots, alsoApplyTo) {
+                saved = slots;
+                also = alsoApplyTo;
+              },
             ),
           ),
         ),
@@ -62,12 +71,15 @@ void main() {
 
       await tester.tap(find.textContaining('Voir'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Mer'));
+      await tester.pump();
       await tester.tap(find.text('Enregistrer'));
       await tester.pump();
 
       expect(saved, isNotNull);
       expect(saved!.length, 1);
       expect(saved!.first.start, '9h');
+      expect(also, {'Mercredi'});
     });
 
     testWidgets('closed day shows Fermé without editor', (tester) async {
@@ -83,8 +95,9 @@ void main() {
             body: DayRow(
               dayHours: day,
               isDisabled: false,
+              otherDayNames: const ['Lundi'],
               onToggle: (_) {},
-              onSave: (_) {},
+              onSave: (_, __) {},
             ),
           ),
         ),

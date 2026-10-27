@@ -65,7 +65,7 @@ extension _PartnersUi on _MerchantPartnersScreenState {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              YBackButton(onPressed: widget.onBack),
               const Expanded(
                 child: Center(
                   child: YuztooGradientTitle('Vos partenaires'),

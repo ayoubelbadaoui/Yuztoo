@@ -21,12 +21,18 @@ class DayRow extends StatefulWidget {
     required this.isDisabled,
     required this.onToggle,
     required this.onSave,
+    required this.otherDayNames,
   });
 
   final DayHours dayHours;
   final bool isDisabled;
   final ValueChanged<bool> onToggle;
-  final ValueChanged<List<TimeSlot>> onSave;
+
+  /// Saves slots for this day; [alsoApplyTo] lists other day names to copy to.
+  final void Function(List<TimeSlot> slots, Set<String> alsoApplyTo) onSave;
+
+  /// Other weekdays the merchant can copy these hours onto (French names).
+  final List<String> otherDayNames;
 
   @override
   State<DayRow> createState() => _DayRowState();
@@ -37,6 +43,9 @@ class _DayRowState extends State<DayRow> {
 
   // Local editable slots (copied from widget when expanding).
   late List<TimeSlot> _editableSlots;
+
+  /// Extra days selected for "apply these hours".
+  final Set<String> _applyToOtherDays = <String>{};
 
   bool get _isOpen =>
       widget.dayHours.isEnabled &&
@@ -55,10 +64,46 @@ class _DayRowState extends State<DayRow> {
     setState(() {
       if (!_expanded) {
         _syncSlots();
+        _applyToOtherDays.clear();
         _expanded = true;
       } else {
         _expanded = false;
       }
+    });
+  }
+
+  void _toggleApplyDay(String dayName) {
+    setState(() {
+      if (_applyToOtherDays.contains(dayName)) {
+        _applyToOtherDays.remove(dayName);
+      } else {
+        _applyToOtherDays.add(dayName);
+      }
+    });
+  }
+
+  void _selectWeekdays() {
+    const weekdays = {
+      'Lundi',
+      'Mardi',
+      'Mercredi',
+      'Jeudi',
+      'Vendredi',
+    };
+    setState(() {
+      _applyToOtherDays
+        ..clear()
+        ..addAll(
+          widget.otherDayNames.where(weekdays.contains),
+        );
+    });
+  }
+
+  void _selectAllOtherDays() {
+    setState(() {
+      _applyToOtherDays
+        ..clear()
+        ..addAll(widget.otherDayNames);
     });
   }
 
@@ -112,8 +157,13 @@ class _DayRowState extends State<DayRow> {
       }
     }
 
-    if (slots.isNotEmpty) widget.onSave(slots);
-    setState(() => _expanded = false);
+    if (slots.isNotEmpty) {
+      widget.onSave(slots, Set<String>.from(_applyToOtherDays));
+    }
+    setState(() {
+      _expanded = false;
+      _applyToOtherDays.clear();
+    });
   }
 
   void _addSlot() {

@@ -36,9 +36,10 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
           .limit(fetchLimit)
           .get();
 
-      var merchants = querySnapshot.docs
-          .map((doc) => MerchantDto.fromFirestore(doc).toDomain())
-          .toList();
+      var merchants = querySnapshot.docs.mapSkippingInvalid(
+            (doc) => MerchantDto.fromFirestore(doc).toDomain(),
+            label: 'merchant',
+          );
 
       // Safety: keep only active merchants in case Firestore index is not yet
       // deployed or there is a replication lag.
@@ -110,9 +111,10 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
             .collection('merchants')
             .where(FieldPath.documentId, whereIn: chunk)
             .get();
-        final merchants = snapshot.docs
-            .map((doc) => MerchantDto.fromFirestore(doc).toDomain())
-            .toList();
+        final merchants = snapshot.docs.mapSkippingInvalid(
+            (doc) => MerchantDto.fromFirestore(doc).toDomain(),
+            label: 'merchant',
+          );
         all.addAll(merchants);
       }
       // Preserve order of [ids] where possible

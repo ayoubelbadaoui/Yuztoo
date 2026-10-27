@@ -62,6 +62,11 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// Vitrine deep link received before auth / main shell is ready (cold start or login).
   String? _pendingVitrineMerchantId;
 
+  /// True when the storefront was opened via QR / NFC / App Link while the
+  /// user was still a guest. Back from that store returns to role selection
+  /// instead of dumping them into guest Découvrir with no clear exit.
+  bool _guestVitrineFromDeepLink = false;
+
   /// Persisted store of [_pendingVitrineMerchantId] so the deep-link
   /// survives a cold start that interrupts onboarding (the user kills
   /// the app while signing up, the merchantId would otherwise be lost
@@ -295,11 +300,49 @@ class _RootShellState extends ConsumerState<_RootShell>
     // empty or expired.
     await _restorePendingVitrineMerchantIdIfFresh();
 
+    // Deferred deep link: user scanned a QR, installed the app from the
+    // landing page, then opened Yuztoo for the first time. Android uses
+    // Play Install Referrer; iOS uses the clipboard filled by vitrine.html.
+    if (_pendingVitrineMerchantId == null) {
+      final deferred = await DeferredVitrineLink.consumeOnce();
+      if (deferred != null && deferred.isNotEmpty) {
+        _pendingVitrineMerchantId = deferred;
+        unawaited(_persistPendingVitrineMerchantId(deferred));
+      }
+    }
+
     try {
       final uri = await _appLinks.getInitialLink();
-      if (!mounted || uri == null) return;
-      _onAppLinkUri(uri);
-    } catch (_) {}
+      if (!mounted) return;
+      if (uri != null) {
+        _onAppLinkUri(uri);
+      } else if (_pendingVitrineMerchantId != null) {
+        // No live URI (typical after store install) — still try to open.
+        _tryConsumePendingVitrineLink();
+      }
+    } catch (_) {
+      if (_pendingVitrineMerchantId != null) {
+        _tryConsumePendingVitrineLink();
+      }
+    }
+
+    // Auth often still shows splash when the URI/deferred id arrives. Retry
+    // next frame (and once more shortly after) so QR / NFC / install-referrer
+    // land on the shop once roleSelection / home is ready.
+    _schedulePendingVitrineConsumeRetries();
+  }
+
+  void _schedulePendingVitrineConsumeRetries() {
+    void attempt() {
+      if (!mounted || _pendingVitrineMerchantId == null) return;
+      _tryConsumePendingVitrineLink();
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      attempt();
+      Future<void>.delayed(const Duration(milliseconds: 400), attempt);
+      Future<void>.delayed(const Duration(milliseconds: 1200), attempt);
+    });
   }
 
   void _onAppLinkUri(Uri uri) {
@@ -311,6 +354,7 @@ class _RootShellState extends ConsumerState<_RootShell>
     } else {
       _pendingVitrineMerchantId = merchantId;
       unawaited(_persistPendingVitrineMerchantId(merchantId));
+      _schedulePendingVitrineConsumeRetries();
     }
   }
 
@@ -355,13 +399,21 @@ class _RootShellState extends ConsumerState<_RootShell>
   }
 
   bool _canApplyVitrineDeepLinkNow() {
-    final authState = ref.read(authControllerProvider);
-    if (authState is! Authenticated) return false;
     final screen = _nestedScreen ?? _authScreen;
-    if (screen == null) return false;
+    if (screen == null || screen == ScreenId.splash) return false;
+
+    final authState = ref.read(authControllerProvider);
+    // Guests: open the store from role selection / guest shell so a QR scan
+    // → install → first open lands on the shop without forcing signup first.
+    if (authState is! Authenticated) {
+      return screen == ScreenId.roleSelection ||
+          screen == ScreenId.guestShell ||
+          screen == ScreenId.discovery ||
+          screen == ScreenId.storeProfile ||
+          screen == ScreenId.qrScanner;
+    }
+
     const defer = <ScreenId>{
-      ScreenId.splash,
-      ScreenId.roleSelection,
       ScreenId.login,
       ScreenId.signup,
       ScreenId.oauthCompletion,
@@ -385,7 +437,7 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// shell first — otherwise [ScreenId.storeProfile] would render on top of
   /// merchant bottom-nav / home, which is confusing and hides the promo context.
   void _openVitrineForMerchant(String merchantId, {String? promotionId}) {
-    if (!mounted) return;
+    if (!mounted || !VitrineQrConfig.isValidMerchantId(merchantId)) return;
     ref
         .read(store_profile_providers.selectedStoreMerchantIdProvider.notifier)
         .state = merchantId;
@@ -395,6 +447,23 @@ class _RootShellState extends ConsumerState<_RootShell>
             promotionId.isEmpty)
         ? null
         : promotionId;
+
+    final authState = ref.read(authControllerProvider);
+    if (authState is! Authenticated) {
+      // Guest / pre-login: show the shop immediately (same as a guest QR scan).
+      _guestVitrineFromDeepLink = true;
+      setState(() {
+        _role = null;
+        _authScreen = ScreenId.guestShell;
+        _activeTab = 'discovery';
+        _nestedStack
+          ..clear()
+          ..add(ScreenId.storeProfile);
+      });
+      return;
+    }
+
+    _guestVitrineFromDeepLink = false;
 
     final wasAlreadyClient = _role == UserRole.client;
     if (wasAlreadyClient) {
@@ -758,6 +827,9 @@ class _RootShellState extends ConsumerState<_RootShell>
             _role = null;
           });
           unawaited(_stopMerchantRealtimeServices());
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _tryConsumePendingVitrineLink();
+          });
         }
       } else if (authState is AuthError) {
         // Reset navigation flag
@@ -772,6 +844,9 @@ class _RootShellState extends ConsumerState<_RootShell>
             _nestedStack.clear();
           });
           unawaited(_clearAuthTransientDrafts());
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _tryConsumePendingVitrineLink();
+          });
         }
         // If we already have a concrete screen, don't navigate away
         // (prevents flicker). The error might be temporary.
@@ -1182,7 +1257,16 @@ class _RootShellState extends ConsumerState<_RootShell>
       _stopActiveValidationListener();
       await notifier.startAsClient(authState.user.id);
     } else if (_role == UserRole.merchant) {
-      _bleDetectionSub = notifier.detections.listen(_onClientDetected);
+      _bleDetectionSub = notifier.detections.listen(
+        _onClientDetected,
+        onError: (Object e, StackTrace st) {
+          LoggerService.logError(
+            'BLE detection stream error',
+            error: e,
+            stackTrace: st,
+          );
+        },
+      );
       await notifier.startAsMerchant();
     }
   }
@@ -1990,9 +2074,46 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (_nestedStack.isNotEmpty) {
       setState(() {
         _nestedStack.removeLast();
+        if (_guestVitrineFromDeepLink &&
+            _nestedStack.isEmpty &&
+            _authScreen == ScreenId.guestShell) {
+          _guestVitrineFromDeepLink = false;
+          _authScreen = ScreenId.roleSelection;
+        }
       });
     } else {
       _handleBackToBase();
+    }
+  }
+
+  /// Whether left-edge swipe-back should be active for the current shell screen.
+  /// Mirrors cases where [_handleSystemBack] actually navigates.
+  bool get _canEdgeSwipeBack {
+    if (_nestedScreen != null) return true;
+    final screen = _authScreen;
+    if (screen == null) return false;
+    switch (screen) {
+      case ScreenId.login:
+      case ScreenId.signup:
+      case ScreenId.otp:
+      case ScreenId.merchantOnboarding:
+      case ScreenId.merchantSubcategorySelection:
+      case ScreenId.merchantBenefits:
+      case ScreenId.guestShell:
+      case ScreenId.qrScanner:
+        return true;
+      case ScreenId.splash:
+      case ScreenId.roleSelection:
+      case ScreenId.clientOnboarding:
+      case ScreenId.merchantProfileForm:
+      case ScreenId.clientHome:
+      case ScreenId.merchantStorefront:
+      case ScreenId.oauthCompletion:
+        // Onboarding wizards own their own step-back + edge swipe.
+        return false;
+      default:
+        // Non-root tab screens: system back jumps to home / storefront.
+        return true;
     }
   }
 
@@ -2042,15 +2163,37 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
     if (currentScreen == ScreenId.merchantProfileForm) {
-      // Merchant onboarding is mandatory: do not allow back-navigation bypass.
+      // Handled by MerchantOnboardingFlowScreen's own PopScope / edge swipe.
       return;
     }
     if (currentScreen == ScreenId.clientOnboarding) {
-      // Client profile onboarding is mandatory until completed.
+      // Handled by ClientOnboardingScreen's own PopScope / edge swipe.
       return;
     }
     // Role selection is the unauthenticated entry point – never go further back.
     if (currentScreen == ScreenId.roleSelection) return;
+
+    if (currentScreen == ScreenId.guestShell) {
+      setState(() {
+        _authScreen = ScreenId.roleSelection;
+        _nestedStack.clear();
+        _role = null;
+      });
+      return;
+    }
+
+    // Guest / unauthenticated QR scanner was opened from role selection.
+    if (currentScreen == ScreenId.qrScanner) {
+      final isAuthenticated = ref.read(authControllerProvider) is Authenticated;
+      if (!isAuthenticated) {
+        setState(() {
+          _authScreen = ScreenId.roleSelection;
+          _nestedStack.clear();
+          _role = null;
+        });
+        return;
+      }
+    }
 
     // 3) Merchant tab screens – go back to vitrine root unless already there.
     // Guard: only authenticated merchants may reach the storefront this way.
@@ -2306,7 +2449,11 @@ class _RootShellState extends ConsumerState<_RootShell>
 
               // No bottom padding here – same as profile. Each screen adds its own scroll padding
               // so content stays above the nav. Avoids the visible square/band at the bottom.
-              final content = shellBody;
+              final content = EdgeSwipeBack(
+                enabled: _canEdgeSwipeBack,
+                onBack: () => _handleSystemBack(false),
+                child: shellBody,
+              );
 
               return Stack(
                 children: [
@@ -2653,6 +2800,7 @@ class _RootShellState extends ConsumerState<_RootShell>
             // automatically — no need to scan again.
             final mid = ref
                 .read(store_profile_providers.selectedStoreMerchantIdProvider);
+            _guestVitrineFromDeepLink = false;
             setState(() {
               if (mid != null && mid.isNotEmpty) {
                 _pendingVitrineMerchantId = mid;
@@ -2665,6 +2813,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.notifications:
         return NotificationsScreen(
+          onBack: _handleBackToBase,
           onMerchantTap: (merchantId) {
             if (merchantId.isEmpty) {
               // Empty-state "Découvrir" button
@@ -2710,6 +2859,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.clientProfile:
         return ClientProfileScreen(
+          onBack: _handleBackToBase,
           isDualProfile: _isDualProfile,
           onCreateProAccount: () {
             // PersonalInformationScreen is pushed on the root navigator on top
@@ -2746,6 +2896,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.merchantProfile:
         return MerchantSettingsScreen(
           onNavigate: _handleNavigate,
+          onBack: _handleBackToBase,
         );
       case ScreenId.merchantEFidelite:
         return EFideliteScreen(
@@ -2849,6 +3000,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.merchantRappels:
         return RappelsScreen(
           onNavigate: _handleNavigate,
+          onBack: _handleBackToBase,
         );
       case ScreenId.merchantNotificationsHub:
         return MerchantNotificationsHubScreen(

@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../../merchant/infrastructure/loyalty_program_firestore_mapper.dart';
+import '../../../../core/infrastructure/firestore_field_readers.dart';
 
 enum ActiveValidationStatus { awaiting, completed, cancelled }
 
@@ -82,25 +83,25 @@ class ActiveValidationRequest extends Equatable {
     return ActiveValidationRequest(
       merchantId: merchantId,
       clientUid: clientUid,
-      clientDisplayName: (data['client_display_name'] as String?) ?? '',
-      clientPhotoUrl: data['client_photo_url'] as String?,
-      status: _statusFromString(data['status'] as String?),
+      clientDisplayName: (fsString(data['client_display_name'])) ?? '',
+      clientPhotoUrl: fsString(data['client_photo_url']),
+      status: _statusFromString(fsString(data['status'])),
       programSnapshot: snapshot,
-      createdAt: (data['created_at'] as Timestamp?)?.toDate(),
-      openedAt: (data['opened_at'] as Timestamp?)?.toDate(),
-      cancelReason: data['cancel_reason'] as String?,
+      createdAt: (fsTimestamp(data['created_at']))?.toDate(),
+      openedAt: (fsTimestamp(data['opened_at']))?.toDate(),
+      cancelReason: fsString(data['cancel_reason']),
       declaredSpendEuros:
-          (data['declared_spend_euros'] as num?)?.toDouble(),
+          (fsNum(data['declared_spend_euros']))?.toDouble(),
       resultValidatedDelta:
-          (data['result_validated_delta'] as num?)?.toInt(),
-      resultSpendDelta: (data['result_spend_delta'] as num?)?.toDouble(),
-      completedAt: (data['completed_at'] as Timestamp?)?.toDate(),
-      source: _sourceFromString(data['source'] as String?),
+          (fsNum(data['result_validated_delta']))?.toInt(),
+      resultSpendDelta: (fsNum(data['result_spend_delta']))?.toDouble(),
+      completedAt: (fsTimestamp(data['completed_at']))?.toDate(),
+      source: _sourceFromString(fsString(data['source'])),
       clientBleConnectedAt:
-          (data['client_ble_connected_at'] as Timestamp?)?.toDate(),
+          (fsTimestamp(data['client_ble_connected_at']))?.toDate(),
       merchantBleConnectedAt:
-          (data['merchant_ble_connected_at'] as Timestamp?)?.toDate(),
-      merchantDisplayName: (data['merchant_display_name'] as String?)?.trim(),
+          (fsTimestamp(data['merchant_ble_connected_at']))?.toDate(),
+      merchantDisplayName: (fsString(data['merchant_display_name']))?.trim(),
     );
   }
 

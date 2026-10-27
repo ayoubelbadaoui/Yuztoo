@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../auth/core/application/providers.dart'
     show authStateProvider, updateAuthUserProfileProvider;
 import '../../auth/core/application/state/auth_state.dart';
@@ -279,7 +280,10 @@ class _IdentificationSecurityScreenState
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              if (widget.onBack != null)
+                YBackButton(onPressed: widget.onBack!)
+              else
+                const SizedBox(width: 44),
               const SizedBox(width: 12),
               Text(
                 'Identification et sécurité',

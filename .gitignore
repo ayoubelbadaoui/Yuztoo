@@ -1,5 +1,6 @@
 # Firebase tooling (optional; npm install in tools/firebase)
 tools/firebase/node_modules/
+test/firebase-rules/node_modules/
 
 # Firebase CLI deploy cache
 .firebase/

@@ -81,6 +81,44 @@ Future<String?> pickImageWithSourceChoice({
   }
 }
 
+/// [ImagePicker.pickImage] for screens that choose the [source] themselves.
+///
+/// Never throws: a denied camera / photo permission or a plugin failure
+/// shows the same SnackBar as [pickImageWithSourceChoice] and returns `null`.
+Future<XFile?> safePickImage({
+  required BuildContext context,
+  required ImagePicker picker,
+  required ImageSource source,
+  double? maxWidth,
+  double? maxHeight,
+  int imageQuality = 85,
+}) async {
+  try {
+    return await picker.pickImage(
+      source: source,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+      imageQuality: imageQuality,
+    );
+  } catch (error, stackTrace) {
+    developer.log(
+      'pickImage failed (source=$source)',
+      name: 'image_pick_with_source',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    if (context.mounted) {
+      showErrorSnackbar(
+        context,
+        source == ImageSource.camera
+            ? 'Impossible d\'ouvrir la caméra. Vérifiez l\'autorisation dans Réglages.'
+            : 'Impossible d\'ouvrir la galerie. Vérifiez l\'autorisation dans Réglages.',
+      );
+    }
+    return null;
+  }
+}
+
 class _PickOutcome {
   const _PickOutcome.picked(this.path)
       : kind = _PickOutcomeKind.picked;

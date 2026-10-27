@@ -101,4 +101,6 @@ dependencies {
     // engine/plugin crashes (SIGSEGV) the Dart-side handlers can never see.
     implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
     implementation("com.google.firebase:firebase-crashlytics-ndk")
+    // Play Install Referrer — recovers merchantId after "scan QR → install".
+    implementation("com.android.installreferrer:installreferrer:2.2")
 }

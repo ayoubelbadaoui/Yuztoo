@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/presentation/responsive_scroll_body.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/cupertino_dob_picker.dart';
+import '../../../core/shared/widgets/edge_swipe_back.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/utils/cities.dart';
 import '../../../core/utils/image_pick_with_source.dart';
@@ -283,7 +284,10 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) _goBack();
         },
-        child: Scaffold(
+        child: EdgeSwipeBack(
+          enabled: _currentStep > 0 && !_isSaving,
+          onBack: _goBack,
+          child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
           body: Stack(
             children: [
@@ -317,6 +321,7 @@ class _ClientOnboardingScreenState extends ConsumerState<ClientOnboardingScreen>
               ),
             ],
           ),
+        ),
         ),
       ),
     );

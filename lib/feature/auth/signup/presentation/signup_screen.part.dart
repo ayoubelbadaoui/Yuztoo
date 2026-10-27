@@ -737,8 +737,7 @@ class _LegalConsentDisclaimer extends StatelessWidget {
     );
     final linkStyle = baseStyle.copyWith(
       color: SignupConstants.primaryGold,
-      decoration: TextDecoration.underline,
-      decorationColor: SignupConstants.primaryGold,
+      decoration: TextDecoration.none,
       fontWeight: FontWeight.w600,
     );
     void open(LegalDocument doc) {

@@ -35,7 +35,10 @@ part 'store_profile_top_bar.part.dart';
 // ── Skeleton loading screen ────────────────────────────────────────────────────
 
 class _StoreProfileSkeleton extends StatefulWidget {
-  const _StoreProfileSkeleton();
+  const _StoreProfileSkeleton({this.onBack});
+
+  /// Optional so a slow load / hung query never traps the user without Retour.
+  final VoidCallback? onBack;
 
   @override
   State<_StoreProfileSkeleton> createState() => _StoreProfileSkeletonState();
@@ -151,6 +154,17 @@ class _StoreProfileSkeletonState extends State<_StoreProfileSkeleton>
             ],
           ),
         ),
+        if (widget.onBack != null)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _StoreProfileTopBar(
+              title: 'Commerce',
+              progress: 0,
+              onBack: widget.onBack!,
+            ),
+          ),
       ],
     );
   }
@@ -258,7 +272,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
             // Merchants previewing their own vitrine (Aperçu) always see it.
             if (merchant.status != 'active') {
               if (ownerAsync.isLoading) {
-                return const _StoreProfileSkeleton();
+                return _StoreProfileSkeleton(onBack: widget.onBack);
               }
               if (!isOwnerPreview) {
                 final followedIds = ref
@@ -300,7 +314,7 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
                   merchant.status != 'active' && isOwnerPreview,
             );
           },
-          loading: () => const _StoreProfileSkeleton(),
+          loading: () => _StoreProfileSkeleton(onBack: widget.onBack),
           error: (_, __) => _StoreProfileErrorBack(onBack: widget.onBack),
         ),
       ),

@@ -96,31 +96,35 @@ extension _OAuthCompletionScreenUi on _OAuthCompletionScreenState {
           if (didPop || !canPop) return;
           _confirmCancel();
         },
-        child: Scaffold(
-          backgroundColor: MerchantColors.bgMain,
-          body: SafeArea(
-            child: ResponsiveScrollBody(
-              horizontalPadding: 24,
-              verticalPadding: 8,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _topBar(canPop: canPop),
-                  const SizedBox(height: 20),
-                  _hero(state),
-                  const SizedBox(height: 20),
-                  if (_hasErrorBanner(state))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _errorBanner(_errorMessage(state) ?? ''),
-                    ),
-                  _formCard(state),
-                  const SizedBox(height: 20),
-                  _continueButton(state),
-                  const SizedBox(height: 16),
-                  _cancelButton(canPop: canPop),
-                  const SizedBox(height: 16),
-                ],
+        child: EdgeSwipeBack(
+          enabled: canPop,
+          onBack: _confirmCancel,
+          child: Scaffold(
+            backgroundColor: MerchantColors.bgMain,
+            body: SafeArea(
+              child: ResponsiveScrollBody(
+                horizontalPadding: 24,
+                verticalPadding: 8,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _topBar(canPop: canPop),
+                    const SizedBox(height: 20),
+                    _hero(state),
+                    const SizedBox(height: 20),
+                    if (_hasErrorBanner(state))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _errorBanner(_errorMessage(state) ?? ''),
+                      ),
+                    _formCard(state),
+                    const SizedBox(height: 20),
+                    _continueButton(state),
+                    const SizedBox(height: 16),
+                    _cancelButton(canPop: canPop),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             ),
           ),

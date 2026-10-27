@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/failure.dart';
@@ -31,9 +32,10 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
           .orderBy('sent_at', descending: true)
           .limit(limit)
           .get();
-      final items = snap.docs
-          .map((d) => SentNotificationDto.fromFirestore(d).toDomain())
-          .toList();
+      final items = snap.docs.mapSkippingInvalid(
+        (d) => SentNotificationDto.fromFirestore(d).toDomain(),
+        label: 'sent_notification',
+      );
       return Right(items);
     } on FirebaseException catch (e, st) {
       LoggerService.logError('listSentNotifications', error: e, stackTrace: st);

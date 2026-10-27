@@ -23,8 +23,60 @@ abstract final class VitrineQrConfig {
     return 'https://$_appHost/$_pathSegment/$id';
   }
 
+  /// Merchant ids are Firebase uids / auto ids. Anything else (encoded `/`,
+  /// `..`, `__x__`, oversized) is an invalid Firestore document id and
+  /// would throw when used in a path.
+  static final RegExp _merchantIdPattern = RegExp(r'^[A-Za-z0-9_-]{1,128}$');
+
   /// Parses a scanned payload and returns the merchant document id, or null if not a vitrine QR.
   static String? tryParseMerchantId(String raw) {
+    final String? id;
+    try {
+      id = _tryParseRawMerchantId(raw);
+    } on FormatException {
+      // Malformed percent-encoding in a crafted QR / tag payload.
+      return null;
+    }
+    return id != null && isValidMerchantId(id) ? id : null;
+  }
+
+  /// Parses a Play Store install-referrer payload written by `public/vitrine.html`.
+  ///
+  /// Accepted shapes:
+  /// - `vitrine=<merchantId>`
+  /// - `utm_content=<merchantId>`
+  /// - a full `https://…/vitrine/<id>` or `yuztoo://vitrine/<id>` URL
+  static String? tryParseMerchantIdFromInstallReferrer(String? referrer) {
+    if (referrer == null) return null;
+    final raw = referrer.trim();
+    if (raw.isEmpty) return null;
+
+    final asLink = tryParseMerchantId(raw);
+    if (asLink != null) return asLink;
+
+    // Referrers are often still percent-encoded once.
+    String decoded = raw;
+    try {
+      decoded = Uri.decodeComponent(raw);
+    } catch (_) {}
+    if (decoded != raw) {
+      final decodedLink = tryParseMerchantId(decoded);
+      if (decodedLink != null) return decodedLink;
+    }
+
+    final params = Uri.splitQueryString(decoded);
+    for (final key in const ['vitrine', 'utm_content', 'id']) {
+      final value = params[key]?.trim();
+      if (value != null && isValidMerchantId(value)) return value;
+    }
+    return null;
+  }
+
+  static bool isValidMerchantId(String id) =>
+      _merchantIdPattern.hasMatch(id) &&
+      !(id.startsWith('__') && id.endsWith('__'));
+
+  static String? _tryParseRawMerchantId(String raw) {
     final t = raw.trim();
     if (t.isEmpty) return null;
 

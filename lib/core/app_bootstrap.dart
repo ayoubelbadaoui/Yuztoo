@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../feature/auth/core/application/providers.dart';
 import '../feature/loading/application/screens.dart';
+import 'debug/debug_auto_login.dart';
 import 'infrastructure/firebase_providers.dart';
 
 /// Ensures Firebase is initialized and wires base providers before rendering the UI.
@@ -19,6 +20,8 @@ class AppBootstrap extends ConsumerWidget {
       data: (_) {
         // Starts listening to auth state immediately.
         ref.watch(authControllerProvider);
+        // Optional debug auto-login (dart-define credentials only).
+        ref.watch(debugAutoLoginProvider);
         return child;
       },
       loading: () => const MaterialApp(

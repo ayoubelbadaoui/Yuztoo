@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import '../domain/entities/merchant_partner.dart';
 import '../domain/repositories/i_merchant_partner_repository.dart';
@@ -22,8 +23,8 @@ class FirestoreMerchantPartnerRepository implements IMerchantPartnerRepository {
         .orderBy('added_at', descending: true)
         .snapshots()
         .map((snap) => snap.docs
-            .map((doc) => MerchantPartnerDto.fromFirestore(doc, merchantId)
-                ?.toDomain())
+            .mapSkippingInvalid((doc) =>
+                MerchantPartnerDto.fromFirestore(doc, merchantId)?.toDomain())
             .whereType<MerchantPartner>()
             .toList());
   }

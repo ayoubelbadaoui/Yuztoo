@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/merchant_colors.dart';
+import 'back_button.dart';
 import 'yuztoo_gradient_title.dart';
 
 /// Header of every bottom-nav tab (client and merchant): title on the left,
@@ -14,6 +15,8 @@ class YuztooTabHeader extends StatelessWidget {
     this.bottom,
     this.backgroundColor = MerchantColors.bgHeader,
     this.borderColor,
+    this.onBack,
+    this.backIconColor,
   });
 
   /// Height of the title row, excluding the status bar and [bottom].
@@ -33,6 +36,12 @@ class YuztooTabHeader extends StatelessWidget {
 
   final Color backgroundColor;
   final Color? borderColor;
+
+  /// When set, shows [YBackButton] before the title.
+  final VoidCallback? onBack;
+
+  /// Override for [YBackButton.iconColor] (defaults to gold).
+  final Color? backIconColor;
 
   /// Gradient tab title at the shared header size.
   static Widget gradientTitle(String text) => YuztooGradientTitle(
@@ -63,11 +72,18 @@ class YuztooTabHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 12, 10),
+              padding: EdgeInsets.fromLTRB(onBack != null ? 8 : 20, 10, 12, 10),
               child: SizedBox(
                 height: rowHeight,
                 child: Row(
                   children: [
+                    if (onBack != null) ...[
+                      YBackButton(
+                        onPressed: onBack!,
+                        iconColor: backIconColor,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     Expanded(
                       child: Row(
                         children: [

@@ -85,7 +85,7 @@ class ComposeSection extends StatelessWidget {
                   style: GoogleFonts.outfit(
                     fontSize: 12,
                     color: MerchantColors.textGrey,
-                    decoration: TextDecoration.underline,
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ),

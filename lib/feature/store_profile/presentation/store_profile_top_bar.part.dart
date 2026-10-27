@@ -22,9 +22,15 @@ class _StoreProfileTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = progress.clamp(0.0, 1.0);
     final solid = t >= 0.6;
-    final foreground =
+    // Title follows scroll fade; action chips stay high-contrast so Retour
+    // never disappears on a light / gold banner (common merchant photos).
+    final titleColor =
         Color.lerp(Colors.white, StorefrontColors.textPrimary, t)!;
-    final chip = Colors.black.withValues(alpha: 0.25 * (1 - t));
+    final actionFg =
+        solid ? StorefrontColors.textPrimary : Colors.white;
+    final actionBg = solid
+        ? Colors.black.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.45);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -54,8 +60,8 @@ class _StoreProfileTopBar extends StatelessWidget {
             _StoreProfileTopBarButton(
               icon: Icons.arrow_back_ios_new_rounded,
               semanticLabel: 'Retour',
-              color: foreground,
-              background: chip,
+              color: actionFg,
+              background: actionBg,
               onTap: onBack,
             ),
             const SizedBox(width: 12),
@@ -67,7 +73,7 @@ class _StoreProfileTopBar extends StatelessWidget {
                 style: GoogleFonts.outfit(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: foreground,
+                  color: titleColor,
                   shadows: t < 0.5
                       ? const [Shadow(color: Color(0x73000000), blurRadius: 6)]
                       : null,
@@ -79,8 +85,8 @@ class _StoreProfileTopBar extends StatelessWidget {
               _StoreProfileTopBarButton(
                 icon: Icons.more_vert_rounded,
                 semanticLabel: 'Plus d\'options',
-                color: foreground,
-                background: chip,
+                color: actionFg,
+                background: actionBg,
                 onTap: onMore!,
               )
             else

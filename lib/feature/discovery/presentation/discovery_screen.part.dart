@@ -5,6 +5,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Découvrir'),
+      onBack: widget.onBack,
       actions: [
         YuztooHeaderAction(
           icon: Icons.notifications_outlined,
@@ -596,13 +597,15 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
         width: double.infinity,
         child: GestureDetector(
           onTap: () {
-            SharePlus.instance.share(
-              ShareParams(
-                text:
-                    '📍 Rejoins Yuztoo — l\'app qui connecte les commerçants locaux et leurs clients !\n\nhttps://yuztoo.web.app/invite',
-                subject: 'Rejoins Yuztoo',
-              ),
-            );
+            SharePlus.instance
+                .share(
+                  ShareParams(
+                    text:
+                        '📍 Rejoins Yuztoo — l\'app qui connecte les commerçants locaux et leurs clients !\n\nhttps://yuztoo.web.app/invite',
+                    subject: 'Rejoins Yuztoo',
+                  ),
+                )
+                .catchError((Object _) => ShareResult.unavailable);
           },
           child: Container(
             height: 54,

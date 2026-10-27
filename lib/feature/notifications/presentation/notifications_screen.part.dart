@@ -499,6 +499,7 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
 
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Alertes'),
+      onBack: widget.onBack,
       bottom: _buildTabBar(),
       titleTrailing: (unreadCount > 0 && isAlertes)
           ? Container(

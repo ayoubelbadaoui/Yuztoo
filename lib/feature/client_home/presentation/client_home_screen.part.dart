@@ -24,20 +24,17 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
 
   Widget _buildTagline(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tous les commerces que tu aimes au même endroit',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              color: MerchantColors.textGrey,
-              height: 1.45,
-            ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Tous les commerces que tu aimes au même endroit',
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            color: MerchantColors.textGrey,
+            height: 1.45,
           ),
-          const SizedBox(height: 16),
-        ],
+        ),
       ),
     );
   }
@@ -336,35 +333,38 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
     final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        decoration: BoxDecoration(
-          color: MerchantColors.bgHeader,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: MerchantColors.gold
-                .withValues(alpha: MerchantColors.goldBorderAlpha),
+      child: Material(
+        color: MerchantColors.bgHeader,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: MerchantColors.gold
+                  .withValues(alpha: MerchantColors.goldBorderAlpha),
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _QuickAction(
-              icon: Icons.qr_code_rounded,
-              label: l10n.scan,
-              onTap: () => onNavigate('qr-scanner'),
-            ),
-            _QuickAction(
-              icon: Icons.star_border_rounded,
-              label: l10n.loyaltyLabel,
-              onTap: () => onNavigate('loyalty'),
-            ),
-            _QuickAction(
-              icon: Icons.local_offer_outlined,
-              label: l10n.offers,
-              onTap: () => onNavigate('notifications-promos'),
-            ),
-          ],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _QuickAction(
+                icon: Icons.qr_code_rounded,
+                label: l10n.scan,
+                onTap: () => onNavigate('qr-scanner'),
+              ),
+              _QuickAction(
+                icon: Icons.star_border_rounded,
+                label: l10n.loyaltyLabel,
+                onTap: () => onNavigate('loyalty'),
+              ),
+              _QuickAction(
+                icon: Icons.local_offer_outlined,
+                label: l10n.offers,
+                onTap: () => onNavigate('notifications-promos'),
+              ),
+            ],
+          ),
         ),
       ),
     );

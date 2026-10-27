@@ -63,8 +63,8 @@ class MerchantStorefrontLink extends Equatable {
 
   factory MerchantStorefrontLink.fromMap(Map<String, dynamic> map) {
     return MerchantStorefrontLink(
-      label: (map['label'] as String? ?? '').trim(),
-      value: (map['value'] as String? ?? '').trim(),
+      label: (map['label'] is String ? map['label'] as String : '').trim(),
+      value: (map['value'] is String ? map['value'] as String : '').trim(),
     );
   }
 

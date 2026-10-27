@@ -31,13 +31,13 @@ class LoyaltyProgramFirestoreMapper {
     int i(String k, int fallback) {
       final v = map[k];
       if (v is int) return v;
-      if (v is num) return v.toInt();
+      if (v is num && v.isFinite) return v.toInt();
       return fallback;
     }
 
     double d(String k, double fallback) {
       final v = map[k];
-      if (v is num) return v.toDouble();
+      if (v is num && v.isFinite) return v.toDouble();
       return fallback;
     }
 
@@ -48,7 +48,7 @@ class LoyaltyProgramFirestoreMapper {
     }
 
     LoyaltyTriggerType trigger;
-    switch (map['trigger_type'] as String?) {
+    switch (map['trigger_type']) {
       case triggerPurchaseTotal:
         trigger = LoyaltyTriggerType.purchaseTotal;
         break;
@@ -57,7 +57,7 @@ class LoyaltyProgramFirestoreMapper {
     }
 
     LoyaltyRewardKind reward;
-    switch (map['reward_kind'] as String?) {
+    switch (map['reward_kind']) {
       case rewardDiscount:
         reward = LoyaltyRewardKind.discountPercent;
         break;
@@ -72,7 +72,7 @@ class LoyaltyProgramFirestoreMapper {
     }
 
     LoyaltyPassageValidation passage;
-    switch (map['passage_validation'] as String?) {
+    switch (map['passage_validation']) {
       case passageManual:
         passage = LoyaltyPassageValidation.manual;
         break;

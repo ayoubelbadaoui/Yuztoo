@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/utils/image_crop_utils.dart';
+import '../../../core/utils/image_pick_with_source.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../application/profile_view_providers.dart';
 import '../application/providers.dart';
@@ -61,7 +62,9 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
   }
 
   Future<void> _uploadNewsImage(Storefront storefront) async {
-    final picked = await _imagePicker.pickImage(
+    final picked = await safePickImage(
+      context: context,
+      picker: _imagePicker,
       source: ImageSource.gallery,
       maxWidth: 1400,
       imageQuality: 86,
@@ -271,7 +274,9 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     required bool fromCamera,
   }) async {
     final source = fromCamera ? ImageSource.camera : ImageSource.gallery;
-    final picked = await _imagePicker.pickImage(
+    final picked = await safePickImage(
+      context: context,
+      picker: _imagePicker,
       source: source,
       maxWidth: isBanner ? 1200 : 800,
       maxHeight: isBanner ? 600 : 800,

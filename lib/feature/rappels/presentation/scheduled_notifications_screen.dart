@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../domain/entities/scheduled_notification.dart';
@@ -149,7 +150,7 @@ class _ScheduledNotificationsScreenState
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              YBackButton(onPressed: widget.onBack),
               Expanded(
                 child: Center(
                   child: Text(

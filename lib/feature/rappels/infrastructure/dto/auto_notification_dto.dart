@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/infrastructure/firestore_field_readers.dart';
 
 import '../../domain/entities/active_notification.dart';
 
@@ -45,15 +46,15 @@ class AutoNotificationDto {
     return AutoNotificationDto(
       id: doc.id,
       merchantId: merchantId,
-      text: data['text'] as String? ?? '',
-      trigger: data['trigger'] as String? ?? 'Date anniversaire client',
-      audience: data['audience'] as String? ?? 'Tous mes clients',
+      text: fsString(data['text']) ?? '',
+      trigger: fsString(data['trigger']) ?? 'Date anniversaire client',
+      audience: fsString(data['audience']) ?? 'Tous mes clients',
       targetSegments: data['target_segments'] is List
-          ? List<String>.from(data['target_segments'] as List)
+          ? fsStringList(data['target_segments'])
           : const [],
-      isEnabled: data['is_enabled'] as bool? ?? true,
+      isEnabled: fsBool(data['is_enabled']) ?? true,
       createdAt: parseTimestamp(data['created_at']),
-      sentCount: (data['sent_count'] as num?)?.toInt() ?? 0,
+      sentCount: fsNum(data['sent_count'])?.toInt() ?? 0,
       lastSentAt: parseTimestamp(data['last_sent_at']),
     );
   }

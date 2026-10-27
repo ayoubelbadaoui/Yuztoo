@@ -4,10 +4,12 @@ part of 'loyalty_cards_screen.dart';
 
 class _Header extends StatelessWidget {
   const _Header({
+    required this.onBack,
     required this.onNotifications,
     this.onSwitchToMerchant,
   });
 
+  final VoidCallback onBack;
   final VoidCallback onNotifications;
   final VoidCallback? onSwitchToMerchant;
 
@@ -15,6 +17,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Fidélité'),
+      onBack: onBack,
       actions: [
         // Dual-profile: storefront icon (not person/account silhouette)
         if (onSwitchToMerchant != null)

@@ -26,7 +26,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       }
 
       // Canonical: `roles` map on `/users/{uid}`. Legacy `role` string is migration-only.
-      final roles = data['roles'] as Map<String, dynamic>?;
+      final roles = fsMap(data['roles']);
       if (roles != null) {
         if (roles['merchant'] == true) {
           return const Right<AuthFailure, UserRole?>(UserRole.merchant);
@@ -36,7 +36,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         }
       }
 
-      final legacyRole = data['role'] as String?;
+      final legacyRole = fsString(data['role']);
       if (legacyRole != null) {
         final normalized = legacyRole.toLowerCase();
         if (normalized == 'merchant') {
@@ -88,7 +88,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         return const Right<AuthFailure, String?>(null);
       }
 
-      final city = data['city'] as String?;
+      final city = fsString(data['city']);
       if (city == null || city.isEmpty) {
         return const Right<AuthFailure, String?>(null);
       }
@@ -135,13 +135,13 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         return const Right<AuthFailure, UserProfileBasics?>(null);
       }
 
-      final email = (data['email'] as String?)?.trim() ?? '';
-      final phone = (data['phone'] as String?)?.trim() ?? '';
-      final rawCity = (data['city'] as String?)?.trim() ?? '';
+      final email = (fsString(data['email']))?.trim() ?? '';
+      final phone = (fsString(data['phone']))?.trim() ?? '';
+      final rawCity = (fsString(data['city']))?.trim() ?? '';
       final city = CityInput.isPlaceholder(rawCity) ? '' : rawCity;
-      final firstName = (data['first_name'] as String?)?.trim();
-      final lastName = (data['last_name'] as String?)?.trim();
-      final dobRaw = data['date_of_birth'] as String?;
+      final firstName = (fsString(data['first_name']))?.trim();
+      final lastName = (fsString(data['last_name']))?.trim();
+      final dobRaw = fsString(data['date_of_birth']);
       DateTime? dateOfBirth;
       if (dobRaw != null && dobRaw.isNotEmpty) {
         dateOfBirth = DateTime.tryParse(dobRaw);
@@ -253,7 +253,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
             .toList();
         return Right<AuthFailure, List<String>>(list);
       }
-      final city = (data['city'] as String?)?.trim();
+      final city = (fsString(data['city']))?.trim();
       if (city != null && city.isNotEmpty) {
         return Right<AuthFailure, List<String>>([city]);
       }
@@ -363,7 +363,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         return const Right<AuthFailure, Map<String, bool>?>(null);
       }
 
-      final roles = data['roles'] as Map<String, dynamic>?;
+      final roles = fsMap(data['roles']);
       if (roles != null) {
         // Convert to Map<String, bool>
         final rolesMap = <String, bool>{
@@ -375,7 +375,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       }
 
       // Fallback for legacy schema using a single "role" string
-      final legacyRole = data['role'] as String?;
+      final legacyRole = fsString(data['role']);
       if (legacyRole != null) {
         final normalized = legacyRole.toLowerCase();
         final rolesMap = <String, bool>{
@@ -426,9 +426,9 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         return const Right<AuthFailure, bool?>(null);
       }
 
-      final roles = data['roles'] as Map<String, dynamic>?;
-      final primaryRole = (data['primary_role'] as String?)?.toLowerCase();
-      final legacyRole = (data['role'] as String?)?.toLowerCase();
+      final roles = fsMap(data['roles']);
+      final primaryRole = (fsString(data['primary_role']))?.toLowerCase();
+      final legacyRole = (fsString(data['role']))?.toLowerCase();
       final isMerchant = (roles != null && roles['merchant'] == true) ||
           primaryRole == 'merchant' ||
           legacyRole == 'merchant';
@@ -438,9 +438,9 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       }
 
       // Canonical onboarding gate: users/{uid}.onboarding.merchant
-      final onboarding = data['onboarding'] as Map<String, dynamic>?;
+      final onboarding = fsMap(data['onboarding']);
       final onboardingValue =
-          (onboarding?['merchant'] as String?)?.trim().toLowerCase();
+          (fsString(onboarding?['merchant']))?.trim().toLowerCase();
       final onboardingCompleted = onboardingValue == 'completed';
       return Right<AuthFailure, bool?>(onboardingCompleted);
     } catch (e, st) {
@@ -482,9 +482,9 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         return const Right<AuthFailure, bool?>(false);
       }
 
-      final roles = data['roles'] as Map<String, dynamic>?;
-      final primaryRole = (data['primary_role'] as String?)?.toLowerCase();
-      final legacyRole = (data['role'] as String?)?.toLowerCase();
+      final roles = fsMap(data['roles']);
+      final primaryRole = (fsString(data['primary_role']))?.toLowerCase();
+      final legacyRole = (fsString(data['role']))?.toLowerCase();
       final isClient = (roles != null && roles['client'] == true) ||
           primaryRole == 'client' ||
           legacyRole == 'client';
@@ -492,12 +492,12 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         return const Right<AuthFailure, bool?>(null);
       }
 
-      final onboarding = data['onboarding'] as Map<String, dynamic>?;
+      final onboarding = fsMap(data['onboarding']);
       // Legacy: no `onboarding` object at all → old accounts; don't force onboarding.
       if (onboarding == null) {
         return const Right<AuthFailure, bool?>(true);
       }
-      final clientRaw = (onboarding['client'] as String?)?.trim().toLowerCase();
+      final clientRaw = (fsString(onboarding['client']))?.trim().toLowerCase();
       // `onboarding` exists but `client` missing/empty → new signup partial write or pending.
       if (clientRaw == null || clientRaw.isEmpty) {
         return const Right<AuthFailure, bool?>(false);
@@ -567,27 +567,27 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         );
       }
 
-      final roles = data['roles'] as Map<String, dynamic>?;
+      final roles = fsMap(data['roles']);
       final hasClientRole = roles?['client'] == true;
 
-      final onboarding = data['onboarding'] as Map<String, dynamic>?;
+      final onboarding = fsMap(data['onboarding']);
       final clientRaw =
-          (onboarding?['client'] as String?)?.trim().toLowerCase();
+          (fsString(onboarding?['client']))?.trim().toLowerCase();
       final onboardingCompleted = onboarding == null
           ? hasClientRole
           : (clientRaw == 'completed');
 
-      final firstName = (data['first_name'] as String?)?.trim();
-      final lastName = (data['last_name'] as String?)?.trim();
-      final dobRaw = data['date_of_birth'] as String?;
+      final firstName = (fsString(data['first_name']))?.trim();
+      final lastName = (fsString(data['last_name']))?.trim();
+      final dobRaw = fsString(data['date_of_birth']);
       DateTime? dateOfBirth;
       if (dobRaw != null && dobRaw.isNotEmpty) {
         dateOfBirth = DateTime.tryParse(dobRaw);
       }
-      final rawCity = (data['city'] as String?)?.trim() ?? '';
+      final rawCity = (fsString(data['city']))?.trim() ?? '';
       final city = CityInput.isPlaceholder(rawCity) ? '' : rawCity;
-      final photoUrl = (data['photoUrl'] as String?)?.trim();
-      final displayName = (data['displayName'] as String?)?.trim();
+      final photoUrl = (fsString(data['photoUrl']))?.trim();
+      final displayName = (fsString(data['displayName']))?.trim();
 
       final missing = computeMissingClientProfileFields(
         firstName: firstName,
@@ -687,7 +687,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       //      `update({'onboarding': {...}})` would have replaced the whole
       //      nested map silently.
       final mergedOnboarding = Map<String, dynamic>.from(
-        (data?['onboarding'] as Map<String, dynamic>?) ?? {},
+        (fsMap(data?['onboarding'])) ?? {},
       );
       mergedOnboarding['client'] = 'completed';
       mergedOnboarding.putIfAbsent('merchant', () => 'not_started');
@@ -780,7 +780,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         // Build displayName: use incoming lastName if provided, else fall back
         // to whatever is already in Firestore so we never drop the last name
         // just because only firstName was passed.
-        final existingLn = (existing['last_name'] as String? ?? '').trim();
+        final existingLn = (fsString(existing['last_name']) ?? '').trim();
         final effectiveLn = ln.isNotEmpty ? ln : existingLn;
         update['displayName'] = effectiveLn.isNotEmpty ? '$fn $effectiveLn' : fn;
       }

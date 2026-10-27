@@ -95,6 +95,13 @@ class MerchantDto {
 
   final MerchantSubscriptionPlan subscriptionPlan;
 
+  // Merchant docs are also edited from the console and Cloud Functions, so a
+  // field can hold the wrong type; one bad doc must not fail a whole feed.
+  static String? _str(dynamic v) => v is String ? v : null;
+
+  static List<String> _strList(dynamic v) =>
+      v is List ? v.whereType<String>().toList() : const <String>[];
+
   static List<MerchantStorefrontLink> _parseStorefrontLinks(dynamic raw) {
     if (raw is! List) return const [];
     final out = <MerchantStorefrontLink>[];
@@ -132,7 +139,7 @@ class MerchantDto {
     int nonNegativeInt(dynamic v) {
       if (v == null) return 0;
       if (v is int) return v < 0 ? 0 : v;
-      if (v is num) return v.toInt().clamp(0, 999999999);
+      if (v is num && v.isFinite) return v.toInt().clamp(0, 999999999);
       return 0;
     }
 
@@ -147,28 +154,28 @@ class MerchantDto {
 
     return MerchantDto(
       id: doc.id,
-      ownerUid: data['owner_uid'] as String? ?? '',
-      name: data['name'] as String? ?? '',
-      email: data['email'] as String? ?? '',
-      phone: data['phone'] as String? ?? '',
-      city: data['city'] as String? ?? '',
-      address: data['address'] as String?,
+      ownerUid: (_str(data['owner_uid']) ?? ''),
+      name: (_str(data['name']) ?? ''),
+      email: (_str(data['email']) ?? ''),
+      phone: (_str(data['phone']) ?? ''),
+      city: (_str(data['city']) ?? ''),
+      address: _str(data['address']),
       categories: data['categories'] is List
-          ? List<String>.from(data['categories'] as List)
+          ? _strList(data['categories'])
           : null,
-      description: data['description'] as String?,
+      description: _str(data['description']),
       hours: data['hours'] is Map
           ? Map<String, dynamic>.from(data['hours'] as Map)
           : null,
-      status: data['status'] as String? ?? 'inactive',
+      status: (_str(data['status']) ?? 'inactive'),
       createdAt: parseTimestamp(data['created_at']),
       updatedAt: parseTimestamp(data['updated_at']),
-      displayName: data['display_name'] as String?,
-      logoUrl: data['logo_url'] as String?,
-      websiteUrl: data['website_url'] as String?,
-      bannerUrl: data['banner_url'] as String?,
+      displayName: _str(data['display_name']),
+      logoUrl: _str(data['logo_url']),
+      websiteUrl: _str(data['website_url']),
+      bannerUrl: _str(data['banner_url']),
       newsImageUrls: data['news_image_urls'] is List
-          ? List<String>.from(data['news_image_urls'] as List)
+          ? _strList(data['news_image_urls'])
           : null,
       loyaltyEnabled: loyaltyEnabledEffective,
       loyaltyProgramRaw: loyaltyRaw,
@@ -195,10 +202,10 @@ class MerchantDto {
           nonNegativeInt(data['rappels_monthly_validated_passages']),
       weeklyNotifSentCount: nonNegativeInt(data['weekly_notif_sent_count']),
       weeklyNotifResetAt: parseTimestamp(data['weekly_notif_reset_at']),
-      merchantType: data['merchant_type'] as String? ?? 'b2c',
-      welcomeGiftDescription: data['welcome_gift_description'] as String?,
-      categoryId: data['category_id'] as String?,
-      subcategoryTitle: data['subcategory_title'] as String?,
+      merchantType: (_str(data['merchant_type']) ?? 'b2c'),
+      welcomeGiftDescription: _str(data['welcome_gift_description']),
+      categoryId: _str(data['category_id']),
+      subcategoryTitle: _str(data['subcategory_title']),
       gratificationConfigRaw: data['gratification_config'] is Map
           ? Map<String, dynamic>.from(
               data['gratification_config'] as Map)
@@ -206,7 +213,7 @@ class MerchantDto {
       publicFollowersCount: nonNegativeInt(data['public_followers_count']),
       storefrontLinks: _parseStorefrontLinks(data['storefront_links']),
       subscriptionPlan: MerchantSubscriptionPlan.fromFirestore(
-        data['subscription_plan'] as String?,
+        _str(data['subscription_plan']),
       ),
     );
   }

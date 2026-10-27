@@ -167,6 +167,7 @@ extension _ClientListScreenUi on _ClientListScreenState {
   Widget _buildHeader(BuildContext context) {
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Vos clients'),
+      onBack: widget.onBack,
       actions: [
         YuztooHeaderAction(
           icon: Icons.person_outline_rounded,

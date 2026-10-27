@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/infrastructure/firestore_field_readers.dart';
 
 import '../../domain/entities/client_notification.dart';
 
@@ -58,15 +59,15 @@ class ClientNotificationDto {
     return ClientNotificationDto(
       id: doc.id,
       clientId: clientId,
-      merchantId: (data['merchant_id'] as String?) ?? '',
-      merchantName: (data['merchant_name'] as String?) ?? '',
-      type: (data['type'] as String?) ?? 'general',
-      title: (data['title'] as String?) ?? '',
-      body: (data['body'] as String?) ?? '',
-      isRead: (data['is_read'] as bool?) ?? false,
+      merchantId: fsString(data['merchant_id']) ?? '',
+      merchantName: fsString(data['merchant_name']) ?? '',
+      type: fsString(data['type']) ?? 'general',
+      title: fsString(data['title']) ?? '',
+      body: fsString(data['body']) ?? '',
+      isRead: fsBool(data['is_read']) ?? false,
       createdAt: created,
-      promotionId: data['promotion_id'] as String?,
-      sentNotificationId: data['sent_notification_id'] as String?,
+      promotionId: fsString(data['promotion_id']),
+      sentNotificationId: fsString(data['sent_notification_id']),
     );
   }
 

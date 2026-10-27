@@ -76,6 +76,7 @@ extension _AccountPreferencesScreenUi on _AccountPreferencesScreenState {
   Widget _buildHeader(BuildContext context) {
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Mon profil'),
+      onBack: widget.onBack,
     );
   }
 

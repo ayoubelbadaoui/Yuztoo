@@ -149,7 +149,10 @@ extension _NotificationsAutoScreenUi on _NotificationsAutoScreenState {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              if (widget.onBack != null)
+                YBackButton(onPressed: widget.onBack!)
+              else
+                const SizedBox(width: 44),
               const Expanded(
                 child: Center(
                   child: YuztooGradientTitle('Notifications auto.'),

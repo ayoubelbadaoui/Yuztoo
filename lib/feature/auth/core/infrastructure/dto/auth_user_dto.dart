@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../../core/infrastructure/firestore_field_readers.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase;
 
 import '../../domain/entities/auth_user.dart';
@@ -53,17 +54,17 @@ class AuthUserDto {
     final data = profileDoc?.data();
     // ROOT FIX: If user was created with phone auth, email might not be in Firebase Auth
     // but will be in Firestore. Use Firestore email as fallback.
-    final email = user.email ?? (data?['email'] as String?);
+    final email = user.email ?? (fsString(data?['email']));
 
     Map<String, bool>? rolesMap = _normalizeRolesMap(
-      data?['roles'] as Map<String, dynamic>?,
+      fsMap(data?['roles']),
     );
     String role = 'client';
 
     if (rolesMap != null) {
       role = _primaryRoleFromFlags(rolesMap);
     } else {
-      final legacy = (data?['role'] as String?)?.toLowerCase();
+      final legacy = (fsString(data?['role']))?.toLowerCase();
       if (legacy == 'merchant') {
         role = 'merchant';
         rolesMap = const <String, bool>{
@@ -81,7 +82,7 @@ class AuthUserDto {
       }
     }
 
-    final primaryRaw = data?['primary_role'] as String?;
+    final primaryRaw = fsString(data?['primary_role']);
     final primaryNorm = primaryRaw?.toLowerCase();
     String? primaryRole = (primaryNorm == 'merchant' || primaryNorm == 'client')
         ? primaryNorm
@@ -94,8 +95,8 @@ class AuthUserDto {
       role = 'client';
     }
 
-    final fsFirst = (data?['firstName'] as String?)?.trim() ?? '';
-    final fsLast = (data?['lastName'] as String?)?.trim() ?? '';
+    final fsFirst = (fsString(data?['firstName']))?.trim() ?? '';
+    final fsLast = (fsString(data?['lastName']))?.trim() ?? '';
     final oauthFirst = oauthFirstName?.trim() ?? '';
     final oauthLast = oauthLastName?.trim() ?? '';
     final resolvedFirst =
@@ -110,10 +111,10 @@ class AuthUserDto {
     } else if (resolvedLast.isNotEmpty) {
       displayName = resolvedLast;
     } else {
-      displayName = user.displayName ?? data?['displayName'] as String?;
+      displayName = user.displayName ?? fsString(data?['displayName']);
     }
 
-    final fsPhoto = (data?['photoUrl'] as String?)?.trim();
+    final fsPhoto = (fsString(data?['photoUrl']))?.trim();
     final authPhoto = user.photoURL?.trim();
     final photoUrl = (fsPhoto != null && fsPhoto.isNotEmpty)
         ? fsPhoto
@@ -124,7 +125,7 @@ class AuthUserDto {
       email: email,
       displayName: displayName,
       photoUrl: photoUrl,
-      phoneNumber: user.phoneNumber ?? data?['phone'] as String?,
+      phoneNumber: user.phoneNumber ?? fsString(data?['phone']),
       firstName: resolvedFirst.isNotEmpty ? resolvedFirst : null,
       lastName: resolvedLast.isNotEmpty ? resolvedLast : null,
       roles: rolesMap,

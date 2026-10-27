@@ -93,7 +93,10 @@ extension _ProfileSummaryUi on _MerchantProfileSummaryScreenState {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              if (widget.onBack != null)
+                YBackButton(onPressed: widget.onBack!)
+              else
+                const SizedBox(width: 44),
               const SizedBox(width: 12),
               Text(
                 'Mon profil pro',

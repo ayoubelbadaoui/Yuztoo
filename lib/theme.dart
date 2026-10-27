@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -24,6 +25,16 @@ ThemeData buildTheme() {
       error: YColors.destructive,
     ),
     scaffoldBackgroundColor: YColors.background,
+    // iOS: MaterialPageRoute uses Cupertino transitions so left-edge swipe
+    // dismisses Navigator-pushed screens (legal, BLE, personal info, etc.).
+    // CupertinoPageTransitionsBuilder lives in package:flutter/cupertino.dart
+    // (Flutter 3.47+); material.dart no longer re-exports it.
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: <TargetPlatform, PageTransitionsBuilder>{
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      },
+    ),
     textTheme: textTheme.copyWith(
       headlineLarge:
           textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.w600),

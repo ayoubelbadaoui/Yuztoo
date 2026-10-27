@@ -210,6 +210,7 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
   Widget _buildHeader() {
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Paramètres Pro'),
+      onBack: widget.onBack,
     );
   }
 

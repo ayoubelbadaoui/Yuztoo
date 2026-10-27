@@ -6,19 +6,20 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/app_logo.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../../core/shared/widgets/yuztoo_tab_header.dart';
-import '../../merchant/domain/entities/merchant.dart';
 import '../application/providers.dart';
+import '../domain/entities/restons_proches_profile.dart';
+import 'yuztoo_contact_edit_screen.dart';
 
 /// "Yuztoo, restons proches" — how to reach Pascal and the YuzToo team.
 class YuztooContactScreen extends ConsumerWidget {
   const YuztooContactScreen({super.key});
 
-  static const _fallbackEmail = 'contact@yuztoo.com';
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final contactAsync = ref.watch(yuztooContactProvider);
+    final canEdit = ref.watch(canEditRestonsProchesProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -35,16 +36,10 @@ class YuztooContactScreen extends ConsumerWidget {
             YuztooTabHeader(
               title: Row(
                 children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => Navigator.of(context).maybePop(),
-                    child: const Padding(
-                      padding: EdgeInsets.only(right: 10),
-                      child: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 18,
-                        color: MerchantColors.gold,
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: YBackButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
                     ),
                   ),
                   Flexible(
@@ -52,6 +47,22 @@ class YuztooContactScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              actions: [
+                if (canEdit)
+                  YuztooHeaderAction(
+                    icon: Icons.edit_outlined,
+                    onTap: () {
+                      final profile = contactAsync.valueOrNull;
+                      if (profile == null) return;
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              YuztooContactEditScreen(initial: profile),
+                        ),
+                      );
+                    },
+                  ),
+              ],
             ),
             Expanded(
               child: contactAsync.when(
@@ -59,13 +70,26 @@ class YuztooContactScreen extends ConsumerWidget {
                   child: CircularProgressIndicator(color: MerchantColors.gold),
                 ),
                 error: (_, __) => _ContactBody(
-                  merchant: null,
-                  fallbackEmail: _fallbackEmail,
+                  profile: const RestonsProchesProfile(
+                    merchantId: '',
+                    ownerUid: '',
+                    personName: RestonsProchesProfile.defaultPersonName,
+                    roleTitle: RestonsProchesProfile.defaultRoleTitle,
+                    bio: RestonsProchesProfile.defaultBio,
+                    email: RestonsProchesProfile.defaultEmail,
+                  ),
                   onRetry: () => ref.invalidate(yuztooContactProvider),
                 ),
-                data: (merchant) => _ContactBody(
-                  merchant: merchant,
-                  fallbackEmail: _fallbackEmail,
+                data: (profile) => _ContactBody(
+                  profile: profile ??
+                      const RestonsProchesProfile(
+                        merchantId: '',
+                        ownerUid: '',
+                        personName: RestonsProchesProfile.defaultPersonName,
+                        roleTitle: RestonsProchesProfile.defaultRoleTitle,
+                        bio: RestonsProchesProfile.defaultBio,
+                        email: RestonsProchesProfile.defaultEmail,
+                      ),
                 ),
               ),
             ),
@@ -78,36 +102,30 @@ class YuztooContactScreen extends ConsumerWidget {
 
 class _ContactBody extends StatelessWidget {
   const _ContactBody({
-    required this.merchant,
-    required this.fallbackEmail,
+    required this.profile,
     this.onRetry,
   });
 
-  final Merchant? merchant;
-  final String fallbackEmail;
+  final RestonsProchesProfile profile;
 
   /// Set when loading failed: only the e-mail fallback is shown.
   final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final m = merchant;
-    final email = (m != null && m.email.isNotEmpty) ? m.email : fallbackEmail;
-    final phone = m?.phone ?? '';
-    final address = m == null
-        ? ''
-        : (m.address?.isNotEmpty ?? false)
-            ? m.address!
-            : m.city;
-    final website = m?.websiteUrl ?? '';
+    final phone = profile.phone;
+    final email = profile.email;
+    final address = profile.address;
+    final website = profile.website;
 
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+      padding: EdgeInsets.fromLTRB(24, 28, 24, 32 + bottomInset),
       children: [
-        Center(child: _Avatar(photoUrl: m?.logoUrl)),
+        Center(child: _Avatar(photoUrl: profile.photoUrl)),
         const SizedBox(height: 16),
         Text(
-          'Pascal',
+          profile.personName,
           textAlign: TextAlign.center,
           style: GoogleFonts.outfit(
             fontSize: 22,
@@ -117,7 +135,7 @@ class _ContactBody extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Fondateur de Yuztoo',
+          profile.roleTitle,
           textAlign: TextAlign.center,
           style: GoogleFonts.outfit(
             fontSize: 14,
@@ -127,8 +145,7 @@ class _ContactBody extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          'Une question, une idée, un souci ? Écrivez-moi ou appelez-moi, '
-          'je vous réponds personnellement.',
+          profile.bio,
           textAlign: TextAlign.center,
           style: GoogleFonts.outfit(
             fontSize: 13,
@@ -163,7 +180,8 @@ class _ContactBody extends StatelessWidget {
                 label: 'E-mail',
                 value: email,
                 showDivider: phone.isNotEmpty,
-                onTap: () => _launch(context, Uri(scheme: 'mailto', path: email)),
+                onTap: () =>
+                    _launch(context, Uri(scheme: 'mailto', path: email)),
               ),
               if (address.isNotEmpty)
                 _ContactRow(

@@ -31,8 +31,20 @@ class SettingsServicesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    // Same chrome as PRÉFÉRENCES / INFORMATIONS LÉGALES. Extra top padding
+    // keeps the grey title off the previous section's bottom divider.
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: MerchantColors.gold
+                .withValues(alpha: MerchantColors.goldBorderAlpha),
+            width: 1,
+          ),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -45,7 +57,7 @@ class SettingsServicesSection extends StatelessWidget {
               letterSpacing: 0.8,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           for (int i = 0; i < services.length; i++)
             _serviceItem(
               service: services[i],

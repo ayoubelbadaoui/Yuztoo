@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
@@ -88,9 +89,10 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
           .orderBy('created_at', descending: true)
           .get();
 
-      final list = snapshot.docs
-          .map((d) => AutoNotificationDto.fromFirestore(d, merchantId).toDomain())
-          .toList();
+      final list = snapshot.docs.mapSkippingInvalid(
+        (d) => AutoNotificationDto.fromFirestore(d, merchantId).toDomain(),
+        label: 'auto_notification',
+      );
 
       LoggerService.logInfo(
         'Auto-notifications listed',

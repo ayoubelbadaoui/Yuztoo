@@ -130,6 +130,7 @@ extension _RappelsScreenUi on _RappelsScreenState {
   Widget _buildHeader(BuildContext context) {
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Notifications'),
+      onBack: widget.onBack,
     );
   }
 }

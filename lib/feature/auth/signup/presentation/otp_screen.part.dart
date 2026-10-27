@@ -77,10 +77,7 @@ extension _OTPScreenStateUi on _OTPScreenState {
                   ? SignupConstants.primaryGold.withValues(alpha: 0.4)
                   : SignupConstants.primaryGold,
               fontWeight: FontWeight.w500,
-              decoration: TextDecoration.underline,
-              decorationColor: _isVerifying
-                  ? SignupConstants.primaryGold.withValues(alpha: 0.4)
-                  : SignupConstants.primaryGold,
+              decoration: TextDecoration.none,
             ),
           ),
         ),
@@ -263,9 +260,7 @@ extension _OTPScreenStateUi on _OTPScreenState {
                     ? SignupConstants.primaryGold
                     : SignupConstants.textGrey.withValues(alpha: 0.5),
                 fontWeight: FontWeight.w600,
-                decoration:
-                    canTap ? TextDecoration.underline : TextDecoration.none,
-                decorationColor: SignupConstants.primaryGold,
+                decoration: TextDecoration.none,
               ),
             ),
           ],

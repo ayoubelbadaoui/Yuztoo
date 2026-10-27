@@ -26,11 +26,13 @@ part 'client_profile_screen.part.dart';
 class ClientProfileScreen extends ConsumerStatefulWidget {
   const ClientProfileScreen({
     super.key,
+    this.onBack,
     this.onCreateProAccount,
     this.isDualProfile = false,
     this.onNavigate,
   });
 
+  final VoidCallback? onBack;
   final VoidCallback? onCreateProAccount;
 
   /// True when the user has both client and merchant roles.

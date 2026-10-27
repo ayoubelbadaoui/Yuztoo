@@ -93,7 +93,10 @@ extension _HubUi on _MerchantNotificationsHubScreenState {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              if (widget.onBack != null)
+                YBackButton(onPressed: widget.onBack!)
+              else
+                const SizedBox(width: 44),
               const Expanded(
                 child: Center(
                   child: YuztooGradientTitle('Vos notifications'),

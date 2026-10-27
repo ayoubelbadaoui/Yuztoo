@@ -19,6 +19,7 @@ import '../../../core/debug/nfc_debug_ui_helpers.dart';
 import '../../../core/infrastructure/nfc_service.dart';
 import '../../qr_scanner/presentation/widgets/nfc_debug_emulator_sheet.dart';
 import '../../merchant/application/providers.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 /// NFC plaque programming is enabled on **both** Android and iOS. Apple
@@ -208,7 +209,7 @@ class _MerchantQRCodeScreenState extends ConsumerState<MerchantQRCodeScreen> {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              YBackButton(onPressed: widget.onBack),
               const SizedBox(width: 4),
               const Expanded(
                 child: Center(

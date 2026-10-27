@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/infrastructure/firestore_field_readers.dart';
 
 import '../../domain/entities/merchant_partner.dart';
 
@@ -38,19 +39,19 @@ class MerchantPartnerDto {
     // Defensive: only accept the wire values we ship. Anything else
     // (typo, future value) becomes null so the UI treats the partner
     // as "type unknown" rather than displaying garbage in the badge.
-    final rawType = data['partner_merchant_type'] as String?;
+    final rawType = fsString(data['partner_merchant_type']);
     final partnerType =
         (rawType == 'b2b' || rawType == 'b2c') ? rawType : null;
     return MerchantPartnerDto(
       id: doc.id,
       merchantId: merchantId,
-      partnerMerchantId: data['partner_merchant_id'] as String? ?? '',
-      partnerName: data['partner_name'] as String? ?? '',
-      partnerLogoUrl: data['partner_logo_url'] as String?,
-      partnerCity: data['partner_city'] as String?,
+      partnerMerchantId: fsString(data['partner_merchant_id']) ?? '',
+      partnerName: fsString(data['partner_name']) ?? '',
+      partnerLogoUrl: fsString(data['partner_logo_url']),
+      partnerCity: fsString(data['partner_city']),
       partnerMerchantType: partnerType,
       addedAt: addedAt,
-      isPending: data['is_pending'] as bool? ?? false,
+      isPending: fsBool(data['is_pending']) ?? false,
     );
   }
 

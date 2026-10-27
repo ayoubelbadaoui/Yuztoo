@@ -1457,7 +1457,7 @@ extension _StoreProfileScreenUi on _StoreProfileScreenState {
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: StorefrontColors.textSecondary,
-                    decoration: TextDecoration.underline,
+                    decoration: TextDecoration.none,
                   ),
                 ),
         ),
@@ -2875,9 +2875,7 @@ class _InfoTile extends StatelessWidget {
                           ? StorefrontColors.primaryGold
                           : StorefrontColors.textPrimary,
                       height: 1.4,
-                      decoration:
-                          onTap != null ? TextDecoration.underline : null,
-                      decorationColor: StorefrontColors.primaryGold,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ],
@@ -3514,3 +3512,5 @@ class _ReportReasonTile extends StatelessWidget {
     );
   }
 }
+
+

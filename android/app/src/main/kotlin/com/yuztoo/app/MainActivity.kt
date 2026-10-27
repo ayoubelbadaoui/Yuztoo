@@ -10,13 +10,18 @@ import android.nfc.Tag
 import android.nfc.tech.Ndef
 import android.os.Build
 import android.os.Parcelable
+import com.android.installreferrer.api.InstallReferrerClient
+import com.android.installreferrer.api.InstallReferrerStateListener
+import com.android.installreferrer.api.ReferrerDetails
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : FlutterActivity() {
 
     private val nfcChannelName = "com.yuztoo.app/nfc"
+    private val installReferrerChannelName = "com.yuztoo.app/install_referrer"
     private var nfcChannel: MethodChannel? = null
     private var nfcAdapter: NfcAdapter? = null
 
@@ -63,6 +68,69 @@ class MainActivity : FlutterActivity() {
         // The activity may have been cold-launched by an NFC tap; capture the
         // URL now so Flutter can pull it on startup.
         extractNfcUrl(intent)?.let { pendingNfcUrl = it }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            installReferrerChannelName,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getInstallReferrer" -> readInstallReferrer(result)
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    /**
+     * One-shot Play Install Referrer read for deferred deep links
+     * (`vitrine=<merchantId>` from public/vitrine.html).
+     *
+     * Success always returns a [String] (possibly empty for organic installs).
+     * Transient Play connection failures use [MethodChannel.Result.error] so
+     * Dart can retry on a later cold start instead of burning the one-shot flag.
+     */
+    private fun readInstallReferrer(result: MethodChannel.Result) {
+        val answered = AtomicBoolean(false)
+        fun succeed(referrer: String) {
+            if (answered.compareAndSet(false, true)) {
+                result.success(referrer)
+            }
+        }
+        fun fail(code: String, message: String) {
+            if (answered.compareAndSet(false, true)) {
+                result.error(code, message, null)
+            }
+        }
+        val client = InstallReferrerClient.newBuilder(this).build()
+        try {
+            client.startConnection(object : InstallReferrerStateListener {
+                override fun onInstallReferrerSetupFinished(responseCode: Int) {
+                    try {
+                        if (responseCode == InstallReferrerClient.InstallReferrerResponse.OK) {
+                            val details: ReferrerDetails = client.installReferrer
+                            succeed(details.installReferrer ?: "")
+                        } else {
+                            fail(
+                                "REFERRER_UNAVAILABLE",
+                                "Install referrer responseCode=$responseCode",
+                            )
+                        }
+                    } catch (e: Exception) {
+                        fail("REFERRER_READ_FAILED", e.message ?: "read failed")
+                    } finally {
+                        try {
+                            client.endConnection()
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+
+                override fun onInstallReferrerServiceDisconnected() {
+                    fail("REFERRER_DISCONNECTED", "Install referrer service disconnected")
+                }
+            })
+        } catch (e: Exception) {
+            fail("REFERRER_CONNECT_FAILED", e.message ?: "connect failed")
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

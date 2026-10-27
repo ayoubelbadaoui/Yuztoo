@@ -260,7 +260,7 @@ class _AudienceBadge extends StatelessWidget {
     final isAll = template.audience == 'Tous mes clients';
     final label = isAll
         ? 'Tous'
-        : (template.segments.isEmpty
+        : (template.segments.isEmpty || template.segments.first.isEmpty
             ? 'Segment'
             : template.segments.first[0].toUpperCase() +
                 template.segments.first.substring(1));

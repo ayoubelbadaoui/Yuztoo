@@ -1696,8 +1696,16 @@ class _StepHoursState extends State<_StepHours> {
 
   void _toggleDay(String dayKey) => _setHours(_hours.toggleDay(dayKey));
 
-  void _updateSlots(String dayKey, List<TimeSlot> slots) =>
-      _setHours(_hours.withSlotsCascading(dayKey, slots));
+  void _updateSlots(
+    String dayKey,
+    List<TimeSlot> slots, {
+    Set<String> alsoApplyTo = const {},
+  }) {
+    final dayName = _hours.day(dayKey).dayName;
+    _setHours(
+      _hours.withSlotsOnDays({dayName, ...alsoApplyTo}, slots),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1723,7 +1731,7 @@ class _StepHoursState extends State<_StepHours> {
             delayMs: 80,
             child: Text(
               'Optionnel — modifiables à tout moment depuis votre profil.\n'
-              'Saisissez le lundi : les jours suivants reprennent les mêmes horaires.',
+              'Choisissez les jours pour appliquer les mêmes horaires.',
               style: GoogleFonts.outfit(
                 fontSize: 13,
                 color: MerchantOnboardingColors.textGrey,
@@ -1747,8 +1755,16 @@ class _StepHoursState extends State<_StepHours> {
                   for (int i = 0; i < days.length; i++) ...[
                     _OnboardingDayRow(
                       dayHours: days[i],
+                      otherDayNames: [
+                        for (final d in days)
+                          if (d.dayName != days[i].dayName) d.dayName,
+                      ],
                       onToggle: () => _toggleDay(dayKeys[i]),
-                      onSave: (slots) => _updateSlots(dayKeys[i], slots),
+                      onSave: (slots, alsoApplyTo) => _updateSlots(
+                        dayKeys[i],
+                        slots,
+                        alsoApplyTo: alsoApplyTo,
+                      ),
                     ),
                     if (i < days.length - 1)
                       const Divider(
@@ -1784,11 +1800,13 @@ class _OnboardingDayRow extends StatefulWidget {
     required this.dayHours,
     required this.onToggle,
     required this.onSave,
+    required this.otherDayNames,
   });
 
   final DayHours dayHours;
   final VoidCallback onToggle;
-  final ValueChanged<List<TimeSlot>> onSave;
+  final void Function(List<TimeSlot> slots, Set<String> alsoApplyTo) onSave;
+  final List<String> otherDayNames;
 
   @override
   State<_OnboardingDayRow> createState() => _OnboardingDayRowState();
@@ -1797,6 +1815,7 @@ class _OnboardingDayRow extends StatefulWidget {
 class _OnboardingDayRowState extends State<_OnboardingDayRow> {
   bool _expanded = false;
   late List<TimeSlot> _editableSlots;
+  final Set<String> _applyToOtherDays = <String>{};
 
   bool get _hasSlots =>
       widget.dayHours.isEnabled && widget.dayHours.timeSlots.isNotEmpty;
@@ -1822,9 +1841,20 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
     setState(() {
       if (!_expanded) {
         _syncSlots();
+        _applyToOtherDays.clear();
         _expanded = true;
       } else {
         _expanded = false;
+      }
+    });
+  }
+
+  void _toggleApplyDay(String dayName) {
+    setState(() {
+      if (_applyToOtherDays.contains(dayName)) {
+        _applyToOtherDays.remove(dayName);
+      } else {
+        _applyToOtherDays.add(dayName);
       }
     });
   }
@@ -1858,8 +1888,13 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
     final slots = _editableSlots
         .where((s) => s.start.isNotEmpty && s.end.isNotEmpty)
         .toList();
-    if (slots.isNotEmpty) widget.onSave(slots);
-    setState(() => _expanded = false);
+    if (slots.isNotEmpty) {
+      widget.onSave(slots, Set<String>.from(_applyToOtherDays));
+    }
+    setState(() {
+      _expanded = false;
+      _applyToOtherDays.clear();
+    });
   }
 
   @override
@@ -2050,6 +2085,89 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                 ),
               ),
             ),
+            if (widget.otherDayNames.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Appliquer aussi à',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: MerchantOnboardingColors.textGrey,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final name in widget.otherDayNames)
+                    GestureDetector(
+                      onTap: () => _toggleApplyDay(name),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _applyToOtherDays.contains(name)
+                              ? MerchantOnboardingColors.primaryGold
+                              : MerchantOnboardingColors.primaryGold
+                                  .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: MerchantOnboardingColors.primaryGold
+                                .withValues(
+                              alpha: _applyToOtherDays.contains(name)
+                                  ? 1
+                                  : 0.3,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          _shortDay(name),
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _applyToOtherDays.contains(name)
+                                ? MerchantOnboardingColors.bgDark1
+                                : MerchantOnboardingColors.primaryGold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _OnboardingApplyLink(
+                    label: 'Semaine',
+                    onTap: () => setState(() {
+                      _applyToOtherDays
+                        ..clear()
+                        ..addAll(widget.otherDayNames.where((n) => const {
+                              'Lundi',
+                              'Mardi',
+                              'Mercredi',
+                              'Jeudi',
+                              'Vendredi',
+                            }.contains(n)));
+                    }),
+                  ),
+                  const SizedBox(width: 12),
+                  _OnboardingApplyLink(
+                    label: 'Tous',
+                    onTap: () => setState(() {
+                      _applyToOtherDays
+                        ..clear()
+                        ..addAll(widget.otherDayNames);
+                    }),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 10),
             GestureDetector(
               onTap: _saveChanges,
@@ -2077,6 +2195,43 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  String _shortDay(String name) {
+    const map = {
+      'Lundi': 'Lun',
+      'Mardi': 'Mar',
+      'Mercredi': 'Mer',
+      'Jeudi': 'Jeu',
+      'Vendredi': 'Ven',
+      'Samedi': 'Sam',
+      'Dimanche': 'Dim',
+    };
+    return map[name] ?? name;
+  }
+}
+
+class _OnboardingApplyLink extends StatelessWidget {
+  const _OnboardingApplyLink({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Text(
+        label,
+        style: GoogleFonts.outfit(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: MerchantOnboardingColors.primaryGold,
+          decoration: TextDecoration.underline,
+          decorationColor: MerchantOnboardingColors.primaryGold,
         ),
       ),
     );

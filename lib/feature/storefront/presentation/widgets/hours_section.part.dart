@@ -78,10 +78,17 @@ extension _HoursSectionUi on HoursSection {
             DayRow(
               dayHours: businessHours.allDays[i],
               isDisabled: hasClosure,
+              otherDayNames: [
+                for (final d in businessHours.allDays)
+                  if (d.dayName != businessHours.allDays[i].dayName) d.dayName,
+              ],
               onToggle: (enabled) => _handleToggle(
                   context, notifier, businessHours.allDays[i], enabled),
-              onSave: (slots) => notifier.updateDayHours(
-                  businessHours.allDays[i].dayName, slots),
+              onSave: (slots, alsoApplyTo) => notifier.updateDayHours(
+                businessHours.allDays[i].dayName,
+                slots,
+                alsoApplyTo: alsoApplyTo,
+              ),
             ),
             if (i < businessHours.allDays.length - 1)
               Divider(

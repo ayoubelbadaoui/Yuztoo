@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import '../../../core/domain/core/either.dart';
 import '../../../core/domain/core/failure.dart';
@@ -237,7 +238,7 @@ class FirestoreActiveValidationRepository
         .snapshots()
         .map((QuerySnapshot<Map<String, dynamic>> snap) {
       return snap.docs
-          .map((QueryDocumentSnapshot<Map<String, dynamic>> d) =>
+          .mapSkippingInvalid((QueryDocumentSnapshot<Map<String, dynamic>> d) =>
               ActiveValidationRequest.fromFirestoreMap(
                 merchantId: merchantId,
                 clientUid: d.id,

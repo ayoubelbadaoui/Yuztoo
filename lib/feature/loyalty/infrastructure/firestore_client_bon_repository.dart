@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import '../domain/entities/client_bon.dart';
 import '../domain/repositories/client_bon_repository.dart';
@@ -18,7 +19,7 @@ class FirestoreClientBonRepository implements ClientBonRepository {
         .collection('loyalty_bons')
         .snapshots()
         .map((snap) => snap.docs
-            .map((d) => _fromDoc(d.id, d.data()))
+            .mapSkippingInvalid((d) => _fromDoc(d.id, d.data()))
             .where((b) => b != null)
             .cast<ClientBon>()
             .toList());

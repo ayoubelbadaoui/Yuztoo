@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -132,7 +133,10 @@ class FirestorePromotionRepository implements PromotionRepository {
           .get();
 
       final list = snapshot.docs
-          .map((d) => PromotionDto.fromFirestore(d, merchantId)?.toDomain())
+          .mapSkippingInvalid(
+            (d) => PromotionDto.fromFirestore(d, merchantId)?.toDomain(),
+            label: 'promotion',
+          )
           .whereType<Promotion>()
           .toList();
 

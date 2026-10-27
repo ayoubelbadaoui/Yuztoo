@@ -100,7 +100,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       child: Scaffold(
         backgroundColor: MerchantColors.bgMain,
         body: SafeArea(
-          child: ResponsiveScrollBody(
+          child: DefaultTextStyle.merge(
+            style: const TextStyle(decoration: TextDecoration.none),
+            child: ResponsiveScrollBody(
             horizontalPadding: 24,
             verticalPadding: 8,
             child: Column(
@@ -141,6 +143,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 ),
               ],
             ),
+          ),
           ),
         ),
       ),

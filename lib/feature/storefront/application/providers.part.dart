@@ -232,52 +232,13 @@ class BusinessHoursNotifier extends StateNotifier<BusinessHours> {
     );
   }
 
-  void updateDayHours(String dayName, List<TimeSlot> timeSlots) {
-    state = BusinessHours(
-      monday: state.monday.dayName == dayName
-          ? DayHours(
-              dayName: dayName,
-              isEnabled: state.monday.isEnabled,
-              timeSlots: timeSlots)
-          : state.monday,
-      tuesday: state.tuesday.dayName == dayName
-          ? DayHours(
-              dayName: dayName,
-              isEnabled: state.tuesday.isEnabled,
-              timeSlots: timeSlots)
-          : state.tuesday,
-      wednesday: state.wednesday.dayName == dayName
-          ? DayHours(
-              dayName: dayName,
-              isEnabled: state.wednesday.isEnabled,
-              timeSlots: timeSlots)
-          : state.wednesday,
-      thursday: state.thursday.dayName == dayName
-          ? DayHours(
-              dayName: dayName,
-              isEnabled: state.thursday.isEnabled,
-              timeSlots: timeSlots)
-          : state.thursday,
-      friday: state.friday.dayName == dayName
-          ? DayHours(
-              dayName: dayName,
-              isEnabled: state.friday.isEnabled,
-              timeSlots: timeSlots)
-          : state.friday,
-      saturday: state.saturday.dayName == dayName
-          ? DayHours(
-              dayName: dayName,
-              isEnabled: state.saturday.isEnabled,
-              timeSlots: timeSlots)
-          : state.saturday,
-      sunday: state.sunday.dayName == dayName
-          ? DayHours(
-              dayName: dayName,
-              isEnabled: state.sunday.isEnabled,
-              timeSlots: timeSlots)
-          : state.sunday,
-      hasExceptionalClosure: state.hasExceptionalClosure,
-    );
+  /// Saves [timeSlots] on [dayName] and every day listed in [alsoApplyTo].
+  void updateDayHours(
+    String dayName,
+    List<TimeSlot> timeSlots, {
+    Set<String> alsoApplyTo = const {},
+  }) {
+    state = state.withSlotsOnDays({dayName, ...alsoApplyTo}, timeSlots);
   }
 
   void toggleExceptionalClosure(bool enabled) {

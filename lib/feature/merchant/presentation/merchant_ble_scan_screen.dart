@@ -19,6 +19,7 @@ import '../../../core/infrastructure/ble_proximity_notifier.dart';
 import '../../../core/infrastructure/ble_proximity_service.dart';
 import '../../../core/infrastructure/logger_service.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../../core/shared/widgets/proximity_list_avatar.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../loyalty/application/active_validation_providers.dart';
@@ -823,7 +824,9 @@ class _MerchantBleScanScreenState extends ConsumerState<MerchantBleScanScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          const SizedBox(width: 44),
+          YBackButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(

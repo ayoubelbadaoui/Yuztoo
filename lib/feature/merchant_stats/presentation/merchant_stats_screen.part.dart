@@ -167,7 +167,7 @@ extension _MerchantStatsScreenUi on _MerchantStatsScreenState {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              YBackButton(onPressed: widget.onBack),
               const Expanded(
                 child: Center(
                   child: YuztooGradientTitle('Statistiques'),

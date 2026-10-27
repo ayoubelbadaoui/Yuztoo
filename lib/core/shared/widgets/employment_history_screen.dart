@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'back_button.dart';
+
 // ─── Data models ─────────────────────────────────────────────────────────────
 
 class PosteHistorique {
@@ -77,7 +79,12 @@ class _EmploymentHistoryScreenState extends State<EmploymentHistoryScreen> {
           slivers: [
             _buildAppBar(context),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                8,
+                20,
+                40 + MediaQuery.paddingOf(context).bottom,
+              ),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => _EmploiCard(
@@ -109,7 +116,15 @@ class _EmploymentHistoryScreenState extends State<EmploymentHistoryScreen> {
       stretch: true,
       backgroundColor: _Pal.navy,
       automaticallyImplyLeading: false,
-      leading: null,
+      leading: YBackButton(
+        onPressed: () {
+          if (widget.onBack != null) {
+            widget.onBack!();
+          } else {
+            Navigator.of(context).maybePop();
+          }
+        },
+      ),
       flexibleSpace: FlexibleSpaceBar(
         stretchModes: const [StretchMode.zoomBackground],
         background: Container(

@@ -27,9 +27,10 @@ part 'merchant_settings_screen.part.dart';
 ///  • [SettingsPreferencesSection] – account preferences items
 ///  • [SettingsServicesSection]    – service toggles (persisted to Firestore)
 class MerchantSettingsScreen extends ConsumerStatefulWidget {
-  const MerchantSettingsScreen({super.key, this.onNavigate});
+  const MerchantSettingsScreen({super.key, this.onNavigate, this.onBack});
 
   final ValueChanged<String>? onNavigate;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<MerchantSettingsScreen> createState() =>

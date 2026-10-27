@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/shared/widgets/cupertino_dob_picker.dart';
+import '../../../../core/shared/widgets/edge_swipe_back.dart';
 import '../../../../core/shared/widgets/time_slot_picker.dart';
 import '../../../../core/utils/cities.dart';
 import '../../../../core/utils/email_validator.dart';
@@ -176,7 +177,10 @@ class _MerchantOnboardingFlowScreenState
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) _handleSystemBack();
         },
-        child: Scaffold(
+        child: EdgeSwipeBack(
+          enabled: true,
+          onBack: _handleSystemBack,
+          child: Scaffold(
           backgroundColor: MerchantColors.bgMain,
           body: Column(
             children: [
@@ -298,6 +302,7 @@ class _MerchantOnboardingFlowScreenState
               _buildBottomBar(data),
             ],
           ),
+        ),
         ),
       ),
     );

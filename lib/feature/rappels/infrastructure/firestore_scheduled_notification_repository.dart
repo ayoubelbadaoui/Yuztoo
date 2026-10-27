@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import '../../../core/domain/core/either.dart';
 import '../../../core/domain/core/failure.dart';
@@ -29,7 +30,7 @@ class FirestoreScheduledNotificationRepository
         .orderBy('scheduled_at', descending: false)
         .snapshots()
         .map((snap) => snap.docs
-            .map((d) => _fromDoc(d.id, d.data()))
+            .mapSkippingInvalid((d) => _fromDoc(d.id, d.data()))
             .where((s) => s != null)
             .cast<ScheduledNotification>()
             .toList());

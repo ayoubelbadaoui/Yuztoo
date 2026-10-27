@@ -1,7 +1,7 @@
 name: flutter_yuztoo
 description: Flutter UI recreation of the High-Fidelity Yuztoo design.
 publish_to: "none"
-version: 1.0.5+47
+version: 1.0.6+51
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -34,7 +34,8 @@ dependencies:
   image_picker: ^1.0.7
   flutter_svg: ^2.0.10
   http: ^1.2.0
-  mobile_scanner: ^6.0.2
+  # 7.x drops Google ML Kit on iOS (Apple Vision) — required for arm64 iOS 26+ sims.
+  mobile_scanner: ^7.0.0
   qr_flutter: ^4.1.0
   gal: ^2.3.2
   # 1.5.1+ requires Dart ^3.10; keep 1.4.x for Dart 3.9 (Flutter 3.35.x).
@@ -67,6 +68,8 @@ dev_dependencies:
   mocktail: ^1.0.1
   fake_cloud_firestore: ^4.3.0
   flutter_launcher_icons: ^0.14.4
+  integration_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true

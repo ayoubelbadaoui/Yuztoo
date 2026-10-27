@@ -19,9 +19,9 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
               MobileScanner(
                 controller: _controller,
                 onDetect: _onDetect,
-                errorBuilder: (context, error, child) =>
+                errorBuilder: (context, error) =>
                     _buildCameraError(context, error),
-                placeholderBuilder: (context, child) =>
+                placeholderBuilder: (context) =>
                     _buildCameraPlaceholder(context),
               ),
             ] else
@@ -238,7 +238,7 @@ extension _QRScannerScreenUi on _QRScannerScreenState {
                 children: [
                   Row(
                 children: [
-                  const SizedBox(width: 44),
+                  YBackButton(onPressed: widget.onBack),
                   const SizedBox(width: 8),
                   Container(
                     width: 40,

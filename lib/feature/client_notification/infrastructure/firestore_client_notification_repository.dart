@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
@@ -32,10 +33,10 @@ class FirestoreClientNotificationRepository
         .limit(50)
         .snapshots()
         .map(
-          (snap) => snap.docs
-              .map((d) => ClientNotificationDto.fromFirestore(d, clientId)
-                  .toDomain())
-              .toList(),
+          (snap) => snap.docs.mapSkippingInvalid(
+                (d) => ClientNotificationDto.fromFirestore(d, clientId).toDomain(),
+                label: 'notification',
+              ),
         );
   }
 

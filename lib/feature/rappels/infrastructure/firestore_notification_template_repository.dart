@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/infrastructure/tolerant_mapping.dart';
 
 import '../../../core/domain/core/either.dart';
 import '../../../core/domain/core/failure.dart';
@@ -28,7 +29,7 @@ class FirestoreNotificationTemplateRepository
         .orderBy('updated_at', descending: true)
         .snapshots()
         .map((snap) => snap.docs
-            .map((d) => _fromDoc(d.id, d.data()))
+            .mapSkippingInvalid((d) => _fromDoc(d.id, d.data()))
             .where((t) => t != null)
             .cast<NotificationTemplate>()
             .toList());

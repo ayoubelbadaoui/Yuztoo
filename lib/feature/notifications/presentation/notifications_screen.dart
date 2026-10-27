@@ -26,10 +26,13 @@ part 'notifications_screen.part.dart';
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({
     super.key,
+    this.onBack,
     this.onMerchantTap,
     this.onPromotionTap,
     this.onBonTap,
   });
+
+  final VoidCallback? onBack;
 
   /// Called when a notification without a specific promotion is tapped.
   final void Function(String merchantId)? onMerchantTap;

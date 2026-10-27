@@ -179,6 +179,7 @@ extension _ClientProfileScreenUi on _ClientProfileScreenState {
   Widget _buildHeader(AppLocalizations l10n) {
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle(l10n.myProfile),
+      onBack: widget.onBack,
     );
   }
 

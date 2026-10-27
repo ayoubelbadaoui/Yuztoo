@@ -12,6 +12,7 @@ import '../../../../../core/domain/core/result.dart';
 import '../../../../../core/infrastructure/firestore_user_rules_patch.dart';
 import '../../../../../core/utils/city_input.dart';
 import '../../../../../core/infrastructure/logger_service.dart';
+import '../../../../../core/infrastructure/firestore_field_readers.dart';
 import '../../../../../types.dart';
 
 part 'firebase_user_repository.create.part.dart';

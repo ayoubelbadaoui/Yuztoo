@@ -256,6 +256,26 @@ class BusinessHours {
     return result;
   }
 
+  /// Applies [slots] to every day whose French [DayHours.dayName] is in
+  /// [dayNames] (e.g. `{'Lundi', 'Mardi'}`). Targeted days are opened.
+  BusinessHours withSlotsOnDays(Set<String> dayNames, List<TimeSlot> slots) {
+    if (dayNames.isEmpty) return this;
+    var result = this;
+    for (var i = 0; i < dayKeys.length; i++) {
+      final d = result.allDays[i];
+      if (!dayNames.contains(d.dayName)) continue;
+      result = result.withDay(
+        dayKeys[i],
+        DayHours(
+          dayName: d.dayName,
+          isEnabled: true,
+          timeSlots: slots,
+        ),
+      );
+    }
+    return result;
+  }
+
   static bool _sameSlots(List<TimeSlot> a, List<TimeSlot> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/infrastructure/firestore_field_readers.dart';
 
 import '../../domain/entities/promotion.dart';
 
@@ -62,19 +63,19 @@ class PromotionDto {
     return PromotionDto(
       id: doc.id,
       merchantId: merchantId,
-      title: data['title'] as String? ?? '',
-      subtitle: data['subtitle'] as String? ?? '',
+      title: fsString(data['title']) ?? '',
+      subtitle: fsString(data['subtitle']) ?? '',
       dateFrom: parseDate(data['date_from']),
       dateTo: parseDate(data['date_to']),
-      clientType: data['client_type'] as String? ?? 'gratuit',
+      clientType: fsString(data['client_type']) ?? 'gratuit',
       isOnline: data['is_online'] == true,
-      imageUrl: data['image_url'] as String?,
-      viewCount: (data['view_count'] as num?)?.toInt() ?? 0,
+      imageUrl: fsString(data['image_url']),
+      viewCount: fsNum(data['view_count'])?.toInt() ?? 0,
       targetSegments: parseSegments(data['target_segments']),
-      diffusionZone: data['diffusion_zone'] as String?,
-      targetScope: data['target_scope'] as String?,
-      targetZoneLabel: data['target_zone_label'] as String?,
-      estimatedReach: (data['estimated_reach'] as num?)?.toInt() ?? 0,
+      diffusionZone: fsString(data['diffusion_zone']),
+      targetScope: fsString(data['target_scope']),
+      targetZoneLabel: fsString(data['target_zone_label']),
+      estimatedReach: fsNum(data['estimated_reach'])?.toInt() ?? 0,
     );
   }
 

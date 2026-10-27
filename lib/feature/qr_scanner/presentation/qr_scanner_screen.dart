@@ -11,6 +11,7 @@ import '../../../core/debug/nfc_debug_flags.dart';
 import '../../../core/debug/nfc_debug_ui_helpers.dart';
 import '../../../core/infrastructure/nfc_service.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import 'widgets/nfc_debug_emulator_sheet.dart';
 
@@ -101,7 +102,9 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen>
     } catch (_) {
       // Already stopped / never started.
     }
-    await _controller.dispose();
+    try {
+      await _controller.dispose();
+    } catch (_) {}
   }
 
   Future<void> _startCamera() async {

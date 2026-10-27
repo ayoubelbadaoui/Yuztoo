@@ -108,4 +108,36 @@ void main() {
       expect(_display(BusinessHours.fromMap(h.toMap())), _display(h));
     });
   });
+
+  group('withSlotsOnDays', () {
+    test('applies slots to selected days and opens them', () {
+      final h = closedWeek.withSlotsOnDays(
+        {'Lundi', 'Mercredi', 'Vendredi'},
+        const [_morning, _afternoon],
+      );
+
+      expect(h.monday.timeSlots, const [_morning, _afternoon]);
+      expect(h.monday.isEnabled, isTrue);
+      expect(h.wednesday.timeSlots, const [_morning, _afternoon]);
+      expect(h.friday.timeSlots, const [_morning, _afternoon]);
+      expect(h.tuesday.isClosed, isTrue);
+      expect(h.saturday.isClosed, isTrue);
+    });
+
+    test('profile editor applies alsoApplyTo days', () {
+      final notifier = BusinessHoursNotifier(closedWeek)
+        ..toggleDay('Lundi', true)
+        ..updateDayHours(
+          'Lundi',
+          const [_morning],
+          alsoApplyTo: {'Mardi', 'Jeudi'},
+        );
+
+      expect(notifier.state.monday.timeSlots, const [_morning]);
+      expect(notifier.state.tuesday.timeSlots, const [_morning]);
+      expect(notifier.state.thursday.timeSlots, const [_morning]);
+      expect(notifier.state.wednesday.isClosed, isTrue);
+      notifier.dispose();
+    });
+  });
 }

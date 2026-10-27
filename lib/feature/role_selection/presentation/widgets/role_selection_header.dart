@@ -35,34 +35,47 @@ class RoleSelectionHeader extends StatelessWidget {
         SizedBox(height: (screenH * 0.03).clamp(12.0, 28.0)),
 
         // Tagline line 1 — white part
-        Text(
-          l10n?.allTheShops ?? 'Tous vos commerces préférés,',
-          style: GoogleFonts.outfit(
-            fontSize: 17,
-            color: RoleSelectionColors.textLight,
-            fontWeight: FontWeight.w400,
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            l10n?.allTheShops ?? 'Tous vos commerces préférés,',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 17,
+              color: RoleSelectionColors.textLight,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ),
         const SizedBox(height: 4),
 
         // Tagline line 2 — gold emphasis
-        Text(
-          l10n?.youreUsedTo ?? 'à portée de main.',
-          style: GoogleFonts.outfit(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: RoleSelectionColors.primaryGold,
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            l10n?.youreUsedTo ?? 'à portée de main.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: RoleSelectionColors.primaryGold,
+              decoration: TextDecoration.none,
+            ),
           ),
         ),
         const SizedBox(height: 20),
 
         // Role question
-        Text(
-          l10n?.welcomeQuestion ?? 'Bienvenue — vous êtes ?',
-          style: GoogleFonts.outfit(
-            fontSize: 15,
-            color: RoleSelectionColors.textLight.withValues(alpha: 0.7),
-            fontWeight: FontWeight.w400,
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            l10n?.welcomeQuestion ?? 'Bienvenue — vous êtes ?',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 15,
+              color: RoleSelectionColors.textLight.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ),
         const SizedBox(height: 14),

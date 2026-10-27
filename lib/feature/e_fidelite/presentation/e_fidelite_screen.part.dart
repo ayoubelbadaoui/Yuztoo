@@ -234,7 +234,10 @@ class _EFideliteHeader extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              if (onBack != null)
+                YBackButton(onPressed: onBack!)
+              else
+                const SizedBox(width: 44),
               const SizedBox(width: 4),
               const Expanded(
                 child: Align(

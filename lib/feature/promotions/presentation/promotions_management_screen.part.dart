@@ -171,6 +171,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
 
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Promotions'),
+      onBack: widget.onBack,
       titleTrailing: activeCount > 0
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

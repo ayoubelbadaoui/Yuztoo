@@ -40,7 +40,18 @@ class FirebaseStorageRepository implements StorageRepository {
       final ref = _storage.ref(storagePath);
       
       // Upload file
-      final uploadTask = ref.putFile(file);
+      // Storage rules require an image/* content type; some Android pickers
+      // and croppers hand back files the SDK cannot infer a type for.
+      final ext = filePath.split('.').last.toLowerCase();
+      final contentType = switch (ext) {
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'heic' || 'heif' => 'image/heic',
+        'gif' => 'image/gif',
+        _ => 'image/jpeg',
+      };
+      final uploadTask =
+          ref.putFile(file, SettableMetadata(contentType: contentType));
       
       // Wait for upload to complete
       final snapshot = await uploadTask;

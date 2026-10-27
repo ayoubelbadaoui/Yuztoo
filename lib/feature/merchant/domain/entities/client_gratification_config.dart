@@ -56,23 +56,27 @@ class ClientGratificationConfig extends Equatable {
       );
 
   /// Deserialise from a Firestore map (e.g. `merchants/{id}.gratification_config`).
-  factory ClientGratificationConfig.fromMap(Map<String, dynamic> map) =>
-      ClientGratificationConfig(
-        nouveauLabel: (map['nouveau_label'] as String?)?.trim().isNotEmpty == true
-            ? map['nouveau_label'] as String
-            : 'Nouveau',
-        habituelLabel:
-            (map['habituel_label'] as String?)?.trim().isNotEmpty == true
-                ? map['habituel_label'] as String
-                : 'Habitué',
-        vipLabel: (map['vip_label'] as String?)?.trim().isNotEmpty == true
-            ? map['vip_label'] as String
-            : 'VIP',
-        habituelThreshold: (map['habituel_threshold'] as num?)?.toInt() ?? 3,
-        vipThreshold: (map['vip_threshold'] as num?)?.toInt() ?? 10,
-        inactifAfterDays: (map['inactif_after_days'] as num?)?.toInt() ?? 60,
-        showTierToClient: (map['show_tier_to_client'] as bool?) ?? true,
-      );
+  factory ClientGratificationConfig.fromMap(Map<String, dynamic> map) {
+    String label(String key, String fallback) {
+      final v = map[key];
+      return v is String && v.trim().isNotEmpty ? v : fallback;
+    }
+
+    int count(String key, int fallback) {
+      final v = map[key];
+      return v is num && v.isFinite ? v.toInt() : fallback;
+    }
+
+    return ClientGratificationConfig(
+      nouveauLabel: label('nouveau_label', 'Nouveau'),
+      habituelLabel: label('habituel_label', 'Habitué'),
+      vipLabel: label('vip_label', 'VIP'),
+      habituelThreshold: count('habituel_threshold', 3),
+      vipThreshold: count('vip_threshold', 10),
+      inactifAfterDays: count('inactif_after_days', 60),
+      showTierToClient: map['show_tier_to_client'] != false,
+    );
+  }
 
   Map<String, dynamic> toMap() => {
         'nouveau_label': nouveauLabel,

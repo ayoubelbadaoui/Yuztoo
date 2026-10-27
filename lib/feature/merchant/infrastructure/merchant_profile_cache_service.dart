@@ -58,7 +58,12 @@ class MerchantProfileCacheService {
 
   /// Load merchant profile data from local cache
   Future<Map<String, String?>> loadProfile() async {
-    final prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {
+      return const <String, String?>{};
+    }
     return {
       'userId': prefs.getString(_keyUserId),
       'name': prefs.getString(_keyName),
@@ -77,9 +82,13 @@ class MerchantProfileCacheService {
 
   /// Check if cached profile exists for a user
   Future<bool> hasCachedProfile(String userId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final cachedUserId = prefs.getString(_keyUserId);
-    return cachedUserId == userId && prefs.getString(_keyEmail) != null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedUserId = prefs.getString(_keyUserId);
+      return cachedUserId == userId && prefs.getString(_keyEmail) != null;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Clear cached profile data

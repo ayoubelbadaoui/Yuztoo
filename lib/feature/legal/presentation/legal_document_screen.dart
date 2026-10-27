@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../domain/legal_document.dart';
 
 /// Reusable scrollable legal-text screen used for both CGU and Politique
@@ -104,7 +105,9 @@ class _Header extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const SizedBox(width: 44),
+              YBackButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
               Expanded(
                 child: Center(
                   child: Text(

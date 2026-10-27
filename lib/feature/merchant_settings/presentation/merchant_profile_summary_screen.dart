@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/domain/core/result.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/back_button.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/domain/entities/auth_user.dart';
 import '../../auth/core/application/state/auth_state.dart';

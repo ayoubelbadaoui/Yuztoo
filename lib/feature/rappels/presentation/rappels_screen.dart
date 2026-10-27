@@ -32,8 +32,9 @@ part 'rappels_screen.part.dart';
 /// Toggles are loaded from and saved to Firestore.
 class RappelsScreen extends ConsumerStatefulWidget {
   final void Function(String)? onNavigate;
+  final VoidCallback? onBack;
 
-  const RappelsScreen({super.key, this.onNavigate});
+  const RappelsScreen({super.key, this.onNavigate, this.onBack});
 
   @override
   ConsumerState<RappelsScreen> createState() => _RappelsScreenState();

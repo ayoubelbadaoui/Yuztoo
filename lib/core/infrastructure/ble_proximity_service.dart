@@ -6,6 +6,7 @@ import 'package:ble_peripheral/ble_peripheral.dart' as peripheral;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../config/vitrine_qr_config.dart';
 import 'logger_service.dart';
 import 'permission_request_queue.dart';
 
@@ -81,6 +82,10 @@ class BleProximityService {
 
   static void Function(String clientUid)? _merchantBeaconWriteHandler;
 
+  /// Any nearby device can write or advertise arbitrary bytes; only values
+  /// shaped like a Firebase uid / document id may reach Firestore paths.
+  static bool _isValidDocId(String id) => VitrineQrConfig.isValidMerchantId(id);
+
   // ─── Client (Peripheral) ───────────────────────────────────────────────────
 
   /// Android 12+ runtime permissions the `ble_peripheral` plugin needs:
@@ -108,14 +113,19 @@ class BleProximityService {
   }) async {
     if (!Platform.isAndroid) return true;
     final Map<Permission, PermissionStatus> statuses;
-    if (prompt) {
-      statuses = await PermissionRequestQueue.run(
-        _androidPeripheralPermissions.request,
-      );
-    } else {
-      statuses = {
-        for (final p in _androidPeripheralPermissions) p: await p.status,
-      };
+    try {
+      if (prompt) {
+        statuses = await PermissionRequestQueue.run(
+          _androidPeripheralPermissions.request,
+        );
+      } else {
+        statuses = {
+          for (final p in _androidPeripheralPermissions) p: await p.status,
+        };
+      }
+    } catch (e, st) {
+      _logPeripheralFailure('BLE $caller — permission request threw', e, st);
+      return false;
     }
     final granted = statuses.values.every((s) => s.isGranted);
     LoggerService.logInfo(
@@ -294,7 +304,7 @@ class BleProximityService {
             // touch Flutter widgets synchronously (iOS hard-crash risk).
             final trimmed = uid.trim();
             final handler = _merchantBeaconWriteHandler;
-            if (handler != null) {
+            if (handler != null && _isValidDocId(trimmed)) {
               Future<void>.microtask(() {
                 try {
                   handler(trimmed);
@@ -508,8 +518,19 @@ class BleProximityService {
   }
 
   static Future<MerchantPermissionStatus> _androidBluetoothStatus() async {
-    final scan = await Permission.bluetoothScan.status;
-    final connect = await Permission.bluetoothConnect.status;
+    final PermissionStatus scan;
+    final PermissionStatus connect;
+    try {
+      scan = await Permission.bluetoothScan.status;
+      connect = await Permission.bluetoothConnect.status;
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE merchantPermissionStatus (Android) — status read threw',
+        error: e,
+        stackTrace: st,
+      );
+      return MerchantPermissionStatus.denied;
+    }
     final MerchantPermissionStatus mapped;
     if (scan.isGranted && connect.isGranted) {
       mapped = MerchantPermissionStatus.granted;
@@ -601,12 +622,22 @@ class BleProximityService {
 
   static Future<bool> _androidRequestBluetooth() async {
     LoggerService.logInfo('BLE requestMerchantPermissions (Android) — start');
-    final statuses = await PermissionRequestQueue.run(
-      [
-        Permission.bluetoothScan,
-        Permission.bluetoothConnect,
-      ].request,
-    );
+    final Map<Permission, PermissionStatus> statuses;
+    try {
+      statuses = await PermissionRequestQueue.run(
+        [
+          Permission.bluetoothScan,
+          Permission.bluetoothConnect,
+        ].request,
+      );
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE requestMerchantPermissions (Android) — request threw',
+        error: e,
+        stackTrace: st,
+      );
+      return false;
+    }
     final granted = statuses.values.every((s) => s.isGranted);
     LoggerService.logInfo(
       'BLE requestMerchantPermissions (Android) — result',
@@ -637,7 +668,16 @@ class BleProximityService {
   static Stream<List<BluetoothDevice>> startMerchantScan() async* {
     final ok = await requestMerchantPermissions();
     if (!ok) return;
-    FlutterBluePlus.startScan(withServices: [Guid(serviceUuid)]);
+    try {
+      await FlutterBluePlus.startScan(withServices: [Guid(serviceUuid)]);
+    } catch (e, st) {
+      LoggerService.logError(
+        'BLE startMerchantScan — startScan threw',
+        error: e,
+        stackTrace: st,
+      );
+      return;
+    }
     final seen = <DeviceIdentifier>{};
     yield* FlutterBluePlus.scanResults.map((results) {
       final out = <BluetoothDevice>[];
@@ -687,7 +727,7 @@ class BleProximityService {
       final bytes = await merchantIdChar.read();
       await device.disconnect();
       final result = String.fromCharCodes(bytes).trim();
-      return result.isEmpty ? null : result;
+      return _isValidDocId(result) ? result : null;
     } catch (e, st) {
       LoggerService.logError(
         'BLE readMerchantIdFromBeacon — failed',
@@ -739,7 +779,8 @@ class BleProximityService {
       }
       final bytes = await char.read();
       await device.disconnect();
-      final result = String.fromCharCodes(bytes);
+      final result = String.fromCharCodes(bytes).trim();
+      if (!_isValidDocId(result)) return null;
       LoggerService.logInfo(
         'BLE readClientId — success',
         context: <String, Object?>{
