@@ -11,12 +11,21 @@ import HomePage from './site/home/HomePage.jsx'
 import { HOME_SEO } from './site/home/homeSeoData.js'
 import CommercantsPage from './site/commercants/CommercantsPage.jsx'
 import { COMMERCANTS_SEO } from './site/commercants/commercantsSeoData.js'
+import ClientsPage from './site/clients/ClientsPage.jsx'
+import { CLIENTS_SEO } from './site/clients/clientsSeoData.js'
+import CollectivitesPage from './site/collectivites/CollectivitesPage.jsx'
+import { COLLECTIVITES_SEO } from './site/collectivites/collectivitesSeoData.js'
+import AproposPage from './site/apropos/AproposPage.jsx'
+import { APROPOS_SEO } from './site/apropos/aproposSeoData.js'
 import NotFoundPage from './site/NotFoundPage.jsx'
 import { NOT_FOUND_SEO } from './site/notFoundSeoData.js'
 
 const PAGES = {
   '/': { Component: HomePage, seo: HOME_SEO },
   '/pour-commercants': { Component: CommercantsPage, seo: COMMERCANTS_SEO },
+  '/pour-clients': { Component: ClientsPage, seo: CLIENTS_SEO },
+  '/pour-collectivites': { Component: CollectivitesPage, seo: COLLECTIVITES_SEO },
+  '/a-propos': { Component: AproposPage, seo: APROPOS_SEO },
   '/404': { Component: NotFoundPage, seo: NOT_FOUND_SEO },
 }
 

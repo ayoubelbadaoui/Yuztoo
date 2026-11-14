@@ -1,4 +1,5 @@
 import { Check, Gift } from 'lucide-react'
+import CheckColumns from '../../components/CheckColumns.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { PRO_LOYALTY } from '../commercantsContent.js'
 
@@ -45,26 +46,7 @@ export default function ProLoyalty() {
           <StampCard card={PRO_LOYALTY.card} />
         </div>
 
-        <div className="yz-grid yz-loyalty__cols">
-          {PRO_LOYALTY.columns.map((column, i) => (
-            <div key={column.id} className="yz-cell yz-loyalty__col">
-              <h3 className="yz-loyalty__col-title">
-                <span className="yz-mono" aria-hidden="true">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                {column.title}
-              </h3>
-              <ul>
-                {column.items.map((item) => (
-                  <li key={item}>
-                    <Check size={15} strokeWidth={3} aria-hidden="true" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        <CheckColumns columns={PRO_LOYALTY.columns} />
 
         <p className="yz-loyalty__punch">
           <span className="yz-accent">{PRO_LOYALTY.punchline}</span>

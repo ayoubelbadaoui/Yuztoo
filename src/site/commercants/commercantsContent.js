@@ -10,10 +10,7 @@
 import { CONTACT, NETWORK } from '../../siteConfig.js'
 
 export const PRO_HERO = {
-  crumbs: [
-    { href: '/', label: 'Accueil' },
-    { label: 'Commerçants' },
-  ],
+  crumb: 'Commerçants',
   badge: 'Espace commerçants · Gratuit',
   titleLead: 'Vos clients,',
   titleAccent: 'dans votre poche.',

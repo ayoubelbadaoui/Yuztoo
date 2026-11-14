@@ -22,6 +22,27 @@ export const ROUTE_META = [
     priority: '0.9',
   },
   {
+    path: '/pour-clients',
+    indexable: true,
+    lastmod: '2026-11-14',
+    changefreq: 'monthly',
+    priority: '0.8',
+  },
+  {
+    path: '/pour-collectivites',
+    indexable: true,
+    lastmod: '2026-11-14',
+    changefreq: 'monthly',
+    priority: '0.8',
+  },
+  {
+    path: '/a-propos',
+    indexable: true,
+    lastmod: '2026-11-14',
+    changefreq: 'yearly',
+    priority: '0.6',
+  },
+  {
     path: '/404',
     indexable: false,
   },

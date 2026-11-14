@@ -144,10 +144,11 @@ INP < 200 ms on mobile.
   (and the three other renamed URLs) is not written anywhere. It must ship with the first hosting
   config, together with `cleanUrls: true` and `trailingSlash: false` (`vite preview` falls back to
   the homepage HTML for `/pour-commercants` without the slash; Firebase will not).
-- `/pour-commercants` has no lead form yet: the « Démarrer » section offers `mailto:` and `tel:`
-  only. The form needs the §11 Cloud Function (allowlist, honeypot, consent) and a dual-env deploy.
-- The header nav still links to unbuilt `/pour-clients`, `/pour-collectivites` and `/a-propos`
-  (404 until built). The footer already hides them.
+- No page has a lead form yet: the closing band of `/pour-commercants`, `/pour-clients`,
+  `/pour-collectivites` and `/a-propos` offers `mailto:` and `tel:` only. Forms need the §11 Cloud
+  Function (allowlist, honeypot, consent) and a dual-env deploy.
+- The `/pour-collectivites` hero shows an illustrative report (labelled « Aperçu illustratif »).
+  Replace it with real, anonymised municipal figures once the Belfort pilot publishes them.
 - The pages currently served from the app repo (`index.html`, `aide.html`, `cgu.html`,
   `confidentialite.html`, `supprimer-compte.html`, `telecharger-ios.html`,
   `telecharger-android.html`, `vitrine.html`, `invite.html`) are hand-written HTML with no
@@ -178,6 +179,9 @@ Carried over from the live-site audit ([`docs/website-audit-2026-11.md`](../webs
 |-----|---------|-----------------|----------|---------|-------------|
 | `/` | Homepage — économie des plateformes, fonctionnement, preuve, trois publics | fidéliser clients commerce local sans commission | `src/site/home/homeSeoData.js` | ✅ | ✅ |
 | `/pour-commercants` | Offre commerçants — constat, impact, mise en place, clients, fidélité, outils, FAQ (replaces `/espace-commercant/`) | fidélisation client commerce gratuit | `src/site/commercants/commercantsSeoData.js` (WebPage, BreadcrumbList, FAQPage) | ✅ | ✅ |
+| `/pour-clients` | Offre habitants — pourquoi, carnet, infos & fidélité, recommandation, données, FAQ (replaces `/espace-client/`) | application commerces de proximité | `src/site/clients/clientsSeoData.js` (WebPage, BreadcrumbList, FAQPage) | ✅ | ✅ |
+| `/pour-collectivites` | Offre collectivités — constat, impact, réponse souveraine, promesse, bénéfices, FAQ (replaces `/espace-collectivites/`) | commerce local collectivité territoire | `src/site/collectivites/collectivitesSeoData.js` (WebPage, BreadcrumbList, FAQPage) | ✅ | ✅ |
+| `/a-propos` | Mission, vision, fondateur, ambition (replaces `/a-propos-de-nous/`) | yuztoo belfort fondateur | `src/site/apropos/aproposSeoData.js` (WebPage, BreadcrumbList, Person) | ✅ | ✅ |
 | `/404` | Page introuvable (noindex) | — | `src/site/notFoundSeoData.js` | ❌ | ✅ |
 
 Planned first wave, with the live URL each one replaces — see
@@ -191,6 +195,13 @@ Planned first wave, with the live URL each one replaces — see
 The four renamed URLs are the only ones with history. Their 301s ship with the first deploy.
 
 ## 10. Changelog (newest first)
+
+- **2026-11-14** — `/pour-clients`, `/pour-collectivites` and `/a-propos` shipped (5 indexable
+  pages). Each has one `h1`, a visible breadcrumb, `WebPage` + `BreadcrumbList` JSON-LD from the
+  shared `src/seo/buildPageSeo.js`, `FAQPage` on the two audience pages and a `Person` node for the
+  founder on `/a-propos`. Copy taken from the live `/espace-client/`, `/espace-collectivites/` and
+  `/a-propos-de-nous/`; local images with French `alt`. Header nav links are no longer dead. Gate
+  passing on 5 pages; layout checked from 320 to 1440 px.
 
 - **2026-11-14** — `/pour-commercants` shipped (second indexable page): one `h1`, visible
   breadcrumb, `BreadcrumbList` + `FAQPage` + `WebPage` JSON-LD, copy and figures taken from the live

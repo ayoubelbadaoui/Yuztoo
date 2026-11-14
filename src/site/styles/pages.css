@@ -1,0 +1,580 @@
+/* Clients, collectivités and à propos: pieces not already in commercants-*.css. */
+
+/* Inner-page accents are full phrases; nowrap would blow the grid track out on mobile. */
+.yz-prohero .yz-hero__title .yz-accent {
+  white-space: normal;
+}
+
+.yz-prohero .yz-hero__inner > * {
+  min-width: 0;
+}
+
+/* ---------- grid variants ---------- */
+
+.yz-tools__grid--2,
+.yz-loyalty__cols--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.yz-tools__grid--4,
+.yz-loyalty__cols--4,
+.yz-pains__grid--4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.yz-loyalty__note {
+  margin-top: 16px;
+  padding-top: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  border-top: 1px dashed var(--border-str);
+}
+
+.yz-pains__chips--lead {
+  margin: -16px 0 32px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* ---------- carnet (light phone screen) ---------- */
+
+.yz-phone__screen--light {
+  color: var(--navy-header);
+  background: var(--paper);
+}
+
+.yz-phone__screen--light .yz-phone__status {
+  color: var(--navy-header);
+}
+
+.yz-phone__screen--light .yz-phone__bars {
+  border-color: var(--navy-header);
+  box-shadow: inset -8px 0 0 var(--navy-header);
+}
+
+.yz-carnet {
+  padding: 22px 4px 0;
+}
+
+.yz-carnet__title {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.yz-carnet__label {
+  margin: 2px 0 14px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+.yz-carnet__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.yz-carnet__shop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  animation: yz-rise 0.6s var(--ease-out) both;
+  animation-delay: calc(0.2s + var(--i) * 0.1s);
+}
+
+.yz-carnet__avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--gold-on-dark);
+  background: var(--navy-header);
+  border-radius: 10px;
+}
+
+.yz-carnet__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.yz-carnet__body strong {
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--navy-header);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yz-carnet__bar {
+  height: 4px;
+  margin-top: 5px;
+  overflow: hidden;
+  background: var(--sand-soft);
+  border-radius: 999px;
+}
+
+.yz-carnet__bar span {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+
+.yz-carnet__count {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes yz-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* ---------- duo cells, checklist, chat ---------- */
+
+.yz-duo {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.yz-duo__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 34px 32px;
+}
+
+.yz-duo__title {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.yz-duo__text {
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--text-mut);
+}
+
+.yz-duo__notifs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.yz-duo__punch {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  border-top: 1px solid var(--border);
+}
+
+.yz-notif--flat {
+  background: var(--paper-alt);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.yz-checklist li {
+  display: flex;
+  gap: 10px;
+  padding-block: 5px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-mut);
+}
+
+.yz-checklist svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: var(--gold-deep);
+}
+
+.yz-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  background: var(--paper-alt);
+  border: 1px solid var(--border);
+}
+
+.yz-chat__label {
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+.yz-chat__bubble {
+  max-width: 82%;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  border-radius: 16px;
+}
+
+.yz-chat__bubble--client {
+  align-self: flex-end;
+  color: #fff;
+  background: var(--navy-main);
+  border-bottom-right-radius: 4px;
+}
+
+.yz-chat__bubble--shop {
+  align-self: flex-start;
+  color: var(--navy-header);
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+/* ---------- report mock (collectivités hero) ---------- */
+
+.yz-prohero__stage--board {
+  padding: 32px;
+}
+
+.yz-report {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border-str);
+  border-radius: 14px;
+  box-shadow: 0 34px 60px -38px rgba(11, 22, 44, 0.5);
+}
+
+.yz-report__kpis {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.yz-report__kpis li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.yz-report__kpis li:nth-child(odd) {
+  border-right: 1px solid var(--border);
+}
+
+.yz-report__kpis svg {
+  flex-shrink: 0;
+  color: var(--gold-deep);
+}
+
+.yz-report__trend {
+  width: 0;
+  height: 0;
+  margin-left: auto;
+  border: 5px solid transparent;
+  border-bottom: 7px solid var(--gold);
+  transform: translateY(-3px);
+}
+
+.yz-report__chart {
+  padding: 16px 18px 20px;
+}
+
+.yz-report__chart-label {
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+.yz-report__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 120px;
+  margin-top: 12px;
+}
+
+.yz-report__bars span {
+  flex: 1;
+  background: var(--navy-main);
+  border-radius: 4px 4px 0 0;
+  transform-origin: bottom;
+  animation: yz-grow 0.8s var(--ease-out) both;
+  animation-delay: calc(0.2s + var(--i) * 0.06s);
+}
+
+.yz-report__bars span:last-child {
+  background: var(--gold);
+}
+
+@keyframes yz-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* ---------- answer (numbered list + highlight) ---------- */
+
+.yz-answer__layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: start;
+}
+
+.yz-answer__highlight {
+  padding-left: 18px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text);
+  border-left: 3px solid var(--gold);
+}
+
+.yz-answer__list {
+  border-top: 1px solid var(--border-str);
+}
+
+.yz-answer__list li {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.yz-answer__list .yz-mono {
+  font-size: 12px;
+  color: var(--gold-deep);
+}
+
+.yz-answer__list svg {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--gold-deep);
+}
+
+.yz-answer .yz-setup__quote {
+  margin-top: 28px;
+}
+
+/* ---------- à propos ---------- */
+
+.yz-prohero__stage--photo {
+  padding: 0;
+  background: var(--sand-soft);
+}
+
+.yz-prohero__stage--photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+}
+
+.yz-mission__body p {
+  margin-bottom: 18px;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--text-mut);
+}
+
+.yz-mission__quote {
+  margin-top: 28px;
+  padding: 28px 30px;
+  color: #fff;
+  background: var(--navy-header);
+}
+
+.yz-mission__quote p {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #fff;
+}
+
+.yz-vision__title {
+  display: flex;
+  flex-direction: column;
+  margin-top: 18px;
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-weight: 700;
+  color: var(--text-mut);
+}
+
+.yz-vision__word {
+  font-size: clamp(44px, 7vw, 96px);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  color: var(--text);
+}
+
+.yz-vision__word:last-child {
+  color: var(--gold-deep);
+}
+
+.yz-vision__where {
+  margin-top: 64px;
+}
+
+.yz-vision__where h3 {
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.yz-vision__grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.yz-vision__grid li {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.yz-vision__grid .yz-mono {
+  font-size: 12px;
+  color: var(--gold-deep);
+}
+
+.yz-bio__layout {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: 72px;
+  align-items: center;
+}
+
+.yz-bio__media {
+  position: relative;
+  margin: 0;
+}
+
+.yz-bio__media img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  object-position: center 20%;
+}
+
+.yz-bio__text p {
+  margin-top: 16px;
+  font-size: 16.5px;
+  line-height: 1.7;
+  color: var(--text-mut);
+}
+
+.yz-bio .yz-setup__quote {
+  margin-top: 28px;
+}
+
+.yz-bio__facts {
+  display: flex;
+  gap: 48px;
+  margin-top: 28px;
+}
+
+.yz-bio__facts dt {
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+.yz-bio__facts dd {
+  margin: 4px 0 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1024px) {
+  .yz-tools__grid--4,
+  .yz-loyalty__cols--4,
+  .yz-pains__grid--4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .yz-duo,
+  .yz-vision__grid,
+  .yz-loyalty__cols--2 {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-answer__layout,
+  .yz-bio__layout {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  .yz-bio__media {
+    max-width: 440px;
+  }
+}
+
+@media (max-width: 640px) {
+  .yz-tools__grid--2,
+  .yz-tools__grid--4,
+  .yz-loyalty__cols--4,
+  .yz-pains__grid--4,
+  .yz-report__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-report__kpis li:nth-child(odd) {
+    border-right: 0;
+  }
+
+  .yz-prohero__stage--board {
+    aspect-ratio: auto;
+    padding: 20px 14px;
+  }
+
+  .yz-duo__cell {
+    padding: 26px 20px;
+  }
+
+  .yz-bio__facts {
+    gap: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yz-carnet__shop,
+  .yz-report__bars span {
+    animation: none;
+  }
+}

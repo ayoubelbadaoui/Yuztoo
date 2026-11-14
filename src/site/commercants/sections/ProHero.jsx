@@ -1,26 +1,8 @@
-import { ArrowDown, ArrowRight, Check, ChevronRight, Store } from 'lucide-react'
+import { ArrowDown, ArrowRight, Check, Store } from 'lucide-react'
+import Breadcrumb from '../../components/Breadcrumb.jsx'
 import NfcIcon from '../../components/NfcIcon.jsx'
 import SiteAmbient from '../../components/SiteAmbient.jsx'
 import { PRO_HERO } from '../commercantsContent.js'
-
-function Breadcrumb({ crumbs }) {
-  return (
-    <nav className="yz-crumbs yz-mono" aria-label="Fil d’Ariane">
-      <ol>
-        {crumbs.map((crumb, i) => (
-          <li key={crumb.label}>
-            {i > 0 ? <ChevronRight size={12} strokeWidth={2.4} aria-hidden="true" /> : null}
-            {crumb.href ? (
-              <a href={crumb.href}>{crumb.label}</a>
-            ) : (
-              <span aria-current="page">{crumb.label}</span>
-            )}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  )
-}
 
 function PhoneMock({ phone }) {
   return (
@@ -66,7 +48,7 @@ export default function ProHero() {
 
       <div className="yz-hero__inner">
         <div className="yz-hero__copy">
-          <Breadcrumb crumbs={PRO_HERO.crumbs} />
+          <Breadcrumb current={PRO_HERO.crumb} />
 
           <p className="yz-badge">
             <Store size={14} strokeWidth={2.4} aria-hidden="true" />

@@ -12,6 +12,7 @@ import {
   Wallet,
   Wrench,
 } from 'lucide-react'
+import IconGrid from '../../components/IconGrid.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { PRO_TOOLS } from '../commercantsContent.js'
 
@@ -44,25 +45,7 @@ export default function ProTools() {
           titleId="yz-tools-title"
         />
 
-        <ul className="yz-grid yz-tools__grid">
-          {PRO_TOOLS.features.map((feature, i) => {
-            const Icon = FEATURE_ICONS[feature.icon]
-            return (
-              <li
-                key={feature.id}
-                className="yz-cell yz-tools__item"
-                data-reveal
-                style={{ '--d': `${(i % 3) * 0.08}s` }}
-              >
-                <span className="yz-tile" aria-hidden="true">
-                  <Icon size={20} strokeWidth={2.1} />
-                </span>
-                <h3 className="yz-tools__title">{feature.title}</h3>
-                <p className="yz-tools__text">{feature.text}</p>
-              </li>
-            )
-          })}
-        </ul>
+        <IconGrid items={PRO_TOOLS.features} icons={FEATURE_ICONS} />
 
         <div className="yz-trades">
           <h3 className="yz-trades__title yz-mono">{PRO_TOOLS.tradesTitle}</h3>

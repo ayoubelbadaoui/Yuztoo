@@ -347,6 +347,27 @@
   .yz-logo__word {
     font-size: 21px;
   }
+
+  .yz-board__table td,
+  .yz-board__table th {
+    padding-inline: 8px;
+  }
+
+  .yz-board__table tbody th {
+    gap: 8px;
+  }
+
+  .yz-board__status {
+    padding-inline: 8px;
+    font-size: 11px;
+    white-space: normal;
+  }
+
+  .yz-btn {
+    padding-inline: 18px;
+    white-space: normal;
+    text-align: center;
+  }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {

@@ -1,20 +1,14 @@
 import { Plus } from 'lucide-react'
-import SectionHead from '../../components/SectionHead.jsx'
-import { PRO_FAQ } from '../commercantsContent.js'
+import SectionHead from './SectionHead.jsx'
 
-export default function ProFaq() {
+export default function FaqSection({ faq, id = 'faq' }) {
   return (
-    <section className="yz-section yz-light yz-faq" aria-labelledby="yz-faq-title">
+    <section className="yz-section yz-light yz-faq" aria-labelledby={`${id}-title`}>
       <div className="yz-container yz-faq__layout">
-        <SectionHead
-          index={PRO_FAQ.index}
-          eyebrow={PRO_FAQ.eyebrow}
-          title={PRO_FAQ.title}
-          titleId="yz-faq-title"
-        />
+        <SectionHead index={faq.index} eyebrow={faq.eyebrow} title={faq.title} titleId={`${id}-title`} />
 
         <div className="yz-faq__list">
-          {PRO_FAQ.items.map((item, i) => (
+          {faq.items.map((item, i) => (
             <details key={item.id} className="yz-faq__item" open={i === 0}>
               <summary>
                 <span className="yz-faq__num yz-mono" aria-hidden="true">
