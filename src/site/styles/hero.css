@@ -1,0 +1,273 @@
+/* ═══════════ HERO — structural, no spotlight ═══════════ */
+
+.yz-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 88px 0 104px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.yz-hero__inner {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  gap: 72px;
+  align-items: center;
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* ---------- copy ---------- */
+
+.yz-hero__title {
+  margin: 24px 0 26px;
+  font-size: clamp(40px, 4.5vw, 62px);
+  font-weight: 900;
+  letter-spacing: -0.047em;
+  line-height: 1.02;
+  color: var(--text);
+}
+
+.yz-hero__title .yz-accent {
+  white-space: nowrap;
+}
+
+.yz-hero__title-end {
+  color: var(--text-dim);
+}
+
+.yz-hero__lead {
+  max-width: 54ch;
+  padding-left: 18px;
+  font-size: clamp(16px, 1.5vw, 17.5px);
+  line-height: 1.72;
+  color: var(--text-mut);
+  border-left: 2px solid var(--border-str);
+}
+
+.yz-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 28px;
+  margin-top: 36px;
+}
+
+/* Proof figures in a hard-ruled row. */
+.yz-hero__proof {
+  display: flex;
+  margin-top: 64px;
+  border-top: 1px solid var(--border);
+}
+
+.yz-hero__stat {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+  margin-right: 30px;
+  padding: 22px 30px 0 0;
+  border-right: 1px solid var(--border);
+}
+
+.yz-hero__stat:last-child {
+  margin-right: 0;
+  padding-right: 0;
+  border-right: 0;
+}
+
+.yz-hero__stat-val {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.yz-hero__stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.yz-hero__stat-label svg {
+  color: var(--gold-ink);
+}
+
+/* ---------- visual: the view through the scanner ---------- */
+
+.yz-hero__visual {
+  position: relative;
+}
+
+.yz-hero__frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 4.4;
+  background: var(--sand);
+  border: 1px solid var(--border-str);
+}
+
+.yz-hero__dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(11, 31, 51, 0.11) 1.3px, transparent 1.4px);
+  background-size: 22px 22px;
+}
+
+.yz-hero__mascot {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  z-index: 1;
+  width: auto;
+  height: 86%;
+  transform: translateX(-50%);
+}
+
+/* A thin mechanical sweep — a scan line, not a light. */
+/* Full-height carrier so translateY percentages track the frame height. */
+.yz-hero__beam {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  animation: yz-scan 4.2s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate;
+}
+
+.yz-hero__beam::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: linear-gradient(180deg, transparent, rgba(212, 175, 55, 0.24));
+  border-bottom: 2px solid var(--gold);
+}
+
+@keyframes yz-scan {
+  from {
+    transform: translateY(2%);
+  }
+
+  to {
+    transform: translateY(84%);
+  }
+}
+
+.yz-hero__scan {
+  position: absolute;
+  top: 20px;
+  left: 52px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--navy-header);
+}
+
+.yz-hero__scan-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--navy-header);
+  animation: yz-blink 1.2s steps(2, jump-none) infinite;
+}
+
+@keyframes yz-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Credential plates — anchored and opaque, no float, no blur. */
+.yz-hero__plate {
+  position: absolute;
+  z-index: 6;
+}
+
+.yz-hero__plate--commission {
+  top: 22px;
+  right: -1px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+  color: #fff;
+  background: var(--navy-header);
+}
+
+.yz-hero__plate--commission strong {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--gold-on-dark);
+}
+
+.yz-hero__plate--commission .yz-mono {
+  color: rgba(241, 245, 249, 0.78);
+}
+
+.yz-hero__plate--nfc {
+  bottom: 36px;
+  left: -32px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-str);
+  border-left: 3px solid var(--gold);
+  box-shadow: 0 18px 40px -22px rgba(11, 31, 51, 0.45);
+}
+
+.yz-hero__nfc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  color: var(--gold-on-dark);
+  background: var(--navy-header);
+}
+
+.yz-hero__plate-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.yz-hero__plate-text .yz-mono {
+  color: var(--gold-ink);
+}
+
+.yz-hero__plate-text strong {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.yz-hero__plate-text span:last-child {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yz-hero__beam,
+  .yz-hero__scan-dot {
+    animation: none;
+  }
+}

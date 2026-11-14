@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Private and tokenized surfaces — also noindex in the page itself.
+Disallow: /invite
+Disallow: /supprimer-compte
+
+Sitemap: https://www.yuztoo.com/sitemap.xml

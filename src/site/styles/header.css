@@ -1,0 +1,430 @@
+/* ═══════════ HEADER ═══════════
+   The utility strip is a sibling above the sticky header, not inside it:
+   collapsing a strip inside position:sticky changes its height near the
+   threshold and the header shakes. The bar itself never resizes; condensing
+   only restyles its ::before plate. */
+
+/* ---------- utility strip ---------- */
+
+.yz-utility {
+  position: relative;
+  z-index: 801;
+  height: var(--util-h);
+  background: var(--navy-header);
+}
+
+.yz-utility__inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: var(--container);
+  height: var(--util-h);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(241, 245, 249, 0.66);
+}
+
+.yz-utility__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: color 0.18s ease;
+}
+
+a.yz-utility__item:hover {
+  color: #fff;
+}
+
+.yz-utility__item svg {
+  color: var(--gold-on-dark);
+}
+
+.yz-utility__sep {
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.yz-utility__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: auto;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(241, 245, 249, 0.8);
+}
+
+/* A live network indicator: square, not a glowing orb. */
+.yz-utility__pulse {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  background: var(--gold);
+}
+
+.yz-utility__pulse::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 1px solid var(--gold);
+  animation: yz-pulse 2.4s ease-out infinite;
+}
+
+@keyframes yz-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.6);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* ---------- sticky bar ---------- */
+
+.yz-header {
+  position: sticky;
+  top: 0;
+  z-index: 800;
+}
+
+.yz-bar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  max-width: var(--container);
+  height: var(--bar-h);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.yz-bar::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--paper) 84%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid var(--border);
+  transition: width 0.28s ease, top 0.28s ease, bottom 0.28s ease,
+    border-radius 0.28s ease, box-shadow 0.28s ease;
+}
+
+/* Visual-only float: the bar box stays 72px so scroll never jumps. */
+.yz-header.is-condensed .yz-bar::before {
+  top: 8px;
+  bottom: 8px;
+  width: min(calc(100vw - 24px), 1264px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px -14px rgba(11, 31, 51, 0.32);
+}
+
+.yz-header.is-menu-open .yz-bar::before {
+  top: 0;
+  bottom: 0;
+  width: 100vw;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--paper);
+}
+
+/* ---------- logo ---------- */
+
+.yz-logo {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.yz-logo img {
+  width: auto;
+  height: 40px;
+}
+
+.yz-logo__word {
+  font-size: 23px;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  color: var(--navy-header);
+}
+
+.yz-logo__word span {
+  color: var(--gold-ink);
+}
+
+/* ---------- nav: sentence-case pills ---------- */
+
+.yz-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 auto;
+}
+
+.yz-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 14px;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--text-mut);
+  border-radius: 999px;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.yz-nav__link:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.yz-nav__link.is-active {
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.yz-nav__link.is-active::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+/* ---------- actions ---------- */
+
+.yz-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.yz-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 6px 0 20px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: #fff;
+  background: var(--navy-header);
+  border-radius: 999px;
+  box-shadow: 0 8px 20px -10px rgba(11, 31, 51, 0.6);
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.yz-cta:hover {
+  background: var(--navy-main);
+  transform: translateY(-1px);
+}
+
+.yz-cta__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--navy-deep);
+  background: var(--gold);
+  transition: transform 0.2s ease;
+}
+
+.yz-cta:hover .yz-cta__arrow {
+  transform: rotate(45deg);
+}
+
+.yz-cta--block {
+  justify-content: space-between;
+  width: 100%;
+  height: 56px;
+  padding: 0 8px 0 24px;
+  font-size: 16px;
+}
+
+.yz-cta--block .yz-cta__arrow {
+  width: 40px;
+  height: 40px;
+}
+
+.yz-burger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+/* ---------- mobile drawer ---------- */
+
+.yz-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: calc(var(--bar-h) + 24px) var(--gutter) 40px;
+  overflow-y: auto;
+  background: var(--paper);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s;
+}
+
+.yz-drawer.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.yz-drawer > * {
+  flex-shrink: 0;
+}
+
+.yz-drawer__nav {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.yz-drawer__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 60px;
+  padding: 0 4px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: color 0.18s ease, opacity 0.3s ease, transform 0.3s ease;
+  transition-delay: 0s, calc(var(--i, 0) * 35ms), calc(var(--i, 0) * 35ms);
+}
+
+.yz-drawer.is-open .yz-drawer__link {
+  opacity: 1;
+  transform: none;
+}
+
+.yz-drawer__link span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.yz-drawer__idx {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.yz-drawer__link svg {
+  color: var(--text-dim);
+}
+
+.yz-drawer__link.is-active {
+  color: var(--gold-ink);
+}
+
+.yz-drawer__link.is-active svg {
+  color: var(--gold-ink);
+}
+
+.yz-drawer__quick {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.yz-drawer__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-ctl);
+}
+
+.yz-drawer__chip svg {
+  color: var(--gold-ink);
+}
+
+.yz-drawer__meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.yz-drawer__meta svg {
+  color: var(--gold-ink);
+}
+
+@media (min-width: 901px) {
+  .yz-drawer {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yz-bar::before,
+  .yz-drawer__link,
+  .yz-cta,
+  .yz-cta__arrow {
+    transition: none;
+  }
+
+  .yz-utility__pulse::after {
+    animation: none;
+  }
+}

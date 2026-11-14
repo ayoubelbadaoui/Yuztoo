@@ -1,0 +1,34 @@
+/**
+ * The route table — joins the pure metadata in routeMeta.js to page components
+ * and SEO data. Used by the router, the prerenderer and the SEO gate.
+ *
+ * A page that is not in routeMeta.js is not prerendered and fails the SEO gate.
+ * See docs/holy-books/DDD_HOLY_BOOK.md §5.
+ */
+
+import { ROUTE_META } from './routeMeta.js'
+import HomePage from './site/home/HomePage.jsx'
+import { HOME_SEO } from './site/home/homeSeoData.js'
+import NotFoundPage from './site/NotFoundPage.jsx'
+import { NOT_FOUND_SEO } from './site/notFoundSeoData.js'
+
+const PAGES = {
+  '/': { Component: HomePage, seo: HOME_SEO },
+  '/404': { Component: NotFoundPage, seo: NOT_FOUND_SEO },
+}
+
+export const ROUTES = ROUTE_META.map((meta) => {
+  const page = PAGES[meta.path]
+  if (!page) throw new Error(`No page registered for route ${meta.path}`)
+  return { ...meta, ...page }
+})
+
+export const INDEXABLE_ROUTES = ROUTES.filter((route) => route.indexable)
+
+export function findRoute(pathname) {
+  const clean =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname
+  return ROUTES.find((route) => route.path === clean) ?? null
+}

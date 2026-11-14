@@ -1,0 +1,434 @@
+/* ═══════════ 01 · PROBLEM — the receipt ═══════════ */
+
+.yz-pizza__grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 80px;
+  align-items: center;
+}
+
+.yz-pizza .yz-head {
+  margin-bottom: 44px;
+}
+
+.yz-pizza__facts {
+  border-top: 1px solid var(--border);
+}
+
+.yz-pizza__facts > div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 24px;
+  align-items: baseline;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.yz-pizza__facts dt {
+  order: 2;
+  font-size: 15px;
+  color: var(--text-mut);
+}
+
+.yz-pizza__facts dd {
+  order: 1;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.yz-pizza__punch {
+  margin-top: 40px;
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+/* Thermal paper on navy: mono, dashed rules, perforated edges. */
+.yz-receipt {
+  position: relative;
+  justify-self: center;
+  width: min(100%, 420px);
+  transform: rotate(-1.4deg);
+  filter: drop-shadow(0 30px 34px rgba(0, 0, 0, 0.42));
+}
+
+.yz-receipt__paper {
+  --paper-ink: #1b2433;
+  --paper-dim: #5b6372;
+  position: relative;
+  padding: 34px 30px 30px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--paper-ink);
+  background: #fbf8f2;
+  /* Zigzag tear on top and bottom edges. */
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 16px 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / 16px 51% repeat-x;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 16px 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / 16px 51% repeat-x;
+}
+
+.yz-receipt__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  border-bottom: 1px dashed #b9b2a4;
+}
+
+.yz-receipt__brand {
+  font-weight: 700;
+  color: var(--paper-ink);
+}
+
+.yz-receipt__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  font-weight: 700;
+  border-bottom: 1px dashed #b9b2a4;
+}
+
+.yz-receipt__item small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--paper-dim);
+}
+
+.yz-receipt__lines {
+  padding: 10px 0;
+  border-bottom: 1px dashed #b9b2a4;
+}
+
+.yz-receipt__lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+}
+
+.yz-receipt__lines dd {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.yz-receipt__lines .is-loss {
+  margin: 0 -8px;
+  padding: 6px 8px;
+  color: var(--danger);
+  background: rgba(192, 57, 43, 0.08);
+}
+
+.yz-receipt__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 3px double #b9b2a4;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.yz-receipt__total strong {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.yz-receipt__foot {
+  margin-top: 16px;
+  font-size: 12px;
+  text-align: center;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+
+.yz-receipt__barcode {
+  height: 36px;
+  margin: 14px auto 6px;
+  width: 78%;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--paper-ink) 0 2px,
+    transparent 2px 4px,
+    var(--paper-ink) 4px 5px,
+    transparent 5px 8px,
+    var(--paper-ink) 8px 11px,
+    transparent 11px 12px
+  );
+}
+
+/* Rubber stamp: double rule, slight tilt, gold ink. */
+.yz-receipt__stamp {
+  position: absolute;
+  right: -34px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 16px 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--navy-deep);
+  background: var(--gold);
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  transform: rotate(9deg);
+}
+
+.yz-receipt__stamp strong {
+  font-family: var(--font-sans);
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+/* ═══════════ 02 · STEPS ═══════════ */
+
+.yz-steps__layout {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 56px;
+  align-items: stretch;
+}
+
+.yz-steps__media {
+  position: relative;
+  overflow: hidden;
+  background: var(--sand-soft);
+  border: 1px solid var(--border-str);
+}
+
+.yz-steps__media img {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  object-fit: cover;
+}
+
+.yz-steps__caption {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 5;
+  padding: 10px 16px;
+  color: #fff;
+  background: var(--navy-header);
+}
+
+.yz-steps__list {
+  grid-template-columns: 1fr;
+  counter-reset: none;
+}
+
+.yz-steps__item {
+  display: grid;
+  grid-template-columns: 76px 1fr auto;
+  gap: 24px;
+  align-items: start;
+  padding: 32px 30px;
+}
+
+.yz-steps__num {
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--gold-ink);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.24s ease;
+}
+
+.yz-steps__item:hover .yz-steps__num {
+  color: var(--gold-ink);
+}
+
+.yz-steps__title {
+  font-size: 20px;
+  font-weight: 850;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+
+.yz-steps__text {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-mut);
+}
+
+.yz-steps__tag {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 5px 10px;
+  color: var(--text-mut);
+  border: 1px solid var(--border);
+}
+
+/* ═══════════ 03 · BENEFITS — bento ═══════════ */
+
+.yz-bento {
+  grid-template-columns: 1.1fr 1fr 1fr;
+  grid-template-rows: auto auto;
+}
+
+.yz-bento__feature {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  padding: 34px 32px 14px;
+  background: var(--surface);
+  border-top: 3px solid var(--gold);
+}
+
+.yz-bento__kicker {
+  margin-bottom: 18px;
+  color: var(--accent-ink);
+}
+
+.yz-bento__figure {
+  font-size: clamp(64px, 7.4vw, 96px);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.yz-bento__label {
+  margin: 14px 0 12px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.yz-bento__note {
+  padding-bottom: 26px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-mut);
+}
+
+.yz-bento__facts {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+}
+
+.yz-bento__facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.yz-bento__facts > div:last-child {
+  border-bottom: 0;
+}
+
+.yz-bento__facts dt {
+  color: var(--text-dim);
+}
+
+.yz-bento__facts dd {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.yz-bento__photo {
+  position: relative;
+  grid-column: 2 / span 2;
+  grid-row: 1;
+  overflow: hidden;
+  min-height: 300px;
+  background: var(--surface-2);
+}
+
+.yz-bento__photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+  transition: transform 0.8s var(--ease-out);
+}
+
+.yz-bento__photo:hover img {
+  transform: scale(1.04);
+}
+
+.yz-bento__caption {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  padding: 10px 16px;
+  color: var(--navy-deep);
+  background: var(--gold);
+}
+
+.yz-bento__item {
+  display: flex;
+  flex-direction: column;
+  padding: 30px 28px;
+}
+
+.yz-bento__num {
+  position: absolute;
+  top: 26px;
+  right: 28px;
+  color: var(--text-dim);
+}
+
+.yz-bento__title {
+  margin: 20px 0 10px;
+  font-size: 18px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.yz-bento__copy {
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-mut);
+}
+
+.yz-bento__metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 14px;
+  color: var(--accent-ink);
+  border-top: 1px solid var(--border);
+}

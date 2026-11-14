@@ -173,7 +173,8 @@ Carried over from the live-site audit ([`docs/website-audit-2026-11.md`](../webs
 
 | URL | Purpose | Primary keyword | SEO data | Sitemap | Prerendered |
 |-----|---------|-----------------|----------|---------|-------------|
-| _(empty — add a row with the first page)_ | | | | | |
+| `/` | Homepage — économie des plateformes, fonctionnement, preuve, trois publics | fidéliser clients commerce local sans commission | `src/site/home/homeSeoData.js` | ✅ | ✅ |
+| `/404` | Page introuvable (noindex) | — | `src/site/notFoundSeoData.js` | ❌ | ✅ |
 
 Planned first wave, with the live URL each one replaces — see
 [`docs/website-audit-2026-11.md`](../website-audit-2026-11.md) §7:
@@ -186,6 +187,17 @@ Planned first wave, with the live URL each one replaces — see
 The four renamed URLs are the only ones with history. Their 301s ship with the first deploy.
 
 ## 10. Changelog (newest first)
+
+- **2026-11-14** — Homepage redesigned on the IMIGO website's structural system (hairline grids,
+  mono micro-labels, numbered sections, scanner frames). H1 changed to « Vos clients reviennent
+  pour vous, pas pour une plateforme. »; title, description and JSON-LD unchanged. Section
+  `#fonctionnement` and `#belfort` anchors added. New image `yuztoo-mascotte-logo.webp` (decorative,
+  `alt=""` beside the wordmark). Gate still passing on 1 indexable page.
+
+- **2026-11-14** — First build shipped: homepage and 404 prerendered, `sitemap.xml` and
+  `robots.txt` generated, SEO gate (`scripts/verify-seo.mjs`) wired into `npm run build` and
+  passing on 1 indexable page. The gate caught a missing `og:image` on its first run, which is
+  what it is for. Homepage HTML is 16 KB against 331 KB on the live WordPress site.
 
 - **2026-11-14** — Corrected the market after auditing the live site: **France (Belfort)**, not
   Morocco; locale `fr_FR`, not `fr_MA`; **three** audiences (commerçants, clients, collectivités),

@@ -1,0 +1,360 @@
+/* ═══════════ RESPONSIVE ═══════════
+   Desktop is authored first in each section file; every override lives here
+   so the breakpoints read as one system. */
+
+@media (max-width: 1140px) {
+  .yz-bar {
+    gap: 18px;
+  }
+
+  .yz-nav__link {
+    padding: 0 11px;
+    font-size: 14px;
+  }
+
+  .yz-utility__item--promise,
+  .yz-utility__sep--promise {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .yz-hero__inner,
+  .yz-pizza__grid,
+  .yz-founder__grid,
+  .yz-closing__grid {
+    gap: 48px;
+  }
+
+  .yz-bento {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .yz-bento__feature {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .yz-bento__photo {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .yz-steps__layout,
+  .yz-coverage__body {
+    grid-template-columns: 1fr 1fr;
+    gap: 36px;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --gutter: 24px;
+    --bar-h: 64px;
+  }
+
+  .yz-utility {
+    display: none;
+  }
+
+  .yz-nav,
+  .yz-actions > .yz-cta {
+    display: none;
+  }
+
+  .yz-actions {
+    margin-left: auto;
+  }
+
+  .yz-burger {
+    display: inline-flex;
+  }
+
+  .yz-section {
+    padding-block: 80px;
+  }
+
+  .yz-head {
+    margin-bottom: 44px;
+  }
+
+  .yz-hero {
+    padding: 48px 0 72px;
+  }
+
+  .yz-hero__inner,
+  .yz-pizza__grid,
+  .yz-steps__layout,
+  .yz-coverage__top,
+  .yz-coverage__body,
+  .yz-founder__grid,
+  .yz-closing__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-hero__visual {
+    width: min(100%, 520px);
+    margin: 0 auto;
+  }
+
+  .yz-hero__plate--nfc {
+    left: 12px;
+    bottom: 16px;
+  }
+
+  .yz-receipt {
+    transform: none;
+  }
+
+  .yz-receipt__stamp {
+    right: -6px;
+  }
+
+  .yz-steps__media img {
+    min-height: 0;
+    aspect-ratio: 4 / 3.4;
+    object-position: center 30%;
+  }
+
+  .yz-coverage__top {
+    margin-bottom: 40px;
+    padding-bottom: 40px;
+  }
+
+  .yz-coverage__visual {
+    min-height: 0;
+    aspect-ratio: 4 / 3.6;
+  }
+
+  .yz-founder__visual {
+    width: min(100%, 420px);
+  }
+
+  .yz-closing__visual {
+    width: min(100%, 360px);
+  }
+
+  .yz-voices__grid,
+  .yz-audiences {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-footer__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .yz-footer__brandCol {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gutter: 20px;
+  }
+
+  .yz-section {
+    padding-block: 64px;
+  }
+
+  .yz-hero__title {
+    margin-top: 20px;
+  }
+
+  .yz-hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .yz-hero__actions .yz-btn {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .yz-hero__actions .yz-link {
+    align-self: flex-start;
+  }
+
+  .yz-hero__proof {
+    margin-top: 44px;
+  }
+
+  .yz-hero__stat {
+    flex: 1;
+    min-width: 0;
+    margin-right: 16px;
+    padding-right: 16px;
+  }
+
+  .yz-hero__stat-val {
+    font-size: 28px;
+  }
+
+  .yz-hero__stat-label {
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+
+  .yz-hero__stat-label svg {
+    display: none;
+  }
+
+  /* The proof row right above already states 0 % commission. */
+  .yz-hero__plate--commission {
+    display: none;
+  }
+
+  .yz-hero__mascot {
+    bottom: 74px;
+    height: 72%;
+  }
+
+  .yz-hero__visual {
+    margin-bottom: 40px;
+  }
+
+  .yz-hero__frame {
+    aspect-ratio: 4 / 3.9;
+  }
+
+  .yz-hero__plate--nfc {
+    left: 12px;
+    right: 12px;
+    bottom: -36px;
+    padding: 12px 14px 12px 12px;
+  }
+
+  .yz-hero__scan {
+    display: none;
+  }
+
+  .yz-pizza__facts > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .yz-receipt__paper {
+    padding: 30px 20px 24px;
+  }
+
+  .yz-receipt__stamp {
+    right: -4px;
+    bottom: 6px;
+    transform: rotate(7deg) scale(0.84);
+  }
+
+  .yz-steps__item {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 26px 22px;
+  }
+
+  .yz-steps__item .yz-tile {
+    position: absolute;
+    top: 26px;
+    right: 22px;
+  }
+
+  .yz-steps__num {
+    font-size: 38px;
+  }
+
+  .yz-bento {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-bento__feature,
+  .yz-bento__item {
+    padding: 28px 22px;
+  }
+
+  .yz-bento__photo {
+    min-height: 0;
+    aspect-ratio: 1 / 0.8;
+  }
+
+  .yz-strip {
+    padding: 20px;
+  }
+
+  .yz-strip .yz-btn {
+    width: 100%;
+  }
+
+  .yz-meter {
+    padding: 24px 20px 22px;
+  }
+
+  .yz-meter__bar {
+    gap: 2px;
+    height: 18px;
+  }
+
+  .yz-meter__legend,
+  .yz-coverage__points {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-voice figure,
+  .yz-audience {
+    padding: 26px 22px 24px;
+  }
+
+  .yz-voice__quote p {
+    font-size: 18px;
+  }
+
+  .yz-founder__mark {
+    font-size: 72px;
+  }
+
+  .yz-closing__actions {
+    flex-direction: column;
+  }
+
+  .yz-closing__actions .yz-btn {
+    width: 100%;
+  }
+
+  .yz-footer {
+    padding-top: 60px;
+  }
+
+  .yz-footer__grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+@media (max-width: 380px) {
+  :root {
+    --gutter: 16px;
+  }
+
+  .yz-hero__title {
+    font-size: 36px;
+  }
+
+  .yz-hero__stat {
+    margin-right: 10px;
+    padding-right: 10px;
+  }
+
+  .yz-hero__stat-val {
+    font-size: 24px;
+  }
+
+  .yz-logo__word {
+    font-size: 21px;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .yz-hero {
+    padding: 32px 0 48px;
+  }
+
+  .yz-hero__visual {
+    width: min(100%, 360px);
+  }
+}

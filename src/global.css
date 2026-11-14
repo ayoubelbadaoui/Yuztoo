@@ -1,0 +1,633 @@
+/**
+ * Design tokens and primitives.
+ * Colours come from the Flutter app — see docs/holy-books/BRAND_HOLY_BOOK.md.
+ * No raw hex outside this file.
+ *
+ * Hard structure, soft controls: cards, tiles and grids sit at radius 0 and
+ * separate by hairlines; only interactive controls get --r-ctl. No glow, no
+ * radial spotlight, no gradient text.
+ */
+
+:root {
+  /* Navy — MerchantColors / StorefrontColors */
+  --navy-header: #0b1f33;
+  --navy-main: #0e2a44;
+  --navy-deep: #0b162c;
+  --navy-card: #1a2b4d;
+  --navy-line: #24395a;
+
+  /* Gold — fills, rules and ticks. On light surfaces gold text uses
+     --gold-ink: brand gold on cream is 2:1 and fails AA. */
+  --gold: #d4af37;
+  --gold-deep: #c49a22;
+  --gold-ink: #8a6212;
+  --gold-on-dark: #e0bf55;
+
+  /* Warm light surfaces — cream from the app, kept close to white so
+     sections read crisp and separate by rules, not grey fills. */
+  --sand: #e8d5b7;
+  --sand-soft: #f1e6d3;
+  --paper: #fdfbf7;
+  --paper-alt: #f7f2e9;
+  --white: #ffffff;
+
+  --danger: #c0392b;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    sans-serif;
+  /* Micro-labels run in mono: they read as instrumentation, not decoration. */
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+
+  --r-ctl: 6px;
+  --container: 1240px;
+  --gutter: 32px;
+  --bar-h: 72px;
+  --util-h: 34px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------- surface contexts ----------
+   Components only read these variables, so the same card works on a light
+   or a dark band without a modifier class. */
+
+.yz-light,
+.yz-page {
+  --bg: var(--paper);
+  --surface: var(--white);
+  --surface-2: #f4eee3;
+  --border: #e7dfd0;
+  --border-str: #cfc5b1;
+  --text: var(--navy-header);
+  --text-mut: #45526a;
+  --text-dim: #5f6b80;
+  --accent-ink: var(--gold-ink);
+  --grid-line: rgba(11, 31, 51, 0.045);
+  --dot: rgba(11, 31, 51, 0.09);
+  --rule-line: rgba(11, 31, 51, 0.04);
+}
+
+.yz-light--alt {
+  --bg: var(--paper-alt);
+}
+
+.yz-dark {
+  --bg: var(--navy-main);
+  --surface: var(--navy-card);
+  --surface-2: #213560;
+  --border: rgba(255, 255, 255, 0.11);
+  --border-str: rgba(255, 255, 255, 0.2);
+  --text: #f1f5f9;
+  --text-mut: rgba(241, 245, 249, 0.72);
+  --text-dim: rgba(241, 245, 249, 0.62);
+  --accent-ink: var(--gold-on-dark);
+  --grid-line: rgba(255, 255, 255, 0.03);
+  --dot: rgba(255, 255, 255, 0.06);
+  --rule-line: rgba(255, 255, 255, 0.035);
+}
+
+.yz-dark--deep {
+  --bg: var(--navy-deep);
+  --surface: #13223d;
+  --surface-2: #1a2b4d;
+}
+
+/* ---------- reset ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  background: var(--navy-header);
+}
+
+html.yz-menu-open {
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.yz-page {
+  background: var(--bg);
+  color: var(--text);
+  /* clip, not hidden: hidden turns this into a scroll container and the
+     sticky header would stop sticking. */
+  overflow-x: clip;
+}
+
+img,
+picture,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:where(button) {
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+:where(a) {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+:is(a, button):focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* ---------- layout ---------- */
+
+.yz-container {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.yz-section {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding-block: 112px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.yz-section--ruled {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.yz-page section[id] {
+  scroll-margin-top: calc(var(--bar-h) + 20px);
+}
+
+.yz-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.yz-skip-link {
+  position: absolute;
+  top: 0;
+  left: -9999px;
+  z-index: 999;
+  padding: 12px 20px;
+  background: var(--gold);
+  color: var(--navy-deep);
+  font-weight: 800;
+}
+
+.yz-skip-link:focus {
+  left: 0;
+}
+
+/* ---------- structure layer ----------
+   Flat textures, even across the width so nothing reads as a light source.
+   Each dissolves into the section fill before the seams. */
+
+.yz-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  contain: paint;
+}
+
+.yz-ambient__pattern {
+  position: absolute;
+  inset: -1px;
+}
+
+.yz-ambient__pattern--grid {
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 76px 76px;
+}
+
+.yz-ambient__pattern--dots {
+  background-image: radial-gradient(var(--dot) 1.4px, transparent 1.5px);
+  background-size: 44px 44px;
+}
+
+.yz-ambient__pattern--rules {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--rule-line) 0 1px,
+    transparent 1px 248px
+  );
+}
+
+.yz-ambient__edge {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    var(--bg) 0%,
+    transparent 24%,
+    transparent 76%,
+    var(--bg) 100%
+  );
+}
+
+/* ---------- technical layer: mono micro-labels ---------- */
+
+.yz-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Hard gold tick instead of a soft pill. */
+.yz-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+
+.yz-eyebrow::before {
+  content: '';
+  flex-shrink: 0;
+  width: 10px;
+  height: 3px;
+  background: var(--gold);
+}
+
+.yz-eyebrow__idx {
+  font-style: normal;
+  color: var(--text-dim);
+}
+
+.yz-h2 {
+  font-size: clamp(30px, 3.9vw, 48px);
+  font-weight: 900;
+  letter-spacing: -0.038em;
+  line-height: 1.06;
+  color: var(--text);
+}
+
+.yz-lead {
+  margin-top: 20px;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--text-mut);
+}
+
+.yz-head {
+  max-width: 700px;
+  margin-bottom: 64px;
+}
+
+.yz-head--center {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.yz-head--center .yz-eyebrow {
+  justify-content: center;
+}
+
+/* Solid gold rule under an accent word — no hand-drawn flourish. */
+.yz-accent {
+  color: var(--accent-ink);
+  box-shadow: inset 0 -0.12em 0 var(--gold);
+}
+
+/* ---------- badge: credential strip ---------- */
+
+.yz-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-mut);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+}
+
+.yz-badge svg {
+  color: var(--accent-ink);
+}
+
+/* ---------- icon tile: solid, square ---------- */
+
+.yz-tile {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  color: var(--accent-ink);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+/* ---------- buttons: flat, squared, decisive ---------- */
+
+.yz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 15px 26px;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  transition: background 0.18s ease, color 0.18s ease,
+    border-color 0.18s ease, transform 0.22s var(--ease-out),
+    box-shadow 0.22s ease;
+}
+
+/* The arrow travels further than the button lifts: reads as intent. */
+.yz-btn svg {
+  transition: transform 0.26s var(--ease-out);
+}
+
+.yz-btn:hover svg {
+  transform: translateX(4px);
+}
+
+.yz-btn:active {
+  transform: translateY(0);
+  transition-duration: 0.06s;
+}
+
+.yz-btn--primary {
+  color: var(--navy-deep);
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.yz-btn--primary:hover {
+  background: var(--gold-deep);
+  border-color: var(--gold-deep);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px -12px rgba(196, 154, 34, 0.75);
+}
+
+.yz-btn--ghost {
+  color: var(--text);
+  background: transparent;
+  border-color: var(--border-str);
+}
+
+.yz-btn--ghost:hover {
+  border-color: var(--text);
+  background: var(--surface-2);
+  transform: translateY(-2px);
+}
+
+/* Quiet secondary: a link, not a second button competing in the fold. */
+.yz-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-mut);
+  border-bottom: 1px solid var(--border-str);
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.yz-link svg {
+  color: var(--accent-ink);
+  transition: transform 0.26s var(--ease-out);
+}
+
+.yz-link:hover {
+  color: var(--text);
+  border-color: var(--gold);
+}
+
+.yz-link:hover svg {
+  transform: translateX(3px);
+}
+
+/* ---------- hairline grid: the 1px gap is the divider ---------- */
+
+.yz-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+/* Cells never lift (that would tear the seam); they rise in the stacking
+   order and a gold rule runs in from the left. */
+.yz-cell {
+  position: relative;
+  z-index: 0;
+  background: var(--surface);
+  transition: background 0.24s ease, box-shadow 0.3s var(--ease-out);
+}
+
+.yz-cell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: 3px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.42s var(--ease-out);
+}
+
+.yz-cell:hover {
+  z-index: 2;
+  background: var(--surface-2);
+  box-shadow: 0 18px 44px -24px rgba(11, 22, 44, 0.5);
+}
+
+.yz-cell:hover::before {
+  transform: scaleX(1);
+}
+
+.yz-cell:hover .yz-tile {
+  color: var(--navy-deep);
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+/* ---------- viewfinder frame ----------
+   Scanner brackets: Yuztoo starts with a scan, so focal panels read as the
+   view through the phone. */
+
+.yz-frame {
+  position: relative;
+}
+
+.yz-frame::before,
+.yz-frame::after {
+  content: '';
+  position: absolute;
+  z-index: 4;
+  width: 26px;
+  height: 26px;
+  pointer-events: none;
+}
+
+.yz-frame::before {
+  top: 14px;
+  left: 14px;
+  border-top: 2px solid var(--gold);
+  border-left: 2px solid var(--gold);
+}
+
+.yz-frame::after {
+  right: 14px;
+  bottom: 14px;
+  border-right: 2px solid var(--gold);
+  border-bottom: 2px solid var(--gold);
+}
+
+/* ---------- closing strip ---------- */
+
+.yz-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 24px;
+  margin-top: 40px;
+  padding: 22px 26px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+}
+
+.yz-strip__text {
+  max-width: 62ch;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+/* ---------- reveal: a wipe, not a fade ----------
+   Visible before JS; hidden only once the observer is armed. */
+
+[data-reveal] {
+  clip-path: inset(-8px);
+}
+
+html.yz-reveal [data-reveal]:not(.is-in) {
+  opacity: 0;
+  transform: translateY(12px);
+  clip-path: inset(0 0 100% 0);
+}
+
+html.yz-reveal [data-reveal] {
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out,
+    clip-path 0.62s var(--ease-out);
+  transition-delay: var(--d, 0s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  html.yz-reveal [data-reveal]:not(.is-in) {
+    opacity: 1;
+    transform: none;
+    clip-path: none;
+  }
+}

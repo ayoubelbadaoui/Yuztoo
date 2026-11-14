@@ -38,7 +38,11 @@ fixed once — do not reintroduce it on the site.
 |---|---|---|---|
 | `--gold` | `#D4AF37` | `StorefrontColors.primaryGold` | Primary accent, CTA fill, active state |
 | `--gold-deep` | `#D4A017` | `MerchantColors.gold` | Hover / pressed on `--gold` |
-| `--gold-muted` | `#C28A1B` | `AppColors.secondary` | Accent on light backgrounds (passes AA on cream) |
+| `--gold-ink` | `#8A6212` | derived (darkened `AppColors.secondary`) | Gold **text** on light surfaces — 5.3:1 on cream |
+| `--gold-on-dark` | `#E0BF55` | derived from `--gold` | Gold text on navy — 8:1 on `--navy-main` |
+
+`AppColors.secondary` (`#C28A1B`) is only 2.9:1 on cream and fails AA for text, so the website
+does not use it for copy; `--gold-ink` replaces it.
 
 Gold gradient for premium borders, from `GoldGradient` in the app:
 
@@ -91,8 +95,16 @@ uses the same family, **self-hosted** via `@fontsource/inter` — loading it fro
 --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 ```
 
-Subset to Latin, weights 400 / 500 / 600 / 700 only, `font-display: swap`, preload the one weight
-used above the fold.
+Subset to Latin, weights 400 to 900 (headings run at 900 with tight tracking), `font-display: swap`.
+
+Every uppercase micro-label (eyebrows, badges, stat labels, tags, footer headings) runs in
+**JetBrains Mono** 500 / 700, self-hosted via `@fontsource/jetbrains-mono`:
+
+```css
+--font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+```
+
+Mono reads as instrumentation, not decoration. It is never used for body copy.
 
 ## 3. Contrast (non-negotiable)
 
@@ -101,7 +113,7 @@ Every pairing ships at **WCAG AA** — 4.5:1 for body text, 3:1 for large text a
 - `--text-on-dark` on `--navy-main` ✅
 - `--text-on-light` on `--cream-light` ✅
 - `--gold` on `--navy-deep` ✅ (gold on navy is the signature pairing)
-- `--gold` on `--cream-light` ❌ — use `--gold-muted` instead
+- `--gold` on `--cream-light` ❌ — use `--gold-ink` for text; `--gold` only for fills, rules and ticks
 - Gold body text on white ❌ — never
 
 Check both directions on every section: the site alternates navy and cream bands, so each block
@@ -114,9 +126,16 @@ needs its own check. This is enforced in the
   moments; cream carries explanation and proof.
 - `theme-color` always matches the band at the top of the page (`#0B1F33`), mirroring the app's
   status-bar rule.
-- Cards on navy use `--navy-card` with `--border-gold`; cards on cream use `--white` with
-  `--border-on-light`.
-- Radius scale: 8 px (inputs, chips), 16 px (cards), 24 px (feature panels).
+- Sections set their context with `.yz-light` or `.yz-dark`; components read only the context
+  variables (`--surface`, `--border`, `--text`, `--accent-ink`…), so one card works on both bands.
+- **Hard structure, soft controls.** Cards, tiles and grids sit at radius 0 and separate with
+  1px hairlines (`.yz-grid`: the gap *is* the divider). Only interactive controls get
+  `--r-ctl` (6px); pills are reserved for the nav and the header CTA.
+- **No glow, no radial spotlight, no gradient text, no floating mascot.** Texture is flat
+  (`grid`, `dots`, `rules`), each used once per page, dissolved at section seams.
+- Recurring motifs: scanner corner brackets (`.yz-frame`) on focal images, gold-left-border
+  credential strips (`.yz-badge`, `.yz-strip`), numbered section eyebrows, anchored opaque
+  plates over images. Hover: a gold rule runs in from the left; arrows travel; cells never lift.
 
 ## 5. Voice
 
@@ -137,12 +156,10 @@ Two words that must stay consistent with the app and the CRM:
 
 ## 7. Known gaps (November 2026)
 
-- No `src/global.css` yet, so no token is actually declared. First layout PR must create it from
-  §1 verbatim.
 - The app has three overlapping palettes (`MerchantColors`, `StorefrontColors`, `AppColors`) with
   two different golds (`#D4AF37` and `#D4A017`) and two creams. The website collapses them into
   the single scale above; if the app ever unifies its own tokens, re-sync this book.
 - The current live site (`yuztoo.com`) uses none of these colors — it is a WordPress theme with
   unrelated styling. See [`docs/website-audit-2026-11.md`](../website-audit-2026-11.md).
-- No logo asset in this repo yet; only `favicon.svg` and `og-cover.svg` exist in the app repo,
-  and the OG cover must be replaced by a JPEG.
+- No official logo asset yet. The header uses a 84×96 cut-out of the mascot
+  (`yuztoo-mascotte-logo.webp`) next to a type wordmark until the owner supplies the real logo.
