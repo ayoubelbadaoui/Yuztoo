@@ -4,41 +4,41 @@
  * already on screen is marked in before the class lands so the fold never
  * blinks.
  *
- * A rAF-throttled scroll check, not an IntersectionObserver: an observer held
- * only by a closure can be collected mid-page, and anchor jumps skip targets,
- * which left sections hidden until reload. Anything at or above the reveal
- * line is shown, so content you scrolled past can never stay hidden.
+ * Every check queries the live DOM instead of a list captured at arm time:
+ * React can render or replace nodes after arming (dev client render, hydration
+ * recovery), and a stale list left those sections hidden until reload.
+ * Anything at or above the reveal line is shown, so content you scrolled past
+ * can never stay hidden.
  */
 export function armReveal() {
   if (typeof window === 'undefined') return
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-  let pending = Array.from(document.querySelectorAll('[data-reveal]'))
   let frame = 0
+  let timer = 0
 
   const check = () => {
+    cancelAnimationFrame(frame)
+    clearTimeout(timer)
     frame = 0
+    timer = 0
     const line = window.innerHeight * 0.92
-    pending = pending.filter((node) => {
-      if (node.getBoundingClientRect().top < line) {
-        node.classList.add('is-in')
-        return false
-      }
-      return true
-    })
-    if (!pending.length) {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
+    for (const node of document.querySelectorAll('[data-reveal]:not(.is-in)')) {
+      if (node.getBoundingClientRect().top < line) node.classList.add('is-in')
     }
   }
 
-  const onScroll = () => {
-    if (!frame) frame = requestAnimationFrame(check)
+  // The timer covers webviews and throttled tabs where rAF stalls while the
+  // page is still scrolled and visible.
+  const schedule = () => {
+    if (frame || timer) return
+    frame = requestAnimationFrame(check)
+    timer = setTimeout(check, 120)
   }
 
   check()
-  if (!pending.length) return
-  window.addEventListener('scroll', onScroll, { passive: true })
-  window.addEventListener('resize', onScroll, { passive: true })
+  window.addEventListener('scroll', schedule, { passive: true })
+  window.addEventListener('resize', schedule, { passive: true })
+  window.addEventListener('load', schedule)
   document.documentElement.classList.add('yz-reveal')
 }

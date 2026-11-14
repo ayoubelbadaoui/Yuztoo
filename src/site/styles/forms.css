@@ -1,0 +1,277 @@
+/* ---------- closing band with a form ---------- */
+
+.yz-start__grid--form {
+  grid-template-columns: 0.9fr 1.1fr;
+  align-items: start;
+  gap: 64px;
+}
+
+.yz-start__grid > * {
+  min-width: 0;
+}
+
+.yz-start__promise--row {
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 32px;
+}
+
+.yz-start__promise--row .yz-start__cell {
+  padding: 18px 20px;
+}
+
+.yz-start__promise--row .yz-start__cell dd {
+  font-size: 26px;
+}
+
+/* ---------- lead form ---------- */
+
+.yz-form {
+  display: grid;
+  gap: 18px;
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border-str);
+  border-top: 3px solid var(--gold);
+}
+
+.yz-form__title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.yz-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.yz-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.yz-field label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.yz-field__hint {
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.yz-field input,
+.yz-field textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-str);
+  border-radius: var(--r-ctl);
+  transition: border-color 0.15s var(--ease-out);
+}
+
+.yz-field textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.yz-field input::placeholder,
+.yz-field textarea::placeholder {
+  color: var(--text-dim);
+}
+
+.yz-field input:focus-visible,
+.yz-field textarea:focus-visible,
+.yz-consent input:focus-visible {
+  outline: 2px solid var(--gold-on-dark);
+  outline-offset: 1px;
+  border-color: var(--gold-on-dark);
+}
+
+.yz-field.is-invalid input,
+.yz-consent.is-invalid input {
+  border-color: var(--danger-on-dark);
+}
+
+.yz-field__error,
+.yz-form__status {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--danger-on-dark);
+}
+
+.yz-form__status:empty {
+  display: none;
+}
+
+.yz-consent {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 4px 12px;
+  align-items: start;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-mut);
+}
+
+.yz-consent input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--gold);
+}
+
+.yz-consent .yz-field__error {
+  grid-column: 2;
+}
+
+.yz-consent a,
+.yz-form__fallback a {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.yz-form__submit {
+  width: 100%;
+}
+
+.yz-form__submit:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.yz-form__fallback {
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+
+/* Honeypot: off-screen, not display:none, so naive bots still fill it. */
+.yz-form__trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* ---------- mid-page call to action ---------- */
+
+.yz-ctastrip {
+  background: var(--bg);
+  border-block: 1px solid var(--border);
+}
+
+.yz-ctastrip__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding-block: 36px;
+}
+
+.yz-ctastrip__title {
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.yz-ctastrip__text {
+  margin-top: 6px;
+  color: var(--text-mut);
+}
+
+/* ---------- legal page ---------- */
+
+.yz-legal__inner {
+  max-width: 760px;
+}
+
+.yz-legal__title {
+  margin-top: 24px;
+  font-size: clamp(32px, 4.4vw, 52px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  color: var(--text);
+}
+
+.yz-legal .yz-lead {
+  margin-top: 16px;
+}
+
+.yz-legal__updated {
+  margin-top: 16px;
+  color: var(--text-dim);
+}
+
+.yz-legal__intro {
+  margin-block: 32px 8px;
+  color: var(--text-mut);
+  line-height: 1.75;
+}
+
+.yz-legal__section {
+  padding-top: 28px;
+  margin-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.yz-legal__section h2 {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.yz-legal__section p,
+.yz-legal__section li {
+  margin-top: 12px;
+  line-height: 1.75;
+  color: var(--text-mut);
+}
+
+.yz-legal__section ul {
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.yz-thanks__icon {
+  margin-bottom: 20px;
+  color: var(--accent-ink);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1024px) {
+  .yz-start__grid--form {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
+
+@media (max-width: 640px) {
+  .yz-form {
+    padding: 24px 18px;
+  }
+
+  .yz-form__row,
+  .yz-start__promise--row {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-ctastrip__inner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+}

@@ -144,9 +144,10 @@ INP < 200 ms on mobile.
   (and the three other renamed URLs) is not written anywhere. It must ship with the first hosting
   config, together with `cleanUrls: true` and `trailingSlash: false` (`vite preview` falls back to
   the homepage HTML for `/pour-commercants` without the slash; Firebase will not).
-- No page has a lead form yet: the closing band of `/pour-commercants`, `/pour-clients`,
-  `/pour-collectivites` and `/a-propos` offers `mailto:` and `tel:` only. Forms need the §11 Cloud
-  Function (allowlist, honeypot, consent) and a dual-env deploy.
+- Lead forms ship on four pages, but the `websiteLead` function (`functions-site/`, codebase
+  `site-web`) is **not deployed**: until it is on `yuztoo-dev` and `yuztoo`, with secret
+  `LEAD_HASH_SALT` and a TTL policy on `websiteLeadLimits.expiresAt`, submissions show the
+  network error. No App Check yet.
 - The `/pour-collectivites` hero shows an illustrative report (labelled « Aperçu illustratif »).
   Replace it with real, anonymised municipal figures once the Belfort pilot publishes them.
 - The pages currently served from the app repo (`index.html`, `aide.html`, `cgu.html`,
@@ -182,6 +183,8 @@ Carried over from the live-site audit ([`docs/website-audit-2026-11.md`](../webs
 | `/pour-clients` | Offre habitants — pourquoi, carnet, infos & fidélité, recommandation, données, FAQ (replaces `/espace-client/`) | application commerces de proximité | `src/site/clients/clientsSeoData.js` (WebPage, BreadcrumbList, FAQPage) | ✅ | ✅ |
 | `/pour-collectivites` | Offre collectivités — constat, impact, réponse souveraine, promesse, bénéfices, FAQ (replaces `/espace-collectivites/`) | commerce local collectivité territoire | `src/site/collectivites/collectivitesSeoData.js` (WebPage, BreadcrumbList, FAQPage) | ✅ | ✅ |
 | `/a-propos` | Mission, vision, fondateur, ambition (replaces `/a-propos-de-nous/`) | yuztoo belfort fondateur | `src/site/apropos/aproposSeoData.js` (WebPage, BreadcrumbList, Person) | ✅ | ✅ |
+| `/confidentialite` | Politique de confidentialité (app, migrée de `confidentialite.html`, + formulaires du site) | yuztoo confidentialité rgpd | `src/site/confidentialite/confidentialiteSeoData.js` (WebPage, BreadcrumbList) | ✅ | ✅ |
+| `/merci` | Page de remerciement après formulaire (noindex) | — | `src/site/merci/merciSeoData.js` | ❌ | ✅ |
 | `/404` | Page introuvable (noindex) | — | `src/site/notFoundSeoData.js` | ❌ | ✅ |
 
 Planned first wave, with the live URL each one replaces — see
@@ -195,6 +198,11 @@ Planned first wave, with the live URL each one replaces — see
 The four renamed URLs are the only ones with history. Their 301s ship with the first deploy.
 
 ## 10. Changelog (newest first)
+
+- **2026-11-14** — Lead forms (shared `LeadForm`, §11) in the closing band of `/pour-commercants`,
+  `/pour-clients`, `/pour-collectivites` and `/a-propos`, plus a mid-page CTA strip on the three
+  audience pages. New `/confidentialite` (indexable) and `/merci` (noindex). Accent words lose the
+  highlighter underline. Gate passing on 6 pages.
 
 - **2026-11-14** — Dark mode (app navy) on every page, header toggle. No URL, title, meta or
   JSON-LD change; prerendered HTML now loads the same-origin `/theme-init.js` in `<head>`.
@@ -250,6 +258,8 @@ page produced the lead.
 | `/` | Site web / Accueil |
 | `/pour-commercants` | Site web / Commerçants |
 | `/pour-clients` | Site web / Clients |
+| `/pour-collectivites` | Site web / Collectivités |
+| `/a-propos` | Site web / A propos |
 | `/tarifs` | Site web / Tarifs |
 | `/contact` | Site web / Contact |
 | `/aide` | Site web / Aide |

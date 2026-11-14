@@ -9,7 +9,8 @@ import ProSetup from './sections/ProSetup.jsx'
 import ProClients from './sections/ProClients.jsx'
 import ProLoyalty from './sections/ProLoyalty.jsx'
 import ProTools from './sections/ProTools.jsx'
-import { PRO_FAQ, PRO_IMPACT, PRO_START } from './commercantsContent.js'
+import CtaStrip from '../components/CtaStrip.jsx'
+import { PRO_CTA, PRO_FAQ, PRO_IMPACT, PRO_START } from './commercantsContent.js'
 
 export default function CommercantsPage() {
   return (
@@ -23,11 +24,12 @@ export default function CommercantsPage() {
         <ProPains />
         <StatBand band={PRO_IMPACT} id="yz-impact" />
         <ProSetup />
+        <CtaStrip cta={PRO_CTA} />
         <ProClients />
         <ProLoyalty />
         <ProTools />
         <FaqSection faq={PRO_FAQ} />
-        <ContactBand band={PRO_START} />
+        <ContactBand band={PRO_START} path="/pour-commercants" />
       </main>
       <SiteFooter />
     </div>

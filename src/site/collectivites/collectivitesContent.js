@@ -177,13 +177,25 @@ export const COL_START = {
   eyebrow: 'Déployer Yuztoo',
   title: 'Parlons de votre territoire',
   lead: `${NETWORK.city} est notre territoire pilote. Présentons le dispositif à vos élus et à vos services, et construisons ensemble le réseau de votre commune.`,
-  mailCta: {
-    label: 'Demander une présentation',
-    href: `mailto:${CONTACT.email}?subject=${encodeURIComponent('Déployer Yuztoo sur notre commune')}`,
+  form: {
+    kind: 'collectivite',
+    title: 'Demander une présentation',
+    orgLabel: 'Commune ou collectivité',
+    orgAutoComplete: 'organization',
+    messageLabel: 'Votre fonction et votre projet',
+    messagePlaceholder: 'Élu au commerce, manager de centre-ville…',
+    submit: 'Demander une présentation',
   },
   promise: [
     { id: 'pilot', value: NETWORK.city, label: 'Territoire pilote' },
     { id: 'shops', value: String(NETWORK.partners), label: 'Commerces partenaires' },
     { id: 'rgpd', value: 'RGPD', label: 'Conformité stricte' },
   ],
+}
+
+export const COL_CTA = {
+  title: 'Votre commune veut garder la valeur sur son territoire ?',
+  text: 'Une présentation pour vos élus et vos services, sur rendez-vous.',
+  label: 'Demander une présentation',
+  href: '#deployer',
 }

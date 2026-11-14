@@ -262,14 +262,26 @@ export const PRO_FAQ = {
 export const PRO_START = {
   eyebrow: 'Démarrer',
   title: 'Créez votre compte gratuit',
-  lead: `Écrivez-nous ou appelez-nous : nous installons la plaque sur votre comptoir à ${NETWORK.city} et nous vous accompagnons pour la prise en main.`,
-  mailCta: {
-    label: 'Écrire à l’équipe',
-    href: `mailto:${CONTACT.email}?subject=${encodeURIComponent('Créer mon compte commerçant Yuztoo')}`,
+  lead: `Laissez vos coordonnées : nous vous rappelons, nous installons la plaque sur votre comptoir à ${NETWORK.city} et nous vous accompagnons pour la prise en main.`,
+  form: {
+    kind: 'commercant',
+    title: 'Être rappelé par l’équipe',
+    orgLabel: 'Nom du commerce',
+    orgAutoComplete: 'organization',
+    messageLabel: 'Votre activité',
+    messagePlaceholder: 'Boulangerie, coiffeur, restaurant…',
+    submit: 'Créer mon compte gratuit',
   },
   promise: [
     { id: 'free', value: '0 €', label: 'Abonnement' },
     { id: 'commission', value: '0 %', label: 'Commission' },
     { id: 'install', value: 'Offerte', label: 'Installation' },
   ],
+}
+
+export const PRO_CTA = {
+  title: 'Prêt à garder le lien avec vos clients ?',
+  text: 'Compte gratuit, plaque installée par notre équipe, sans engagement.',
+  label: 'Être rappelé',
+  href: '#demarrer',
 }

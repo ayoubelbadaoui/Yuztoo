@@ -5,7 +5,8 @@ import FaqSection from '../components/FaqSection.jsx'
 import StatBand from '../components/StatBand.jsx'
 import ColHero from './sections/ColHero.jsx'
 import { ColAnswer, ColBenefits, ColInvest, ColProblem, ColPromise } from './sections/ColSections.jsx'
-import { COL_FAQ, COL_IMPACT, COL_START } from './collectivitesContent.js'
+import CtaStrip from '../components/CtaStrip.jsx'
+import { COL_CTA, COL_FAQ, COL_IMPACT, COL_START } from './collectivitesContent.js'
 
 export default function CollectivitesPage() {
   return (
@@ -20,10 +21,11 @@ export default function CollectivitesPage() {
         <StatBand band={COL_IMPACT} id="yz-col-impact" />
         <ColAnswer />
         <ColPromise />
+        <CtaStrip cta={COL_CTA} />
         <ColBenefits />
         <ColInvest />
         <FaqSection faq={COL_FAQ} />
-        <ContactBand band={COL_START} id="deployer" />
+        <ContactBand band={COL_START} path="/pour-collectivites" id="deployer" />
       </main>
       <SiteFooter />
     </div>

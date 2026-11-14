@@ -116,10 +116,3 @@ html[data-theme='dark'] .yz-chat__bubble--shop {
 html[data-theme='dark'] .yz-mission__quote {
   background: var(--surface-2);
 }
-
-/* On navy the accent word turns gold, as on the dark bands. */
-html[data-theme='dark'] .yz-accent {
-  color: var(--gold-on-dark);
-  background: none;
-  box-shadow: inset 0 -0.1em 0 var(--gold);
-}

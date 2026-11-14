@@ -23,7 +23,7 @@ export default function AproposPage() {
         <AboutVision />
         <AboutFounder />
         <AboutAmbition />
-        <ContactBand band={ABOUT_CONTACT} id="contact" />
+        <ContactBand band={ABOUT_CONTACT} path="/a-propos" id="contact" />
       </main>
       <SiteFooter />
     </div>

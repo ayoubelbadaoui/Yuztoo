@@ -87,9 +87,11 @@ export const ABOUT_AMBITION = {
 export const ABOUT_CONTACT = {
   eyebrow: 'Prendre contact',
   title: 'Parlons de votre commerce, ou de votre ville',
-  lead: `Commerçant, habitant ou élu : écrivez-nous à ${CONTACT.email} ou appelez-nous. Nous répondons nous-mêmes, depuis ${NETWORK.city}.`,
-  mailCta: {
-    label: 'Écrire à l’équipe',
-    href: `mailto:${CONTACT.email}`,
+  lead: `Commerçant, habitant ou élu : laissez-nous un message ou appelez-nous. Nous répondons nous-mêmes, depuis ${NETWORK.city}.`,
+  form: {
+    kind: 'contact',
+    title: 'Écrire à l’équipe',
+    messageLabel: 'Votre message',
+    submit: 'Envoyer le message',
   },
 }

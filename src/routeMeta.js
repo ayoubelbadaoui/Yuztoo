@@ -43,6 +43,17 @@ export const ROUTE_META = [
     priority: '0.6',
   },
   {
+    path: '/confidentialite',
+    indexable: true,
+    lastmod: '2026-11-14',
+    changefreq: 'yearly',
+    priority: '0.3',
+  },
+  {
+    path: '/merci',
+    indexable: false,
+  },
+  {
     path: '/404',
     indexable: false,
   },

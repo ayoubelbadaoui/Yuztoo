@@ -1,0 +1,10 @@
+{
+  "functions": [
+    {
+      "source": "functions-site",
+      "codebase": "site-web",
+      "runtime": "nodejs20",
+      "ignore": ["node_modules", ".git", "*.local", "*.test.js"]
+    }
+  ]
+}

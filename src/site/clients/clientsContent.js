@@ -164,8 +164,19 @@ export const CLI_START = {
   eyebrow: 'Votre commerce préféré n’y est pas ?',
   title: 'Recommandez-le-nous',
   lead: 'Donnez-nous le nom de vos commerces préférés : nous allons les rencontrer et leur installer la plaque gratuitement.',
-  mailCta: {
-    label: 'Recommander un commerce',
-    href: `mailto:${CONTACT.email}?subject=${encodeURIComponent('Je recommande un commerce à Yuztoo')}`,
+  form: {
+    kind: 'client',
+    title: 'Recommander un commerce',
+    orgLabel: 'Commerce recommandé',
+    messageLabel: 'Adresse ou quartier du commerce',
+    messagePlaceholder: 'Rue, quartier, ville…',
+    submit: 'Envoyer ma recommandation',
   },
+}
+
+export const CLI_CTA = {
+  title: 'Un commerce que vous aimez n’est pas encore sur Yuztoo ?',
+  text: 'Dites-nous lequel : nous allons le rencontrer, gratuitement pour lui.',
+  label: 'Recommander un commerce',
+  href: '#recommander',
 }
