@@ -1,0 +1,10 @@
+---
+description: Keep all work in the main chat — no subagents or Composer delegation
+alwaysApply: true
+---
+
+# No subagents
+
+- Do **not** use the Task tool or spawn subagents (`explore`, `shell`, `generalPurpose`, etc.).
+- Do all research, edits, and terminal work **directly in this chat**.
+- If a task feels large, break it into steps here instead of delegating.

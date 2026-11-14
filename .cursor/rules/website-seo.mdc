@@ -1,0 +1,25 @@
+---
+description: Yuztoo website — every change ships with full SEO and updates the SEO holy book
+alwaysApply: true
+---
+
+# Yuztoo website SEO (mandatory)
+
+"Website" = the public Yuztoo site on this branch (`https://yuztoo.com`, local
+`http://localhost:3001/`). It is isolated from the Flutter app and the CRM; never import their
+code into it.
+
+Whenever you add or change anything on the website (page, section, URL, image, content):
+
+1. Do the full SEO in the same change, without being asked: follow
+   `docs/holy-books/SEO_HOLY_BOOK.md` §0–§7 — SEO data module, prerender, sitemap, redirects,
+   exactly one `h1`, JSON-LD, local images with French `alt`.
+2. Update `docs/holy-books/SEO_HOLY_BOOK.md`: §9 Page registry, §10 Changelog (dated line), and
+   §8 Known gaps when one is closed or found.
+3. Run `npm run build` — it must end with `✓ SEO gate: … all checks passed`
+   (`scripts/verify-seo.mjs`). Fix the page, never loosen the gate.
+4. Any form: follow SEO_HOLY_BOOK §11 — `source = "Site web / <Page>"`, the server-side allowlist
+   in the Cloud Function, honeypot, consent link to `/confidentialite`.
+5. Renamed or removed URL: add a 301 to `firebase.json` `redirects` in the same change.
+6. Deploy to **both** `yuztoo-dev` and `yuztoo` (see the `firebase-dual-env-deploy` rule). Never
+   deploy one environment and stop.

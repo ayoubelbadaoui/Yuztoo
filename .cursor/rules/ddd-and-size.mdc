@@ -1,0 +1,25 @@
+---
+description: Strict DDD (Firebase only in services) and small files via ESLint
+alwaysApply: true
+---
+
+# Yuztoo website — DDD + file size (strict)
+
+- **Firebase client**: do not import anything from `lib/firebase` (Firestore, Auth, Storage,
+  Functions, App Check) outside `src/features/**/services/**` and `src/lib/**`. ESLint
+  `no-restricted-imports` is configured as **error**. The same applies to raw `fetch` calls to our
+  backend.
+- **Callables**: wrap every Cloud Function call in a named service function
+  (e.g. `features/lead/services/leadEdgeService.ts`). Hooks and components call the wrapper.
+- **Service shape**: always return `{ data, error }`, map raw documents to typed objects, never
+  throw to the caller, never read a whole collection.
+- **Content**: page copy, image `src` and `alt` belong in `features/<domain>/content/`, and SEO
+  metadata in `features/<domain>/seo/<page>SeoData.ts`. Never inline them in a component.
+- **No app or CRM code**: this branch must not import from the Flutter app or the CRM. Duplicate
+  shared constants locally with a comment naming the source of truth.
+- **File length**: respect `max-lines` in `eslint.config.js` (services/lib/content 800, pages 550,
+  containers/components 450, handlers 400, rest 500). If a change would exceed the limit, split in
+  the same change — never raise the ceiling.
+- **Large hooks**: prefer composition (`useXFormState`, loaders, submit) over one monolithic hook.
+
+Full detail: `docs/holy-books/DDD_HOLY_BOOK.md`.
