@@ -12,6 +12,8 @@ export const NAV_LINKS = [
 
 export const NAV_CTA = { href: '/pour-commercants#demarrer', label: 'Tester gratuitement' }
 
+export const THEME = { label: 'Mode sombre' }
+
 export const UTILITY = {
   location: `${CONTACT.city}, France`,
   promise: 'Sans commission · Sans publicité',

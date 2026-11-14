@@ -196,6 +196,9 @@ The four renamed URLs are the only ones with history. Their 301s ship with the f
 
 ## 10. Changelog (newest first)
 
+- **2026-11-14** — Dark mode (app navy) on every page, header toggle. No URL, title, meta or
+  JSON-LD change; prerendered HTML now loads the same-origin `/theme-init.js` in `<head>`.
+
 - **2026-11-14** — `/pour-clients`, `/pour-collectivites` and `/a-propos` shipped (5 indexable
   pages). Each has one `h1`, a visible breadcrumb, `WebPage` + `BreadcrumbList` JSON-LD from the
   shared `src/seo/buildPageSeo.js`, `FAQPage` on the two audience pages and a `Person` node for the

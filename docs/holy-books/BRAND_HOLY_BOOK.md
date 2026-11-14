@@ -147,6 +147,19 @@ needs its own check. This is enforced in the
   credential strips (`.yz-badge`, `.yz-strip`), numbered section eyebrows, anchored opaque
   plates over images. Hover: a gold rule runs in from the left; arrows travel; cells never lift.
 
+### Dark mode
+
+- `html[data-theme='dark']` remaps the light contexts onto the app navy: cream bands become
+  `MerchantColors.bgMain` (`#0E2A44`), alternate bands `bgHeader` (`#0B1F33`), and the bands that
+  were already navy drop to `--navy-deep` so sections still separate.
+- The theme is set before first paint by `public/theme-init.js` (same-origin, CSP-safe): saved
+  choice in `localStorage['yz-theme']`, else `prefers-color-scheme`. The header toggle switches it.
+- In dark, `--gold-deep` resolves to `--gold-on-dark` and `.yz-accent` turns into gold text with a
+  gold underline, as on navy bands. Red text on navy uses `--danger-on-dark`.
+- App mocks (phone screens, notifications, the receipt) keep their own colours: they depict the
+  real app or a paper ticket.
+- Component overrides live in `src/site/styles/theme-dark.css`, tokens only.
+
 ## 5. Voice
 
 French, `tutoiement` never — always `vous`. Short sentences. Concrete figures, never invented.
@@ -159,7 +172,7 @@ Two words that must stay consistent with the app and the CRM:
 
 - [ ] No raw hex in a component — only `var(--token)` from `global.css`
 - [ ] New token traced back to a file in the Flutter app, named in the table above
-- [ ] AA contrast checked on both the navy and the cream version of the block
+- [ ] AA contrast checked on both the navy and the cream version of the block, in light and dark theme
 - [ ] Gold used as accent only, never as a large fill or as body text on light
 - [ ] `theme-color` matches the top band
 - [ ] Montserrat and JetBrains Mono self-hosted, not from Google Fonts

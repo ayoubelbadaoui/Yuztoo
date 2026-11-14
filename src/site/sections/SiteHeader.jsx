@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, ArrowUpRight, Mail, MapPin, Menu, Phone, X } from 'lucide-react'
 import { CONTACT } from '../../siteConfig.js'
+import ThemeToggle from '../components/ThemeToggle.jsx'
 import { LOGO, NAV_CTA, NAV_LINKS, UTILITY } from './navContent.js'
 
 // Two thresholds so the bar does not flicker when the page rests near one.
@@ -129,6 +130,7 @@ export default function SiteHeader({ currentPath = '/' }) {
           </nav>
 
           <div className="yz-actions">
+            <ThemeToggle />
             <a className="yz-cta" href={NAV_CTA.href}>
               {NAV_CTA.label}
               <span className="yz-cta__arrow" aria-hidden="true">

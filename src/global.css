@@ -93,6 +93,51 @@
   --surface-2: #1a2b4d;
 }
 
+/* ---------- dark theme ----------
+   The app's navy (MerchantColors.bgMain / bgHeader) replaces cream. Light
+   bands become bgMain, alternate bands bgHeader, and the bands that were
+   already navy drop to navy-deep so sections still separate. Gold text uses
+   --gold-on-dark: --gold-deep is under 4.5:1 on navy. */
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --danger-on-dark: #ff8a7a;
+}
+
+html[data-theme='dark'] .yz-light,
+html[data-theme='dark'] .yz-page {
+  --bg: var(--navy-main);
+  --surface: var(--navy-card);
+  --surface-2: #213560;
+  --border: rgba(255, 255, 255, 0.11);
+  --border-str: rgba(255, 255, 255, 0.2);
+  --text: #f1f5f9;
+  --text-mut: rgba(241, 245, 249, 0.74);
+  --text-dim: rgba(241, 245, 249, 0.64);
+  --accent-ink: var(--gold-on-dark);
+  --gold-deep: var(--gold-on-dark);
+  --grid-line: rgba(255, 255, 255, 0.035);
+  --dot: rgba(255, 255, 255, 0.07);
+  --rule-line: rgba(255, 255, 255, 0.04);
+  --chrome: var(--navy-header);
+  --media-bg: var(--navy-card);
+}
+
+html[data-theme='dark'] .yz-light--alt {
+  --bg: var(--navy-header);
+  --surface: #132a45;
+}
+
+html[data-theme='dark'] .yz-dark {
+  --bg: var(--navy-deep);
+  --surface: #13223d;
+}
+
+.yz-page {
+  --chrome: var(--paper);
+  --media-bg: var(--sand-soft);
+}
+
 /* ---------- reset ---------- */
 
 *,
