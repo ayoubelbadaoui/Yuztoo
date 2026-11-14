@@ -37,7 +37,7 @@ branch contains website code only and must never import app or CRM source.
 | Audiences | **Commerçants**, **clients**, and **collectivités** (municipalities) — three doors, three pages |
 | Hosting | Firebase Hosting, site `yuztoo`, projects `yuztoo-dev` and `yuztoo` |
 | Brand colors | Copied from the Flutter app — see the [Brand Holy Book](./BRAND_HOLY_BOOK.md) §1 |
-| Typography | Inter, self-hosted (`@fontsource/inter`), matching `lib/theme.dart` |
+| Typography | Montserrat + JetBrains Mono for labels, self-hosted (`@fontsource/*`) |
 | Contact | contact@yuztoo.com, +33 6 09 52 65 11 |
 
 ## Stack
