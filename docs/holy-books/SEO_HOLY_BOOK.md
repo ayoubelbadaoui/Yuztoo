@@ -3,8 +3,13 @@
 **Goal: 100 % SEO-optimized** Yuztoo website (`https://yuztoo.com`, local `http://localhost:3001/`).
 
 **Scope:** the public website only. The Flutter app, the CRM and tokenized links are **never**
-indexed. Language: French first (`lang="fr"`, `og:locale` `fr_MA`). Market: Morocco — commerçants
-de proximité and their clients.
+indexed. Language: French (`lang="fr-FR"`, `og:locale` `fr_FR`). Market: **France**, currently
+Belfort — commerces de proximité, their clients, and the collectivités that want to keep value on
+their territory.
+
+Local SEO matters more than national SEO here: the buying decision is « mon commerçant », « ma
+ville ». Plan for city pages (`/commerce-local-belfort`) as the market expands, each with
+`LocalBusiness` / `City areaServed` structured data.
 
 ---
 
@@ -63,7 +68,11 @@ crawlable HTML. Never hand-write meta tags inline in a page.
 2. One URL per piece of content; duplicates canonicalize to the primary URL.
 3. Renamed or removed page → **301 in `firebase.json`** (`redirects` array, `"type": 301`), added
    in the same change. Deploy to **both** `yuztoo-dev` and `yuztoo`.
-4. `yuztoo.app` and `www.yuztoo.com` → 301 to the apex `https://yuztoo.com`.
+4. One canonical host, every other host 301s to it. The live site canonicalises to
+   **`www.yuztoo.com`** (the apex already 301s to it), so keep `www` unless the business decides
+   otherwise — switching hosts after launch costs rankings. `yuztoo.app` 301s there too.
+   `og:image` and every internal link use the canonical host; the current site gets this wrong
+   and serves its share images from the redirecting apex.
 5. Unknown URL → real 404 with `noindex` (Firebase Hosting `"cleanUrls": true` plus a 404 page;
    never serve the SPA shell with status 200).
 6. Deep-link files (`/.well-known/apple-app-site-association`, `/.well-known/assetlinks.json`)
@@ -78,6 +87,9 @@ crawlable HTML. Never hand-write meta tags inline in a page.
 - App-only deep-link landing targets that duplicate a real page
 - Experiments and tools: `/test*`, preview and staging hosts (`*.web.app`, `*.firebaseapp.com`
   → `Disallow: /` so the dev project never competes with production)
+- Leftover WordPress surface after cutover: `/wp-admin/`, `/wp-json/`, `/xmlrpc.php`, `/feed/`,
+  `/comments/feed/`. These simply stop existing on Firebase Hosting — confirm they 404 and are
+  not silently rewritten to the SPA shell.
 
 ## 5. Content
 
@@ -141,6 +153,18 @@ The website does not exist yet on this branch. Everything below is open:
 - `og-cover.svg` must be replaced by a 1200×630 JPEG (SVG is not a valid `og:image` for most
   crawlers).
 - Dev project `yuztoo-dev` previews are publicly reachable and need `Disallow: /`.
+
+Carried over from the live-site audit ([`docs/website-audit-2026-11.md`](../website-audit-2026-11.md)):
+
+- Three of five live pages have titles under 30 chars with no keyword and no brand
+  (« Espace Pros », « Grand Public », « Espace collectivité »).
+- `/espace-client/` ships **8** `<h1>` tags, `/espace-commercant/` 7, `/espace-collectivites/` 4.
+- 17 of 22 images on the live site have no `alt`.
+- Only `LocalBusiness` structured data exists, homepage only. No `Organization`,
+  `BreadcrumbList`, `FAQPage` or `SoftwareApplication`.
+- No App Store / Play Store link anywhere on the site, and only one form (on the lowest-intent
+  page). The `/telecharger` page and per-audience forms are the first conversion fixes.
+- `/wp-sitemap.xml` must 301 to `/sitemap.xml` at cutover.
 - **Owner actions (cannot be done in code):** verify `yuztoo.com` in Google Search Console and
   submit `/sitemap.xml`; create / claim the Google Business Profile; provide official social URLs
   for `sameAs`; confirm the legal entity name, address and phone used in `Organization` JSON-LD.
@@ -151,11 +175,22 @@ The website does not exist yet on this branch. Everything below is open:
 |-----|---------|-----------------|----------|---------|-------------|
 | _(empty — add a row with the first page)_ | | | | | |
 
-Planned first wave, for reference (not yet built): `/` (homepage),
-`/pour-commercants`, `/pour-clients`, `/fonctionnalites`, `/tarifs`, `/telecharger`,
-`/aide`, `/contact`, `/cgu`, `/confidentialite`, `/supprimer-compte`, `/vitrine/<slug>`.
+Planned first wave, with the live URL each one replaces — see
+[`docs/website-audit-2026-11.md`](../website-audit-2026-11.md) §7:
+
+`/` (replaces `/`), `/pour-commercants` (`/espace-commercant/`), `/pour-clients`
+(`/espace-client/`), `/pour-collectivites` (`/espace-collectivites/`), `/a-propos`
+(`/a-propos-de-nous/`), then new pages `/telecharger`, `/contact`, `/aide`, `/cgu`,
+`/confidentialite`, `/supprimer-compte`, `/vitrine/<slug>`.
+
+The four renamed URLs are the only ones with history. Their 301s ship with the first deploy.
 
 ## 10. Changelog (newest first)
+
+- **2026-11-14** — Corrected the market after auditing the live site: **France (Belfort)**, not
+  Morocco; locale `fr_FR`, not `fr_MA`; **three** audiences (commerçants, clients, collectivités),
+  not two. §9 now maps each planned URL to the live URL it replaces. Full baseline in
+  [`docs/website-audit-2026-11.md`](../website-audit-2026-11.md).
 
 - **2026-11-14** — SEO Holy Book created on the empty `site-web` branch, adapted from the IMIGO
   SEO Holy Book to Yuztoo (domain `yuztoo.com`, Firebase Hosting redirects and headers instead of

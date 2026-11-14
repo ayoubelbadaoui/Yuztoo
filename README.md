@@ -1,6 +1,9 @@
 # Yuztoo — Site web
 
-Public marketing website for Yuztoo (`https://yuztoo.com`), deployed on Firebase Hosting.
+Public marketing website for Yuztoo (`https://www.yuztoo.com`), deployed on Firebase Hosting.
+It replaces the current WordPress site — see
+[`docs/website-audit-2026-11.md`](./docs/website-audit-2026-11.md) for the baseline and the
+rebuild plan.
 
 This branch (`site-web`) contains **website code only**. It has no shared history with the Flutter
 app and must never import app or CRM source. The mobile app lives on `develop` and its siblings.
@@ -11,12 +14,13 @@ prerendered to static HTML. Build pipeline and folder map:
 
 ## Holy books — read before you code
 
-Five non-negotiable rulebooks live in [`docs/holy-books/`](./docs/holy-books/README.md). Read the
+Six non-negotiable rulebooks live in [`docs/holy-books/`](./docs/holy-books/README.md). Read the
 relevant one before starting a feature and run its PR checklist before merging.
 
 | Book | Goal |
 |------|------|
-| [DDD](./docs/holy-books/DDD_HOLY_BOOK.md) | Only the service layer talks to Firebase |
+| [DDD](./docs/holy-books/DDD_HOLY_BOOK.md) | Only `src/data` talks to Firebase |
+| [Brand](./docs/holy-books/BRAND_HOLY_BOOK.md) | The site looks like the app — tokens copied from Flutter |
 | [Security](./docs/holy-books/SECURITY_HOLY_BOOK.md) | The server enforces; the browser is hostile |
 | [SEO](./docs/holy-books/SEO_HOLY_BOOK.md) | Public pages rank, private pages stay hidden |
 | [Performance](./docs/holy-books/PERFORMANCE_HOLY_BOOK.md) | Static first, fast on mobile, cheap on Firebase |

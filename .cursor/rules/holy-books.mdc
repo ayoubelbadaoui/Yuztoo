@@ -15,6 +15,7 @@ Before writing or reviewing code, follow the matching book in `docs/holy-books/`
 checklist:
 
 - Folders, routes, content modules, data access → `docs/holy-books/DDD_HOLY_BOOK.md`
+- Colors, typography, contrast, surfaces → `docs/holy-books/BRAND_HOLY_BOOK.md`
 - Firestore rules, Cloud Functions, public/token pages, headers, HTML rendering → `docs/holy-books/SECURITY_HOLY_BOOK.md`
 - Pages, meta, JSON-LD, sitemap, robots, redirects, forms → `docs/holy-books/SEO_HOLY_BOOK.md`
 - Prerendering, bundles, images, Firebase reads, Core Web Vitals → `docs/holy-books/PERFORMANCE_HOLY_BOOK.md`
@@ -29,5 +30,9 @@ Hard rules that apply to every change:
 - Security is enforced server-side (Firestore rules, Cloud Functions, Hosting headers). Hiding a
   control in the UI is not security.
 - Page copy, image `src` and `alt` live in `<page>Content.js`, never inline in a component.
+- Colors come from `var(--token)` in `src/global.css`, copied from the Flutter app. No raw hex in
+  a component, and gold is an accent — never a large fill or body text on light.
+- The market is **France (Belfort)**, the audiences are **commerçants, clients, collectivités**,
+  and the locale is `fr-FR`. Never `fr_MA`.
 - Each book has a **Known gaps** section. When you close a gap, delete it in the same PR; when
   you find one, add it.
