@@ -22,7 +22,7 @@ Targets:
 1. Every indexable page is **prerendered to static HTML** and served from the Hosting CDN. A
    marketing page must render fully with JavaScript disabled.
 2. A static page does **zero** Firebase calls. Copy, images and figures come from
-   `content/` modules baked into the build.
+   `<page>Content.js` modules baked into the build.
 3. Only genuinely dynamic pages (a public vitrine) read from Firestore, and they read one
    document by ID — never a query, never a collection scan.
 4. Data that changes rarely (store directory, pricing) is generated at build time, not fetched at
@@ -40,10 +40,11 @@ Targets:
 
 ## 3. Bundle & loading
 
-1. Every route is lazy-loaded. A new page = a new dynamic `import()`.
+1. Every route is lazy-loaded through its `src/routes.js` entry — a new page is a new dynamic
+   `import()` there, never a static import into the entry bundle.
 2. Heavy libs (maps, charts, video players, date libraries) are imported dynamically inside the
    feature that needs them, never at the top of a shared module.
-3. The Firebase SDK is imported **only** inside `services/`, modular style
+3. The Firebase SDK is imported **only** inside `src/data/**`, modular style
    (`firebase/firestore` subpath), and loaded lazily — a static page must not ship it at all.
 4. Vendor chunks stay split; check `npm run build` output. Any chunk > 500 KB raw needs a reason
    in the PR.

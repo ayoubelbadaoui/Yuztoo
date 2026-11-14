@@ -8,10 +8,13 @@ alwaysApply: true
 This branch (`site-web`) is the **public Yuztoo website only** (`yuztoo.com`). It never imports
 Flutter app code or CRM code.
 
+Stack: **Vite 6 + React 18, plain JavaScript (`.js` / `.jsx`, no TypeScript), no router**, every
+page prerendered to static HTML and served by Firebase Hosting.
+
 Before writing or reviewing code, follow the matching book in `docs/holy-books/` and run its PR
 checklist:
 
-- Folders, services, hooks, content modules, data access → `docs/holy-books/DDD_HOLY_BOOK.md`
+- Folders, routes, content modules, data access → `docs/holy-books/DDD_HOLY_BOOK.md`
 - Firestore rules, Cloud Functions, public/token pages, headers, HTML rendering → `docs/holy-books/SECURITY_HOLY_BOOK.md`
 - Pages, meta, JSON-LD, sitemap, robots, redirects, forms → `docs/holy-books/SEO_HOLY_BOOK.md`
 - Prerendering, bundles, images, Firebase reads, Core Web Vitals → `docs/holy-books/PERFORMANCE_HOLY_BOOK.md`
@@ -19,11 +22,12 @@ checklist:
 
 Hard rules that apply to every change:
 
-- Nothing outside `src/features/**/services/**` (and `src/lib/**`) may import from `lib/firebase`
-  or call our backend with raw `fetch`.
-- Every indexable page ships prerendered HTML — never an empty `<div id="root">`.
+- Nothing outside `src/data/**` (and `src/lib/**`) may import from `lib/firebase` or call our
+  backend with raw `fetch`.
+- Every indexable page ships prerendered HTML — never an empty `<div id="root">` — and is listed
+  in `src/routes.js`.
 - Security is enforced server-side (Firestore rules, Cloud Functions, Hosting headers). Hiding a
   control in the UI is not security.
-- Page copy, image `src` and `alt` live in `content/` modules, never inline in a component.
+- Page copy, image `src` and `alt` live in `<page>Content.js`, never inline in a component.
 - Each book has a **Known gaps** section. When you close a gap, delete it in the same PR; when
   you find one, add it.

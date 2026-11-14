@@ -34,9 +34,11 @@ branch contains website code only and must never import app or CRM source.
 | Hosting | Firebase Hosting, site `yuztoo`, projects `yuztoo-dev` and `yuztoo` |
 | Brand colors | navy `#0B1F33`, navy-2 `#102C49`, navy-3 `#0E2A44`, gold `#C9A352`, cream `#F4EDDD` |
 
-## Assumed stack
+## Stack
 
-Until the first website commit lands, these books assume a **Vite + React + TypeScript** site that
-prerenders every indexable page to static HTML and deploys to Firebase Hosting. If the stack
-changes, update the books in the same PR instead of letting them drift — the rules (prerendered
-HTML, one data layer, server-enforced security, 320 px support) hold for any stack.
+**Vite 6 + React 18 in plain JavaScript** (`.js` / `.jsx`, no TypeScript), no router — every
+indexable page is prerendered to static HTML and served by Firebase Hosting. Icons via
+`lucide-react`, fonts self-hosted via `@fontsource/*`, tests with Vitest.
+
+This mirrors the IMIGO website (`themoutaouakil/imigo`, branch `website`), which these books are
+adapted from. Full detail and the build pipeline: [DDD Holy Book](./DDD_HOLY_BOOK.md) §0.

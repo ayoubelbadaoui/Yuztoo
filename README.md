@@ -5,6 +5,10 @@ Public marketing website for Yuztoo (`https://yuztoo.com`), deployed on Firebase
 This branch (`site-web`) contains **website code only**. It has no shared history with the Flutter
 app and must never import app or CRM source. The mobile app lives on `develop` and its siblings.
 
+**Stack:** Vite 6 + React 18 in plain JavaScript (no TypeScript), no router — every page is
+prerendered to static HTML. Build pipeline and folder map:
+[DDD Holy Book](./docs/holy-books/DDD_HOLY_BOOK.md) §0–§2.
+
 ## Holy books — read before you code
 
 Five non-negotiable rulebooks live in [`docs/holy-books/`](./docs/holy-books/README.md). Read the
@@ -29,5 +33,6 @@ projects in the same task — `yuztoo-dev` and `yuztoo`. See
 
 ## Status
 
-No site code yet. The next step is the first scaffold PR: pick and confirm the stack, set up
-ESLint with the DDD and `max-lines` rules, and add the build-time SEO gate.
+No site code yet. The next step is the first scaffold PR: Vite + React skeleton, `src/routes.js`,
+ESLint with the DDD and `max-lines` rules, and the five build-pipeline scripts
+(`generate-sitemap`, `prerender`, `verify-no-app-code`, `verify-seo`).

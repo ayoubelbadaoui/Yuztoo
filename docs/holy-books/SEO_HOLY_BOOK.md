@@ -38,15 +38,15 @@ AI agents: do this automatically in the same change, without being asked.
 | `<h1>` | Exactly one, contains the primary keyword |
 | Headings | Logical `h2` → `h3` order, never chosen for styling |
 | JSON-LD | `WebPage` + `BreadcrumbList` (+ `Organization` / `SoftwareApplication` on `/`); `Service` on product pages; `FAQPage` when there is an FAQ; `Article` on blog posts; `LocalBusiness` on public vitrine pages |
-| Sitemap | Listed in `scripts/generate-sitemap.mjs` (`PAGES` map with a real `lastmod`) and in the route table. **Bump the date when you change a page; never use the build date.** The gate checks sitemap ⇄ indexable pages match exactly |
+| Sitemap | Listed in `src/routes.js` with a real `lastmod`, which `scripts/generate-sitemap.mjs` reads. **Bump the date when you change a page; never use the build date.** The gate checks sitemap ⇄ indexable pages match exactly |
 | Fonts | Self-hosted via `@fontsource/*` (no `fonts.googleapis.com` — gate-enforced) |
 | Search Console | Set `VITE_GSC_VERIFICATION` at build time; prerender adds the `google-site-verification` meta only when set |
 | Prerender | Written to `dist/<path>/index.html` by `scripts/prerender.mjs` |
 | Internal links | Linked from the header/footer nav or another indexed page with descriptive anchor text |
 
-Pattern: one `*SeoData.ts` module per page (single source for client + prerender), a hook or
-component applying it in the browser, and a static shell generator for the crawlable HTML. Never
-hand-write meta tags inline in a page.
+Pattern: one `<page>SeoData.js` module per page (the single source for both the browser and the
+prerenderer), `usePageSeo` applying it client-side, and a `generate<Page>Shell.js` producing the
+crawlable HTML. Never hand-write meta tags inline in a page.
 
 ## 2. Crawlable HTML
 
@@ -114,7 +114,7 @@ INP < 200 ms on mobile.
 ## 7. Release checklist (copy into the PR)
 
 - [ ] §1 complete for each new/changed page (title, description, canonical, OG, one `h1`, JSON-LD)
-- [ ] Page added to the route table + `scripts/generate-sitemap.mjs`, prerendered by `scripts/prerender.mjs`
+- [ ] Page added to `src/routes.js` (so sitemap + prerender pick it up)
 - [ ] Linked from nav/footer or another indexed page
 - [ ] Renamed/removed URLs added to `firebase.json` `redirects` (301) and deployed to both projects
 - [ ] Private/test pages in `robots.txt` **and** `noindex`
@@ -130,7 +130,8 @@ INP < 200 ms on mobile.
 
 The website does not exist yet on this branch. Everything below is open:
 
-- No site, no build, no SEO gate (`scripts/verify-seo.mjs`), no prerender, no sitemap generator.
+- No site, no build, no `src/routes.js`, no SEO gate (`scripts/verify-seo.mjs`), no prerender, no
+  sitemap generator.
 - No `robots.txt` and no `sitemap.xml` in `public/`.
 - The pages currently served from the app repo (`index.html`, `aide.html`, `cgu.html`,
   `confidentialite.html`, `supprimer-compte.html`, `telecharger-ios.html`,
@@ -184,7 +185,7 @@ page produced the lead.
 
 **When you add a page or a form:**
 
-1. Add the path → label to the lead-source map. The format is strict: `Site web / ` followed by
+1. Add the path → label to `src/data/leadSources.js`. The format is strict: `Site web / ` followed by
    2–40 letters, digits, spaces or `'`. Anything else is stored as plain `Site web`.
 2. If one page has two forms, pass an explicit `source` prop using the same format.
 3. Add the new value to the server-side allowlist in the Cloud Function, or it is rejected.

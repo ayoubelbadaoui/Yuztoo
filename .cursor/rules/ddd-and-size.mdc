@@ -1,25 +1,30 @@
 ---
-description: Strict DDD (Firebase only in services) and small files via ESLint
+description: Strict DDD (Firebase only in src/data) and small files via ESLint
 alwaysApply: true
 ---
 
 # Yuztoo website — DDD + file size (strict)
 
-- **Firebase client**: do not import anything from `lib/firebase` (Firestore, Auth, Storage,
-  Functions, App Check) outside `src/features/**/services/**` and `src/lib/**`. ESLint
-  `no-restricted-imports` is configured as **error**. The same applies to raw `fetch` calls to our
-  backend.
-- **Callables**: wrap every Cloud Function call in a named service function
-  (e.g. `features/lead/services/leadEdgeService.ts`). Hooks and components call the wrapper.
-- **Service shape**: always return `{ data, error }`, map raw documents to typed objects, never
-  throw to the caller, never read a whole collection.
-- **Content**: page copy, image `src` and `alt` belong in `features/<domain>/content/`, and SEO
-  metadata in `features/<domain>/seo/<page>SeoData.ts`. Never inline them in a component.
-- **No app or CRM code**: this branch must not import from the Flutter app or the CRM. Duplicate
-  shared constants locally with a comment naming the source of truth.
-- **File length**: respect `max-lines` in `eslint.config.js` (services/lib/content 800, pages 550,
-  containers/components 450, handlers 400, rest 500). If a change would exceed the limit, split in
-  the same change — never raise the ceiling.
-- **Large hooks**: prefer composition (`useXFormState`, loaders, submit) over one monolithic hook.
+Stack: **Vite 6 + React 18, plain JavaScript (`.js` / `.jsx`, no TypeScript), no router.** Every
+page is prerendered and listed in `src/routes.js`.
 
-Full detail: `docs/holy-books/DDD_HOLY_BOOK.md`.
+- **Firebase client**: do not import anything from `lib/firebase` (Firestore, Auth, Storage,
+  Functions, App Check) outside `src/data/**` and `src/lib/**`. ESLint `no-restricted-imports` is
+  configured as **error**. The same applies to raw `fetch` calls to our backend. Most pages ship
+  zero Firebase — keep it that way.
+- **Cloud Functions**: wrap every call in a named function in `src/data/**`
+  (e.g. `src/data/submitLead.js`). Components and hooks call the wrapper, never `callFunction`.
+- **Data shape**: always return `{ data, error }`, map raw documents to plain objects, never throw
+  to the caller, read by ID, never scan a collection.
+- **Content**: page copy, image `src` and `alt` belong in `src/site/<page>/<page>Content.js`, and
+  SEO metadata in `src/site/<page>/<page>SeoData.js`. No user-facing string hard-coded in JSX.
+- **Routes**: a new page means a new entry in `src/routes.js`, or it will not be prerendered and
+  the SEO gate will fail.
+- **No app or CRM code**: never import from the Flutter app (`lib/feature/**`) or the CRM.
+  Duplicate shared constants in `src/siteConfig.js` with a comment naming the source of truth.
+- **File length**: respect `max-lines` in `eslint.config.js` (data/lib/content/seo 800, pages 550,
+  components/sections 450, rest 500). If a change would exceed the limit, split in the same change
+  — never raise the ceiling.
+- **Large hooks**: prefer composition (`useLeadFormState`, `useLeadSubmit`) over one monolith.
+
+Full detail and the build pipeline: `docs/holy-books/DDD_HOLY_BOOK.md`.
