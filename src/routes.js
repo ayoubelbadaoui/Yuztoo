@@ -9,11 +9,14 @@
 import { ROUTE_META } from './routeMeta.js'
 import HomePage from './site/home/HomePage.jsx'
 import { HOME_SEO } from './site/home/homeSeoData.js'
+import CommercantsPage from './site/commercants/CommercantsPage.jsx'
+import { COMMERCANTS_SEO } from './site/commercants/commercantsSeoData.js'
 import NotFoundPage from './site/NotFoundPage.jsx'
 import { NOT_FOUND_SEO } from './site/notFoundSeoData.js'
 
 const PAGES = {
   '/': { Component: HomePage, seo: HOME_SEO },
+  '/pour-commercants': { Component: CommercantsPage, seo: COMMERCANTS_SEO },
   '/404': { Component: NotFoundPage, seo: NOT_FOUND_SEO },
 }
 

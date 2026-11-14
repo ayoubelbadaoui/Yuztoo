@@ -37,8 +37,9 @@
   white-space: nowrap;
 }
 
+/* Display size only: --gold-deep clears 3:1 for large text on paper. */
 .yz-hero__title-end {
-  color: var(--text-dim);
+  color: var(--gold-deep);
 }
 
 .yz-hero__lead {

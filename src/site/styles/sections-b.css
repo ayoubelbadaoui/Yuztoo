@@ -439,9 +439,9 @@
 
 .yz-closing__title {
   max-width: 14ch;
-  font-size: clamp(38px, 5vw, 66px);
-  font-weight: 900;
-  letter-spacing: -0.047em;
+  font-size: clamp(36px, 4.6vw, 60px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
   line-height: 1;
   color: var(--text);
 }

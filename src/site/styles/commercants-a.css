@@ -1,0 +1,534 @@
+/* ═══════════ POUR LES COMMERÇANTS — hero, constat, impact, setup ═══════════ */
+
+/* ---------- breadcrumb ---------- */
+
+.yz-crumbs {
+  margin-bottom: 22px;
+  color: var(--text-dim);
+}
+
+.yz-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.yz-crumbs li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.yz-crumbs svg {
+  margin-inline: 6px;
+  color: var(--gold-deep);
+}
+
+.yz-crumbs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--text-dim);
+  transition: color 0.18s ease;
+}
+
+.yz-crumbs a:hover {
+  color: var(--text);
+}
+
+.yz-crumbs [aria-current] {
+  color: var(--text);
+}
+
+/* ---------- hero ---------- */
+
+.yz-prohero .yz-hero__title {
+  margin-top: 22px;
+}
+
+.yz-prohero__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.yz-prohero__checks li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-mut);
+}
+
+.yz-prohero__checks svg {
+  flex-shrink: 0;
+  padding: 3px;
+  width: 21px;
+  height: 21px;
+  color: var(--navy-deep);
+  background: var(--gold);
+}
+
+.yz-prohero__visual {
+  position: relative;
+}
+
+.yz-prohero__stage {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 4.4;
+  padding-bottom: 40px;
+  background: var(--white);
+  border: 1px solid var(--border-str);
+}
+
+/* The plaque the phone has just been tapped on. */
+.yz-prohero__plaque {
+  position: absolute;
+  left: 50%;
+  bottom: -46px;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 62%;
+  height: 92px;
+  padding-top: 12px;
+  color: var(--gold-on-dark);
+  background: var(--navy-header);
+  transform: translateX(-50%);
+}
+
+.yz-prohero__tag {
+  bottom: 72px;
+  left: -32px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+  color: #fff;
+  background: var(--navy-header);
+}
+
+.yz-prohero__tag strong {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--gold-on-dark);
+}
+
+.yz-prohero__tag .yz-mono {
+  color: rgba(241, 245, 249, 0.78);
+}
+
+/* ---------- phone mock ---------- */
+
+.yz-phone {
+  position: relative;
+  z-index: 2;
+  width: min(56%, 300px);
+  padding: 10px;
+  background: var(--navy-deep);
+  border-radius: 44px;
+  box-shadow:
+    0 0 0 1px rgba(11, 22, 44, 0.9),
+    0 40px 70px -34px rgba(11, 22, 44, 0.65);
+}
+
+.yz-phone__screen {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 9 / 16;
+  padding: 14px 12px;
+  background:
+    radial-gradient(120% 60% at 50% 0%, var(--navy-line) 0%, transparent 70%),
+    linear-gradient(180deg, var(--navy-main), var(--navy-deep));
+  border-radius: 34px;
+}
+
+.yz-phone__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.yz-phone__island {
+  width: 86px;
+  height: 24px;
+  background: #000;
+  border-radius: 999px;
+}
+
+.yz-phone__bars {
+  width: 24px;
+  height: 11px;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 3px;
+  box-shadow: inset -8px 0 0 rgba(255, 255, 255, 0.85);
+}
+
+.yz-phone__label {
+  margin: 30px 0 12px;
+  text-align: center;
+  font-size: 10.5px;
+  color: rgba(241, 245, 249, 0.62);
+}
+
+.yz-phone__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.yz-notif {
+  display: flex;
+  gap: 10px;
+  padding: 11px 12px;
+  color: var(--navy-header);
+  background: rgba(253, 251, 247, 0.96);
+  border-radius: 16px;
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.6);
+  animation: yz-notif-in 0.6s var(--ease-out) both;
+  animation-delay: calc(0.5s + var(--i) * 0.45s);
+}
+
+@keyframes yz-notif-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+}
+
+.yz-notif__icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--navy-header);
+  border-radius: 9px;
+}
+
+.yz-notif__icon img {
+  width: auto;
+  height: 24px;
+}
+
+.yz-notif__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.yz-notif__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.yz-notif__head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yz-notif__head span {
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.yz-notif__text {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-mut);
+}
+
+/* ---------- constat ---------- */
+
+.yz-pains__grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.yz-pains__item {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 34px 30px 30px;
+}
+
+.yz-pains__kicker {
+  display: inline-flex;
+  gap: 10px;
+  color: var(--text-dim);
+}
+
+.yz-pains__kicker span {
+  color: var(--gold-deep);
+}
+
+.yz-pains__title {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.22;
+  color: var(--text);
+}
+
+.yz-pains__text {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-mut);
+}
+
+.yz-pains__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border-str);
+}
+
+/* Tools that hold the relation — crossed out, they are what Yuztoo replaces. */
+.yz-pains__chips li {
+  padding: 5px 9px;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-decoration: line-through;
+  text-decoration-color: var(--danger);
+  text-decoration-thickness: 1.5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+/* ---------- impact: one dark band ---------- */
+
+.yz-impact {
+  padding-block: 96px;
+}
+
+.yz-impact__head {
+  max-width: 640px;
+  margin-bottom: 56px;
+}
+
+.yz-impact__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--border-str);
+}
+
+.yz-impact__stat {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 36px 32px 8px 0;
+  border-right: 1px solid var(--border);
+}
+
+.yz-impact__stat + .yz-impact__stat {
+  padding-left: 32px;
+}
+
+.yz-impact__stat:last-child {
+  border-right: 0;
+}
+
+.yz-impact__value {
+  font-size: clamp(44px, 5.4vw, 72px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  color: var(--gold-on-dark);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.yz-impact__label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.yz-impact__label .yz-mono {
+  color: var(--text);
+}
+
+.yz-impact__note {
+  max-width: 30ch;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-mut);
+}
+
+/* ---------- setup ---------- */
+
+.yz-setup__layout {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 72px;
+  align-items: center;
+}
+
+.yz-setup__media {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--sand-soft);
+  border: 1px solid var(--border-str);
+}
+
+.yz-setup__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yz-setup .yz-head {
+  margin-bottom: 36px;
+}
+
+.yz-setup__steps {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The rail that joins the three markers. */
+.yz-setup__steps::before {
+  content: '';
+  position: absolute;
+  top: 24px;
+  bottom: 24px;
+  left: 23px;
+  width: 1px;
+  background: repeating-linear-gradient(180deg, var(--border-str) 0 4px, transparent 4px 8px);
+}
+
+.yz-setup__step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 22px;
+  padding-block: 16px;
+}
+
+.yz-setup__marker {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  color: var(--gold-on-dark);
+  background: var(--navy-header);
+}
+
+.yz-setup__num {
+  color: var(--text-dim);
+}
+
+.yz-setup__title {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.yz-setup__text {
+  margin-top: 6px;
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-mut);
+}
+
+.yz-setup__quote {
+  margin-top: 28px;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1024px) {
+  .yz-pains__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-setup__layout {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+
+  .yz-setup__media {
+    aspect-ratio: 16 / 10;
+  }
+}
+
+@media (max-width: 900px) {
+  .yz-prohero__visual {
+    max-width: 520px;
+    width: 100%;
+    margin-inline: auto;
+  }
+
+  .yz-prohero__tag {
+    left: -1px;
+  }
+
+  .yz-impact__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-impact__stat,
+  .yz-impact__stat + .yz-impact__stat {
+    padding: 28px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 640px) {
+  .yz-prohero__stage {
+    aspect-ratio: 5 / 7;
+  }
+
+  .yz-phone {
+    width: 72%;
+  }
+
+  .yz-prohero__tag {
+    display: none;
+  }
+
+  .yz-pains__item {
+    padding: 28px 22px 24px;
+  }
+
+  .yz-setup__media {
+    aspect-ratio: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yz-notif {
+    animation: none;
+  }
+}

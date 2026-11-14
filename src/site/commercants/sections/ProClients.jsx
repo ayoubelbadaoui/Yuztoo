@@ -1,0 +1,92 @@
+import { Send } from 'lucide-react'
+import SectionHead from '../../components/SectionHead.jsx'
+import { PRO_CLIENTS } from '../commercantsContent.js'
+
+function ClientBoard({ board }) {
+  return (
+    <div className="yz-board" data-reveal>
+      <div className="yz-board__bar">
+        <strong>{board.title}</strong>
+        <span className="yz-mono">{board.note}</span>
+      </div>
+      <table className="yz-board__table">
+        <caption className="yz-sr-only">
+          {board.title} — {board.note}
+        </caption>
+        <thead>
+          <tr>
+            {board.columns.map((column) => (
+              <th key={column} scope="col" className="yz-mono">
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {board.rows.map((row) => (
+            <tr key={row.id}>
+              <th scope="row">
+                <span className="yz-board__avatar" aria-hidden="true">
+                  {row.name.charAt(0)}
+                </span>
+                {row.name}
+              </th>
+              <td className="yz-board__visits">{row.visits}</td>
+              <td>
+                <span className={`yz-board__status yz-board__status--${row.status}`}>
+                  {row.statusLabel}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <span className="yz-board__action" aria-hidden="true">
+        <Send size={15} strokeWidth={2.4} />
+        {board.action}
+      </span>
+    </div>
+  )
+}
+
+export default function ProClients() {
+  return (
+    <section className="yz-section yz-light--alt yz-section--ruled yz-clients" aria-labelledby="yz-clients-title">
+      <div className="yz-container">
+        <div className="yz-clients__layout">
+          <div>
+            <SectionHead
+              index={PRO_CLIENTS.index}
+              eyebrow={PRO_CLIENTS.eyebrow}
+              title={PRO_CLIENTS.title}
+              lead={PRO_CLIENTS.lead}
+              titleId="yz-clients-title"
+            />
+            <ul className="yz-grid yz-clients__segments">
+              {PRO_CLIENTS.segments.map((segment) => (
+                <li key={segment.id} className="yz-cell yz-clients__segment">
+                  <span className={`yz-board__status yz-board__status--${segment.id}`}>
+                    {segment.label}
+                  </span>
+                  <p>{segment.text}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <ClientBoard board={PRO_CLIENTS.board} />
+        </div>
+
+        <div className="yz-clients__ideas">
+          <h3 className="yz-clients__ideas-title yz-mono">{PRO_CLIENTS.ideasTitle}</h3>
+          <ul>
+            {PRO_CLIENTS.ideas.map((idea) => (
+              <li key={idea}>« {idea} »</li>
+            ))}
+          </ul>
+          <p className="yz-clients__punch">{PRO_CLIENTS.punchline}</p>
+        </div>
+      </div>
+    </section>
+  )
+}

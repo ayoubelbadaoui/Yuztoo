@@ -140,11 +140,14 @@ INP < 200 ms on mobile.
 
 ## 8. Known gaps (November 2026)
 
-The website does not exist yet on this branch. Everything below is open:
-
-- No site, no build, no `src/routes.js`, no SEO gate (`scripts/verify-seo.mjs`), no prerender, no
-  sitemap generator.
-- No `robots.txt` and no `sitemap.xml` in `public/`.
+- **No `firebase.json` on this branch yet**, so the 301 `/espace-commercant` → `/pour-commercants`
+  (and the three other renamed URLs) is not written anywhere. It must ship with the first hosting
+  config, together with `cleanUrls: true` and `trailingSlash: false` (`vite preview` falls back to
+  the homepage HTML for `/pour-commercants` without the slash; Firebase will not).
+- `/pour-commercants` has no lead form yet: the « Démarrer » section offers `mailto:` and `tel:`
+  only. The form needs the §11 Cloud Function (allowlist, honeypot, consent) and a dual-env deploy.
+- The header nav still links to unbuilt `/pour-clients`, `/pour-collectivites` and `/a-propos`
+  (404 until built). The footer already hides them.
 - The pages currently served from the app repo (`index.html`, `aide.html`, `cgu.html`,
   `confidentialite.html`, `supprimer-compte.html`, `telecharger-ios.html`,
   `telecharger-android.html`, `vitrine.html`, `invite.html`) are hand-written HTML with no
@@ -174,6 +177,7 @@ Carried over from the live-site audit ([`docs/website-audit-2026-11.md`](../webs
 | URL | Purpose | Primary keyword | SEO data | Sitemap | Prerendered |
 |-----|---------|-----------------|----------|---------|-------------|
 | `/` | Homepage — économie des plateformes, fonctionnement, preuve, trois publics | fidéliser clients commerce local sans commission | `src/site/home/homeSeoData.js` | ✅ | ✅ |
+| `/pour-commercants` | Offre commerçants — constat, impact, mise en place, clients, fidélité, outils, FAQ (replaces `/espace-commercant/`) | fidélisation client commerce gratuit | `src/site/commercants/commercantsSeoData.js` (WebPage, BreadcrumbList, FAQPage) | ✅ | ✅ |
 | `/404` | Page introuvable (noindex) | — | `src/site/notFoundSeoData.js` | ❌ | ✅ |
 
 Planned first wave, with the live URL each one replaces — see
@@ -187,6 +191,13 @@ Planned first wave, with the live URL each one replaces — see
 The four renamed URLs are the only ones with history. Their 301s ship with the first deploy.
 
 ## 10. Changelog (newest first)
+
+- **2026-11-14** — `/pour-commercants` shipped (second indexable page): one `h1`, visible
+  breadcrumb, `BreadcrumbList` + `FAQPage` + `WebPage` JSON-LD, copy and figures taken from the live
+  `/espace-commercant/`. Header CTA and homepage CTAs now point to `/pour-commercants#demarrer`
+  instead of the unbuilt `/contact`. Footer renders links to unbuilt routes as plain text (no dead
+  links) and switches them on automatically once the route is in `routeMeta.js`. Homepage `h1`
+  wording unchanged; « pas pour une plateforme. » now in `--gold-deep`. Gate passing on 2 pages.
 
 - **2026-11-14** — Homepage redesigned on the IMIGO website's structural system (hairline grids,
   mono micro-labels, numbered sections, scanner frames). H1 changed to « Vos clients reviennent

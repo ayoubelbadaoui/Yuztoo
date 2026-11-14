@@ -10,7 +10,7 @@ export const NAV_LINKS = [
   { href: '/a-propos', label: 'À propos' },
 ]
 
-export const NAV_CTA = { href: '/contact', label: 'Tester gratuitement' }
+export const NAV_CTA = { href: '/pour-commercants#demarrer', label: 'Tester gratuitement' }
 
 export const UTILITY = {
   location: `${CONTACT.city}, France`,
@@ -59,4 +59,20 @@ export const FOOTER = {
   ],
   legal: '© 2026 Yuztoo. Tous droits réservés.',
   madeIn: `Conçu à ${NETWORK.city} · ${NETWORK.department}`,
+  status: `Actif à ${NETWORK.city} · ${NETWORK.partners} commerces`,
+  soon: 'Bientôt',
+  contact: [
+    { id: 'mail', label: 'Écrire', kind: 'mail' },
+    { id: 'phone', label: 'Appeler', kind: 'phone' },
+    { id: 'city', label: 'Où', kind: 'city' },
+  ],
+  app: {
+    title: 'L’application',
+    stores: [
+      { id: 'ios', label: 'App Store' },
+      { id: 'android', label: 'Google Play' },
+    ],
+  },
+  backToTop: 'Haut de page',
+  wordmark: 'Yuztoo',
 }

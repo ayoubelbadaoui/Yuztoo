@@ -48,6 +48,10 @@ The website uses the warm amber `MerchantColors.gold` rather than `StorefrontCol
 darkened gold that passes looks brown, so light-surface accents are navy text on a
 `--gold-soft` band (`.yz-accent`), and eyebrows are navy with a gold tick.
 
+One exception: **display headings (≥ 32 px, weight 800)** may set a phrase in `--gold-deep`
+(3.0:1 on `--paper`, which clears the 3:1 large-text threshold) — e.g. « pas pour une
+plateforme. » in the hero. Never `--gold` itself, never below 32 px.
+
 Gold gradient for premium borders, from `GoldGradient` in the app:
 
 ```css

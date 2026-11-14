@@ -16,7 +16,7 @@ export const HOME_HERO = {
   titleEnd: 'pas pour une plateforme.',
   intro:
     'Une plaque Yuztoo sur votre comptoir. Vos clients la scannent, votre commerce entre dans leur téléphone, et la relation vous appartient. Sans commission, sans publicité.',
-  primaryCta: { label: 'Tester sur mon commerce', href: '/contact' },
+  primaryCta: { label: 'Tester sur mon commerce', href: '/pour-commercants#demarrer' },
   secondaryCta: { label: 'Comment ça marche', href: '#fonctionnement' },
   proof: [
     { id: 'commission', icon: 'percent', value: '0 %', label: 'Commission' },
@@ -144,7 +144,7 @@ export const HOME_BENEFITS = {
   strip: {
     text: 'Envie de voir ce que ça donne sur votre commerce ? Nous installons la plaque gratuitement.',
     cta: 'Tester gratuitement',
-    href: '/contact',
+    href: '/pour-commercants#demarrer',
   },
 }
 
@@ -254,7 +254,7 @@ export const HOME_CLOSING = {
   eyebrow: 'Prochaine étape',
   title: 'Testez Yuztoo sur votre commerce',
   lead: 'Gratuit pour vous, gratuit pour vos clients. Nous installons la plaque et nous vous accompagnons.',
-  primaryCta: { label: 'Nous contacter', href: '/contact' },
+  primaryCta: { label: 'Nous contacter', href: '/pour-commercants#demarrer' },
   downloadCta: 'Télécharger l’application',
   image: {
     src: '/images/yuztoo/yuztoo-mascotte.webp',

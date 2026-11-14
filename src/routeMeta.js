@@ -15,6 +15,13 @@ export const ROUTE_META = [
     priority: '1.0',
   },
   {
+    path: '/pour-commercants',
+    indexable: true,
+    lastmod: '2026-11-14',
+    changefreq: 'monthly',
+    priority: '0.9',
+  },
+  {
     path: '/404',
     indexable: false,
   },
