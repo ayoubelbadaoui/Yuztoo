@@ -461,7 +461,7 @@
   position: relative;
   overflow: hidden;
   aspect-ratio: 4 / 4.6;
-  background: var(--sand);
+  background: var(--paper);
   border: 1px solid var(--border-str);
 }
 

@@ -256,13 +256,13 @@
   letter-spacing: -0.05em;
   line-height: 0.9;
   color: transparent;
-  -webkit-text-stroke: 1.5px var(--gold-ink);
+  -webkit-text-stroke: 1.5px var(--navy-main);
   font-variant-numeric: tabular-nums;
   transition: color 0.24s ease;
 }
 
 .yz-steps__item:hover .yz-steps__num {
-  color: var(--gold-ink);
+  color: var(--gold);
 }
 
 .yz-steps__title {

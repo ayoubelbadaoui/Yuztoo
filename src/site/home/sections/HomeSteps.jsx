@@ -1,8 +1,8 @@
-import { BellRing, Repeat, ScanLine } from 'lucide-react'
+import { BellRing, Repeat, SmartphoneNfc } from 'lucide-react'
 import SectionHead from '../../components/SectionHead.jsx'
 import { HOME_STEPS } from '../homeContent.js'
 
-const ICONS = { scan: ScanLine, bell: BellRing, repeat: Repeat }
+const ICONS = { scan: SmartphoneNfc, bell: BellRing, repeat: Repeat }
 
 export default function HomeSteps() {
   const { image, steps } = HOME_STEPS

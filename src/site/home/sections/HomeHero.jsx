@@ -1,4 +1,5 @@
-import { ArrowDown, ArrowRight, Megaphone, Nfc, Percent, Store } from 'lucide-react'
+import { ArrowDown, ArrowRight, Megaphone, Percent, Store } from 'lucide-react'
+import NfcIcon from '../../components/NfcIcon.jsx'
 import SiteAmbient from '../../components/SiteAmbient.jsx'
 import { HOME_HERO } from '../homeContent.js'
 
@@ -78,7 +79,7 @@ export default function HomeHero() {
 
           <div className="yz-hero__plate yz-hero__plate--nfc">
             <span className="yz-hero__nfc" aria-hidden="true">
-              <Nfc size={22} strokeWidth={2} />
+              <NfcIcon size={24} strokeWidth={1.9} />
             </span>
             <span className="yz-hero__plate-text">
               <span className="yz-mono">{plate.kicker}</span>

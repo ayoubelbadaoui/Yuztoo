@@ -36,13 +36,17 @@ fixed once — do not reintroduce it on the site.
 
 | Token | Hex | App source | Use |
 |---|---|---|---|
-| `--gold` | `#D4AF37` | `StorefrontColors.primaryGold` | Primary accent, CTA fill, active state |
-| `--gold-deep` | `#D4A017` | `MerchantColors.gold` | Hover / pressed on `--gold` |
-| `--gold-ink` | `#8A6212` | derived (darkened `AppColors.secondary`) | Gold **text** on light surfaces — 5.3:1 on cream |
-| `--gold-on-dark` | `#E0BF55` | derived from `--gold` | Gold text on navy — 8:1 on `--navy-main` |
+| `--gold` | `#D4A017` | `MerchantColors.gold` | Primary accent, CTA fill, rules, ticks, stamps |
+| `--gold-deep` | `#B8890F` | derived from `--gold` | Hover / pressed on `--gold`, small icons on light |
+| `--gold-soft` | `rgba(212,160,23,0.48)` | derived from `--gold` | Highlighter band behind accent words on light |
+| `--gold-on-dark` | `#F0BD3E` | derived from `--gold` | Gold text on navy — passes AA on every navy |
 
-`AppColors.secondary` (`#C28A1B`) is only 2.9:1 on cream and fails AA for text, so the website
-does not use it for copy; `--gold-ink` replaces it.
+The website uses the warm amber `MerchantColors.gold` rather than `StorefrontColors.primaryGold`
+(`#D4AF37`), which reads olive-mustard on cream next to the mascot's yellow.
+
+**No gold text on light surfaces.** Every app gold fails AA on cream (`#C28A1B` is 2.9:1). A
+darkened gold that passes looks brown, so light-surface accents are navy text on a
+`--gold-soft` band (`.yz-accent`), and eyebrows are navy with a gold tick.
 
 Gold gradient for premium borders, from `GoldGradient` in the app:
 
@@ -87,15 +91,17 @@ Gold is an **accent**. Never a large background fill, never body text on white.
 
 ## 2. Typography
 
-The app renders with **Inter** (`GoogleFonts.interTextTheme()` in `lib/theme.dart`). The website
-uses the same family, **self-hosted** via `@fontsource/inter` — loading it from
-`fonts.googleapis.com` fails the SEO gate (see [SEO Holy Book](./SEO_HOLY_BOOK.md) §1).
+The website uses **Montserrat** (owner decision, November 2026), **self-hosted** via
+`@fontsource/montserrat` — loading it from `fonts.googleapis.com` fails the SEO gate (see
+[SEO Holy Book](./SEO_HOLY_BOOK.md) §1). The app still renders Inter; that gap is listed in §7.
 
 ```css
---font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+--font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 ```
 
-Subset to Latin, weights 400 to 900 (headings run at 900 with tight tracking), `font-display: swap`.
+Latin subset, weights 400 to 800 only (any 850 / 900 in CSS resolves to 800), `font-display: swap`.
+Montserrat sets wide: display headings use 800 with tracking around −0.03em, never tighter
+than −0.04em.
 
 Every uppercase micro-label (eyebrows, badges, stat labels, tags, footer headings) runs in
 **JetBrains Mono** 500 / 700, self-hosted via `@fontsource/jetbrains-mono`:
@@ -113,7 +119,7 @@ Every pairing ships at **WCAG AA** — 4.5:1 for body text, 3:1 for large text a
 - `--text-on-dark` on `--navy-main` ✅
 - `--text-on-light` on `--cream-light` ✅
 - `--gold` on `--navy-deep` ✅ (gold on navy is the signature pairing)
-- `--gold` on `--cream-light` ❌ — use `--gold-ink` for text; `--gold` only for fills, rules and ticks
+- `--gold` on `--cream-light` ❌ — gold is fills, rules, ticks and highlight bands only on light
 - Gold body text on white ❌ — never
 
 Check both directions on every section: the site alternates navy and cream bands, so each block
@@ -152,7 +158,7 @@ Two words that must stay consistent with the app and the CRM:
 - [ ] AA contrast checked on both the navy and the cream version of the block
 - [ ] Gold used as accent only, never as a large fill or as body text on light
 - [ ] `theme-color` matches the top band
-- [ ] Inter self-hosted, not from Google Fonts
+- [ ] Montserrat and JetBrains Mono self-hosted, not from Google Fonts
 
 ## 7. Known gaps (November 2026)
 
@@ -161,5 +167,7 @@ Two words that must stay consistent with the app and the CRM:
   the single scale above; if the app ever unifies its own tokens, re-sync this book.
 - The current live site (`yuztoo.com`) uses none of these colors — it is a WordPress theme with
   unrelated styling. See [`docs/website-audit-2026-11.md`](../website-audit-2026-11.md).
+- The website runs Montserrat while the Flutter app runs Inter. Either the app follows, or the
+  owner accepts the split; decide before the vitrine pages, which mirror app screens.
 - No official logo asset yet. The header uses a 84×96 cut-out of the mascot
   (`yuztoo-mascotte-logo.webp`) next to a type wordmark until the owner supplies the real logo.

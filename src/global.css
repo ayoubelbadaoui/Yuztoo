@@ -16,12 +16,13 @@
   --navy-card: #1a2b4d;
   --navy-line: #24395a;
 
-  /* Gold — fills, rules and ticks. On light surfaces gold text uses
-     --gold-ink: brand gold on cream is 2:1 and fails AA. */
-  --gold: #d4af37;
-  --gold-deep: #c49a22;
-  --gold-ink: #8a6212;
-  --gold-on-dark: #e0bf55;
+  /* Gold — MerchantColors.gold, the warm amber that matches the mascot.
+     Fills, rules, ticks and highlight bands only on light surfaces: gold
+     text on cream fails AA, so light-surface accents are navy on gold. */
+  --gold: #d4a017;
+  --gold-deep: #b8890f;
+  --gold-soft: rgba(212, 160, 23, 0.48);
+  --gold-on-dark: #f0bd3e;
 
   /* Warm light surfaces — cream from the app, kept close to white so
      sections read crisp and separate by rules, not grey fills. */
@@ -33,8 +34,8 @@
 
   --danger: #c0392b;
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    sans-serif;
+  --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, sans-serif;
   /* Micro-labels run in mono: they read as instrumentation, not decoration. */
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
     monospace;
@@ -61,7 +62,7 @@
   --text: var(--navy-header);
   --text-mut: #45526a;
   --text-dim: #5f6b80;
-  --accent-ink: var(--gold-ink);
+  --accent-ink: var(--navy-main);
   --grid-line: rgba(11, 31, 51, 0.045);
   --dot: rgba(11, 31, 51, 0.09);
   --rule-line: rgba(11, 31, 51, 0.04);
@@ -329,9 +330,9 @@ p {
 }
 
 .yz-h2 {
-  font-size: clamp(30px, 3.9vw, 48px);
-  font-weight: 900;
-  letter-spacing: -0.038em;
+  font-size: clamp(28px, 3.6vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
   line-height: 1.06;
   color: var(--text);
 }
@@ -357,10 +358,19 @@ p {
   justify-content: center;
 }
 
-/* Solid gold rule under an accent word — no hand-drawn flourish. */
+/* Highlighter band under an accent word: navy stays readable on light,
+   the gold carries the brand. On dark bands the word itself turns gold. */
 .yz-accent {
-  color: var(--accent-ink);
-  box-shadow: inset 0 -0.12em 0 var(--gold);
+  color: var(--text);
+  background: linear-gradient(transparent 58%, var(--gold-soft) 58%, var(--gold-soft) 92%, transparent 92%);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.yz-dark .yz-accent {
+  color: var(--gold-on-dark);
+  background: none;
+  box-shadow: inset 0 -0.1em 0 var(--gold);
 }
 
 /* ---------- badge: credential strip ---------- */
@@ -445,7 +455,7 @@ p {
   background: var(--gold-deep);
   border-color: var(--gold-deep);
   transform: translateY(-2px);
-  box-shadow: 0 10px 26px -12px rgba(196, 154, 34, 0.75);
+  box-shadow: 0 10px 26px -12px rgba(184, 137, 15, 0.6);
 }
 
 .yz-btn--ghost {

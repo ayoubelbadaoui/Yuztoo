@@ -168,7 +168,7 @@ a.yz-utility__item:hover {
 }
 
 .yz-logo__word span {
-  color: var(--gold-ink);
+  color: var(--gold);
 }
 
 /* ---------- nav: sentence-case pills ---------- */
@@ -361,11 +361,13 @@ a.yz-utility__item:hover {
 }
 
 .yz-drawer__link.is-active {
-  color: var(--gold-ink);
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--gold);
+  padding-left: 14px;
 }
 
 .yz-drawer__link.is-active svg {
-  color: var(--gold-ink);
+  color: var(--gold-deep);
 }
 
 .yz-drawer__quick {
@@ -389,7 +391,7 @@ a.yz-utility__item:hover {
 }
 
 .yz-drawer__chip svg {
-  color: var(--gold-ink);
+  color: var(--gold-deep);
 }
 
 .yz-drawer__meta {
@@ -407,7 +409,7 @@ a.yz-utility__item:hover {
 }
 
 .yz-drawer__meta svg {
-  color: var(--gold-ink);
+  color: var(--gold-deep);
 }
 
 @media (min-width: 901px) {
