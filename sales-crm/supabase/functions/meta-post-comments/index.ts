@@ -83,6 +83,18 @@ function mapComment(row: GraphComment) {
   }
 }
 
+function commentsUnsupportedMessage(graphMessage: string): string | null {
+  const lower = graphMessage.toLowerCase()
+  if (
+    lower.includes('nonexisting field (comments)') ||
+    lower.includes('nonexisting field(comments)') ||
+    lower.includes('unsupported get request')
+  ) {
+    return 'Les commentaires ne sont pas disponibles sur ce type de publication Meta (ex. Story).'
+  }
+  return null
+}
+
 async function assertMember(
   authHeader: string,
   workspaceId: string,
@@ -106,6 +118,11 @@ async function assertMember(
   return { ok: true, userId: user.id }
 }
 
+/** HTTP 200 + ok:false so supabase-js surfaces the real message instead of "non-2xx". */
+function bizError(error: string) {
+  return jsonResponse({ ok: false, error }, 200)
+}
+
 async function handle(req: Request): Promise<Response> {
   try {
     if (req.method !== 'POST') {
@@ -127,10 +144,7 @@ async function handle(req: Request): Promise<Response> {
     }
 
     if (!body.action || !body.workspaceId || !body.postId || !body.channelId) {
-      return jsonResponse(
-        { ok: false, error: 'action, workspaceId, postId, channelId required' },
-        400,
-      )
+      return bizError('action, workspaceId, postId, channelId required')
     }
 
     const member = await assertMember(authHeader, body.workspaceId)
@@ -139,6 +153,27 @@ async function handle(req: Request): Promise<Response> {
     }
 
     const admin = createAdminClient()
+    const { data: post } = await admin
+      .from('marketing_posts')
+      .select('id, format')
+      .eq('id', body.postId)
+      .eq('workspace_id', body.workspaceId)
+      .maybeSingle()
+
+    if (!post) {
+      return bizError('Publication introuvable')
+    }
+
+    if (post.format === 'story') {
+      return jsonResponse({
+        ok: true,
+        comments: [],
+        unsupported: true,
+        error:
+          'Les Stories Facebook / Instagram n’exposent pas de fil de commentaires via l’API Meta.',
+      })
+    }
+
     const { data: target } = await admin
       .from('marketing_post_targets')
       .select('meta_post_id, status, channel_id')
@@ -148,10 +183,7 @@ async function handle(req: Request): Promise<Response> {
       .maybeSingle()
 
     if (!target?.meta_post_id || target.status !== 'published') {
-      return jsonResponse(
-        { ok: false, error: 'Publication Meta introuvable pour ce compte' },
-        404,
-      )
+      return bizError('Publication Meta introuvable pour ce compte')
     }
 
     const { data: channel } = await admin
@@ -161,7 +193,7 @@ async function handle(req: Request): Promise<Response> {
       .eq('workspace_id', body.workspaceId)
       .maybeSingle()
     if (!channel) {
-      return jsonResponse({ ok: false, error: 'Compte introuvable' }, 404)
+      return bizError('Compte introuvable')
     }
 
     const { data: cred } = await admin
@@ -170,7 +202,7 @@ async function handle(req: Request): Promise<Response> {
       .eq('channel_id', body.channelId)
       .maybeSingle()
     if (!cred?.access_token) {
-      return jsonResponse({ ok: false, error: 'Jeton Meta manquant' }, 400)
+      return bizError('Jeton Meta manquant')
     }
 
     const token = cred.access_token
@@ -186,7 +218,16 @@ async function handle(req: Request): Promise<Response> {
         token,
       )
       if (!listed.ok) {
-        return jsonResponse({ ok: false, error: listed.message }, 400)
+        const unsupported = commentsUnsupportedMessage(listed.message)
+        if (unsupported) {
+          return jsonResponse({
+            ok: true,
+            comments: [],
+            unsupported: true,
+            error: unsupported,
+          })
+        }
+        return bizError(listed.message)
       }
       return jsonResponse({
         ok: true,
@@ -197,7 +238,7 @@ async function handle(req: Request): Promise<Response> {
     if (body.action === 'reply') {
       const message = body.message?.trim() ?? ''
       if (!message) {
-        return jsonResponse({ ok: false, error: 'Message vide' }, 400)
+        return bizError('Message vide')
       }
       const parentId = body.commentId?.trim() || objectId
       const created = await graphSend<{ id?: string }>(
@@ -207,14 +248,16 @@ async function handle(req: Request): Promise<Response> {
         { message },
       )
       if (!created.ok) {
-        return jsonResponse({ ok: false, error: created.message }, 400)
+        return bizError(
+          commentsUnsupportedMessage(created.message) ?? created.message,
+        )
       }
       return jsonResponse({ ok: true, id: created.data.id ?? null })
     }
 
     if (body.action === 'delete') {
       if (!body.commentId) {
-        return jsonResponse({ ok: false, error: 'commentId required' }, 400)
+        return bizError('commentId required')
       }
       const deleted = await graphSend<{ success?: boolean }>(
         'DELETE',
@@ -222,14 +265,14 @@ async function handle(req: Request): Promise<Response> {
         token,
       )
       if (!deleted.ok) {
-        return jsonResponse({ ok: false, error: deleted.message }, 400)
+        return bizError(deleted.message)
       }
       return jsonResponse({ ok: true })
     }
 
     if (body.action === 'like' || body.action === 'unlike') {
       if (!body.commentId) {
-        return jsonResponse({ ok: false, error: 'commentId required' }, 400)
+        return bizError('commentId required')
       }
       const liked = await graphSend<{ success?: boolean }>(
         body.action === 'like' ? 'POST' : 'DELETE',
@@ -237,12 +280,12 @@ async function handle(req: Request): Promise<Response> {
         token,
       )
       if (!liked.ok) {
-        return jsonResponse({ ok: false, error: liked.message }, 400)
+        return bizError(liked.message)
       }
       return jsonResponse({ ok: true })
     }
 
-    return jsonResponse({ ok: false, error: 'Unknown action' }, 400)
+    return bizError('Unknown action')
   } catch {
     return jsonResponse({ ok: false, error: 'Comment action failed' }, 500)
   }

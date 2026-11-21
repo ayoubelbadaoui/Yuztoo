@@ -56,12 +56,20 @@ export async function listPostComments(input: {
   workspaceId: string
   postId: string
   channelId: string
-}): Promise<Result<PostComment[]>> {
-  const result = await callComments<{ comments?: EdgeComment[] }>('list', input)
+}): Promise<Result<PostComment[]> & { notice?: string }> {
+  const result = await callComments<{
+    comments?: EdgeComment[]
+    unsupported?: boolean
+    error?: string
+  }>('list', input)
   if (result.error) return { data: null, error: result.error }
   return {
     data: (result.data?.comments ?? []).map(mapComment),
     error: null,
+    notice: result.data?.unsupported
+      ? (result.data.error ??
+        'Commentaires indisponibles pour ce type de publication.')
+      : undefined,
   }
 }
 

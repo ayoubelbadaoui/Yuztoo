@@ -26,7 +26,7 @@ export function usePostComments(input: {
     }
     setIsLoading(true)
     setError(null)
-    const { data, error: failure } = await listPostComments({
+    const { data, error: failure, notice } = await listPostComments({
       workspaceId: input.workspaceId,
       postId: input.postId,
       channelId: input.channelId,
@@ -38,6 +38,7 @@ export function usePostComments(input: {
       return
     }
     setComments(data ?? [])
+    if (notice) setError(notice)
   }, [input.channelId, input.enabled, input.postId, input.workspaceId])
 
   useEffect(() => {

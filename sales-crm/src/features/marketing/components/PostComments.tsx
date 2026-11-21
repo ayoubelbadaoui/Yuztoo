@@ -34,8 +34,17 @@ export function PostComments({ post, channels, workspaceId }: Props) {
     workspaceId,
     postId: post.id,
     channelId: activeChannelId,
-    enabled: publishedTargets.length > 0,
+    enabled: publishedTargets.length > 0 && post.format !== 'story',
   })
+
+  if (post.format === 'story') {
+    return (
+      <section className="rounded-lg border border-dashed border-border px-3 py-4 text-[12px] text-muted-foreground">
+        Les Stories n’ont pas de fil de commentaires accessible via Meta. Ouvrez
+        un post feed pour lire / répondre / aimer.
+      </section>
+    )
+  }
 
   if (publishedTargets.length === 0) {
     return (
