@@ -102,7 +102,7 @@ export const HOME_STEPS = {
 }
 
 export const HOME_BENEFITS = {
-  index: '03',
+  index: '04',
   eyebrow: 'Ce que ça change',
   title: 'Pour votre commerce',
   lead: 'Les chiffres constatés chez nos commerçants partenaires.',
@@ -149,7 +149,7 @@ export const HOME_BENEFITS = {
 }
 
 export const HOME_COVERAGE = {
-  index: '04',
+  index: '05',
   eyebrow: 'Sur le terrain',
   title: 'Yuztoo commence à Belfort',
   lead: 'Nous construisons le réseau commerce par commerce, rue par rue, avant d’ouvrir d’autres villes.',
@@ -175,26 +175,29 @@ export const HOME_COVERAGE = {
 }
 
 export const HOME_TESTIMONIALS = {
-  index: '05',
-  eyebrow: 'Pourquoi tu fais ça ?',
+  index: '06',
+  eyebrow: 'La parole aux commerçants',
   title: 'Ils font vivre nos quartiers',
   lead: 'Chaque jour, ils créent du lien, conseillent, rendent service. Nous leur avons posé une seule question.',
   question: 'Pourquoi tu fais ça ?',
   quotes: [
     {
       id: 'salon-de-the',
+      icon: 'coffee',
       quote: 'Je fais ça pour le lien, et parce que manger des gâteaux ça rassemble, tout simplement.',
       author: 'Mon salon de thé',
       role: 'Belfort',
     },
     {
       id: 'pisciniste',
+      icon: 'waves',
       quote: 'Je fais ça parce que j’aime ce métier, et j’aime beaucoup les gens.',
       author: 'Mon pisciniste',
       role: 'Belfort',
     },
     {
       id: 'epicier',
+      icon: 'basket',
       quote: 'Je fais ça parce que ça me plaît, pour voir des amis, et parce que j’aime le fromage surtout.',
       author: 'Mon épicier',
       role: 'Belfort',
@@ -203,7 +206,7 @@ export const HOME_TESTIMONIALS = {
 }
 
 export const HOME_FOUNDER = {
-  index: '06',
+  index: '07',
   eyebrow: 'Notre ambition',
   quote:
     'Les commerçants paient pour recevoir des commandes, et leurs clients ne leur appartiennent plus. Nous voulons remettre la relation là où elle a toujours eu sa place : dans la boutique.',
@@ -211,15 +214,15 @@ export const HOME_FOUNDER = {
   role: 'Belfort',
   image: {
     src: '/images/yuztoo/yuztoo-fondateur.webp',
-    alt: 'Portrait en noir et blanc du fondateur de Yuztoo, la mascotte posée sur son épaule',
+    alt: 'Portrait en noir et blanc de Pascal Guyomar, fondateur de Yuztoo, la mascotte posée sur son épaule',
     width: 760,
     height: 1140,
   },
-  imageBadge: { value: 'Fondateur', label: 'Yuztoo · Belfort' },
+  imageBadge: { value: 'Pascal Guyomar', label: 'Fondateur · Belfort' },
 }
 
 export const HOME_AUDIENCES = {
-  index: '07',
+  index: '08',
   eyebrow: 'Par où commencer',
   title: 'Yuztoo, pour qui ?',
   cards: [
@@ -263,4 +266,43 @@ export const HOME_CLOSING = {
     height: 880,
   },
   plate: { kicker: 'Installation', value: 'Offerte', note: 'Plaque posée par notre équipe' },
+}
+
+export const HOME_SHOWCASE = {
+  index: '03',
+  eyebrow: 'L’application',
+  title: 'Tout votre commerce, dans une seule app',
+  lead: 'Ce que vous voyez ici, ce sont les vrais écrans de Yuztoo.',
+  chapters: [
+    {
+      id: 'vitrine',
+      kicker: 'Vitrine',
+      title: 'Votre commerce, en ligne en quelques minutes',
+      text: 'Horaires, adresse, actualité : tout ce que vos clients cherchent, à jour depuis votre téléphone.',
+    },
+    {
+      id: 'badge',
+      kicker: 'Plaque NFC',
+      title: 'Un geste au comptoir',
+      text: 'Programmez la plaque une fois. Vos clients n’ont qu’à approcher leur téléphone pour vous retrouver.',
+    },
+    {
+      id: 'fidelite',
+      kicker: 'Fidélité',
+      title: 'Une carte de fidélité, sans carton',
+      text: 'Vous fixez la règle et la récompense. Chaque passage est validé en boutique, rien ne se perd.',
+    },
+    {
+      id: 'promotions',
+      kicker: 'Promotions',
+      title: 'Vos offres, publiées en un geste',
+      text: 'Une offre du jour, des invendus à écouler, un happy hour programmé : c’est en ligne tout de suite.',
+    },
+    {
+      id: 'notification',
+      kicker: 'Notifications',
+      title: 'Un message, droit dans leur poche',
+      text: 'Pas d’algorithme entre vous et vos clients : ce que vous envoyez, ils le reçoivent.',
+    },
+  ],
 }

@@ -55,7 +55,7 @@
   gap: 10px;
   margin-top: 26px;
   padding: 9px 14px;
-  font-size: 11px;
+  font-size: 12px;
   color: #fff;
   border: 1px solid var(--f-line);
   border-left: 3px solid var(--gold);
@@ -103,8 +103,7 @@
   flex-direction: column;
 }
 
-.yz-footer__col a,
-.yz-footer__soon {
+.yz-footer__col a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -140,15 +139,9 @@
   transform: scaleX(1);
 }
 
-/* Pages not built yet: present, quiet, never a dead link. */
-.yz-footer__soon {
-  color: rgba(241, 245, 249, 0.38);
-  cursor: default;
-}
-
 .yz-footer__store em {
   padding: 2px 6px;
-  font-size: 10.5px;
+  font-size: 12px;
   font-style: normal;
   color: var(--f-dim);
   border: 1px solid var(--f-line);
@@ -188,7 +181,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--f-dim);
 }
 
@@ -272,6 +265,9 @@ a.yz-footer__store:hover {
 }
 
 .yz-footer__wordmark span {
+  /* Room for the last glyph: negative tracking otherwise shrinks the box and
+     background-clip crops the right side of the final « o ». */
+  padding-right: 0.06em;
   background: linear-gradient(180deg, rgba(240, 189, 62, 0.34), rgba(240, 189, 62, 0.04) 70%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -293,7 +289,7 @@ a.yz-footer__store:hover {
 }
 
 .yz-footer__legal .yz-mono {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .yz-footer__top-link {

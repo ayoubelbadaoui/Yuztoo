@@ -9,7 +9,7 @@ import { CONTACT } from '../../siteConfig.js'
 export const PRIVACY_HERO = {
   crumb: 'Confidentialité',
   title: 'Politique de confidentialité',
-  lead: 'Vos clients vous appartiennent, sans publicité ni revente de données.',
+  lead: 'Ce que Yuztoo collecte, pourquoi, et comment vous gardez la main sur vos données.',
   updated: 'Dernière mise à jour : 14 novembre 2026',
   intro:
     'La présente politique décrit comment Yuztoo collecte, utilise et protège vos données personnelles, conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés. Notre principe directeur est simple : vos clients vous appartiennent, sans publicité ni revente de données.',

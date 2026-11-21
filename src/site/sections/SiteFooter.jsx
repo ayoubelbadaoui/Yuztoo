@@ -11,17 +11,9 @@ const CONTACT_ITEMS = {
   city: { Icon: MapPin, value: `${CONTACT.city}, France`, href: null },
 }
 
-function FooterLink({ link }) {
-  if (LIVE_PATHS.has(link.href)) {
-    return <a href={link.href}>{link.label}</a>
-  }
-  return (
-    <span className="yz-footer__soon">
-      {link.label}
-      <span className="yz-sr-only"> ({FOOTER.soon.toLowerCase()})</span>
-    </span>
-  )
-}
+// Pages that are not built yet stay out of the footer instead of showing as
+// greyed-out dead links. They appear on their own once added to routeMeta.js.
+const isLive = (href) => href.startsWith('mailto:') || LIVE_PATHS.has(href)
 
 function ContactCell({ item }) {
   const { Icon, value, href } = CONTACT_ITEMS[item.kind]
@@ -70,9 +62,9 @@ export default function SiteFooter() {
                 {column.title}
               </h2>
               <ul>
-                {column.links.map((link) => (
+                {column.links.filter((link) => isLive(link.href)).map((link) => (
                   <li key={link.href}>
-                    <FooterLink link={link} />
+                    <a href={link.href}>{link.label}</a>
                   </li>
                 ))}
               </ul>

@@ -1,0 +1,495 @@
+/**
+ * Real app screens: the phone frame, the two-phone compositions, the home
+ * showcase (sticky phone that follows the reading) and the commission
+ * simulator. Tokens only — see BRAND_HOLY_BOOK.md.
+ */
+
+/* ═══════════ device frame ═══════════ */
+
+.yz-device {
+  position: relative;
+  margin: 0;
+  padding: 2.6%;
+  background: var(--device);
+  border-radius: 14% / 6.6%;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(11, 22, 44, 0.5),
+    0 44px 70px -34px rgba(11, 22, 44, 0.7);
+}
+
+.yz-device__screen {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 360 / 779;
+  background: var(--navy-main);
+  border-radius: 11.5% / 5.3%;
+}
+
+.yz-device__screen img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yz-device__island {
+  position: absolute;
+  top: 1.5%;
+  left: 50%;
+  width: 30%;
+  height: 3.4%;
+  background: var(--device);
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
+/* ═══════════ two-phone compositions ═══════════ */
+
+.yz-device--back,
+.yz-device--front {
+  position: absolute;
+  transition: transform 0.6s var(--ease-out);
+}
+
+.yz-device--back {
+  z-index: 2;
+  transform: rotate(-7deg);
+}
+
+.yz-device--front {
+  z-index: 3;
+  transform: rotate(2.5deg);
+}
+
+/* Hero stages: phones stand on the NFC plaque. */
+.yz-prohero__stage--duo {
+  display: block;
+}
+
+.yz-prohero__stage--duo .yz-device--back {
+  top: 11%;
+  left: 9%;
+  width: 37%;
+}
+
+.yz-prohero__stage--duo .yz-device--front {
+  top: 5%;
+  right: 11%;
+  width: 41%;
+}
+
+.yz-prohero__stage--duo:hover .yz-device--back {
+  transform: rotate(-10deg) translateX(-8px);
+}
+
+.yz-prohero__stage--duo:hover .yz-device--front {
+  transform: rotate(0.5deg) translateY(-8px);
+}
+
+.yz-prohero__stage--duo .yz-prohero__plaque {
+  z-index: 4;
+}
+
+/* Loyalty: the card and the partner network, side by side. */
+.yz-loyalty__phones {
+  position: relative;
+  width: min(100%, 460px);
+  aspect-ratio: 1 / 1.02;
+  justify-self: center;
+}
+
+.yz-loyalty__phones .yz-device--back {
+  top: 8%;
+  left: 2%;
+  width: 44%;
+}
+
+.yz-loyalty__phones .yz-device--front {
+  top: 0;
+  right: 4%;
+  width: 47%;
+}
+
+/* ═══════════ home showcase ═══════════ */
+
+/* `overflow: hidden` on .yz-section makes it a scroll container, which
+   pins `position: sticky` to the section instead of the viewport. */
+.yz-show {
+  overflow: clip;
+}
+
+.yz-show__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 80px;
+  align-items: start;
+}
+
+.yz-show__stage {
+  /* Phone + progress always fit under the header, even on 768 px tall laptops. */
+  --show-w: min(300px, 100%, calc((100vh - 280px) * 0.45));
+  position: sticky;
+  top: calc(var(--bar-h) + 40px);
+  display: grid;
+  justify-items: center;
+  gap: 28px;
+}
+
+.yz-show__device {
+  display: grid;
+  width: var(--show-w);
+}
+
+.yz-show__screen {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transform: translateY(22px) scale(0.96);
+  transition:
+    opacity 0.45s ease,
+    transform 0.6s var(--ease-out);
+}
+
+.yz-show__screen.is-active {
+  opacity: 1;
+  transform: none;
+}
+
+.yz-show__meta {
+  display: grid;
+  gap: 12px;
+  width: var(--show-w);
+}
+
+.yz-show__meta p {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.yz-show__meta em {
+  font-style: normal;
+  color: var(--gold-on-dark);
+}
+
+.yz-show__meta span {
+  margin-left: auto;
+  color: var(--text);
+}
+
+.yz-show__rail {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.yz-show__rail li {
+  height: 3px;
+  background: var(--border-str);
+  transition: background 0.4s ease;
+}
+
+.yz-show__rail li.is-on {
+  background: var(--gold);
+}
+
+.yz-show__chapter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 68vh;
+  padding-left: 28px;
+  border-left: 2px solid var(--border);
+  opacity: 0.38;
+  transition:
+    opacity 0.4s ease,
+    border-color 0.4s ease;
+}
+
+.yz-show__chapter.is-active {
+  opacity: 1;
+  border-left-color: var(--gold);
+}
+
+.yz-show__chapter:first-child {
+  min-height: 52vh;
+  justify-content: flex-start;
+  padding-top: 12px;
+}
+
+.yz-show__mini {
+  display: none;
+}
+
+.yz-show__kicker {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.yz-show__kicker em {
+  font-style: normal;
+  color: var(--gold-on-dark);
+}
+
+.yz-show__title {
+  max-width: 18ch;
+  font-size: clamp(26px, 2.6vw, 36px);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.yz-show__text {
+  max-width: 44ch;
+  margin-top: 16px;
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--text-mut);
+}
+
+/* ═══════════ commission simulator ═══════════ */
+
+.yz-calc__panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  border: 1px solid var(--border);
+}
+
+.yz-calc__inputs {
+  display: grid;
+  align-content: center;
+  gap: 34px;
+  padding: 44px;
+  background: var(--surface);
+}
+
+.yz-calc__field label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.yz-calc__field output {
+  flex-shrink: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The track is drawn by the input itself; 44px tall so the whole row is
+   the touch target. */
+.yz-calc__field input[type='range'] {
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.yz-calc__field input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  background: linear-gradient(90deg, var(--gold) var(--pct), var(--border) var(--pct));
+  border-radius: 999px;
+}
+
+.yz-calc__field input[type='range']::-moz-range-track {
+  height: 6px;
+  background: linear-gradient(90deg, var(--gold) var(--pct), var(--border) var(--pct));
+  border-radius: 999px;
+}
+
+.yz-calc__field input[type='range']::-webkit-slider-thumb {
+  width: 26px;
+  height: 26px;
+  margin-top: -10px;
+  background: var(--navy-header);
+  border: 3px solid var(--gold);
+  border-radius: 50%;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.yz-calc__field input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--navy-header);
+  border: 3px solid var(--gold);
+  border-radius: 50%;
+}
+
+.yz-calc__field input[type='range']:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.yz-calc__field input[type='range']:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
+
+.yz-calc__note {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.yz-calc__result {
+  display: flex;
+  flex-direction: column;
+  padding: 44px;
+  color: rgba(241, 245, 249, 0.78);
+  background: var(--navy-header);
+  border-top: 3px solid var(--gold);
+}
+
+.yz-calc__result .yz-mono {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.yz-calc__big {
+  margin-top: 10px;
+  font-size: clamp(44px, 5.4vw, 72px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--danger-on-dark);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.yz-calc__monthly {
+  margin-top: 10px;
+  font-size: 15px;
+}
+
+.yz-calc__vs {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.18);
+}
+
+.yz-calc__zero {
+  margin: 6px 0 4px;
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--gold-on-dark);
+}
+
+.yz-calc__cta {
+  align-self: flex-start;
+  margin-top: 28px;
+}
+
+/* ═══════════ responsive ═══════════ */
+
+@media (max-width: 900px) {
+  .yz-show__layout {
+    display: block;
+  }
+
+  .yz-show__stage {
+    display: none;
+  }
+
+  /* Swipeable row: each chapter carries its own phone. */
+  .yz-show__list {
+    display: flex;
+    gap: 16px;
+    margin-inline: calc(var(--gutter) * -1);
+    padding: 4px var(--gutter) 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+  }
+
+  .yz-show__list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .yz-show__chapter,
+  .yz-show__chapter:first-child {
+    flex: 0 0 min(78%, 340px);
+    justify-content: flex-start;
+    min-height: 0;
+    padding: 0;
+    border-left: 0;
+    opacity: 1;
+    scroll-snap-align: start;
+  }
+
+  .yz-show__mini {
+    display: block;
+    width: 74%;
+    margin-bottom: 24px;
+  }
+
+  .yz-show__title {
+    font-size: 22px;
+  }
+
+  .yz-show__text {
+    margin-top: 10px;
+    font-size: 15px;
+  }
+
+  .yz-calc__panel {
+    grid-template-columns: 1fr;
+  }
+
+  .yz-loyalty__phones {
+    width: min(100%, 400px);
+  }
+}
+
+@media (max-width: 640px) {
+  .yz-prohero__stage--duo .yz-device--back {
+    top: 15%;
+    left: 5%;
+    width: 44%;
+  }
+
+  .yz-prohero__stage--duo .yz-device--front {
+    top: 10%;
+    right: 6%;
+    width: 49%;
+  }
+
+  .yz-calc__inputs,
+  .yz-calc__result {
+    padding: 28px 22px;
+  }
+
+  .yz-calc__cta {
+    align-self: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yz-show__screen,
+  .yz-device--back,
+  .yz-device--front {
+    transition: none;
+  }
+}

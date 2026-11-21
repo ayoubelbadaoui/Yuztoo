@@ -1,46 +1,13 @@
 import { ArrowDown, ArrowRight, Check, Store } from 'lucide-react'
 import Breadcrumb from '../../components/Breadcrumb.jsx'
+import AppPhone from '../../components/AppPhone.jsx'
 import NfcIcon from '../../components/NfcIcon.jsx'
 import SiteAmbient from '../../components/SiteAmbient.jsx'
+import { APP_SCREENS } from '../../appScreensContent.js'
 import { PRO_HERO } from '../commercantsContent.js'
 
-function PhoneMock({ phone }) {
-  return (
-    <div className="yz-phone" role="img" aria-label={phone.label}>
-      <div className="yz-phone__screen">
-        <div className="yz-phone__status" aria-hidden="true">
-          <span>{phone.time}</span>
-          <span className="yz-phone__island" />
-          <span className="yz-phone__bars" />
-        </div>
-        <p className="yz-phone__label yz-mono" aria-hidden="true">
-          {phone.label}
-        </p>
-        <ul className="yz-phone__stack" aria-hidden="true">
-          {phone.notifications.map((note, i) => (
-            <li key={note.id} className="yz-notif" style={{ '--i': i }}>
-              <span className="yz-notif__icon">
-                <img src="/images/yuztoo/yuztoo-mascotte-logo.webp" width="84" height="96" alt="" />
-              </span>
-              <span className="yz-notif__body">
-                <span className="yz-notif__head">
-                  <strong>{phone.shop}</strong>
-                  <span>{note.when}</span>
-                </span>
-                <span className="yz-notif__text">
-                  {note.emoji} {note.text}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  )
-}
-
 export default function ProHero() {
-  const { phone, tag } = PRO_HERO
+  const { tag } = PRO_HERO
 
   return (
     <section className="yz-hero yz-prohero" aria-labelledby="yz-prohero-title">
@@ -84,9 +51,10 @@ export default function ProHero() {
         </div>
 
         <div className="yz-prohero__visual">
-          <div className="yz-prohero__stage yz-frame">
+          <div className="yz-prohero__stage yz-prohero__stage--duo yz-frame">
             <div className="yz-hero__dots" aria-hidden="true" />
-            <PhoneMock phone={phone} />
+            <AppPhone screen={APP_SCREENS.fidelite} className="yz-device--back" sizes="(max-width: 640px) 46vw, 230px" />
+            <AppPhone screen={APP_SCREENS.notification} className="yz-device--front" priority sizes="(max-width: 640px) 50vw, 250px" />
             <span className="yz-prohero__plaque" aria-hidden="true">
               <NfcIcon size={30} strokeWidth={1.7} />
             </span>

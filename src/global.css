@@ -34,6 +34,9 @@
   --paper-alt: #f7f2e9;
   --white: #ffffff;
 
+  /* Phone bezel around real app screenshots. */
+  --device: #070b14;
+
   --danger: #c0392b;
   --danger-on-dark: #ff8a7a;
 
@@ -648,14 +651,16 @@ p {
 /* ---------- reveal: a wipe, not a fade ----------
    Visible before JS; hidden only once the observer is armed. */
 
+/* Generous resting insets so stamps, plates and drop shadows that overhang
+   their box are never cropped; only the bottom edge animates. */
 [data-reveal] {
-  clip-path: inset(-8px);
+  clip-path: inset(-120px -240px -120px -240px);
 }
 
 html.yz-reveal [data-reveal]:not(.is-in) {
   opacity: 0;
   transform: translateY(12px);
-  clip-path: inset(0 0 100% 0);
+  clip-path: inset(-120px -240px 100% -240px);
 }
 
 html.yz-reveal [data-reveal] {

@@ -47,6 +47,12 @@
   gap: 18px;
 }
 
+/* A row with a single field (no organisation asked) spans the full width
+   instead of leaving an empty half. */
+.yz-form__row > :only-child {
+  grid-column: 1 / -1;
+}
+
 .yz-field {
   display: grid;
   gap: 8px;

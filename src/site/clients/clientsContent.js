@@ -16,17 +16,6 @@ export const CLI_HERO = {
     'Une seule application pour retrouver vos commerçants du quotidien, recevoir leurs vraies nouvelles et profiter de leur fidélité. Sans publicité, sans algorithme, sans revente de vos données.',
   primaryCta: { label: 'Comment ça marche', href: '#carnet' },
   checks: ['Gratuit', 'Sans publicité ni IA', 'Vos données restent à vous'],
-  phone: {
-    time: '9:41',
-    title: 'Mon carnet',
-    label: 'Aperçu illustratif',
-    shops: [
-      { id: 'boulangerie', name: 'Boulangerie du Lion', kind: 'Boulangerie', stamps: 7, total: 8 },
-      { id: 'fromagerie', name: 'La Fromagerie', kind: 'Épicerie fine', stamps: 3, total: 10 },
-      { id: 'the', name: 'Le Salon de thé', kind: 'Salon de thé', stamps: 5, total: 6 },
-      { id: 'fleurs', name: 'Atelier Fleurs', kind: 'Fleuriste', stamps: 1, total: 5 },
-    ],
-  },
   tag: { value: '1 appli', label: 'Pour tous vos commerces' },
 }
 

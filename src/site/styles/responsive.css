@@ -237,6 +237,10 @@
     padding: 30px 20px 24px;
   }
 
+  .yz-receipt__paper {
+    --stamp-room: 112px;
+  }
+
   .yz-receipt__stamp {
     right: -4px;
     bottom: 6px;
@@ -355,11 +359,12 @@
 
   .yz-board__table tbody th {
     gap: 8px;
+    white-space: normal;
   }
 
   .yz-board__status {
     padding-inline: 8px;
-    font-size: 11px;
+    font-size: 12px;
     white-space: normal;
   }
 
@@ -367,6 +372,19 @@
     padding-inline: 18px;
     white-space: normal;
     text-align: center;
+  }
+
+  .yz-receipt__paper {
+    padding-inline: 18px;
+    font-size: 12px;
+  }
+
+  .yz-receipt__head {
+    letter-spacing: 0.02em;
+  }
+
+  .yz-receipt__total strong {
+    font-size: 17px;
   }
 }
 

@@ -106,7 +106,8 @@
 }
 
 .yz-prohero__tag {
-  bottom: 72px;
+  /* Low enough to sit on the phone's bezel, never over its content. */
+  bottom: 16px;
   left: -32px;
   display: flex;
   flex-direction: column;
@@ -129,67 +130,6 @@
 }
 
 /* ---------- phone mock ---------- */
-
-.yz-phone {
-  position: relative;
-  z-index: 2;
-  width: min(56%, 300px);
-  padding: 10px;
-  background: var(--navy-deep);
-  border-radius: 44px;
-  box-shadow:
-    0 0 0 1px rgba(11, 22, 44, 0.9),
-    0 40px 70px -34px rgba(11, 22, 44, 0.65);
-}
-
-.yz-phone__screen {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 9 / 16;
-  padding: 14px 12px;
-  background:
-    radial-gradient(120% 60% at 50% 0%, var(--navy-line) 0%, transparent 70%),
-    linear-gradient(180deg, var(--navy-main), var(--navy-deep));
-  border-radius: 34px;
-}
-
-.yz-phone__status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.yz-phone__island {
-  width: 86px;
-  height: 24px;
-  background: #000;
-  border-radius: 999px;
-}
-
-.yz-phone__bars {
-  width: 24px;
-  height: 11px;
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
-  border-radius: 3px;
-  box-shadow: inset -8px 0 0 rgba(255, 255, 255, 0.85);
-}
-
-.yz-phone__label {
-  margin: 30px 0 12px;
-  text-align: center;
-  font-size: 10.5px;
-  color: rgba(241, 245, 249, 0.62);
-}
-
-.yz-phone__stack {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 
 .yz-notif {
   display: flex;
@@ -235,16 +175,16 @@
 
 .yz-notif__head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 11.5px;
+  gap: 0 8px;
+  font-size: 12px;
 }
 
+/* The shop name is the point of the notification: wrap the time below it
+   rather than truncating the name. */
 .yz-notif__head strong {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .yz-notif__head span {
@@ -307,7 +247,7 @@
 /* Tools that hold the relation — crossed out, they are what Yuztoo replaces. */
 .yz-pains__chips li {
   padding: 5px 9px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-dim);
   text-decoration: line-through;
   text-decoration-color: var(--danger);
@@ -508,10 +448,6 @@
 @media (max-width: 640px) {
   .yz-prohero__stage {
     aspect-ratio: 5 / 7;
-  }
-
-  .yz-phone {
-    width: 72%;
   }
 
   .yz-prohero__tag {

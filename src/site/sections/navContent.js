@@ -45,7 +45,7 @@ export const FOOTER = {
       title: 'Entreprise',
       links: [
         { href: '/a-propos', label: 'À propos' },
-        { href: '/contact', label: 'Contact' },
+        { href: `mailto:${CONTACT.email}`, label: 'Contact' },
         { href: '/aide', label: 'Centre d’aide' },
       ],
     },

@@ -5,6 +5,7 @@ import FaqSection from '../components/FaqSection.jsx'
 import StatBand from '../components/StatBand.jsx'
 import ProHero from './sections/ProHero.jsx'
 import ProPains from './sections/ProPains.jsx'
+import ProCalculator from './sections/ProCalculator.jsx'
 import ProSetup from './sections/ProSetup.jsx'
 import ProClients from './sections/ProClients.jsx'
 import ProLoyalty from './sections/ProLoyalty.jsx'
@@ -22,6 +23,7 @@ export default function CommercantsPage() {
       <main id="contenu">
         <ProHero />
         <ProPains />
+        <ProCalculator />
         <StatBand band={PRO_IMPACT} id="yz-impact" />
         <ProSetup />
         <CtaStrip cta={PRO_CTA} />

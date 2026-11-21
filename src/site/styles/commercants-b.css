@@ -58,7 +58,7 @@
 }
 
 .yz-board__bar .yz-mono {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
@@ -70,7 +70,7 @@
 
 .yz-board__table thead th {
   padding: 12px 20px;
-  font-size: 10.5px;
+  font-size: 12px;
   text-align: left;
   color: var(--text-dim);
   background: var(--surface-2);
@@ -87,6 +87,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  white-space: nowrap;
   font-weight: 700;
   color: var(--text);
 }
@@ -209,85 +210,6 @@
 
 .yz-loyalty .yz-head {
   margin-bottom: 0;
-}
-
-.yz-stamp {
-  justify-self: end;
-  width: 100%;
-  max-width: 380px;
-  padding: 24px;
-  color: #fff;
-  background:
-    radial-gradient(90% 70% at 100% 0%, rgba(212, 160, 23, 0.18), transparent 60%),
-    var(--navy-header);
-  border-radius: 18px;
-  box-shadow: 0 34px 60px -30px rgba(11, 22, 44, 0.6);
-  transform: rotate(-2deg);
-}
-
-.yz-stamp__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.yz-stamp__head .yz-mono {
-  color: rgba(241, 245, 249, 0.72);
-}
-
-.yz-stamp__head img {
-  width: auto;
-  height: 30px;
-}
-
-.yz-stamp__rule {
-  margin: 14px 0 20px;
-  font-size: 21px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.yz-stamp__grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-
-.yz-stamp__grid li {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 1;
-  color: rgba(241, 245, 249, 0.4);
-  border: 1.5px dashed rgba(255, 255, 255, 0.24);
-  border-radius: 50%;
-}
-
-.yz-stamp__grid li.is-done {
-  color: var(--navy-deep);
-  background: var(--gold);
-  border: 0;
-}
-
-.yz-stamp__grid li.is-reward {
-  color: var(--gold-on-dark);
-  border-color: var(--gold-on-dark);
-}
-
-.yz-stamp__status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 20px;
-  color: var(--gold-on-dark);
-}
-
-.yz-stamp__pulse {
-  width: 8px;
-  height: 8px;
-  background: var(--gold-on-dark);
-  border-radius: 50%;
-  animation: yz-blink 1.2s steps(2, jump-none) infinite;
 }
 
 .yz-loyalty__cols {
@@ -534,10 +456,6 @@
     gap: 48px;
   }
 
-  .yz-stamp {
-    justify-self: start;
-  }
-
   .yz-tools__grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -579,10 +497,6 @@
     padding-inline: 12px;
   }
 
-  .yz-stamp {
-    transform: none;
-  }
-
   .yz-faq__item summary {
     grid-template-columns: 1fr 32px;
   }
@@ -596,8 +510,3 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .yz-stamp__pulse {
-    animation: none;
-  }
-}

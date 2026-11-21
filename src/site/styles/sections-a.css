@@ -89,6 +89,14 @@
   border-bottom: 1px dashed #b9b2a4;
 }
 
+/* Amounts never break across lines (« 18,00 / € »). */
+.yz-receipt__head > span:last-child,
+.yz-receipt__item > span,
+.yz-receipt__lines dd,
+.yz-receipt__total strong {
+  white-space: nowrap;
+}
+
 .yz-receipt__brand {
   font-weight: 700;
   color: var(--paper-ink);
@@ -151,10 +159,12 @@
   letter-spacing: -0.02em;
 }
 
+/* Footer and barcode keep clear of the stamp on the right. */
 .yz-receipt__foot {
   margin-top: 16px;
+  padding-right: var(--stamp-room, 128px);
   font-size: 12px;
-  text-align: center;
+  text-align: left;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--paper-dim);
@@ -162,8 +172,8 @@
 
 .yz-receipt__barcode {
   height: 36px;
-  margin: 14px auto 6px;
-  width: 78%;
+  margin: 14px 0 6px;
+  width: calc(100% - var(--stamp-room, 128px));
   background: repeating-linear-gradient(
     90deg,
     var(--paper-ink) 0 2px,
@@ -255,14 +265,15 @@
   font-weight: 900;
   letter-spacing: -0.05em;
   line-height: 0.9;
-  color: transparent;
-  -webkit-text-stroke: 1.5px var(--navy-main);
+  /* Solid fill: Montserrat's overlapping contours make text-stroke outlines
+     render with stray inner strokes (visible on the « 1 »). */
+  color: var(--gold-deep);
   font-variant-numeric: tabular-nums;
   transition: color 0.24s ease;
 }
 
 .yz-steps__item:hover .yz-steps__num {
-  color: var(--gold);
+  color: var(--text);
 }
 
 .yz-steps__title {

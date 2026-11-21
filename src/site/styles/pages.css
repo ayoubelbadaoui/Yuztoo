@@ -39,107 +39,6 @@
 
 /* ---------- carnet (light phone screen) ---------- */
 
-.yz-phone__screen--light {
-  color: var(--navy-header);
-  background: var(--paper);
-}
-
-.yz-phone__screen--light .yz-phone__status {
-  color: var(--navy-header);
-}
-
-.yz-phone__screen--light .yz-phone__bars {
-  border-color: var(--navy-header);
-  box-shadow: inset -8px 0 0 var(--navy-header);
-}
-
-.yz-carnet {
-  padding: 22px 4px 0;
-}
-
-.yz-carnet__title {
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.yz-carnet__label {
-  margin: 2px 0 14px;
-  font-size: 10.5px;
-  color: var(--text-dim);
-}
-
-.yz-carnet__list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.yz-carnet__shop {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  animation: yz-rise 0.6s var(--ease-out) both;
-  animation-delay: calc(0.2s + var(--i) * 0.1s);
-}
-
-.yz-carnet__avatar {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--gold-on-dark);
-  background: var(--navy-header);
-  border-radius: 10px;
-}
-
-.yz-carnet__body {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-  gap: 1px;
-  font-size: 11px;
-  color: var(--text-dim);
-}
-
-.yz-carnet__body strong {
-  overflow: hidden;
-  font-size: 12.5px;
-  color: var(--navy-header);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.yz-carnet__bar {
-  height: 4px;
-  margin-top: 5px;
-  overflow: hidden;
-  background: var(--sand-soft);
-  border-radius: 999px;
-}
-
-.yz-carnet__bar span {
-  display: block;
-  height: 100%;
-  background: var(--gold);
-}
-
-.yz-carnet__count {
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
 @keyframes yz-rise {
   from {
     opacity: 0;
@@ -219,7 +118,7 @@
 }
 
 .yz-chat__label {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
@@ -301,7 +200,7 @@
 }
 
 .yz-report__chart-label {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
@@ -505,7 +404,7 @@
 }
 
 .yz-bio__facts dt {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
@@ -573,7 +472,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .yz-carnet__shop,
   .yz-report__bars span {
     animation: none;
   }

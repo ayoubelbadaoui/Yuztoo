@@ -3,6 +3,7 @@ import SiteFooter from '../sections/SiteFooter.jsx'
 import HomeHero from './sections/HomeHero.jsx'
 import HomePizza from './sections/HomePizza.jsx'
 import HomeSteps from './sections/HomeSteps.jsx'
+import HomeShowcase from './sections/HomeShowcase.jsx'
 import HomeBenefits from './sections/HomeBenefits.jsx'
 import HomeCoverage from './sections/HomeCoverage.jsx'
 import HomeTestimonials from './sections/HomeTestimonials.jsx'
@@ -21,6 +22,7 @@ export default function HomePage() {
         <HomeHero />
         <HomePizza />
         <HomeSteps />
+        <HomeShowcase />
         <HomeBenefits />
         <HomeCoverage />
         <HomeTestimonials />

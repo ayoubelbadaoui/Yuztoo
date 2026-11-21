@@ -3,8 +3,8 @@
  * See docs/holy-books/DDD_HOLY_BOOK.md §3.
  *
  * Figures (10 à 15 %, +20 %, 0 €) are the ones stated on the live
- * /espace-commercant/ page. Notification texts are illustrative and are
- * labelled as examples wherever they appear.
+ * /espace-commercant/ page. App visuals are real screenshots, see
+ * src/site/appScreensContent.js.
  */
 
 import { CONTACT, NETWORK } from '../../siteConfig.js'
@@ -17,34 +17,9 @@ export const PRO_HERO = {
   titleEnd: 'Plus dans celle des plateformes.',
   intro:
     'Yuztoo connecte vos clients à votre commerce d’un simple geste en boutique. Ensuite, vous les retrouvez, vous les relancez et vous les fidélisez, sans commission ni intermédiaire.',
-  primaryCta: { label: 'Créer mon compte gratuit', href: '#demarrer' },
+  primaryCta: { label: 'Démarrer gratuitement', href: '#demarrer' },
   secondaryCta: { label: 'Voir ce que ça change', href: '#constat' },
   checks: ['Sans compétence technique', 'Prêt en quelques minutes', 'Vos données restent à vous'],
-  phone: {
-    time: '9:41',
-    shop: 'Boulangerie du Lion',
-    label: 'Exemples de notifications',
-    notifications: [
-      {
-        id: 'cafe',
-        emoji: '👀',
-        when: 'maintenant',
-        text: 'Ça fait 2 semaines qu’on ne vous a pas vu ! On vous offre le café demain matin ?',
-      },
-      {
-        id: 'baguette',
-        emoji: '🥖',
-        when: 'il y a 1 h',
-        text: 'Votre baguette préférée sort du four.',
-      },
-      {
-        id: 'reward',
-        emoji: '🎁',
-        when: 'hier',
-        text: 'Plus qu’1 passage pour votre récompense. Venez vite !',
-      },
-    ],
-  },
   tag: { value: '0 €', label: 'Pour vous et vos clients' },
 }
 
@@ -159,13 +134,7 @@ export const PRO_LOYALTY = {
   index: '04',
   eyebrow: 'Fidélité & réseau local',
   title: 'Une fidélité simple, et un quartier qui travaille pour vous.',
-  card: {
-    shop: 'Votre commerce',
-    rule: '8 passages = 1 récompense',
-    filled: 7,
-    total: 8,
-    status: 'Plus qu’1 passage',
-  },
+
   columns: [
     {
       id: 'fidelite',
@@ -261,7 +230,7 @@ export const PRO_FAQ = {
 
 export const PRO_START = {
   eyebrow: 'Démarrer',
-  title: 'Créez votre compte gratuit',
+  title: 'Démarrez gratuitement',
   lead: `Laissez vos coordonnées : nous vous rappelons, nous installons la plaque sur votre comptoir à ${NETWORK.city} et nous vous accompagnons pour la prise en main.`,
   form: {
     kind: 'commercant',
@@ -270,7 +239,7 @@ export const PRO_START = {
     orgAutoComplete: 'organization',
     messageLabel: 'Votre activité',
     messagePlaceholder: 'Boulangerie, coiffeur, restaurant…',
-    submit: 'Créer mon compte gratuit',
+    submit: 'Être rappelé',
   },
   promise: [
     { id: 'free', value: '0 €', label: 'Abonnement' },
@@ -284,4 +253,23 @@ export const PRO_CTA = {
   text: 'Compte gratuit, plaque installée par notre équipe, sans engagement.',
   label: 'Être rappelé',
   href: '#demarrer',
+}
+
+/** Simulator: every figure comes from the merchant's own inputs. */
+export const PRO_CALC = {
+  eyebrow: 'Simulateur',
+  title: 'Combien vous coûtent vraiment les plateformes ?',
+  lead: 'Entrez vos propres chiffres. Le calcul se fait dans votre navigateur, rien n’est envoyé.',
+  fields: [
+    { id: 'basket', label: 'Panier moyen', unit: '€', min: 5, max: 80, step: 1, value: 18 },
+    { id: 'orders', label: 'Commandes par mois via une plateforme', unit: '', min: 10, max: 1000, step: 10, value: 200 },
+    { id: 'rate', label: 'Commission de la plateforme', unit: '%', min: 5, max: 40, step: 1, value: 30 },
+  ],
+  resultKicker: 'Versé aux plateformes chaque année',
+  monthly: 'soit {value} par mois',
+  yuztooKicker: 'Avec Yuztoo',
+  yuztooValue: '0 €',
+  yuztooNote: 'Aucune commission, aucun abonnement.',
+  disclaimer: 'Simulation indicative, hors frais de livraison et de paiement.',
+  cta: { label: 'Garder cet argent', href: '#demarrer' },
 }
