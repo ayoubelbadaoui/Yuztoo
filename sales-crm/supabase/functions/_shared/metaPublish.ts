@@ -48,6 +48,96 @@ async function waitIgContainer(containerId: string, token: string) {
   return false
 }
 
+async function publishFacebookPhotoStory(input: {
+  pageId: string
+  token: string
+  mediaUrl: string
+}) {
+  // Page Stories API: unpublished photo upload, then /photo_stories.
+  const uploaded = await graphPost<{ id?: string }>(
+    `/${input.pageId}/photos`,
+    input.token,
+    {
+      url: input.mediaUrl,
+      published: false,
+    },
+  )
+  if (!uploaded.ok || !uploaded.data.id) {
+    return uploaded.ok
+      ? { ok: false as const, message: 'Photo story introuvable après upload' }
+      : uploaded
+  }
+
+  const published = await graphPost<{ success?: boolean; post_id?: string }>(
+    `/${input.pageId}/photo_stories`,
+    input.token,
+    { photo_id: uploaded.data.id },
+  )
+  if (!published.ok) return published
+  if (!published.data.success && !published.data.post_id) {
+    return { ok: false as const, message: 'Publication story photo refusée' }
+  }
+  return {
+    ok: true as const,
+    data: { id: published.data.post_id ?? uploaded.data.id, post_id: published.data.post_id },
+  }
+}
+
+async function publishFacebookVideoStory(input: {
+  pageId: string
+  token: string
+  mediaUrl: string
+}) {
+  // Page Stories API: start session → rupload file_url → finish.
+  const started = await graphPost<{ video_id?: string; upload_url?: string }>(
+    `/${input.pageId}/video_stories`,
+    input.token,
+    { upload_phase: 'start' },
+  )
+  if (!started.ok || !started.data.video_id || !started.data.upload_url) {
+    return started.ok
+      ? { ok: false as const, message: 'Session upload story vidéo impossible' }
+      : started
+  }
+
+  const uploadRes = await fetch(started.data.upload_url, {
+    method: 'POST',
+    headers: {
+      Authorization: `OAuth ${input.token}`,
+      file_url: input.mediaUrl,
+    },
+  })
+  const uploadJson = await uploadRes.json().catch(() => ({}))
+  if (!uploadRes.ok || uploadJson?.success === false) {
+    return {
+      ok: false as const,
+      message:
+        uploadJson?.error?.message ??
+        'Upload story vidéo vers Meta a échoué',
+    }
+  }
+
+  const finished = await graphPost<{ success?: boolean; post_id?: string }>(
+    `/${input.pageId}/video_stories`,
+    input.token,
+    {
+      video_id: started.data.video_id,
+      upload_phase: 'finish',
+    },
+  )
+  if (!finished.ok) return finished
+  if (!finished.data.success && !finished.data.post_id) {
+    return { ok: false as const, message: 'Publication story vidéo refusée' }
+  }
+  return {
+    ok: true as const,
+    data: {
+      id: finished.data.post_id ?? started.data.video_id,
+      post_id: finished.data.post_id,
+    },
+  }
+}
+
 export async function publishFacebookPage(input: {
   pageId: string
   token: string
@@ -57,6 +147,30 @@ export async function publishFacebookPage(input: {
   mimeType: string | null
   format: string
 }) {
+  if (input.format === 'story') {
+    if (!input.mediaUrl) {
+      return { ok: false as const, message: 'Une story Facebook exige un média' }
+    }
+    if (input.mimeType?.startsWith('video/')) {
+      return publishFacebookVideoStory({
+        pageId: input.pageId,
+        token: input.token,
+        mediaUrl: input.mediaUrl,
+      })
+    }
+    if (input.mimeType?.startsWith('image/') || !input.mimeType) {
+      return publishFacebookPhotoStory({
+        pageId: input.pageId,
+        token: input.token,
+        mediaUrl: input.mediaUrl,
+      })
+    }
+    return {
+      ok: false as const,
+      message: 'Format média non supporté pour une story Facebook',
+    }
+  }
+
   if (input.mediaUrl && input.mimeType?.startsWith('image/')) {
     return graphPost<{ id?: string; post_id?: string }>(
       `/${input.pageId}/photos`,
@@ -101,12 +215,16 @@ export async function publishInstagram(input: {
     caption: input.caption,
   }
 
-  if (input.format === 'reel' || input.mimeType?.startsWith('video/')) {
-    containerBody.media_type = input.format === 'story' ? 'STORIES' : 'REELS'
-    containerBody.video_url = input.mediaUrl
-  } else if (input.format === 'story') {
+  if (input.format === 'story') {
     containerBody.media_type = 'STORIES'
-    containerBody.image_url = input.mediaUrl
+    if (input.mimeType?.startsWith('video/')) {
+      containerBody.video_url = input.mediaUrl
+    } else {
+      containerBody.image_url = input.mediaUrl
+    }
+  } else if (input.format === 'reel' || input.mimeType?.startsWith('video/')) {
+    containerBody.media_type = 'REELS'
+    containerBody.video_url = input.mediaUrl
   } else {
     containerBody.image_url = input.mediaUrl
   }
@@ -227,12 +345,16 @@ export async function publishToChannel(
   const metaId = result.data.post_id ?? result.data.id ?? null
   let permalink: string | null = null
   if (metaId && ch.kind === 'facebook-page') {
-    const res = await fetch(
-      `https://graph.facebook.com/${GRAPH_VERSION}/${metaId}?fields=permalink_url`,
-      { headers: { Authorization: `Bearer ${cred.access_token}` } },
-    )
-    const json = await res.json()
-    permalink = json?.permalink_url ?? null
+    if (input.format === 'story') {
+      permalink = `https://www.facebook.com/stories/${metaId}`
+    } else {
+      const res = await fetch(
+        `https://graph.facebook.com/${GRAPH_VERSION}/${metaId}?fields=permalink_url`,
+        { headers: { Authorization: `Bearer ${cred.access_token}` } },
+      )
+      const json = await res.json()
+      permalink = json?.permalink_url ?? null
+    }
   }
 
   return {

@@ -21,10 +21,16 @@ export type PostRow = {
   recurrence_ends_on: string | null
   recurrence_max_occurrences: number | null
   recurrence_active: boolean
-  marketing_media?: {
-    original_name: string | null
-    public_url: string | null
-  } | null
+  marketing_media?:
+    | {
+        original_name: string | null
+        public_url: string | null
+      }
+    | Array<{
+        original_name: string | null
+        public_url: string | null
+      }>
+    | null
   marketing_post_targets?: Array<{
     channel_id: string
     status: PostTarget['status']
@@ -32,6 +38,12 @@ export type PostRow = {
     permalink: string | null
     meta_post_id: string | null
   }>
+}
+
+function mediaFromRow(row: PostRow) {
+  const media = row.marketing_media
+  if (!media) return null
+  return Array.isArray(media) ? (media[0] ?? null) : media
 }
 
 export function mapPost(row: PostRow): Post {
@@ -45,13 +57,15 @@ export function mapPost(row: PostRow): Post {
   recurrence.endsOn = row.recurrence_ends_on
   recurrence.maxOccurrences = row.recurrence_max_occurrences
 
+  const media = mediaFromRow(row)
+
   return {
     id: row.id,
     format: row.format,
     caption: row.caption,
     mediaId: row.media_id,
-    mediaLabel: row.marketing_media?.original_name ?? null,
-    mediaUrl: row.marketing_media?.public_url ?? null,
+    mediaLabel: media?.original_name ?? null,
+    mediaUrl: media?.public_url ?? null,
     linkUrl: row.link_url,
     status: row.status,
     scheduledAt: row.scheduled_at,

@@ -10,9 +10,12 @@ const SCOPES = [
   'pages_manage_metadata',
   'pages_manage_posts',
   'pages_read_engagement',
+  'pages_read_user_content',
+  'pages_manage_engagement',
   'publish_video',
   'instagram_basic',
   'instagram_manage_messages',
+  'instagram_manage_comments',
   'instagram_content_publish',
   'business_management',
 ].join(',')

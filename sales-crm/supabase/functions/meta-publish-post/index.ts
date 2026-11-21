@@ -61,9 +61,11 @@ async function handle(req: Request): Promise<Response> {
       return jsonResponse({ ok: false, error: 'Post not found' }, 404)
     }
 
-    const media = post.marketing_media as
+    const mediaRaw = post.marketing_media as
       | { public_url: string; mime_type: string }
+      | Array<{ public_url: string; mime_type: string }>
       | null
+    const media = Array.isArray(mediaRaw) ? (mediaRaw[0] ?? null) : mediaRaw
 
     let runId = body.runId ?? null
     if (!runId) {

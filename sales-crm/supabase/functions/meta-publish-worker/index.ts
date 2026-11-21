@@ -123,9 +123,11 @@ async function handle(req: Request): Promise<Response> {
         continue
       }
 
-      const media = post.marketing_media as
+      const mediaRaw = post.marketing_media as
         | { public_url: string; mime_type: string }
+        | Array<{ public_url: string; mime_type: string }>
         | null
+      const media = Array.isArray(mediaRaw) ? (mediaRaw[0] ?? null) : mediaRaw
 
       if (runId) {
         await admin

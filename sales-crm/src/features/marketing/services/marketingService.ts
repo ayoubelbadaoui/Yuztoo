@@ -49,7 +49,7 @@ async function validate(draft: PostDraft) {
   if (draft.channelIds.length === 0) {
     throw new Error('Choisissez au moins un compte de destination')
   }
-  if (draft.format !== 'post' && !draft.mediaId) {
+  if ((draft.format === 'story' || draft.format === 'reel') && !draft.mediaId) {
     throw new Error('Une story ou un reel demande un visuel')
   }
   if (draft.scheduledAt && new Date(draft.scheduledAt) < new Date()) {

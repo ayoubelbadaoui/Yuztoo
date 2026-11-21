@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { ChannelIcon } from '@/features/marketing/components/ChannelBadge'
+import { PostComments } from '@/features/marketing/components/PostComments'
 import { PostPreview } from '@/features/marketing/components/PostPreview'
 import type { Channel } from '@/features/marketing/domain/channel'
 import { networkMixLabel } from '@/features/marketing/domain/channel'
@@ -98,7 +99,7 @@ export function PostDetailPanel({ post, channels, onClose, onChanged }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label={`Publication ${post.id}`}
-        className="pop-in relative flex h-full w-full max-w-md flex-col border-l border-border bg-card shadow-2xl"
+        className="pop-in relative flex h-full w-full max-w-xl flex-col border-l border-border bg-card shadow-2xl"
       >
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4">
           <div className="min-w-0">
@@ -264,6 +265,14 @@ export function PostDetailPanel({ post, channels, onClose, onChanged }: Props) {
               })}
             </ul>
           </section>
+
+          {isSent && (
+            <PostComments
+              post={post}
+              channels={channels}
+              workspaceId={workspaceId}
+            />
+          )}
 
           {error && (
             <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">

@@ -15,7 +15,15 @@ import {
 import { useChannels } from '@/features/marketing/hooks/useMarketing'
 import { startMetaConnect } from '@/features/marketing/services/metaConnectService'
 
-function ChannelCard({ channel }: { channel: Channel }) {
+function ChannelCard({
+  channel,
+  onRenew,
+  isRenewing,
+}: {
+  channel: Channel
+  onRenew: () => void
+  isRenewing: boolean
+}) {
   const days = daysUntil(channel.tokenExpiresAt)
 
   return (
@@ -74,7 +82,9 @@ function ChannelCard({ channel }: { channel: Channel }) {
         </p>
         <button
           type="button"
-          className="h-7 rounded-lg border border-border px-2.5 text-[12px] text-foreground transition-colors hover:bg-muted"
+          disabled={isRenewing}
+          onClick={onRenew}
+          className="h-7 rounded-lg border border-border px-2.5 text-[12px] text-foreground transition-colors hover:bg-muted disabled:opacity-50"
         >
           {channel.status === 'disconnected' ? 'Connecter' : 'Renouveler'}
         </button>
@@ -134,7 +144,10 @@ export function ChannelsPage() {
             <p className="mt-0.5 max-w-xl text-[12px] text-muted-foreground">
               Une Page Facebook et son Instagram Business liés apparaissent
               comme deux comptes : vous pourrez publier sur FB, IG, ou les deux
-              en même temps depuis le composeur.
+              en même temps depuis le composeur. Pour lire / répondre /
+              supprimer / aimer les commentaires, reconnectez après avoir
+              ajouté « pages_manage_engagement » et « pages_read_user_content »
+              dans la config Meta Login.
             </p>
             {connectError && (
               <p className="mt-1 text-[12px] text-destructive">{connectError}</p>
@@ -183,7 +196,12 @@ export function ChannelsPage() {
             </h2>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {yuztoo.map((channel) => (
-                <ChannelCard key={channel.id} channel={channel} />
+                <ChannelCard
+                  key={channel.id}
+                  channel={channel}
+                  onRenew={() => void onConnect()}
+                  isRenewing={isConnecting}
+                />
               ))}
             </div>
           </section>
@@ -195,7 +213,12 @@ export function ChannelsPage() {
               </h2>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {merchants.map((channel) => (
-                  <ChannelCard key={channel.id} channel={channel} />
+                  <ChannelCard
+                    key={channel.id}
+                    channel={channel}
+                    onRenew={() => void onConnect()}
+                    isRenewing={isConnecting}
+                  />
                 ))}
               </div>
             </section>

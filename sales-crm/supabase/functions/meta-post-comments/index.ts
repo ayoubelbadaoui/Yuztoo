@@ -1,0 +1,251 @@
+import { jsonResponse, withCors } from '../_shared/cors.ts'
+import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
+
+const GRAPH_VERSION = 'v22.0'
+
+const COMMENT_FIELDS =
+  'id,from{id,name},message,created_time,like_count,comment_count,can_comment,can_remove,can_hide,is_hidden,user_likes,parent{id}'
+
+type Action = 'list' | 'reply' | 'delete' | 'like' | 'unlike'
+
+type GraphComment = {
+  id?: string
+  message?: string
+  created_time?: string
+  like_count?: number
+  comment_count?: number
+  can_comment?: boolean
+  can_remove?: boolean
+  can_hide?: boolean
+  is_hidden?: boolean
+  user_likes?: boolean
+  from?: { id?: string; name?: string }
+  parent?: { id?: string }
+  comments?: { data?: GraphComment[] }
+}
+
+async function graphGet<T>(
+  path: string,
+  token: string,
+): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const json = await res.json()
+  if (!res.ok) {
+    return { ok: false, message: json?.error?.message ?? 'Graph GET failed' }
+  }
+  return { ok: true, data: json as T }
+}
+
+async function graphSend<T>(
+  method: 'POST' | 'DELETE',
+  path: string,
+  token: string,
+  body?: Record<string, unknown>,
+): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    return {
+      ok: false,
+      message: json?.error?.message ?? `Graph ${method} failed`,
+    }
+  }
+  return { ok: true, data: json as T }
+}
+
+function mapComment(row: GraphComment) {
+  return {
+    id: row.id ?? '',
+    message: row.message ?? '',
+    createdAt: row.created_time ?? new Date().toISOString(),
+    fromName: row.from?.name ?? 'Utilisateur',
+    fromId: row.from?.id ?? null,
+    likeCount: row.like_count ?? 0,
+    replyCount: row.comment_count ?? row.comments?.data?.length ?? 0,
+    canReply: row.can_comment !== false,
+    canDelete: row.can_remove !== false,
+    likedByPage: Boolean(row.user_likes),
+    isHidden: Boolean(row.is_hidden),
+    parentId: row.parent?.id ?? null,
+    replies: (row.comments?.data ?? []).map((reply) => ({
+      ...mapComment(reply),
+      replies: [],
+    })),
+  }
+}
+
+async function assertMember(
+  authHeader: string,
+  workspaceId: string,
+): Promise<{ ok: true; userId: string } | { ok: false; status: number; error: string }> {
+  const userClient = createUserClient(authHeader)
+  const {
+    data: { user },
+    error,
+  } = await userClient.auth.getUser()
+  if (error || !user) return { ok: false, status: 401, error: 'Unauthorized' }
+
+  const { data: membership } = await userClient
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (!membership || !['owner', 'admin', 'seller'].includes(membership.role)) {
+    return { ok: false, status: 403, error: 'Forbidden' }
+  }
+  return { ok: true, userId: user.id }
+}
+
+async function handle(req: Request): Promise<Response> {
+  try {
+    if (req.method !== 'POST') {
+      return jsonResponse({ ok: false, error: 'Method not allowed' }, 405)
+    }
+
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401)
+    }
+
+    const body = (await req.json()) as {
+      action?: Action
+      workspaceId?: string
+      postId?: string
+      channelId?: string
+      commentId?: string | null
+      message?: string
+    }
+
+    if (!body.action || !body.workspaceId || !body.postId || !body.channelId) {
+      return jsonResponse(
+        { ok: false, error: 'action, workspaceId, postId, channelId required' },
+        400,
+      )
+    }
+
+    const member = await assertMember(authHeader, body.workspaceId)
+    if (!member.ok) {
+      return jsonResponse({ ok: false, error: member.error }, member.status)
+    }
+
+    const admin = createAdminClient()
+    const { data: target } = await admin
+      .from('marketing_post_targets')
+      .select('meta_post_id, status, channel_id')
+      .eq('post_id', body.postId)
+      .eq('channel_id', body.channelId)
+      .eq('workspace_id', body.workspaceId)
+      .maybeSingle()
+
+    if (!target?.meta_post_id || target.status !== 'published') {
+      return jsonResponse(
+        { ok: false, error: 'Publication Meta introuvable pour ce compte' },
+        404,
+      )
+    }
+
+    const { data: channel } = await admin
+      .from('marketing_channels')
+      .select('id, kind, workspace_id')
+      .eq('id', body.channelId)
+      .eq('workspace_id', body.workspaceId)
+      .maybeSingle()
+    if (!channel) {
+      return jsonResponse({ ok: false, error: 'Compte introuvable' }, 404)
+    }
+
+    const { data: cred } = await admin
+      .from('meta_channel_credentials')
+      .select('access_token')
+      .eq('channel_id', body.channelId)
+      .maybeSingle()
+    if (!cred?.access_token) {
+      return jsonResponse({ ok: false, error: 'Jeton Meta manquant' }, 400)
+    }
+
+    const token = cred.access_token
+    const objectId = target.meta_post_id
+
+    if (body.action === 'list') {
+      const nested =
+        channel.kind === 'instagram'
+          ? COMMENT_FIELDS
+          : `${COMMENT_FIELDS},comments.limit(25){${COMMENT_FIELDS}}`
+      const listed = await graphGet<{ data?: GraphComment[] }>(
+        `/${objectId}/comments?filter=stream&limit=50&fields=${encodeURIComponent(nested)}`,
+        token,
+      )
+      if (!listed.ok) {
+        return jsonResponse({ ok: false, error: listed.message }, 400)
+      }
+      return jsonResponse({
+        ok: true,
+        comments: (listed.data.data ?? []).map(mapComment),
+      })
+    }
+
+    if (body.action === 'reply') {
+      const message = body.message?.trim() ?? ''
+      if (!message) {
+        return jsonResponse({ ok: false, error: 'Message vide' }, 400)
+      }
+      const parentId = body.commentId?.trim() || objectId
+      const created = await graphSend<{ id?: string }>(
+        'POST',
+        `/${parentId}/comments`,
+        token,
+        { message },
+      )
+      if (!created.ok) {
+        return jsonResponse({ ok: false, error: created.message }, 400)
+      }
+      return jsonResponse({ ok: true, id: created.data.id ?? null })
+    }
+
+    if (body.action === 'delete') {
+      if (!body.commentId) {
+        return jsonResponse({ ok: false, error: 'commentId required' }, 400)
+      }
+      const deleted = await graphSend<{ success?: boolean }>(
+        'DELETE',
+        `/${body.commentId}`,
+        token,
+      )
+      if (!deleted.ok) {
+        return jsonResponse({ ok: false, error: deleted.message }, 400)
+      }
+      return jsonResponse({ ok: true })
+    }
+
+    if (body.action === 'like' || body.action === 'unlike') {
+      if (!body.commentId) {
+        return jsonResponse({ ok: false, error: 'commentId required' }, 400)
+      }
+      const liked = await graphSend<{ success?: boolean }>(
+        body.action === 'like' ? 'POST' : 'DELETE',
+        `/${body.commentId}/likes`,
+        token,
+      )
+      if (!liked.ok) {
+        return jsonResponse({ ok: false, error: liked.message }, 400)
+      }
+      return jsonResponse({ ok: true })
+    }
+
+    return jsonResponse({ ok: false, error: 'Unknown action' }, 400)
+  } catch {
+    return jsonResponse({ ok: false, error: 'Comment action failed' }, 500)
+  }
+}
+
+Deno.serve(withCors(handle))
