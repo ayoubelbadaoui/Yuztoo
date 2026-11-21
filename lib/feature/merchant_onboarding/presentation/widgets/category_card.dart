@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/shared/widgets/overflow_scroll_text.dart';
+import '../../../app_media/application/providers.dart';
+import '../../../app_media/domain/app_media_slot.dart';
 import 'merchant_onboarding_colors.dart';
 import '../../domain/entities/merchant_category.dart';
 
 /// Maps a category id to a meaningful icon — presentation layer only.
-IconData _iconForCategory(String id) {
+IconData iconForCategory(String id) {
   return switch (id) {
     // Particuliers (B2C)
     'bouche' => Icons.restaurant_rounded,
@@ -27,8 +30,11 @@ IconData _iconForCategory(String id) {
   };
 }
 
-/// Category card widget for merchant onboarding
-class CategoryCard extends StatelessWidget {
+/// Category card widget for merchant onboarding.
+///
+/// CMS images fill the **top banner placeholder** (100px). The Material icon
+/// stays only as the default when no remote image is published for this slot.
+class CategoryCard extends ConsumerWidget {
   const CategoryCard({
     super.key,
     required this.category,
@@ -42,11 +48,24 @@ class CategoryCard extends StatelessWidget {
   final VoidCallback onTap;
   final int animationDelay;
 
+  static const _bannerHeight = 100.0;
+  static const _bannerRadius = BorderRadius.only(
+    topLeft: Radius.circular(15),
+    topRight: Radius.circular(15),
+  );
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final catColor = Color(
       int.parse(category.placeholderColorHex.replaceFirst('#', '0xFF')),
     );
+    final icon = iconForCategory(category.id);
+    final slotId = AppMediaSlotId.forCategoryId(category.id);
+    final asyncUrl = slotId == null
+        ? const AsyncValue<String?>.data(null)
+        : ref.watch(resolvedAppMediaUrlProvider(slotId));
+    final remoteUrl = asyncUrl.asData?.value;
+    final hasRemoteImage = remoteUrl != null && remoteUrl.isNotEmpty;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -88,32 +107,36 @@ class CategoryCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icon banner
-                  Container(
-                    height: 100,
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        topRight: Radius.circular(15),
-                      ),
-                      color: catColor.withValues(alpha: 0.12),
-                    ),
-                    child: Center(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: catColor.withValues(
-                              alpha: isSelected ? 0.25 : 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _iconForCategory(category.id),
-                          size: 30,
-                          color: isSelected ? catColor : catColor.withValues(alpha: 0.7),
-                        ),
-                      ),
+                  // Banner placeholder — CMS image fills this zone, not the icon.
+                  ClipRRect(
+                    borderRadius: _bannerRadius,
+                    child: SizedBox(
+                      height: _bannerHeight,
+                      width: double.infinity,
+                      child: hasRemoteImage
+                          ? Image.network(
+                              remoteUrl,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: _bannerHeight,
+                              cacheWidth: (MediaQuery.sizeOf(context).width *
+                                      MediaQuery.devicePixelRatioOf(context) *
+                                      0.5)
+                                  .round()
+                                  .clamp(128, 800),
+                              filterQuality: FilterQuality.medium,
+                              errorBuilder: (_, __, ___) =>
+                                  _IconBanner(
+                                catColor: catColor,
+                                isSelected: isSelected,
+                                icon: icon,
+                              ),
+                            )
+                          : _IconBanner(
+                              catColor: catColor,
+                              isSelected: isSelected,
+                              icon: icon,
+                            ),
                     ),
                   ),
 
@@ -180,6 +203,42 @@ class CategoryCard extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Default banner: tinted block + circular Material icon (no CMS image yet).
+class _IconBanner extends StatelessWidget {
+  const _IconBanner({
+    required this.catColor,
+    required this.isSelected,
+    required this.icon,
+  });
+
+  final Color catColor;
+  final bool isSelected;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: catColor.withValues(alpha: 0.12),
+      child: Center(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: catColor.withValues(alpha: isSelected ? 0.25 : 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 30,
+            color: isSelected ? catColor : catColor.withValues(alpha: 0.7),
           ),
         ),
       ),

@@ -381,21 +381,28 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
         ),
         child: Column(
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: MerchantColors.gold.withValues(alpha: 0.1),
-                border: Border.all(
-                  color: MerchantColors.gold.withValues(alpha: 0.35),
-                  width: 1.5,
+            ResolvedAppImage(
+              slotId: AppMediaSlotId.emptyPromotions,
+              width: 200,
+              height: 150,
+              fit: BoxFit.cover,
+              borderRadius: BorderRadius.circular(12),
+              fallback: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MerchantColors.gold.withValues(alpha: 0.1),
+                  border: Border.all(
+                    color: MerchantColors.gold.withValues(alpha: 0.35),
+                    width: 1.5,
+                  ),
                 ),
-              ),
-              child: const Icon(
-                Icons.local_offer_outlined,
-                color: MerchantColors.gold,
-                size: 28,
+                child: const Icon(
+                  Icons.local_offer_outlined,
+                  color: MerchantColors.gold,
+                  size: 28,
+                ),
               ),
             ),
             const SizedBox(height: 16),

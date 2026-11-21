@@ -2735,3 +2735,9 @@ export {
   adminSoftDeleteUser,
   adminRestoreUser,
 } from "./admin/crm_clients";
+
+export {
+  adminUpsertAppMediaSlot,
+  adminClearAppMediaSlot,
+  adminSetAppMediaRelease,
+} from "./admin/crm_app_media";

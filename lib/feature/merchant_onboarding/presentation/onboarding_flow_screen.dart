@@ -14,6 +14,8 @@ import '../../../../core/utils/cities.dart';
 import '../../../../core/utils/email_validator.dart';
 import '../../../../core/utils/image_pick_with_source.dart';
 import '../../../../core/utils/phone_number_formatter.dart';
+import '../../app_media/domain/app_media_slot.dart';
+import '../../app_media/presentation/resolved_app_image.dart';
 import '../application/providers.dart';
 import '../domain/entities/merchant_category.dart';
 import '../application/onboarding_flow_provider.dart';

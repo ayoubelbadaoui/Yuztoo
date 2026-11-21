@@ -15,6 +15,8 @@ import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/utils/cities.dart';
 import '../../../core/utils/image_pick_with_source.dart';
 import '../../../core/utils/oauth_profile_photo.dart';
+import '../../app_media/domain/app_media_slot.dart';
+import '../../app_media/presentation/resolved_app_image.dart';
 import '../../auth/core/application/oauth_identity_helpers.dart';
 import '../../auth/core/application/providers.dart';
 import '../../profile/application/providers.dart'

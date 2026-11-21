@@ -554,16 +554,23 @@ extension _ClientListScreenUi on _ClientListScreenState {
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
               children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: MerchantColors.gold.withValues(alpha: 0.08),
+                ResolvedAppImage(
+                  slotId: AppMediaSlotId.emptyPassages,
+                  width: 200,
+                  height: 150,
+                  fit: BoxFit.cover,
+                  borderRadius: BorderRadius.circular(12),
+                  fallback: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: MerchantColors.gold.withValues(alpha: 0.08),
+                    ),
+                    child: Icon(Icons.group_outlined,
+                        color: MerchantColors.gold.withValues(alpha: 0.6),
+                        size: 28),
                   ),
-                  child: Icon(Icons.group_outlined,
-                      color: MerchantColors.gold.withValues(alpha: 0.6),
-                      size: 28),
                 ),
                 const SizedBox(height: 16),
                 Text(

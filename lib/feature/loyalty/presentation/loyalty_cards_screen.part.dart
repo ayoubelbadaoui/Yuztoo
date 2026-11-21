@@ -1271,10 +1271,17 @@ class _EmptyState extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.card_giftcard_rounded,
-                      size: 56,
-                      color: MerchantColors.gold.withValues(alpha: 0.85),
+                    ResolvedAppImage(
+                      slotId: AppMediaSlotId.emptyLoyalty,
+                      width: 160,
+                      height: 120,
+                      fit: BoxFit.cover,
+                      borderRadius: BorderRadius.circular(12),
+                      fallback: Icon(
+                        Icons.card_giftcard_rounded,
+                        size: 56,
+                        color: MerchantColors.gold.withValues(alpha: 0.85),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(

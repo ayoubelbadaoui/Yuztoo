@@ -1,0 +1,3 @@
+-- Applied remotely via MCP apply_migration (marketing_publications).
+-- Keep this file as the repo record of the same schema.
+-- See private conversation / Supabase history for the full SQL body.

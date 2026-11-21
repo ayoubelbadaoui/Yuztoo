@@ -1,0 +1,16 @@
+---
+description: Yuztoo Sales CRM security baseline (from IMIGO CRM)
+alwaysApply: true
+---
+
+# Yuztoo Sales CRM — security
+
+- **RLS** on every tenant table; UI gates are not enough.
+- **Secrets**: never commit; `VITE_*` = anon-safe only; **service role** server/Edge only.
+- **Validation**: client = UX; Edge/RPC validate for real.
+- **Errors**: no stack traces or internal paths to the browser.
+- **Logs**: no passwords, tokens, or unnecessary PII.
+- **CORS**: whitelist origins; never `*` with credentials.
+- Full checklist: `docs/sales-crm/SECURITY_GUIDELINES.md`.
+- Supabase silent traps + RLS/Edge/keys: `docs/sales-crm/supabase/07-security-traps.md` and `docs/sales-crm/supabase/SUPABASE-HOLLY-BOOK.md`.
+- Before implementing Supabase security-sensitive code, verify with official docs (`search_docs`); update the bible CHANGELOG if rules change.

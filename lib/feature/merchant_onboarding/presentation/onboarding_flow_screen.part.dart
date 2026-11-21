@@ -119,20 +119,22 @@ class _GradientTitle extends StatelessWidget {
   }
 }
 
-/// Animated avatar icon with gold ring + optional glow.
+/// Animated avatar icon with gold ring + optional CMS image override.
 class _StepAvatar extends StatelessWidget {
   const _StepAvatar({
     required this.icon,
     this.size = 80,
+    this.slotId,
   });
 
   final IconData icon;
   final double size;
+  final AppMediaSlotId? slotId;
 
   @override
   Widget build(BuildContext context) {
     const c = MerchantOnboardingColors.primaryGold;
-    return Container(
+    final chrome = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -152,6 +154,15 @@ class _StepAvatar extends StatelessWidget {
         size: size * 0.42,
         color: c,
       ),
+    );
+    if (slotId == null) return chrome;
+    return ResolvedAppImage(
+      slotId: slotId!,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      clipOval: true,
+      fallback: chrome,
     );
   }
 }
@@ -416,7 +427,11 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
         children: [
           const SizedBox(height: 32),
           const _StepEntrance(
-            child: _StepAvatar(icon: Icons.person_outline_rounded, size: 80),
+            child: _StepAvatar(
+              icon: Icons.person_outline_rounded,
+              size: 80,
+              slotId: AppMediaSlotId.onboardingMerchantHeroPersonal,
+            ),
           ),
           const SizedBox(height: 28),
           const _StepEntrance(
@@ -569,7 +584,11 @@ class _StepNameState extends State<_StepName> {
         children: [
           const SizedBox(height: 32),
           const _StepEntrance(
-            child: _StepAvatar(icon: Icons.storefront_rounded, size: 80),
+            child: _StepAvatar(
+              icon: Icons.storefront_rounded,
+              size: 80,
+              slotId: AppMediaSlotId.onboardingMerchantHeroCommerce,
+            ),
           ),
           const SizedBox(height: 28),
           const _StepEntrance(
@@ -641,7 +660,11 @@ class _StepMerchantType extends StatelessWidget {
         children: [
           const SizedBox(height: 32),
           const _StepEntrance(
-            child: _StepAvatar(icon: Icons.groups_2_rounded, size: 80),
+            child: _StepAvatar(
+              icon: Icons.groups_2_rounded,
+              size: 80,
+              slotId: AppMediaSlotId.onboardingMerchantHeroAudience,
+            ),
           ),
           const SizedBox(height: 28),
           const _StepEntrance(
@@ -830,7 +853,11 @@ class _StepCityState extends State<_StepCity> {
         children: [
           const SizedBox(height: 32),
           const _StepEntrance(
-            child: _StepAvatar(icon: Icons.location_city_rounded, size: 80),
+            child: _StepAvatar(
+              icon: Icons.location_city_rounded,
+              size: 80,
+              slotId: AppMediaSlotId.onboardingMerchantHeroCity,
+            ),
           ),
           const SizedBox(height: 28),
           const _StepEntrance(

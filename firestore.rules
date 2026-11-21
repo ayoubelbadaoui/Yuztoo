@@ -767,5 +767,41 @@ service cloud.firestore {
             && request.resource.data.message.size() <= 500))
         && request.resource.data.created_at is timestamp;
     }
+
+    // --- /app_config/app_media_* (CMS Images catalog) ---------------------
+    // Written only by Admin SDK (callables). Clients never write.
+    // Release is readable so the app can decide draft vs preview vs live
+    // without downloading catalog bytes. Catalog (+ Storage) only when
+    // status is live, or preview for the selected testAccountId.
+
+    function appMediaReleaseData() {
+      return get(/databases/$(database)/documents/app_config/app_media_release).data;
+    }
+
+    function appMediaReleaseExists() {
+      return exists(/databases/$(database)/documents/app_config/app_media_release);
+    }
+
+    function canSeeAppMediaCatalog() {
+      return isSignedIn()
+        && appMediaReleaseExists()
+        && (
+          appMediaReleaseData().status == 'live'
+          || (
+            appMediaReleaseData().status == 'preview'
+            && appMediaReleaseData().testAccountId == request.auth.uid
+          )
+        );
+    }
+
+    match /app_config/app_media_release {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /app_config/app_media_catalog {
+      allow read: if canSeeAppMediaCatalog();
+      allow create, update, delete: if false;
+    }
   }
 }

@@ -1,0 +1,148 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Design tokens — Yuztoo palette.
+  Light  : cream #FDFBF7 surfaces, slate text, darkened gold for contrast.
+  Dark   : navy #0B162C / #0E2A44 / #1A2B4D, gold #D4AF37 accent.
+  Mirrors lib/core/shared/constants/merchant_colors.dart and storefront_colors.dart.
+  Features must never hardcode a color: always go through these tokens.
+*/
+:root {
+  --background: #fdfbf7;
+  --foreground: #1e293b;
+
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+
+  --muted: #f2ede2;
+  --muted-foreground: #64748b;
+
+  --accent: #f4efe4;
+  --accent-foreground: #0b162c;
+
+  --primary: #a8821a;
+  --primary-foreground: #ffffff;
+
+  --destructive: #b4342a;
+  --destructive-foreground: #ffffff;
+
+  --success: #18794e;
+  --warning: #a16207;
+
+  --border: #e8e0cf;
+  --input: #e8e0cf;
+  --ring: #d4af37;
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #0b162c;
+  --foreground: #f1f5f9;
+
+  --card: #0e2a44;
+  --card-foreground: #f1f5f9;
+
+  --popover: #12304f;
+  --popover-foreground: #f1f5f9;
+
+  --muted: #1a2b4d;
+  --muted-foreground: #94a3b8;
+
+  --accent: #1a2b4d;
+  --accent-foreground: #f1f5f9;
+
+  --primary: #d4af37;
+  --primary-foreground: #0b162c;
+
+  --destructive: #e05a4e;
+  --destructive-foreground: #1a0d0b;
+
+  --success: #22c55e;
+  --warning: #d4a017;
+
+  --border: #1d3658;
+  --input: #1d3658;
+  --ring: #d4af37;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html:has(.dark),
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family:
+      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+      Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Lightweight entrance used by popovers and the command palette. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pop-in {
+  animation: pop-in 0.12s ease-out;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

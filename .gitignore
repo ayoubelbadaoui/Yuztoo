@@ -69,3 +69,8 @@ apple_distribution.*
 
 # Real-data snapshots pulled from production (contain customer PII).
 functions/scripts/.local/
+
+# Sales CRM web app (branch crm-sales-yuztoo)
+sales-crm/node_modules/
+sales-crm/dist/
+sales-crm/.vite/

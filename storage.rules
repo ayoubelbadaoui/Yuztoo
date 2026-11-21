@@ -77,6 +77,39 @@ service firebase.storage {
       allow delete: if isOwnerUid(userId);
     }
 
+    // ── App media catalog (CMS Images) ─────────────────────────────────────
+    // One overwritten object per slot. Writes only via Admin SDK.
+    // Read gated by the same release doc as Firestore (live / preview test UID).
+
+    function appMediaReleaseExists() {
+      return firestore.exists(
+        /databases/(default)/documents/app_config/app_media_release
+      );
+    }
+
+    function appMediaReleaseData() {
+      return firestore.get(
+        /databases/(default)/documents/app_config/app_media_release
+      ).data;
+    }
+
+    function canSeeAppMedia() {
+      return isSignedIn()
+        && appMediaReleaseExists()
+        && (
+          appMediaReleaseData().status == 'live'
+          || (
+            appMediaReleaseData().status == 'preview'
+            && appMediaReleaseData().testAccountId == request.auth.uid
+          )
+        );
+    }
+
+    match /app_media/{slotId}/current {
+      allow read: if canSeeAppMedia();
+      allow write, delete: if false;
+    }
+
     // ── Default deny ───────────────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

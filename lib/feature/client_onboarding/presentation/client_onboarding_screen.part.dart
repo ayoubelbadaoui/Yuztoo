@@ -116,15 +116,21 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
     );
   }
 
-  /// Shared Apple-style hero: solid gold icon, no container or border. The
-  /// previous "circle with gold ring" chrome read as Material; Apple's own
-  /// onboarding (Watch setup, AirPods, Migration Assistant) puts a single
-  /// large icon directly on the background.
-  Widget _buildStepHero(IconData icon) {
-    return Icon(
+  /// Shared Apple-style hero: solid gold icon, or CMS `onboarding.client.hero`.
+  Widget _buildStepHero(IconData icon, {AppMediaSlotId? slotId}) {
+    final iconWidget = Icon(
       icon,
       size: 56,
       color: MerchantOnboardingColors.primaryGold,
+    );
+    if (slotId == null) return iconWidget;
+    return ResolvedAppImage(
+      slotId: slotId,
+      width: 72,
+      height: 72,
+      fit: BoxFit.cover,
+      clipOval: true,
+      fallback: iconWidget,
     );
   }
 
@@ -167,7 +173,10 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
       child: Column(
         children: [
           const SizedBox(height: 56),
-          _buildStepHero(Icons.person_outline_rounded),
+          _buildStepHero(
+            Icons.person_outline_rounded,
+            slotId: AppMediaSlotId.onboardingClientHero,
+          ),
           const SizedBox(height: 32),
           _buildStepTitle('Comment vous appelez-vous ?'),
           const SizedBox(height: 32),

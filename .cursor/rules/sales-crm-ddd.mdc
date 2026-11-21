@@ -1,0 +1,17 @@
+---
+description: Yuztoo Sales CRM DDD + file size (from IMIGO CRM base)
+alwaysApply: true
+---
+
+# Yuztoo Sales CRM — DDD (strict)
+
+Applies on branch **`crm-sales-yuztoo`** and to Sales CRM web code under `src/features/**`.
+
+- **Supabase client**: Do not `import { supabase }` outside `src/features/**/services/**`.
+- **UI / hooks**: Call domain services only — never `supabase.from` / `supabase.rpc` in components or hooks.
+- **New realtime**: Add `*Realtime.js` under that domain’s `services/`; hooks only subscribe/cleanup.
+- **Edge calls**: Prefer a small helper (e.g. `callEdgeFunction`) without leaking service-role keys to the client.
+- **File length**: Prefer under ~300 lines. If a change would blow past that, split in the same change (`useXState`, `XSection`, formatters).
+- **Large hooks**: Compose `useXFormState`, loaders, submit, navigation — do not grow monoliths.
+- **No Firebase** in Sales CRM modules. Product CRM stays on Firebase separately.
+- **Docs**: Follow `docs/sales-crm/CRM-HOLLY-BOOK.md`, `docs/sales-crm/DDD_COMPLIANCE_PROMPT.md`, and before any Supabase work `docs/sales-crm/supabase/SUPABASE-HOLLY-BOOK.md` + `docs/sales-crm/supabase/README.md`.

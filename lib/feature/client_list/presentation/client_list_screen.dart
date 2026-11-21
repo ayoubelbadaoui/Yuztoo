@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
+import '../../app_media/domain/app_media_slot.dart';
+import '../../app_media/presentation/resolved_app_image.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
 import '../../merchant/presentation/merchant_ble_scan_screen.dart';

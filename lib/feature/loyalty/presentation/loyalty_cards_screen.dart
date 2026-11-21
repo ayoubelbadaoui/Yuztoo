@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
+import '../../app_media/domain/app_media_slot.dart';
+import '../../app_media/presentation/resolved_app_image.dart';
 import '../../auth/core/application/user_display_helpers.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../client_home/application/providers.dart'

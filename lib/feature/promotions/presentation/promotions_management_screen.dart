@@ -8,6 +8,8 @@ import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/utils/image_crop_utils.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
+import '../../app_media/domain/app_media_slot.dart';
+import '../../app_media/presentation/resolved_app_image.dart';
 import '../../client_notification/application/providers.dart';
 import '../../merchant/application/providers.dart' show currentMerchantForOwnerProvider;
 import '../../merchant_partners/application/providers.dart' as partners_providers;
