@@ -44,5 +44,30 @@ export function replyWindow(lastInboundAt: string | null): {
 }
 
 export function platformLabel(platform: SocialPlatform): string {
-  return platform === 'instagram' ? 'Instagram' : 'Messenger'
+  return platform === 'instagram' ? 'Instagram' : 'Facebook'
+}
+
+export type PlatformFilter = 'all' | SocialPlatform
+
+export const platformFilters: PlatformFilter[] = ['all', 'instagram', 'messenger']
+
+export const platformFilterLabels: Record<PlatformFilter, string> = {
+  all: 'Tous',
+  instagram: 'Instagram',
+  messenger: 'Facebook',
+}
+
+/** Conversation count + unread per tab, for the IG / FB split. */
+export function countByPlatform(
+  conversations: SocialConversation[],
+): Record<PlatformFilter, { total: number; unread: number }> {
+  const empty = () => ({ total: 0, unread: 0 })
+  const counts = { all: empty(), instagram: empty(), messenger: empty() }
+  for (const conversation of conversations) {
+    for (const key of ['all', conversation.platform] as const) {
+      counts[key].total += 1
+      if (conversation.unread > 0) counts[key].unread += 1
+    }
+  }
+  return counts
 }

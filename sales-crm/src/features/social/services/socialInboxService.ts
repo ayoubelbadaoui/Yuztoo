@@ -51,7 +51,8 @@ export async function getConversations(
     )
     .eq('workspace_id', workspaceId)
     .order('last_message_at', { ascending: false })
-    .limit(100)
+    // History import can bring hundreds of threads; IG/FB tabs count these.
+    .limit(300)
 
   if (error) return { data: null, error: new Error(error.message) }
   return {
