@@ -15,6 +15,10 @@ import {
   writeAuditLog,
 } from "./guard";
 import { docToJson, toJsonValue } from "./serialize";
+import {
+  findNewsTestClientHandler,
+  searchNewsMerchantsHandler,
+} from "./crm_yuztoo_news_lookup";
 
 // ─── Admin CRM — Actu YuzToo (`yuztoo_news/{id}`) ────────────────────────────
 //
@@ -48,6 +52,8 @@ export type YuztooNewsInput = {
   cta_label: string | null;
   cta_url: string | null;
   cta_merchant_id: string | null;
+  /** Shop name shown in the CMS next to `cta_merchant_id` (app ignores it). */
+  cta_merchant_label: string | null;
 };
 
 /** Pure helper — shared with unit tests. */
@@ -95,6 +101,7 @@ export function parseYuztooNewsInput(data: unknown): YuztooNewsInput {
   const ctaLabel = optionalStringArg(data, "cta_label", 80);
   const ctaUrl = optionalStringArg(data, "cta_url", 2000);
   const ctaMerchantId = optionalStringArg(data, "cta_merchant_id", 128);
+  const ctaMerchantLabel = optionalStringArg(data, "cta_merchant_label", 120);
 
   if (ctaUrl && !/^https?:\/\//i.test(ctaUrl)) {
     throw new functions.https.HttpsError(
@@ -115,9 +122,11 @@ export function parseYuztooNewsInput(data: unknown): YuztooNewsInput {
     publish_on: publishOn,
     active,
     image_url: imageUrl,
-    cta_label: ctaLabel,
+    // No target → no button: a lone label would be a dead field.
+    cta_label: ctaMerchantId || ctaUrl ? ctaLabel : null,
     cta_url: ctaUrl,
     cta_merchant_id: ctaMerchantId,
+    cta_merchant_label: ctaMerchantId ? ctaMerchantLabel : null,
   };
 }
 
@@ -286,6 +295,17 @@ export async function setYuztooNewsReleaseHandler(
       : payload.test_account_label === null
         ? null
         : String(payload.test_account_label).trim() || null;
+
+  // A test send must reach a real phone: the uid has to be a live client.
+  if (testAccountId && testAccountId !== current.test_account_id) {
+    const userSnap = await db().collection("users").doc(testAccountId).get();
+    if (!userSnap.exists || userSnap.data()?.deleted_at) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Test account is not an existing Yuztoo client."
+      );
+    }
+  }
 
   if (status === "preview") {
     if (!testAccountId) {
@@ -522,6 +542,7 @@ function httpsErrorToStatus(err: unknown): {
  * Sales CRM Edge calls this with header `X-CRM-Bridge-Secret`.
  * Body: `{ action, actor_email?, actor_uid?, ...payload }`
  * actions: list | upsert | setActive | setRelease | delete
+ *          | findClient | searchMerchants (read-only lookups)
  */
 export const crmBridgeYuztooNews = functions
   .region(ADMIN_REGION)
@@ -567,6 +588,12 @@ export const crmBridgeYuztooNews = functions
           break;
         case "delete":
           result = await deleteYuztooNewsHandler(body, caller);
+          break;
+        case "findClient":
+          result = await findNewsTestClientHandler(body);
+          break;
+        case "searchMerchants":
+          result = await searchNewsMerchantsHandler(body);
           break;
         default:
           res.status(400).json({ error: "Unknown action" });
