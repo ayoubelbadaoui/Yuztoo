@@ -3,7 +3,11 @@ import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
 
 const GRAPH_VERSION = 'v22.0'
 /** Conversations per call — keeps one invocation well under the Edge limit. */
-const PAGE_SIZE = 10
+const PAGE_SIZE: Record<'messenger' | 'instagram', number> = {
+  messenger: 10,
+  // Instagram times out (Graph code -2) when threads + messages come nested.
+  instagram: 5,
+}
 /** Meta only returns details of the 20 most recent messages per thread. */
 const MESSAGES_PER_THREAD = 20
 
@@ -102,12 +106,14 @@ async function handle(req: Request): Promise<Response> {
       `https://graph.facebook.com/${GRAPH_VERSION}/${channel.meta_page_id}/conversations`,
     )
     url.searchParams.set('platform', platform)
-    url.searchParams.set('limit', String(PAGE_SIZE))
+    url.searchParams.set('limit', String(PAGE_SIZE[platform]))
     url.searchParams.set(
       'fields',
-      // No `participants`: the contact is read from each message's from / to,
-      // which both Messenger and Instagram return.
-      `updated_time,messages.limit(${MESSAGES_PER_THREAD}){id,created_time,message,from,to}`,
+      // No `participants`: the contact is read from each message's from / to.
+      // Instagram: list threads only, messages are fetched per thread below.
+      platform === 'instagram'
+        ? 'updated_time'
+        : `updated_time,${MESSAGES_FIELD}`,
     )
     if (body.cursor) url.searchParams.set('after', body.cursor)
 
@@ -131,7 +137,12 @@ async function handle(req: Request): Promise<Response> {
 
     let conversations = 0
     let imported = 0
-    for (const thread of page.data ?? []) {
+    for (const listed of page.data ?? []) {
+      const thread =
+        platform === 'instagram'
+          ? await withMessages(listed, cred.access_token)
+          : listed
+      if (!thread) continue
       const result = await importThread(admin, {
         thread,
         platform,
@@ -149,6 +160,29 @@ async function handle(req: Request): Promise<Response> {
     console.error('meta-import-history', String(error))
     return jsonResponse({ error: 'Request failed' }, 500)
   }
+}
+
+const MESSAGES_FIELD = `messages.limit(${MESSAGES_PER_THREAD}){id,created_time,message,from,to}`
+
+/** One small request per Instagram thread instead of one huge nested one. */
+async function withMessages(
+  thread: GraphConversation,
+  token: string,
+): Promise<GraphConversation | null> {
+  const res = await fetch(
+    `https://graph.facebook.com/${GRAPH_VERSION}/${thread.id}?fields=${encodeURIComponent(MESSAGES_FIELD)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  const json = (await res.json()) as GraphConversation & {
+    error?: { code?: number }
+  }
+  if (!res.ok || json.error) {
+    console.warn('meta-import-history: thread messages failed', {
+      code: json.error?.code,
+    })
+    return null
+  }
+  return { ...thread, messages: json.messages }
 }
 
 /** Returns the number of new messages stored, or -1 when skipped. */
