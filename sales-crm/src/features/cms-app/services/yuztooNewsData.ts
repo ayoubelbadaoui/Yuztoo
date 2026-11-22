@@ -20,6 +20,7 @@ const seedNews: YuztooNews[] = [
     cta_label: 'En savoir plus',
     cta_url: 'https://yuztoo.com',
     cta_merchant_id: null,
+    cta_merchant_label: null,
     release_status: 'draft',
     test_account_id: null,
     test_account_label: null,
@@ -38,6 +39,7 @@ const seedNews: YuztooNews[] = [
     cta_label: null,
     cta_url: null,
     cta_merchant_id: null,
+    cta_merchant_label: null,
     release_status: 'draft',
     test_account_id: null,
     test_account_label: null,
@@ -52,6 +54,7 @@ function coerce(item: YuztooNews): YuztooNews {
   return {
     ...item,
     release_status: normalizeReleaseStatus(item.release_status),
+    cta_merchant_label: item.cta_merchant_label ?? null,
     test_account_id: item.test_account_id ?? null,
     test_account_label: item.test_account_label ?? null,
     preview_activated_at: item.preview_activated_at ?? null,

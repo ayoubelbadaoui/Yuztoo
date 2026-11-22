@@ -1,5 +1,5 @@
-import type { MediaTestAccount } from '@/features/cms-app/domain/mediaRelease'
 import type {
+  NewsTestClient,
   YuztooNews,
   YuztooNewsInput,
 } from '@/features/cms-app/domain/yuztooNews'
@@ -11,7 +11,6 @@ import {
   YUZTOO_NEWS_CTA_LABEL_MAX,
   YUZTOO_NEWS_TITLE_MAX,
 } from '@/features/cms-app/domain/yuztooNews'
-import { listMediaTestAccounts } from '@/features/cms-app/services/cmsMediaReleaseService'
 import {
   loadYuztooNews,
   saveYuztooNews,
@@ -21,7 +20,7 @@ import { callEdgeFunction } from '@/lib/callEdgeFunction'
 type Result<T> = { data: T | null; error: Error | null }
 
 /** Offline UI only — default is live Edge → Firebase. */
-function useMock(): boolean {
+function isMockMode(): boolean {
   return import.meta.env.VITE_CMS_ACTU_MOCK === '1'
 }
 
@@ -65,10 +64,12 @@ function validateInput(input: YuztooNewsInput): YuztooNewsInput {
     throw new Error('cta_url doit être une URL http(s).')
   }
 
+  const ctaMerchantId = emptyToNull(input.cta_merchant_id)
   const ctaLabel = emptyToNull(input.cta_label)
   if (ctaLabel && ctaLabel.length > YUZTOO_NEWS_CTA_LABEL_MAX) {
-    throw new Error(`Libellé CTA trop long (max ${YUZTOO_NEWS_CTA_LABEL_MAX}).`)
+    throw new Error(`Libellé du bouton trop long (max ${YUZTOO_NEWS_CTA_LABEL_MAX}).`)
   }
+  const hasButton = Boolean(ctaMerchantId || ctaUrl)
 
   return {
     ...input,
@@ -77,9 +78,13 @@ function validateInput(input: YuztooNewsInput): YuztooNewsInput {
     publish_on: new Date(publishOn).toISOString(),
     active: input.active !== false,
     image_url: imageUrl,
-    cta_label: ctaLabel,
+    // Same rule as the bridge: no target → no button, no stray label.
+    cta_label: hasButton ? ctaLabel : null,
     cta_url: ctaUrl,
-    cta_merchant_id: emptyToNull(input.cta_merchant_id),
+    cta_merchant_id: ctaMerchantId,
+    cta_merchant_label: ctaMerchantId
+      ? emptyToNull(input.cta_merchant_label)
+      : null,
   }
 }
 
@@ -113,6 +118,11 @@ function mapNews(raw: Record<string, unknown>): YuztooNews {
     cta_merchant_id: emptyToNull(
       typeof raw.cta_merchant_id === 'string' ? raw.cta_merchant_id : null,
     ),
+    cta_merchant_label: emptyToNull(
+      typeof raw.cta_merchant_label === 'string'
+        ? raw.cta_merchant_label
+        : null,
+    ),
     release_status: normalizeReleaseStatus(
       typeof raw.release_status === 'string' ? raw.release_status : null,
     ),
@@ -143,18 +153,18 @@ async function callNewsBridge<T>(
   return { data: data as T, error: null }
 }
 
+/** Stored next to the uid so the CMS can show who receives the test. */
+function testAccountLabel(account: NewsTestClient | null): string | null {
+  if (!account) return null
+  const hint = account.contactHint ?? account.city
+  return hint ? `${account.displayName} · ${hint}` : account.displayName
+}
+
 function findOrThrow(id: string): { items: YuztooNews[]; index: number } {
   const items = loadYuztooNews()
   const index = items.findIndex((n) => n.id === id)
   if (index < 0) throw new Error('Actu introuvable.')
   return { items, index }
-}
-
-/** Reuses Images test-account candidates (clients + boutiques). */
-export async function listActuTestAccounts(
-  search = '',
-): Promise<Result<MediaTestAccount[]>> {
-  return listMediaTestAccounts(search)
 }
 
 /** Shaped like `adminListYuztooNews` / bridge `list`. */
@@ -163,7 +173,7 @@ export async function listYuztooNews(opts?: {
   includeInactive?: boolean
   search?: string
 }): Promise<Result<{ items: YuztooNews[] }>> {
-  if (useMock()) {
+  if (isMockMode()) {
     try {
       const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 100)
       const includeInactive = opts?.includeInactive === true
@@ -214,7 +224,7 @@ export async function upsertYuztooNews(
 ): Promise<Result<YuztooNews>> {
   try {
     const valid = validateInput(input)
-    if (useMock()) {
+    if (isMockMode()) {
       const items = loadYuztooNews()
       const existingId =
         typeof valid.id === 'string' && valid.id.trim() ? valid.id.trim() : null
@@ -234,6 +244,7 @@ export async function upsertYuztooNews(
           cta_label: valid.cta_label ?? null,
           cta_url: valid.cta_url ?? null,
           cta_merchant_id: valid.cta_merchant_id ?? null,
+          cta_merchant_label: valid.cta_merchant_label ?? null,
           release_status: wasLive ? 'draft' : prev.release_status,
           preview_activated_at: wasLive ? null : prev.preview_activated_at,
           live_at: wasLive ? null : prev.live_at,
@@ -253,6 +264,7 @@ export async function upsertYuztooNews(
         cta_label: valid.cta_label ?? null,
         cta_url: valid.cta_url ?? null,
         cta_merchant_id: valid.cta_merchant_id ?? null,
+        cta_merchant_label: valid.cta_merchant_label ?? null,
         release_status: 'draft',
         test_account_id: null,
         test_account_label: null,
@@ -278,6 +290,7 @@ export async function upsertYuztooNews(
         cta_label: valid.cta_label,
         cta_url: valid.cta_url,
         cta_merchant_id: valid.cta_merchant_id,
+        cta_merchant_label: valid.cta_merchant_label,
       },
     )
     if (error || !data) {
@@ -291,9 +304,9 @@ export async function upsertYuztooNews(
 
 export async function setYuztooNewsTestAccount(
   id: string,
-  account: MediaTestAccount | null,
+  account: NewsTestClient | null,
 ): Promise<Result<YuztooNews>> {
-  if (useMock()) {
+  if (isMockMode()) {
     try {
       const { items, index } = findOrThrow(id)
       const prev = items[index]
@@ -305,9 +318,7 @@ export async function setYuztooNewsTestAccount(
       const next: YuztooNews = {
         ...prev,
         test_account_id: account?.id ?? null,
-        test_account_label: account
-          ? `${account.displayName} (${account.kind === 'client' ? 'client' : 'boutique'})`
-          : null,
+        test_account_label: testAccountLabel(account),
         release_status:
           prev.release_status === 'preview' ? 'draft' : prev.release_status,
         preview_activated_at:
@@ -330,9 +341,7 @@ export async function setYuztooNewsTestAccount(
       id,
       release_status: 'draft',
       test_account_id: account?.id ?? null,
-      test_account_label: account
-        ? `${account.displayName} (${account.kind === 'client' ? 'client' : 'boutique'})`
-        : null,
+      test_account_label: testAccountLabel(account),
     },
   )
   if (error || !data) {
@@ -344,7 +353,7 @@ export async function setYuztooNewsTestAccount(
 export async function activateYuztooNewsPreview(
   id: string,
 ): Promise<Result<YuztooNews>> {
-  if (useMock()) {
+  if (isMockMode()) {
     try {
       const { items, index } = findOrThrow(id)
       const prev = items[index]
@@ -385,7 +394,7 @@ export async function activateYuztooNewsPreview(
 export async function publishYuztooNewsLive(
   id: string,
 ): Promise<Result<YuztooNews>> {
-  if (useMock()) {
+  if (isMockMode()) {
     try {
       const { items, index } = findOrThrow(id)
       const prev = items[index]
@@ -422,7 +431,7 @@ export async function publishYuztooNewsLive(
 export async function revertYuztooNewsToDraft(
   id: string,
 ): Promise<Result<YuztooNews>> {
-  if (useMock()) {
+  if (isMockMode()) {
     try {
       const { items, index } = findOrThrow(id)
       const prev = items[index]
@@ -455,7 +464,7 @@ export async function setYuztooNewsActive(
   id: string,
   active: boolean,
 ): Promise<Result<YuztooNews>> {
-  if (useMock()) {
+  if (isMockMode()) {
     try {
       const { items, index } = findOrThrow(id)
       const next: YuztooNews = {
@@ -484,7 +493,7 @@ export async function setYuztooNewsActive(
 export async function deleteYuztooNews(
   id: string,
 ): Promise<Result<{ id: string }>> {
-  if (useMock()) {
+  if (isMockMode()) {
     try {
       const items = loadYuztooNews()
       const next = items.filter((n) => n.id !== id)

@@ -23,9 +23,9 @@ export function CmsActuPage() {
           Actu Yuztoo
         </h1>
         <p className="max-w-2xl text-[13px] text-muted-foreground">
-          Fil éditorial Alertes (Firebase live via Edge). Publication : compte
-          test → aperçu → tous. CTA boutique = in-app ; URL = navigateur
-          externe.
+          Actu affichée en haut de l’onglet Alertes des clients. Texte seul,
+          avec image et/ou bouton (boutique ou lien). Publication : test sur 1
+          client → tous les clients.
         </p>
       </header>
 
@@ -77,9 +77,6 @@ export function CmsActuPage() {
         <YuztooNewsEditPanel
           key={editing?.id ?? 'new'}
           news={editing ?? null}
-          testAccounts={api.testAccounts}
-          testSearch={api.testSearch}
-          onTestSearch={api.setTestSearch}
           onClose={() => setEditing(undefined)}
           onSave={api.upsert}
           onSelectTestAccount={api.selectTestAccount}

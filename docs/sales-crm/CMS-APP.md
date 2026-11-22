@@ -69,7 +69,7 @@ CMS nav **Actu Yuztoo** (`CmsActuPage`) authors the editorial feed Flutter shows
 | `publish_on` | ISO; app shows only when ≤ now |
 | `active` | Soft hide (not enough for clients — see gate) |
 | `image_url` | Optional HTTPS (banner 46×46 + detail full-width). Upload/crop = Phase B |
-| `cta_label` / `cta_url` / `cta_merchant_id` | **Merchant id** = in-app shop (preferred). **URL** = external browser. Empty = no button |
+| Button (`cta_*`) | Editor picks one: **Sans bouton** / **Ouvrir une boutique** (`cta_merchant_id`, picked by name; `cta_merchant_label` = CMS display only) / **Ouvrir un lien** (`cta_url`, external browser). No target ⇒ `cta_label` dropped (CMS + bridge) |
 | `release_status` | **Per actu:** `draft` → `preview` → `live` (legacy missing ≡ `live`) |
 | `test_account_id` / `test_account_label` | Required before preview |
 | `preview_activated_at` / `live_at` | Stamps for the gate |
@@ -84,16 +84,17 @@ CmsActuPage → yuztooNewsService → Edge cms-yuztoo-news
 
 - No Firebase in the SPA. Secrets: `CRM_BRIDGE_SECRET`, `FIREBASE_PROJECT_ID` (Edge + CF env).
 - Offline UI only: `VITE_CMS_ACTU_MOCK=1` (localStorage).
-- Deploy: CF `crmBridgeYuztooNews` first, then Edge `cms-yuztoo-news`.
+- Bridge actions: `list | upsert | setActive | setRelease | delete` + read-only `findClient` (exact email / phone / uid → masked contact) and `searchMerchants` (`name_lowercase` prefix, or `id`). Edge `ACTIONS` must list every action.
+- Deploy: CF `crmBridgeYuztooNews` first (**run `npm run build` in `functions/` — no predeploy hook, `lib/` is what ships**), then Edge `cms-yuztoo-news`.
 
 ### Publication gate (mandatory test account)
 
 Same UX rule as Images, but **per news document**:
 
 1. **Brouillon** — new saves always start as draft (even if `active` is checked).
-2. **Select test account** — client or boutique from the same list as Images.
+2. **Client test** — one real Firebase client found by exact email / phone (`findClient`). The bridge refuses a `test_account_id` that is not an existing `users/{uid}`. Audience = clients only (banner lives in the client Alertes tab).
 3. **Aperçu test** — only that Firebase UID can read the doc (`release_status=preview`).
-4. **En ligne (tous)** — blocked until step 3. Confirm before publish.
+4. **En ligne · tous les clients** — blocked until step 3. Confirm before publish. Test/publish buttons are disabled while the editor has unsaved edits.
 5. Content edit while **live** demotes to **brouillon** (must re-preview).
 
 **Flutter:** dual listeners (live + own preview). Rules: draft unreadable; live public; preview = test UID only.

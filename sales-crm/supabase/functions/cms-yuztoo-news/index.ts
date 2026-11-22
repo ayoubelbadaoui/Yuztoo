@@ -8,6 +8,9 @@ const ACTIONS = new Set([
   'setActive',
   'setRelease',
   'delete',
+  // Read-only lookups for the editor (test client, button shop).
+  'findClient',
+  'searchMerchants',
 ])
 
 function bridgeUrl(projectId: string): string {

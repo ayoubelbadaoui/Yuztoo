@@ -3,30 +3,30 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { Field, controlClass } from '@/components/ui/Field'
 import { YuztooNewsBannerPreview } from '@/features/cms-app/components/YuztooNewsBannerPreview'
+import type { ButtonShop } from '@/features/cms-app/components/YuztooNewsButtonFields'
+import { YuztooNewsButtonFields } from '@/features/cms-app/components/YuztooNewsButtonFields'
 import { YuztooNewsReleaseSection } from '@/features/cms-app/components/YuztooNewsReleaseSection'
-import type { MediaTestAccount } from '@/features/cms-app/domain/mediaRelease'
 import type {
+  NewsTestClient,
   YuztooNews,
+  YuztooNewsCtaKind,
   YuztooNewsInput,
 } from '@/features/cms-app/domain/yuztooNews'
 import {
+  ctaKindOf,
   YUZTOO_NEWS_BODY_MAX,
-  YUZTOO_NEWS_CTA_LABEL_MAX,
   YUZTOO_NEWS_TITLE_MAX,
 } from '@/features/cms-app/domain/yuztooNews'
 
 type Props = {
   news: YuztooNews | null
-  testAccounts: MediaTestAccount[]
-  testSearch: string
-  onTestSearch: (value: string) => void
   onClose: () => void
   onSave: (
     input: YuztooNewsInput,
   ) => Promise<{ error: string | null; news: YuztooNews | null }>
   onSelectTestAccount: (
     id: string,
-    account: MediaTestAccount | null,
+    account: NewsTestClient | null,
   ) => Promise<{ error: string | null; news: YuztooNews | null }>
   onActivatePreview: (
     id: string,
@@ -49,9 +49,6 @@ function toLocalInputValue(iso: string): string {
 
 export function YuztooNewsEditPanel({
   news,
-  testAccounts,
-  testSearch,
-  onTestSearch,
   onClose,
   onSave,
   onSelectTestAccount,
@@ -69,10 +66,13 @@ export function YuztooNewsEditPanel({
   )
   const [active, setActive] = useState(news?.active ?? true)
   const [imageUrl, setImageUrl] = useState(news?.image_url ?? '')
+  const [ctaKind, setCtaKind] = useState<YuztooNewsCtaKind>(ctaKindOf(news))
   const [ctaLabel, setCtaLabel] = useState(news?.cta_label ?? '')
   const [ctaUrl, setCtaUrl] = useState(news?.cta_url ?? '')
-  const [ctaMerchantId, setCtaMerchantId] = useState(
-    news?.cta_merchant_id ?? '',
+  const [ctaShop, setCtaShop] = useState<ButtonShop | null>(
+    news?.cta_merchant_id
+      ? { id: news.cta_merchant_id, label: news.cta_merchant_label }
+      : null,
   )
   const [isSaving, setIsSaving] = useState(false)
   const [isBusyRelease, setIsBusyRelease] = useState(false)
@@ -86,17 +86,35 @@ export function YuztooNewsEditPanel({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
-  const preview = useMemo(
+  // Only the chosen button kind is sent: switching to "Sans bouton" really
+  // removes the button instead of leaving hidden fields behind.
+  const button = useMemo(
     () => ({
-      title,
-      body,
-      image_url: imageUrl.trim() || null,
-      cta_label: ctaLabel.trim() || null,
-      cta_url: ctaUrl.trim() || null,
-      cta_merchant_id: ctaMerchantId.trim() || null,
+      cta_label: ctaKind === 'none' ? null : ctaLabel.trim() || null,
+      cta_url: ctaKind === 'url' ? ctaUrl.trim() || null : null,
+      cta_merchant_id: ctaKind === 'merchant' ? (ctaShop?.id ?? null) : null,
+      cta_merchant_label:
+        ctaKind === 'merchant' ? (ctaShop?.label ?? null) : null,
     }),
-    [title, body, imageUrl, ctaLabel, ctaUrl, ctaMerchantId],
+    [ctaKind, ctaLabel, ctaUrl, ctaShop],
   )
+
+  const preview = useMemo(
+    () => ({ title, body, image_url: imageUrl.trim() || null, ...button }),
+    [title, body, imageUrl, button],
+  )
+
+  const isDirty =
+    current != null &&
+    (title.trim() !== current.title ||
+      body.trim() !== current.body ||
+      (imageUrl.trim() || null) !== current.image_url ||
+      active !== current.active ||
+      publishLocal !== toLocalInputValue(current.publish_on) ||
+      button.cta_url !== current.cta_url ||
+      button.cta_merchant_id !== current.cta_merchant_id ||
+      (button.cta_merchant_id || button.cta_url ? button.cta_label : null) !==
+        current.cta_label)
 
   const applySaved = (saved: YuztooNews) => {
     setCurrent(saved)
@@ -112,6 +130,11 @@ export function YuztooNewsEditPanel({
       setError('Date de publication invalide.')
       return
     }
+    if (ctaKind === 'merchant' && !ctaShop) {
+      setIsSaving(false)
+      setError('Choisissez la boutique que le bouton ouvre.')
+      return
+    }
     const input: YuztooNewsInput = {
       id: current?.id ?? null,
       title,
@@ -119,9 +142,7 @@ export function YuztooNewsEditPanel({
       publish_on: publishDate.toISOString(),
       active,
       image_url: imageUrl,
-      cta_label: ctaLabel,
-      cta_url: ctaUrl,
-      cta_merchant_id: ctaMerchantId,
+      ...button,
     }
     const { error: message, news: saved } = await onSave(input)
     setIsSaving(false)
@@ -169,7 +190,7 @@ export function YuztooNewsEditPanel({
             </h2>
             <p className="text-[12px] text-muted-foreground">
               {isCreate
-                ? 'Enregistrez en brouillon, puis aperçu test → tous'
+                ? 'Brouillon → test sur 1 client → tous les clients'
                 : current!.id}
             </p>
           </div>
@@ -216,7 +237,33 @@ export function YuztooNewsEditPanel({
               />
             </Field>
 
-            <Field label="Publier le" htmlFor="actu-publish">
+            <Field label="Image (optionnel)" htmlFor="actu-image">
+              <input
+                id="actu-image"
+                type="url"
+                value={imageUrl}
+                onChange={(event) => setImageUrl(event.target.value)}
+                placeholder="https://… — laisser vide pour une actu sans image"
+                className={controlClass}
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                HTTPS uniquement. Vignette 46×46 dans Alertes, pleine largeur
+                (16:9) sur la page détail.
+              </p>
+            </Field>
+
+            <YuztooNewsButtonFields
+              kind={ctaKind}
+              onKind={setCtaKind}
+              label={ctaLabel}
+              onLabel={setCtaLabel}
+              url={ctaUrl}
+              onUrl={setCtaUrl}
+              shop={ctaShop}
+              onShop={setCtaShop}
+            />
+
+            <Field label="Visible à partir du" htmlFor="actu-publish">
               <input
                 id="actu-publish"
                 type="datetime-local"
@@ -233,87 +280,17 @@ export function YuztooNewsEditPanel({
                 checked={active}
                 onChange={(event) => setActive(event.target.checked)}
               />
-              Active (soft hide — la publication reste draft/preview/live)
+              Active (décochez pour masquer sans dépublier)
             </label>
-
-            <Field label="Image URL (optionnel)" htmlFor="actu-image">
-              <input
-                id="actu-image"
-                type="url"
-                value={imageUrl}
-                onChange={(event) => setImageUrl(event.target.value)}
-                placeholder="https://…"
-                className={controlClass}
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                HTTPS uniquement. Bannière app ≈ 46×46 ; détail pleine largeur
-                (idéalement 16:9). Upload crop intégré prévu ensuite.
-              </p>
-            </Field>
-
-            <Field label="Libellé CTA" htmlFor="actu-cta-label">
-              <input
-                id="actu-cta-label"
-                value={ctaLabel}
-                maxLength={YUZTOO_NEWS_CTA_LABEL_MAX}
-                onChange={(event) => setCtaLabel(event.target.value)}
-                placeholder="En savoir plus"
-                className={controlClass}
-              />
-            </Field>
-
-            <Field
-              label="CTA boutique id (reste dans l’app — recommandé)"
-              htmlFor="actu-cta-merchant"
-            >
-              <input
-                id="actu-cta-merchant"
-                value={ctaMerchantId}
-                onChange={(event) => setCtaMerchantId(event.target.value)}
-                placeholder="merchantId Firebase"
-                className={controlClass}
-              />
-            </Field>
-
-            <Field label="CTA URL externe (http/https)" htmlFor="actu-cta-url">
-              <input
-                id="actu-cta-url"
-                type="url"
-                value={ctaUrl}
-                onChange={(event) => setCtaUrl(event.target.value)}
-                placeholder="https://…"
-                className={controlClass}
-              />
-              {ctaUrl.trim() && !ctaMerchantId.trim() ? (
-                <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                  Attention : cette URL ouvre le navigateur externe et quitte
-                  l’app. Préférez un id boutique, ou laissez vide pour rester
-                  sur la page Actu.
-                </p>
-              ) : (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Laisser vide = pas de bouton (lecture in-app seulement). L’id
-                  boutique prime sur l’URL.
-                </p>
-              )}
-            </Field>
 
             {current ? (
               <YuztooNewsReleaseSection
                 news={current}
-                accounts={testAccounts}
-                search={testSearch}
-                onSearch={onTestSearch}
                 isBusy={isBusyRelease}
-                onSelectAccount={async (account) => {
-                  const message = await runRelease(() =>
-                    onSelectTestAccount(current.id, account),
-                  )
-                  if (!message) {
-                    // Parent reload updates list; sync local from callback via reload in page
-                  }
-                  return message
-                }}
+                isDirty={isDirty}
+                onSelectAccount={(account) =>
+                  runRelease(() => onSelectTestAccount(current.id, account))
+                }
                 onActivatePreview={() =>
                   runRelease(() => onActivatePreview(current.id))
                 }
@@ -324,8 +301,8 @@ export function YuztooNewsEditPanel({
               />
             ) : (
               <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground">
-                Enregistrez le contenu (brouillon) pour choisir un compte test et
-                publier.
+                Enregistrez le brouillon pour choisir le client test, puis
+                publier pour tous les clients.
               </p>
             )}
 

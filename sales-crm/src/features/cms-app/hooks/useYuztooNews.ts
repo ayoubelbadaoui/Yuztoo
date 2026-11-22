@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
-import type { MediaTestAccount } from '@/features/cms-app/domain/mediaRelease'
 import type {
+  NewsTestClient,
   YuztooNews,
   YuztooNewsActiveFilter,
   YuztooNewsInput,
@@ -9,7 +9,6 @@ import type {
 import {
   activateYuztooNewsPreview,
   deleteYuztooNews,
-  listActuTestAccounts,
   listYuztooNews,
   publishYuztooNewsLive,
   revertYuztooNewsToDraft,
@@ -26,8 +25,6 @@ export function useYuztooNews() {
   const [activeFilter, setActiveFilter] =
     useState<YuztooNewsActiveFilter>('all')
   const [revision, setRevision] = useState(0)
-  const [testAccounts, setTestAccounts] = useState<MediaTestAccount[]>([])
-  const [testSearch, setTestSearch] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -56,15 +53,6 @@ export function useYuztooNews() {
     }
   }, [revision, search, activeFilter])
 
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      void listActuTestAccounts(testSearch).then(({ data }) => {
-        setTestAccounts(data ?? [])
-      })
-    }, 200)
-    return () => window.clearTimeout(handle)
-  }, [testSearch])
-
   const reload = () => setRevision((n) => n + 1)
 
   const runRelease = async (
@@ -86,9 +74,6 @@ export function useYuztooNews() {
     setSearch,
     activeFilter,
     setActiveFilter,
-    testAccounts,
-    testSearch,
-    setTestSearch,
     reload,
     upsert: async (input: YuztooNewsInput) => {
       const { data, error: failure } = await upsertYuztooNews(input)
@@ -108,7 +93,7 @@ export function useYuztooNews() {
       reload()
       return null
     },
-    selectTestAccount: (id: string, account: MediaTestAccount | null) =>
+    selectTestAccount: (id: string, account: NewsTestClient | null) =>
       runRelease(() => setYuztooNewsTestAccount(id, account)),
     activatePreview: (id: string) =>
       runRelease(() => activateYuztooNewsPreview(id)),
