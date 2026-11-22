@@ -180,7 +180,8 @@ service cloud.firestore {
       allow read: if isSignedIn()
         && (resource.data.merchant_id == request.auth.uid
           || (exists(/databases/$(database)/documents/merchants/$(resource.data.merchant_id))
-            && get(/databases/$(database)/documents/merchants/$(resource.data.merchant_id)).data.owner_uid == request.auth.uid));
+            && get(/databases/$(database)/documents/merchants/$(resource.data.merchant_id)).data.owner_uid == request.auth.uid)
+          || canManageStore(resource.data.merchant_id));
     }
 
     // --- /users/{userId}/loyalty_bons/{bonId} ---
@@ -216,7 +217,7 @@ service cloud.firestore {
           || !('merchant_id' in request.resource.data)
           || request.resource.data.merchant_id == ''
           // Merchant-originated: the caller must own the referenced merchant.
-          || isMerchantOwner(request.resource.data.merchant_id)
+          || canManageStore(request.resource.data.merchant_id)
         );
     }
 
@@ -233,13 +234,89 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/merchants/$(merchantId)).data.owner_uid == request.auth.uid;
     }
 
+    // --- Enseignes (multi-store) ------------------------------------------
+    // A store joins an enseigne through `merchants/{id}.organization_id`.
+    // Team access lives in `organizations/{orgId}/members/{uid}`:
+    //   role: 'owner' | 'manager' | 'employee', status: 'active' | …,
+    //   store_ids: stores the member works in (ignored for 'owner').
+    // Stores without `organization_id` never reach the member lookup, so
+    // single-store merchants keep exactly the owner-only behaviour.
+    function orgPath(orgId) {
+      return /databases/$(database)/documents/organizations/$(orgId);
+    }
+
+    function orgMemberPath(orgId, uid) {
+      return /databases/$(database)/documents/organizations/$(orgId)/members/$(uid);
+    }
+
+    function isOrgOwner(orgId) {
+      return isSignedIn()
+        && orgId is string
+        && exists(orgPath(orgId))
+        && get(orgPath(orgId)).data.owner_uid == request.auth.uid;
+    }
+
+    function activeOrgMember(orgId) {
+      return isSignedIn()
+        && exists(orgMemberPath(orgId, request.auth.uid))
+        && get(orgMemberPath(orgId, request.auth.uid)).data.status == 'active';
+    }
+
+    function memberHasStoreRole(orgId, merchantId, roles) {
+      let m = get(orgMemberPath(orgId, request.auth.uid)).data;
+      return m.role in roles
+        && (m.role == 'owner' || merchantId in m.get('store_ids', []));
+    }
+
+    function storeOrgId(merchantId) {
+      return get(/databases/$(database)/documents/merchants/$(merchantId))
+        .data.get('organization_id', null);
+    }
+
+    function hasStoreRole(merchantId, roles) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/merchants/$(merchantId))
+        && storeOrgId(merchantId) is string
+        && activeOrgMember(storeOrgId(merchantId))
+        && memberHasStoreRole(storeOrgId(merchantId), merchantId, roles);
+    }
+
+    // Owner or gérant: vitrine, promotions, notifications, CRM.
+    function canManageStore(merchantId) {
+      return isMerchantOwner(merchantId)
+        || hasStoreRole(merchantId, ['owner', 'manager']);
+    }
+
+    // Anyone on the store team, employees included: passages and bons.
+    function canOperateStore(merchantId) {
+      return isMerchantOwner(merchantId)
+        || hasStoreRole(merchantId, ['owner', 'manager', 'employee']);
+    }
+
+    // State after the current batch — lets the enseigne, its first store and
+    // the owner's membership be created in one atomic write.
+    function isOrgOwnerAfter(orgId) {
+      return isSignedIn()
+        && orgId is string
+        && existsAfter(orgPath(orgId))
+        && getAfter(orgPath(orgId)).data.owner_uid == request.auth.uid;
+    }
+
+    // Moving a store into an enseigne requires owning that enseigne.
+    function organizationLinkValid() {
+      let next = request.resource.data.get('organization_id', null);
+      let prev = resource == null ? null : resource.data.get('organization_id', null);
+      return next == prev || next == null || isOrgOwnerAfter(next);
+    }
+
     match /merchants/{merchantId} {
       // Discovery / vitrine: unauthenticated read OK for this app.
       allow read: if true;
 
       allow create: if isSignedIn()
         && request.resource.data.owner_uid == request.auth.uid
-        && noAdminOwnedFieldsOnCreate();
+        && noAdminOwnedFieldsOnCreate()
+        && organizationLinkValid();
 
       // `notSoftDeleted` is what makes an admin soft delete stick: without it
       // the owner could simply flip `status` back to 'active' from their own
@@ -248,7 +325,17 @@ service cloud.firestore {
         && resource.data.owner_uid == request.auth.uid
         && request.resource.data.owner_uid == resource.data.owner_uid
         && notSoftDeleted()
-        && noAdminOwnedFieldChanges();
+        && noAdminOwnedFieldChanges()
+        && organizationLinkValid();
+
+      // Gérant of this store: same edits as the owner, except ownership,
+      // enseigne link and billing tier.
+      allow update: if hasStoreRole(merchantId, ['owner', 'manager'])
+        && request.resource.data.owner_uid == resource.data.owner_uid
+        && notSoftDeleted()
+        && noAdminOwnedFieldChanges()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['organization_id', 'subscription_plan']);
 
       // Any signed-in user (e.g. a client following the merchant) may increment
       // only the monthly connected-clients counter fields. The diff() check ensures
@@ -365,13 +452,13 @@ service cloud.firestore {
 
     match /merchants/{merchantId}/loyalty_clients/{userId} {
       allow read: if isSignedIn()
-        && (request.auth.uid == userId || isMerchantOwner(merchantId));
+        && (request.auth.uid == userId || canOperateStore(merchantId));
 
       // Only the merchant can create — the doc is born on first validation.
-      allow create: if isMerchantOwner(merchantId)
+      allow create: if canOperateStore(merchantId)
         && loyaltyClientMerchantCreateValid();
 
-      allow update: if (isMerchantOwner(merchantId)
+      allow update: if (canOperateStore(merchantId)
           && loyaltyClientPassageCooldownPasses(merchantId))
         || (isSignedIn()
           && request.auth.uid == userId
@@ -531,7 +618,7 @@ service cloud.firestore {
 
     match /merchants/{merchantId}/active_validations/{clientUid} {
       allow read: if isSignedIn()
-        && (request.auth.uid == clientUid || isMerchantOwner(merchantId));
+        && (request.auth.uid == clientUid || canOperateStore(merchantId));
       allow create: if isSignedIn()
         && activeValidationMerchantOwnerSelfBleBlocked(merchantId, clientUid)
         && (
@@ -541,17 +628,17 @@ service cloud.firestore {
           || (isMerchantOwner(merchantId)
               && activeValidationMerchantSimulateBleCreateValid(clientUid))
         );
-      allow update: if (isMerchantOwner(merchantId)
+      allow update: if (canOperateStore(merchantId)
             && merchantActiveValidationUpdateValid())
         || (isSignedIn() && request.auth.uid == clientUid
             && (clientResetActiveValidation() || clientCancelActiveValidation()));
-      allow delete: if isMerchantOwner(merchantId)
+      allow delete: if canOperateStore(merchantId)
         || (isSignedIn() && request.auth.uid == clientUid);
     }
 
     match /merchants/{merchantId}/promotions/{promoId} {
       allow read: if true;
-      allow create, update, delete: if isMerchantOwner(merchantId);
+      allow create, update, delete: if canManageStore(merchantId);
       // Any signed-in user (client viewing a storefront) may increment view_count only.
       allow update: if isSignedIn()
         && request.resource.data.diff(resource.data).affectedKeys()
@@ -598,16 +685,120 @@ service cloud.firestore {
     }
 
     match /merchants/{merchantId}/profile_views/{viewId} {
-      allow read: if isMerchantOwner(merchantId);
+      allow read: if canManageStore(merchantId);
       allow create, update: if profileViewWriteValid(merchantId, viewId);
-      allow delete: if isMerchantOwner(merchantId);
+      allow delete: if canManageStore(merchantId);
+    }
+
+    // --- Actualité photo engagement (likes / views) -----------------------
+    //
+    // merchants/{id}/news_photo_stats/{photoId}  → public counters shown on
+    //   the gallery tiles (merchant dashboard + client vitrine).
+    // merchants/{id}/news_photo_views/{photoId}_{uid} → one marker per
+    //   (photo, viewer) so a view is only ever counted once.
+    // merchants/{id}/news_photo_likes/{photoId}_{uid} → like marker; its
+    //   existence is the client's "liked by me" heart state.
+    //
+    // Counters are written client-side with FieldValue.increment inside a
+    // transaction, so the rules bound each write to a ±1 step and a fixed
+    // shape: a client can like/unlike or add one view, never jump a counter
+    // to an arbitrary value. Marker doc ids embed the writer's uid, which
+    // is validated against auth so nobody can act for another account.
+    function newsPhotoCountDeltaValid(key, minDelta, maxDelta) {
+      let prev = resource == null ? 0 : resource.data.get(key, 0);
+      let next = request.resource.data.get(key, 0);
+      return next is int
+        && next >= 0
+        && next >= prev + minDelta
+        && next <= prev + maxDelta;
+    }
+
+    function newsPhotoStatsWriteValid() {
+      let r = request.resource.data;
+      return isSignedIn()
+        && r.keys().hasOnly(['image_url', 'likes_count', 'views_count', 'updated_at'])
+        && r.image_url is string
+        && newsPhotoCountDeltaValid('likes_count', -1, 1)
+        && newsPhotoCountDeltaValid('views_count', 0, 1);
+    }
+
+    function newsPhotoMarkerWriteValid(markerId, requiredKeys) {
+      let r = request.resource.data;
+      return isSignedIn()
+        && r.viewer_uid == request.auth.uid
+        && markerId == r.photo_id + '_' + r.viewer_uid
+        && r.photo_id is string
+        && r.keys().hasOnly(requiredKeys);
+    }
+
+    // Marker reads must also succeed for documents that do not exist yet
+    // (that is exactly how "not liked" is detected), so the check is on the
+    // doc id suffix rather than on `resource.data`, which is null then.
+    function ownsNewsPhotoMarker(markerId) {
+      return isSignedIn() && markerId.matches('.*_' + request.auth.uid);
+    }
+
+    match /merchants/{merchantId}/news_photo_stats/{photoId} {
+      allow read: if true;
+      allow create, update: if canManageStore(merchantId)
+        || newsPhotoStatsWriteValid();
+      allow delete: if canManageStore(merchantId);
+    }
+
+    match /merchants/{merchantId}/news_photo_views/{markerId} {
+      allow read: if canManageStore(merchantId) || ownsNewsPhotoMarker(markerId);
+      allow create, update: if newsPhotoMarkerWriteValid(
+        markerId, ['photo_id', 'viewer_uid', 'updated_at']);
+      allow delete: if canManageStore(merchantId) || ownsNewsPhotoMarker(markerId);
+    }
+
+    match /merchants/{merchantId}/news_photo_likes/{markerId} {
+      allow read: if canManageStore(merchantId) || ownsNewsPhotoMarker(markerId);
+      allow create, update: if newsPhotoMarkerWriteValid(
+        markerId, ['photo_id', 'viewer_uid', 'created_at']);
+      allow delete: if canManageStore(merchantId) || ownsNewsPhotoMarker(markerId);
+    }
+
+    // --- Promotion likes (client heart on offers) ---------------------------
+    // Same ±1 counter / marker pattern as news_photo_* engagement.
+    function promotionStatsWriteValid() {
+      let r = request.resource.data;
+      return isSignedIn()
+        && r.keys().hasOnly(['likes_count', 'updated_at'])
+        && newsPhotoCountDeltaValid('likes_count', -1, 1);
+    }
+
+    function promotionLikeMarkerWriteValid(markerId) {
+      let r = request.resource.data;
+      return isSignedIn()
+        && r.viewer_uid == request.auth.uid
+        && markerId == r.promotion_id + '_' + r.viewer_uid
+        && r.promotion_id is string
+        && r.keys().hasOnly(['promotion_id', 'viewer_uid', 'created_at']);
+    }
+
+    function ownsPromotionLikeMarker(markerId) {
+      return isSignedIn() && markerId.matches('.*_' + request.auth.uid);
+    }
+
+    match /merchants/{merchantId}/promotion_stats/{promoId} {
+      allow read: if true;
+      allow create, update: if canManageStore(merchantId)
+        || promotionStatsWriteValid();
+      allow delete: if canManageStore(merchantId);
+    }
+
+    match /merchants/{merchantId}/promotion_likes/{markerId} {
+      allow read: if canManageStore(merchantId) || ownsPromotionLikeMarker(markerId);
+      allow create, update: if promotionLikeMarkerWriteValid(markerId);
+      allow delete: if canManageStore(merchantId) || ownsPromotionLikeMarker(markerId);
     }
 
     // --- /merchants/{merchantId}/pending_clients/{clientId} ---
     // Written by the client when they follow (so the merchant sees new followers).
     // Merchant reads and deletes (acknowledge). Client can also delete (unfollow cleanup).
     match /merchants/{merchantId}/pending_clients/{clientId} {
-      allow read, delete: if isMerchantOwner(merchantId);
+      allow read, delete: if canManageStore(merchantId);
       allow create, update: if isSignedIn() && request.auth.uid == clientId;
       allow delete: if isSignedIn() && request.auth.uid == clientId;
     }
@@ -616,28 +807,28 @@ service cloud.firestore {
     // Public read (visible on storefront); merchant owner can write.
     match /merchants/{merchantId}/partners/{partnerId} {
       allow read: if true;
-      allow create, update, delete: if isMerchantOwner(merchantId);
+      allow create, update, delete: if canManageStore(merchantId);
     }
 
     // --- /merchants/{merchantId}/clients/{clientId} ---
     // Merchant-side per-client overrides (manual segment tag, notes, etc.).
     // Owned by the merchant — only the merchant can read or write.
     match /merchants/{merchantId}/clients/{clientId} {
-      allow read, create, update, delete: if isMerchantOwner(merchantId);
+      allow read, create, update, delete: if canManageStore(merchantId);
     }
 
     match /merchants/{merchantId}/auto_notifications/{notificationId} {
       allow read: if true;
-      allow create, update, delete: if isMerchantOwner(merchantId);
+      allow create, update, delete: if canManageStore(merchantId);
     }
 
     match /merchants/{merchantId}/sent_notifications/{notificationId} {
-      allow read: if isMerchantOwner(merchantId);
+      allow read: if canManageStore(merchantId);
       // Written by the app (merchant sending a quick notification).
-      allow create: if isMerchantOwner(merchantId);
+      allow create: if canManageStore(merchantId);
       // Merchant owner may finalize sent_count after fan-out; clients may
       // increment open_count only (inbox read — mirrors promotion view_count).
-      allow update: if (isMerchantOwner(merchantId)
+      allow update: if (canManageStore(merchantId)
             && request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['sent_count']))
         || (isSignedIn()
@@ -656,8 +847,8 @@ service cloud.firestore {
     //     change permitted; CF-only fields untouchable).
     // Reads owner-only. Deletes allowed (owner cleanup).
     match /merchants/{merchantId}/scheduled_notifications/{scheduledId} {
-      allow read, delete: if isMerchantOwner(merchantId);
-      allow create: if isMerchantOwner(merchantId)
+      allow read, delete: if canManageStore(merchantId);
+      allow create: if canManageStore(merchantId)
         && request.resource.data.keys().hasOnly(
           ['text', 'audience', 'segments', 'scheduled_at', 'status',
            'created_at', 'created_by_uid']
@@ -675,7 +866,7 @@ service cloud.firestore {
       // The cancel path: owner can ONLY change status (and only to
       // 'cancelled'). CF-only fields (sent_at, sent_count,
       // failure_reason) and the original payload remain locked.
-      allow update: if isMerchantOwner(merchantId)
+      allow update: if canManageStore(merchantId)
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['status'])
         && request.resource.data.status == 'cancelled'
@@ -691,8 +882,8 @@ service cloud.firestore {
     // template_repository.dart) — 80 chars for name, 500 for text — so a
     // bypass via the REST API gets the same rejection.
     match /merchants/{merchantId}/notification_templates/{templateId} {
-      allow read: if isMerchantOwner(merchantId);
-      allow create, update: if isMerchantOwner(merchantId)
+      allow read: if canManageStore(merchantId);
+      allow create, update: if canManageStore(merchantId)
         && request.resource.data.keys().hasOnly(
           ['name', 'text', 'audience', 'segments', 'created_at', 'updated_at']
         )
@@ -706,7 +897,295 @@ service cloud.firestore {
           'Tous mes clients', 'Certains clients'
         ]
         && request.resource.data.segments is list;
-      allow delete: if isMerchantOwner(merchantId);
+      allow delete: if canManageStore(merchantId);
+    }
+
+    // --- /organizations/{orgId} — enseignes (multi-store) ---------------
+    // Public read: the enseigne page shows name / logo / description to
+    // clients. Billing data must live in an owner-only subcollection.
+    function organizationShapeValid() {
+      let r = request.resource.data;
+      return r.name is string
+        && r.name.size() > 0
+        && r.name.size() <= 80
+        && r.owner_uid is string
+        && r.loyalty_mode in ['per_store', 'shared'];
+    }
+
+    match /organizations/{orgId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.owner_uid == request.auth.uid
+        && organizationShapeValid()
+        && noAdminOwnedFieldsOnCreate();
+      allow update: if isOrgOwner(orgId)
+        && request.resource.data.owner_uid == resource.data.owner_uid
+        && organizationShapeValid()
+        && noAdminOwnedFieldChanges();
+      allow delete: if false;
+    }
+
+    function myOrgMember(orgId) {
+      return get(orgMemberPath(orgId, request.auth.uid)).data;
+    }
+
+    function isActiveOrgManager(orgId) {
+      return activeOrgMember(orgId) && myOrgMember(orgId).role == 'manager';
+    }
+
+    // Gérants manage employees, only inside the stores they run themselves.
+    function isActiveManagerOfStores(orgId, storeIds) {
+      return isActiveOrgManager(orgId)
+        && myOrgMember(orgId).get('store_ids', []).hasAll(storeIds);
+    }
+
+    function orgInvitePath(orgId, inviteId) {
+      return /databases/$(database)/documents/organizations/$(orgId)/invites/$(inviteId);
+    }
+
+    function orgMemberShapeValid(orgId, uid) {
+      let r = request.resource.data;
+      return r.keys().hasOnly([
+            'uid', 'org_id', 'role', 'store_ids', 'status', 'display_name',
+            'invited_by', 'invite_id', 'joined_at', 'updated_at'
+          ])
+        && r.uid == uid
+        && r.org_id == orgId
+        && r.role in ['owner', 'manager', 'employee']
+        && r.status in ['active', 'removed']
+        && r.store_ids is list;
+    }
+
+    // Accepting an invite: the member doc must copy the invite's role and
+    // stores, and the same batch must flip the invite to accepted by this
+    // user, so one invite can never enrol several accounts.
+    function orgInviteAcceptValid(orgId, uid) {
+      let r = request.resource.data;
+      return isSignedIn()
+        && request.auth.uid == uid
+        && r.invite_id is string
+        && exists(orgInvitePath(orgId, r.invite_id))
+        && get(orgInvitePath(orgId, r.invite_id)).data.status == 'pending'
+        && get(orgInvitePath(orgId, r.invite_id)).data.expires_at > request.time
+        && get(orgInvitePath(orgId, r.invite_id)).data.role == r.role
+        && get(orgInvitePath(orgId, r.invite_id)).data.store_ids == r.store_ids
+        && getAfter(orgInvitePath(orgId, r.invite_id)).data.status == 'accepted'
+        && getAfter(orgInvitePath(orgId, r.invite_id)).data.accepted_by == uid
+        && r.status == 'active';
+    }
+
+    match /organizations/{orgId}/members/{uid} {
+      allow read: if isSignedIn()
+        && (request.auth.uid == uid || isOrgOwner(orgId) || activeOrgMember(orgId));
+
+      allow create: if orgMemberShapeValid(orgId, uid)
+        && (
+          (isOrgOwnerAfter(orgId)
+            && (request.resource.data.role != 'owner' || uid == request.auth.uid))
+          || (request.resource.data.role == 'employee'
+            && isActiveManagerOfStores(orgId, request.resource.data.store_ids))
+          || (request.resource.data.role != 'owner'
+            && orgInviteAcceptValid(orgId, uid))
+        );
+
+      allow update: if orgMemberShapeValid(orgId, uid)
+        && (
+          // The owner can change anyone but cannot demote himself.
+          (isOrgOwner(orgId)
+            && (uid != request.auth.uid || request.resource.data.role == 'owner'))
+          || (resource.data.role == 'employee'
+            && request.resource.data.role == 'employee'
+            && isActiveManagerOfStores(orgId, resource.data.store_ids)
+            && isActiveManagerOfStores(orgId, request.resource.data.store_ids))
+          // Anyone may leave the team.
+          || (request.auth.uid == uid
+            && resource.data.role != 'owner'
+            && request.resource.data.status == 'removed'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status', 'updated_at']))
+        );
+
+      allow delete: if (isOrgOwner(orgId) && uid != request.auth.uid)
+        || (resource.data.role == 'employee'
+          && isActiveManagerOfStores(orgId, resource.data.store_ids));
+    }
+
+    // "Which enseignes am I in?" — collection-group query on my own docs.
+    match /{path=**}/members/{memberUid} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    function orgInviteShapeValid(orgId) {
+      let r = request.resource.data;
+      return r.keys().hasOnly([
+            'org_id', 'org_name', 'role', 'store_ids', 'status', 'contact',
+            'created_by', 'created_at', 'expires_at', 'accepted_by', 'accepted_at'
+          ])
+        && r.org_id == orgId
+        && r.role in ['manager', 'employee']
+        && r.store_ids is list
+        && r.store_ids.size() > 0
+        && r.expires_at is timestamp
+        && r.created_by is string;
+    }
+
+    // The random invite id is the secret shared by link: anyone signed in
+    // can open an invite by id, only the team can list them.
+    match /organizations/{orgId}/invites/{inviteId} {
+      allow get: if isSignedIn();
+      allow list: if isOrgOwner(orgId) || isActiveOrgManager(orgId);
+
+      allow create: if orgInviteShapeValid(orgId)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.created_by == request.auth.uid
+        && (isOrgOwner(orgId)
+          || (request.resource.data.role == 'employee'
+            && isActiveManagerOfStores(orgId, request.resource.data.store_ids)));
+
+      allow update: if (
+          isSignedIn()
+          && resource.data.status == 'pending'
+          && resource.data.expires_at > request.time
+          && request.resource.data.status == 'accepted'
+          && request.resource.data.accepted_by == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'accepted_by', 'accepted_at'])
+        )
+        || (
+          (isOrgOwner(orgId) || resource.data.created_by == request.auth.uid)
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'revoked'
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status'])
+        );
+
+      allow delete: if isOrgOwner(orgId);
+    }
+
+    // --- /app_config/{docId} ---
+    //
+    // Remote product config. Clients may only read the force-update gate;
+    // other docs (e.g. future media catalogs) stay closed until their own
+    // rule is added. Writes are Admin SDK / CRM callables only.
+    //
+    // app_config/force_update
+    //   force, android_min_build, ios_min_build, message_fr?,
+    //   android_store_url?, ios_store_url?
+    match /app_config/{docId} {
+      allow read: if docId == 'force_update';
+      allow write: if false;
+    }
+
+    // --- /yuztoo_news/{newsId} ---
+    //
+    // Editorial "Actu YuzToo" shown at the top of the client inbox. Authored
+    // from the Sales CRM CMS (Admin callables / Admin SDK), never by the app.
+    //
+    // Release gate (per actu):
+    //   draft   — unreadable to clients
+    //   preview — only the selected test_account_id (signed-in)
+    //   live    — public (legacy docs missing release_status ≡ live)
+    //
+    // Clients use dual queries (live + own preview) so other users' previews
+    // never poison the live listener with permission-denied.
+    //
+    //   title / body / publish_on / active / image_url / cta_*
+    //   release_status, test_account_id, test_account_label,
+    //   preview_activated_at, live_at
+    function yuztooNewsReleaseStatus() {
+      return ('release_status' in resource.data)
+        ? resource.data.release_status
+        : 'live';
+    }
+
+    function canReadYuztooNews() {
+      return yuztooNewsReleaseStatus() == 'live'
+        || (
+          yuztooNewsReleaseStatus() == 'preview'
+          && isSignedIn()
+          && resource.data.test_account_id == request.auth.uid
+        );
+    }
+
+    match /yuztoo_news/{newsId} {
+      allow read: if canReadYuztooNews();
+      allow write: if false;
+    }
+
+    // --- Merchant associations ---------------------------------------------
+    //
+    // merchant_associations/{associationId}
+    //   name, name_lowercase, city, description, founder_merchant_id,
+    //   member_count, created_at, updated_at
+    // merchant_associations/{associationId}/association_members/{merchantId}
+    //   association_id, merchant_id, merchant_name, merchant_logo_url,
+    //   merchant_city, status ('pending' | 'approved'), requested_at,
+    //   approved_at
+    //
+    // Public read: clients browse the association page (association name +
+    // every approved member shop) from a member's vitrine, exactly like the
+    // vitrine itself, which is readable unauthenticated.
+    function associationFounderId(associationId) {
+      return get(/databases/$(database)/documents/merchant_associations/$(associationId))
+        .data.founder_merchant_id;
+    }
+
+    function isAssociationFounder(associationId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/merchant_associations/$(associationId))
+        && isMerchantOwner(associationFounderId(associationId));
+    }
+
+    match /merchant_associations/{associationId} {
+      allow read: if true;
+
+      // Only a merchant owner can found one, and only in their own name.
+      allow create: if isSignedIn()
+        && isMerchantOwner(request.resource.data.founder_merchant_id);
+
+      // Founder edits the association itself. Any signed-in merchant may
+      // touch `member_count` only, because joining / leaving keeps the
+      // denormalized count in the same transaction as the member doc
+      // (mirrors the `view_count` carve-out on promotions).
+      allow update: if isAssociationFounder(associationId)
+        || (isSignedIn()
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['member_count', 'updated_at']));
+
+      allow delete: if isAssociationFounder(associationId);
+    }
+
+    match /merchant_associations/{associationId}/association_members/{merchantId} {
+      allow read: if true;
+
+      // A merchant may only ever file its own membership, and only as
+      // 'pending' — approval is the founder's call. The one exception is the
+      // founder writing itself in as the first approved member: that happens
+      // in the same batch as the association doc, so `exists()` here still
+      // sees nothing and the founder check cannot be resolved yet.
+      allow create: if isMerchantOwner(merchantId)
+        && request.resource.data.merchant_id == merchantId
+        && (
+          request.resource.data.status == 'pending'
+          || (request.resource.data.status == 'approved'
+            && !exists(/databases/$(database)/documents/merchant_associations/$(associationId)))
+          || (request.resource.data.status == 'approved'
+            && associationFounderId(associationId) == merchantId)
+        );
+
+      allow update: if isAssociationFounder(associationId);
+
+      // Founder removes a member / refuses a request; a merchant leaves or
+      // cancels its own request.
+      allow delete: if isAssociationFounder(associationId)
+        || isMerchantOwner(merchantId);
+    }
+
+    // Collection-group read for `association_members`: the app resolves "which
+    // association does this merchant belong to?" with a collection-group query
+    // on `merchant_id`, which the path-scoped rule above does not cover.
+    match /{path=**}/association_members/{merchantId} {
+      allow read: if true;
     }
 
     // --- /data_export_requests/{userId} ---

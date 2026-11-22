@@ -1003,9 +1003,27 @@ async function adjustMerchantPublicFollowersCount(
   }
 }
 
+/** Public label for a client user doc (follow / CRM copy). */
+export function resolveClientPublicName(
+  data: Record<string, unknown> | undefined
+): string {
+  if (!data) return "Un client";
+  const displayRaw = data.displayName ?? data.display_name;
+  const display =
+    typeof displayRaw === "string" ? displayRaw.trim() : "";
+  if (display.length > 0) return display;
+  const firstRaw = data.firstName ?? data.first_name;
+  const lastRaw = data.lastName ?? data.last_name;
+  const first = typeof firstRaw === "string" ? firstRaw.trim() : "";
+  const last = typeof lastRaw === "string" ? lastRaw.trim() : "";
+  const full = `${first} ${last}`.trim();
+  return full.length > 0 ? full : "Un client";
+}
+
 /**
  * Fires when a client follows a merchant.
- * Triggers: "Nouveau client connecté"
+ * - Auto-rappel « Nouveau client connecté » to the follower (if configured).
+ * - Yuztoo push + inbox to the merchant owner (« X vous suit »).
  */
 export const onFollowedMerchantCreated = functions
   .region("europe-west1")
@@ -1021,6 +1039,47 @@ export const onFollowedMerchantCreated = functions
     if (clientId !== merchantId) {
       await adjustMerchantPublicFollowersCount(merchantId, 1);
     }
+
+    // Notify the commerce owner that someone started following them.
+    // Skip self-follow (own shop / dual-profile).
+    try {
+      const merchantSnap = await db.collection("merchants").doc(merchantId).get();
+      if (!merchantSnap.exists) return null;
+      const merchantData = merchantSnap.data() ?? {};
+      const ownerUid: string =
+        typeof merchantData.owner_uid === "string"
+          ? merchantData.owner_uid
+          : merchantId;
+      if (!ownerUid || ownerUid === clientId || clientId === merchantId) {
+        return null;
+      }
+
+      const clientSnap = await db.collection("users").doc(clientId).get();
+      const clientName = resolveClientPublicName(
+        clientSnap.data() as Record<string, unknown> | undefined
+      );
+      const shopName = resolveMerchantPublicName(merchantData);
+
+      await writeClientInAppNotification(ownerUid, {
+        merchantId,
+        merchantName: clientName,
+        type: "auto",
+        title: "Nouveau follower",
+        body: `${clientName} suit maintenant ${shopName}.`,
+      });
+      functions.logger.info("Merchant new-follower notification written", {
+        merchantId,
+        clientId,
+        ownerUid,
+      });
+    } catch (error: unknown) {
+      functions.logger.error("Merchant new-follower notification failed", {
+        merchantId,
+        clientId,
+        error: String(error),
+      });
+    }
+
     return null;
   });
 
@@ -1720,7 +1779,7 @@ export const weeklyQuotaReset = functions
   .region("europe-west1")
   .pubsub.schedule("0 0 * * 1") // Every Monday at 00:00
   .timeZone("Europe/Paris")
-  .onRun(async (_context) => {
+  .onRun(async () => {
     functions.logger.info("Running weekly quota reset");
 
     const merchantsSnap = await db.collection("merchants").get();
@@ -1784,7 +1843,7 @@ export const dailyScheduledTriggers = functions
   .region("europe-west1")
   .pubsub.schedule("0 9 * * *")
   .timeZone("Europe/Paris")
-  .onRun(async (_context) => {
+  .onRun(async () => {
     functions.logger.info("Running daily scheduled triggers");
 
     const now = new Date();
@@ -2884,3 +2943,17 @@ export {
   adminSoftDeleteUser,
   adminRestoreUser,
 } from "./admin/crm_clients";
+
+export {
+  adminGetForceUpdate,
+  adminSetForceUpdate,
+} from "./admin/crm_force_update";
+
+export {
+  adminListYuztooNews,
+  adminUpsertYuztooNews,
+  adminSetYuztooNewsRelease,
+  adminSetYuztooNewsActive,
+  adminDeleteYuztooNews,
+  crmBridgeYuztooNews,
+} from "./admin/crm_yuztoo_news";
