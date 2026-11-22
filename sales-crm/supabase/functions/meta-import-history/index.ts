@@ -16,6 +16,7 @@ type GraphMessage = {
   created_time: string
   message?: string
   from?: GraphUser
+  to?: { data?: GraphUser[] }
 }
 
 type GraphConversation = {
@@ -104,7 +105,9 @@ async function handle(req: Request): Promise<Response> {
     url.searchParams.set('limit', String(PAGE_SIZE))
     url.searchParams.set(
       'fields',
-      `updated_time,participants,messages.limit(${MESSAGES_PER_THREAD}){id,created_time,message,from}`,
+      // No `participants`: the contact is read from each message's from / to,
+      // which both Messenger and Instagram return.
+      `updated_time,messages.limit(${MESSAGES_PER_THREAD}){id,created_time,message,from,to}`,
     )
     if (body.cursor) url.searchParams.set('after', body.cursor)
 
@@ -117,8 +120,11 @@ async function handle(req: Request): Promise<Response> {
         platform,
         code: page.error?.code,
       })
+      const code = page.error?.code ? ` (code Meta ${page.error.code})` : ''
       return jsonResponse(
-        { error: page.error?.message ?? 'Meta a refusé la lecture de l’historique.' },
+        {
+          error: `${page.error?.message ?? 'Meta a refusé la lecture de l’historique.'}${code}`,
+        },
         502,
       )
     }
@@ -157,10 +163,10 @@ async function importThread(
   },
 ): Promise<number> {
   const { thread, platform, ownerId } = input
-  const peer = thread.participants?.data?.find((p) => p.id !== ownerId)
+  const messages = thread.messages?.data ?? []
+  const peer = peerOf(thread, messages, ownerId)
   if (!peer?.id) return -1
 
-  const messages = thread.messages?.data ?? []
   const peerName =
     peer.name ?? (peer.username ? `@${peer.username}` : null)
   const lastInbound = messages
@@ -229,6 +235,21 @@ async function importThread(
     return 0
   }
   return inserted?.length ?? 0
+}
+
+/** The other person: sender of an inbound message, else recipient of ours. */
+function peerOf(
+  thread: GraphConversation,
+  messages: GraphMessage[],
+  ownerId: string,
+): GraphUser | null {
+  const fromPeer = messages.find((m) => m.from?.id && m.from.id !== ownerId)?.from
+  if (fromPeer) return fromPeer
+  for (const m of messages) {
+    const to = m.to?.data?.find((u) => u.id !== ownerId)
+    if (to) return to
+  }
+  return thread.participants?.data?.find((p) => p.id !== ownerId) ?? null
 }
 
 function isAfter(a: string, b: string): boolean {
