@@ -13,15 +13,20 @@ import {
   formatFollowers,
 } from '@/features/marketing/domain/channel'
 import { useChannels } from '@/features/marketing/hooks/useMarketing'
-import { startMetaConnect } from '@/features/marketing/services/metaConnectService'
+import {
+  disconnectChannel,
+  startMetaConnect,
+} from '@/features/marketing/services/metaConnectService'
 
 function ChannelCard({
   channel,
   onRenew,
+  onDisconnect,
   isRenewing,
 }: {
   channel: Channel
   onRenew: () => void
+  onDisconnect: () => void
   isRenewing: boolean
 }) {
   const days = daysUntil(channel.tokenExpiresAt)
@@ -80,14 +85,26 @@ function ChannelCard({
                 ? `Jeton expire dans ${days} jour${days > 1 ? 's' : ''}`
                 : `Jeton valide ${days} jours`}
         </p>
-        <button
-          type="button"
-          disabled={isRenewing}
-          onClick={onRenew}
-          className="h-7 rounded-lg border border-border px-2.5 text-[12px] text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-        >
-          {channel.status === 'disconnected' ? 'Connecter' : 'Renouveler'}
-        </button>
+        <div className="flex shrink-0 gap-1.5">
+          {channel.status !== 'disconnected' && (
+            <button
+              type="button"
+              disabled={isRenewing}
+              onClick={onDisconnect}
+              className="h-7 rounded-lg px-2.5 text-[12px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+            >
+              Déconnecter
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={isRenewing}
+            onClick={onRenew}
+            className="h-7 rounded-lg border border-border px-2.5 text-[12px] text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+          >
+            {channel.status === 'disconnected' ? 'Reconnecter' : 'Renouveler'}
+          </button>
+        </div>
       </div>
     </article>
   )
@@ -95,7 +112,7 @@ function ChannelCard({
 
 export function ChannelsPage() {
   const { session } = useAuth()
-  const { channels, isLoading } = useChannels()
+  const { channels, isLoading, reload } = useChannels()
   const [connectError, setConnectError] = useState<string | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
   const yuztoo = channels.filter((channel) => channel.owner === 'yuztoo')
@@ -103,7 +120,24 @@ export function ChannelsPage() {
   const hasFb = channels.some((channel) => channel.kind === 'facebook-page')
   const hasIg = channels.some((channel) => channel.kind === 'instagram')
 
-  const onConnect = async () => {
+  const onDisconnect = async (channel: Channel) => {
+    const ok = window.confirm(
+      `Déconnecter « ${channel.name} » ?\nLe CRM ne recevra plus ses messages et ne pourra plus publier dessus. « Connecter un compte » ne le réactivera pas : utilisez « Reconnecter » sur sa carte.`,
+    )
+    if (!ok) return
+    setConnectError(null)
+    setIsConnecting(true)
+    const { error } = await disconnectChannel(channel.id)
+    setIsConnecting(false)
+    if (error) {
+      setConnectError(error.message)
+      return
+    }
+    await reload()
+  }
+
+  /** `reconnectId` revives a channel that was disconnected on purpose. */
+  const onConnect = async (reconnectId?: string) => {
     const workspaceId = session?.activeWorkspaceId
     if (!workspaceId) {
       setConnectError('Aucun workspace actif')
@@ -111,9 +145,12 @@ export function ChannelsPage() {
     }
     setConnectError(null)
     setIsConnecting(true)
+    const returnUrl = new URL(window.location.href)
+    returnUrl.searchParams.delete('reconnect')
+    if (reconnectId) returnUrl.searchParams.set('reconnect', reconnectId)
     const { data, error } = await startMetaConnect({
       workspaceId,
-      returnTo: `${window.location.pathname}${window.location.search}`,
+      returnTo: `${returnUrl.pathname}${returnUrl.search}`,
     })
     setIsConnecting(false)
     if (error || !data?.authorizeUrl) {
@@ -199,7 +236,12 @@ export function ChannelsPage() {
                 <ChannelCard
                   key={channel.id}
                   channel={channel}
-                  onRenew={() => void onConnect()}
+                  onRenew={() =>
+                    void onConnect(
+                      channel.status === 'disconnected' ? channel.id : undefined,
+                    )
+                  }
+                  onDisconnect={() => void onDisconnect(channel)}
                   isRenewing={isConnecting}
                 />
               ))}
@@ -216,7 +258,12 @@ export function ChannelsPage() {
                   <ChannelCard
                     key={channel.id}
                     channel={channel}
-                    onRenew={() => void onConnect()}
+                    onRenew={() =>
+                      void onConnect(
+                        channel.status === 'disconnected' ? channel.id : undefined,
+                      )
+                    }
+                    onDisconnect={() => void onDisconnect(channel)}
                     isRenewing={isConnecting}
                   />
                 ))}

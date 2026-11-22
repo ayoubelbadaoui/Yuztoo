@@ -154,7 +154,7 @@ export function PublicationsPage() {
 
       {isComposing && (
         <PostComposer
-          channels={channels}
+          channels={channels.filter((c) => c.status !== 'disconnected')}
           onClose={() => setIsComposing(false)}
           onPublished={() => void refresh()}
         />

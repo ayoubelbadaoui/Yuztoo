@@ -35,8 +35,23 @@ type MessagingEvent = {
   message?: {
     mid?: string
     text?: string
+    is_echo?: boolean
     attachments?: Array<{ type?: string; payload?: { url?: string } }>
   }
+}
+
+type Platform = 'messenger' | 'instagram'
+
+type ChannelMatch = { id: string; workspace_id: string; status: string }
+
+/**
+ * Profile fields differ per platform: a Messenger PSID has no `username`, and
+ * asking for it makes Graph reject the whole call — which is why names were
+ * never filled for Facebook conversations.
+ */
+const PROFILE_FIELDS: Record<Platform, string> = {
+  messenger: 'name,first_name,last_name',
+  instagram: 'name,username',
 }
 
 /**
@@ -44,6 +59,7 @@ type MessagingEvent = {
  * le jeton de page. Un échec ne doit pas faire perdre le message.
  */
 async function fetchPeerName(
+  platform: Platform,
   peerId: string,
   channelId: string,
 ): Promise<string | null> {
@@ -57,70 +73,118 @@ async function fetchPeerName(
 
   try {
     const res = await fetch(
-      `https://graph.facebook.com/${GRAPH_VERSION}/${peerId}?fields=name,username`,
+      `https://graph.facebook.com/${GRAPH_VERSION}/${peerId}?fields=${PROFILE_FIELDS[platform]}`,
       { headers: { Authorization: `Bearer ${cred.access_token}` } },
     )
-    if (!res.ok) return null
     const json = await res.json()
-    return json?.name ?? json?.username ?? null
+    if (!res.ok) {
+      console.warn('meta-webhook: profile lookup failed', {
+        platform,
+        code: json?.error?.code,
+        subcode: json?.error?.error_subcode,
+      })
+      return null
+    }
+    const fullName =
+      json?.name ??
+      ([json?.first_name, json?.last_name].filter(Boolean).join(' ') || null)
+    if (fullName) return fullName
+    return json?.username ? `@${json.username}` : null
   } catch {
     return null
   }
 }
 
-async function ingestEvent(
-  platform: 'messenger' | 'instagram',
-  pageOrIgId: string,
-  event: MessagingEvent,
-) {
-  const peerId = event.sender?.id
-  const mid = event.message?.mid
-  if (!peerId || !mid) return
-
+/**
+ * Every connected channel for this Page / IG account. The same account can be
+ * connected in several workspaces; `maybeSingle()` used to error on 2 rows
+ * and silently drop the message.
+ */
+async function findChannels(
+  platform: Platform,
+  ownerId: string,
+): Promise<ChannelMatch[]> {
   const admin = createAdminClient()
-  const { data: channel } = await admin
+  const query = admin
     .from('marketing_channels')
-    .select('id, workspace_id')
-    .or(
-      platform === 'messenger'
-        ? `meta_page_id.eq.${pageOrIgId}`
-        : `meta_ig_id.eq.${pageOrIgId},meta_page_id.eq.${pageOrIgId}`,
-    )
+    .select('id, workspace_id, status')
     .eq('kind', platform === 'messenger' ? 'facebook-page' : 'instagram')
-    .maybeSingle()
+    .neq('status', 'disconnected')
+    .order('created_at', { ascending: true })
+    .limit(20)
+  const { data, error } = await (platform === 'messenger'
+    ? query.eq('meta_page_id', ownerId)
+    : query.eq('meta_ig_id', ownerId))
+  if (error) {
+    console.error('meta-webhook: channel lookup failed', error.message)
+    return []
+  }
+  return (data ?? []) as ChannelMatch[]
+}
 
-  if (!channel) return
+async function ingestIntoChannel(
+  platform: Platform,
+  channel: ChannelMatch,
+  event: MessagingEvent,
+  messageKey: string,
+) {
+  const peerId = event.sender!.id!
+  const admin = createAdminClient()
 
   const mediaUrls =
     event.message?.attachments
       ?.map((a) => a.payload?.url)
       .filter((u): u is string => Boolean(u)) ?? []
+  const now = new Date(event.timestamp ?? Date.now()).toISOString()
 
-  const now = new Date(
-    event.timestamp ? event.timestamp : Date.now(),
-  ).toISOString()
-
+  // Create the conversation once; never overwrite its counters here.
+  await admin.from('social_conversations').upsert(
+    {
+      workspace_id: channel.workspace_id,
+      channel_id: channel.id,
+      platform,
+      peer_scoped_id: peerId,
+      last_message_at: now,
+      unread: 0,
+    },
+    { onConflict: 'channel_id,peer_scoped_id', ignoreDuplicates: true },
+  )
   const { data: conversation } = await admin
     .from('social_conversations')
+    .select('id, unread, peer_name')
+    .eq('channel_id', channel.id)
+    .eq('peer_scoped_id', peerId)
+    .single()
+  if (!conversation) {
+    console.error('meta-webhook: conversation missing after upsert')
+    return
+  }
+
+  // Message first: a Meta retry of the same mid must not bump the counter.
+  const { data: inserted, error: insertError } = await admin
+    .from('social_messages')
     .upsert(
       {
+        conversation_id: conversation.id,
         workspace_id: channel.workspace_id,
-        channel_id: channel.id,
-        platform,
-        peer_scoped_id: peerId,
-        last_inbound_at: now,
-        last_message_at: now,
-        unread: 1,
+        direction: 'in',
+        body: event.message?.text ?? null,
+        media_urls: mediaUrls,
+        meta_message_id: messageKey,
+        status: 'delivered',
+        sent_at: now,
       },
-      { onConflict: 'channel_id,peer_scoped_id' },
+      { onConflict: 'meta_message_id', ignoreDuplicates: true },
     )
-    .select('id, unread, peer_name')
-    .single()
-
-  if (!conversation) return
+    .select('id')
+  if (insertError) {
+    console.error('meta-webhook: message insert failed', insertError.message)
+    return
+  }
+  if (!inserted || inserted.length === 0) return // duplicate delivery
 
   const peerName =
-    conversation.peer_name ?? (await fetchPeerName(peerId, channel.id))
+    conversation.peer_name ?? (await fetchPeerName(platform, peerId, channel.id))
 
   await admin
     .from('social_conversations')
@@ -128,23 +192,36 @@ async function ingestEvent(
       last_inbound_at: now,
       last_message_at: now,
       unread: (conversation.unread ?? 0) + 1,
-      peer_name: peerName,
+      ...(peerName ? { peer_name: peerName } : {}),
     })
     .eq('id', conversation.id)
+}
 
-  await admin.from('social_messages').upsert(
-    {
-      conversation_id: conversation.id,
-      workspace_id: channel.workspace_id,
-      direction: 'in',
-      body: event.message?.text ?? null,
-      media_urls: mediaUrls,
-      meta_message_id: mid,
-      status: 'delivered',
-      sent_at: now,
-    },
-    { onConflict: 'meta_message_id', ignoreDuplicates: true },
-  )
+async function ingestEvent(
+  platform: Platform,
+  ownerId: string,
+  event: MessagingEvent,
+) {
+  const peerId = event.sender?.id
+  const mid = event.message?.mid
+  if (!peerId || !mid) return
+
+  // Our own replies come back as echoes (IG always, FB when subscribed).
+  if (event.message?.is_echo || peerId === ownerId) return
+
+  const channels = await findChannels(platform, ownerId)
+  if (channels.length === 0) {
+    console.warn('meta-webhook: no connected channel for event', {
+      platform,
+      ownerId,
+    })
+    return
+  }
+  // `meta_message_id` is globally unique: extra workspace copies get a suffix.
+  for (const [index, channel] of channels.entries()) {
+    const key = index === 0 ? mid : `${mid}:${channel.id}`
+    await ingestIntoChannel(platform, channel, event, key)
+  }
 }
 
 Deno.serve(async (req) => {
@@ -193,8 +270,9 @@ Deno.serve(async (req) => {
         }
       }
     }
-  } catch {
-    // Always 200 quickly after verify to avoid Meta retries storms on parse bugs
+  } catch (error) {
+    // Always 200 after verify to avoid Meta retry storms on parse bugs.
+    console.error('meta-webhook: payload handling failed', String(error))
   }
 
   return new Response('EVENT_RECEIVED', { status: 200 })

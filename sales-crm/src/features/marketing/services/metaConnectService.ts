@@ -15,3 +15,11 @@ export async function startMetaConnect(input: {
     returnTo: input.returnTo ?? '/?page=channels',
   })
 }
+
+/** Owner/admin only: stops inbox, publishing and replies for this channel. */
+export async function disconnectChannel(channelId: string) {
+  return callEdgeFunction<{ ok: true; unsubscribed: boolean }>(
+    'meta-disconnect-channel',
+    { channelId },
+  )
+}

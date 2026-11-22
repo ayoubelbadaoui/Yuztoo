@@ -72,7 +72,7 @@ async function handle(req: Request): Promise<Response> {
     const admin = createAdminClient()
     const { data: channel } = await admin
       .from('marketing_channels')
-      .select('meta_page_id')
+      .select('meta_page_id, status')
       .eq('id', conversation.channel_id)
       .maybeSingle()
 
@@ -82,7 +82,11 @@ async function handle(req: Request): Promise<Response> {
       .eq('channel_id', conversation.channel_id)
       .maybeSingle()
 
-    if (!channel?.meta_page_id || !cred?.access_token) {
+    if (
+      !channel?.meta_page_id ||
+      channel.status === 'disconnected' ||
+      !cred?.access_token
+    ) {
       return jsonResponse({ error: 'Channel is not connected' }, 409)
     }
 

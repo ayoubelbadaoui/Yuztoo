@@ -80,29 +80,38 @@ async function upsertChannel(input: {
   followers: number
   pictureUrl: string | null
   subscribed: boolean
+  /** Channel the user explicitly asked to reconnect (from its own card). */
+  reconnectId: string | null
 }) {
   const admin = createAdminClient()
-  let existingId: string | null = null
+  let existing: { id: string; status: string } | null = null
 
   if (input.kind === 'facebook-page' && input.metaPageId) {
     const { data } = await admin
       .from('marketing_channels')
-      .select('id')
+      .select('id, status')
       .eq('workspace_id', input.workspaceId)
       .eq('kind', 'facebook-page')
       .eq('meta_page_id', input.metaPageId)
       .maybeSingle()
-    existingId = data?.id ?? null
+    existing = data ?? null
   } else if (input.kind === 'instagram' && input.metaIgId) {
     const { data } = await admin
       .from('marketing_channels')
-      .select('id')
+      .select('id, status')
       .eq('workspace_id', input.workspaceId)
       .eq('kind', 'instagram')
       .eq('meta_ig_id', input.metaIgId)
       .maybeSingle()
-    existingId = data?.id ?? null
+    existing = data ?? null
   }
+
+  // Meta returns every Page the person manages. A channel disconnected on
+  // purpose stays disconnected unless this OAuth run targets it.
+  if (existing?.status === 'disconnected' && existing.id !== input.reconnectId) {
+    return null
+  }
+  const existingId = existing?.id ?? null
 
   const row = {
     workspace_id: input.workspaceId,
@@ -142,6 +151,29 @@ async function upsertChannel(input: {
   })
 
   return channel.id
+}
+
+const RECONNECT_PARAM = 'reconnect'
+
+/** `/?page=channels&reconnect=<uuid>` → uuid (set by the channel card). */
+function reconnectIdFrom(returnTo: string | null): string | null {
+  if (!returnTo) return null
+  try {
+    const id = new URL(returnTo, 'https://crm.local').searchParams.get(RECONNECT_PARAM)
+    return id && /^[0-9a-f-]{36}$/i.test(id) ? id : null
+  } catch {
+    return null
+  }
+}
+
+function stripReconnect(returnTo: string): string {
+  try {
+    const url = new URL(returnTo, 'https://crm.local')
+    url.searchParams.delete(RECONNECT_PARAM)
+    return `${url.pathname}${url.search}`
+  } catch {
+    return '/?page=channels'
+  }
 }
 
 async function handle(req: Request): Promise<Response> {
@@ -229,6 +261,8 @@ async function handle(req: Request): Promise<Response> {
       )
     }
 
+    const reconnectId = reconnectIdFrom(stateRow.return_to)
+
     for (const page of pages) {
       if (!page.access_token) continue
       const subscribed = await subscribePage(page.id, page.access_token)
@@ -246,6 +280,7 @@ async function handle(req: Request): Promise<Response> {
         followers: page.followers_count ?? page.fan_count ?? 0,
         pictureUrl: page.picture?.data?.url ?? null,
         subscribed,
+        reconnectId,
       })
 
       const ig = page.instagram_business_account
@@ -263,13 +298,14 @@ async function handle(req: Request): Promise<Response> {
           followers: ig.followers_count ?? 0,
           pictureUrl: ig.profile_picture_url ?? null,
           subscribed,
+          reconnectId,
         })
       }
     }
 
     return jsonResponse({
       ok: true,
-      returnTo: stateRow.return_to || '/?page=channels',
+      returnTo: stripReconnect(stateRow.return_to || '/?page=channels'),
     })
   } catch {
     return jsonResponse({ ok: false, error: 'OAuth complete failed' }, 500)
