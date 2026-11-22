@@ -17,7 +17,7 @@ Product-ops surface rebuilt **inside** Sales CRM (`sales-crm/`), same React + CS
 | Clients | List / search / filter / edit / bloquer / débloquer · pagination 25 | Live (mock) |
 | Images app | Fixed design-safe media catalog (logo + heroes + **16 categories** + empty) | Live (mock + localStorage) |
 | Force update | Hard gate when installed build &lt; platform min (`app_config/force_update`) | Flutter + Firebase live — CMS UI pending (see handoff) |
-| Actu Yuztoo | Editorial feed → in-app full page (`yuztoo_news`) | Flutter + Firebase live — CMS UI pending (see handoff) |
+| Actu Yuztoo | Editorial feed → in-app full page (`yuztoo_news`) | **Live** via Edge → Firebase + per-actu publish gate; Flutter dual-query |
 | Statistiques / Audit / Paramètres | Placeholders | V2 |
 
 ## Images app (design-safe catalog)
@@ -59,15 +59,68 @@ Writers: Admin callables `adminUpsertAppMediaSlot`, `adminClearAppMediaSlot`, `a
 
 Phase 2 media: Edge `cms-upsert-app-media` → same Firebase docs/Storage (no secrets in `VITE_*`).
 
+## Actu Yuztoo
+
+CMS nav **Actu Yuztoo** (`CmsActuPage`) authors the editorial feed Flutter shows in Alertes.
+
+| Field | Notes |
+|-------|--------|
+| `title` / `body` | Required (max 200 / 8000) |
+| `publish_on` | ISO; app shows only when ≤ now |
+| `active` | Soft hide (not enough for clients — see gate) |
+| `image_url` | Optional HTTPS (banner 46×46 + detail full-width). Upload/crop = Phase B |
+| `cta_label` / `cta_url` / `cta_merchant_id` | **Merchant id** = in-app shop (preferred). **URL** = external browser. Empty = no button |
+| `release_status` | **Per actu:** `draft` → `preview` → `live` (legacy missing ≡ `live`) |
+| `test_account_id` / `test_account_label` | Required before preview |
+| `preview_activated_at` / `live_at` | Stamps for the gate |
+
+### Live path (CMS → app)
+
+```
+CmsActuPage → yuztooNewsService → Edge cms-yuztoo-news
+  → HTTPS crmBridgeYuztooNews (X-CRM-Bridge-Secret)
+  → Firestore yuztoo_news → Flutter dual-query
+```
+
+- No Firebase in the SPA. Secrets: `CRM_BRIDGE_SECRET`, `FIREBASE_PROJECT_ID` (Edge + CF env).
+- Offline UI only: `VITE_CMS_ACTU_MOCK=1` (localStorage).
+- Deploy: CF `crmBridgeYuztooNews` first, then Edge `cms-yuztoo-news`.
+
+### Publication gate (mandatory test account)
+
+Same UX rule as Images, but **per news document**:
+
+1. **Brouillon** — new saves always start as draft (even if `active` is checked).
+2. **Select test account** — client or boutique from the same list as Images.
+3. **Aperçu test** — only that Firebase UID can read the doc (`release_status=preview`).
+4. **En ligne (tous)** — blocked until step 3. Confirm before publish.
+5. Content edit while **live** demotes to **brouillon** (must re-preview).
+
+**Flutter:** dual listeners (live + own preview). Rules: draft unreadable; live public; preview = test UID only.
+
+### Pictures (Phase B — planned)
+
+App surfaces today: Alertes thumb **46×46 cover**; detail hero **full width cover**. One optional hero per actu (no gallery).
+
+| Spec | Value |
+|------|--------|
+| Crop profile | `actu.hero` **16:9**, recommend **1200×675** |
+| Max size | **1.5 Mo** |
+| MIME | PNG / JPEG / WebP |
+| Storage | `yuztoo_news/{newsId}/hero` via Edge upload → set `image_url` |
+| Publish | Image is content; live edit still demotes to draft |
+
+Until Phase B ships, paste an HTTPS `image_url` only.
+
 ## Code layout
 
 ```
 sales-crm/src/features/cms-app/
-  domain/cms.ts, mediaSlot.ts, mediaRelease.ts
-  services/          # overview, merchant, client, cmsMedia*, cmsMediaRelease* + mocks
+  domain/cms.ts, mediaSlot.ts, mediaRelease.ts, yuztooNews.ts
+  services/          # overview, merchant, client, cmsMedia*, yuztooNews* + mocks
   hooks/
   components/
-  containers/        # CmsApp, shell, Dashboard / Merchants / Clients / Images
+  containers/        # CmsApp, shell, Dashboard / Merchants / Clients / Images / Actu
 ```
 
 - UI and hooks call **services only** → `{ data, error }`.
@@ -88,5 +141,5 @@ Keep legacy `admin/` until CMS App is verified against live Firebase; then depre
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)
 - [10-firebase-bridge.md](./supabase/10-firebase-bridge.md)
 - [CRM-HOLLY-BOOK.md](./CRM-HOLLY-BOOK.md)
-- Flutter/Firebase contract for Force update + Actu: `yuztoo` repo → `docs/crm-handoff-force-update-and-actu.md`
-  (callables: `adminGetForceUpdate`, `adminSetForceUpdate`, `adminListYuztooNews`, `adminUpsertYuztooNews`, `adminSetYuztooNewsActive`, `adminDeleteYuztooNews` — region `europe-west1`)
+- Flutter/Firebase contract: [CRM-HANDOFF-FORCE-UPDATE-AND-ACTU.md](./CRM-HANDOFF-FORCE-UPDATE-AND-ACTU.md)
+  (callables: `adminGetForceUpdate`, `adminSetForceUpdate`, `adminListYuztooNews`, `adminUpsertYuztooNews`, `adminSetYuztooNewsRelease`, `adminSetYuztooNewsActive`, `adminDeleteYuztooNews` — region `europe-west1`)

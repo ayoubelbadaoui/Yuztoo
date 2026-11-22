@@ -86,7 +86,9 @@ See [CMS-APP.md](../CMS-APP.md).
 | Supabase Edge Function e.g. `bridge-to-firebase` | CRM → product: after won / subscription change |
 | Supabase Edge e.g. `cms-list-merchants` | CMS App → Firebase admin callables (phase 2) |
 | Supabase Edge e.g. `cms-upsert-app-media` | CMS Images → Admin CF / Storage (`app_media/{slotId}/current`) + `app_config/app_media_*` |
+| Supabase Edge `cms-yuztoo-news` | CMS Actu → HTTPS `crmBridgeYuztooNews` (`CRM_BRIDGE_SECRET`) → `yuztoo_news` |
 | Firebase Admin CF `adminUpsertAppMediaSlot` / `adminSetAppMediaRelease` | Writers for Flutter remote Images (preview/live gate) |
+| Firebase HTTPS `crmBridgeYuztooNews` | Bridge writers for Actu (same validation as admin callables) |
 | Firebase Cloud Function e.g. `bridgeToSalesCrm` | Product → CRM: after merchant profile / plan update |
 | Optional shared HTTPS contract | Same JSON schema both ways; versioned (`v1`) |
 

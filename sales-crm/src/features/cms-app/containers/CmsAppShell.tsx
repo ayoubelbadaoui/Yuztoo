@@ -3,6 +3,7 @@ import {
   Image,
   LayoutDashboard,
   Moon,
+  Newspaper,
   ReceiptText,
   Settings,
   Store,
@@ -28,12 +29,19 @@ const navItems: NavItem[] = [
   { id: 'stores', title: 'Boutiques', icon: Store },
   { id: 'clients', title: 'Clients', icon: Users },
   { id: 'images', title: 'Images app', icon: Image },
+  { id: 'actu', title: 'Actu Yuztoo', icon: Newspaper },
   { id: 'stats', title: 'Statistiques', icon: BarChart3, disabled: true, badge: 'V2' },
   { id: 'audit', title: "Journal d'audit", icon: ReceiptText, disabled: true, badge: 'V2' },
   { id: 'settings', title: 'Paramètres', icon: Settings, disabled: true, badge: 'V2' },
 ]
 
-const enabledViews: CmsViewId[] = ['dashboard', 'stores', 'clients', 'images']
+const enabledViews: CmsViewId[] = [
+  'dashboard',
+  'stores',
+  'clients',
+  'images',
+  'actu',
+]
 
 type Props = {
   activeId: CmsViewId

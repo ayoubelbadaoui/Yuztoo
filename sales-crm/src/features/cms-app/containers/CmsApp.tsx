@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { CmsActuPage } from '@/features/cms-app/containers/CmsActuPage'
 import { CmsAppShell } from '@/features/cms-app/containers/CmsAppShell'
 import { ClientsPage } from '@/features/cms-app/containers/ClientsPage'
 import { CmsDashboardPage } from '@/features/cms-app/containers/CmsDashboardPage'
@@ -18,6 +19,8 @@ export function CmsApp() {
         <MerchantsPage />
       ) : activeId === 'clients' ? (
         <ClientsPage />
+      ) : activeId === 'actu' ? (
+        <CmsActuPage />
       ) : (
         <CmsImagesPage />
       )}

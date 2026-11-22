@@ -93,6 +93,7 @@ Adapted from IMIGO CRM Holly Book.
 - **Still no Firebase SDK in the browser** — phase 1 uses mock services; phase 2 goes Edge → Firebase callables.
 - Paginate lists (default **25**/page), same as leads.
 - **Images app:** fixed slot catalog + aspect-locked crop only — never free-form uploads that break layout. Category icons (`onboarding.category.*`): **1:1 · 256×256 · max 200 Ko** (icon profile). **Never publish to all users without a selected test account + preview step.** Flutter resolves via `lib/feature/app_media` (2 Firestore docs + overwritten Storage). Subcategories deferred. CMS publish still mock until Edge → Admin CF.
+- **Actu Yuztoo:** same publish gate **per news doc** (`release_status` draft → preview → live + `test_account_id`). Flutter dual-query (live + own preview). CMS live path: Edge `cms-yuztoo-news` → HTTPS `crmBridgeYuztooNews` (`CRM_BRIDGE_SECRET`). Prefer `cta_merchant_id` (in-app); `cta_url` opens the external browser. Image upload crop = Phase B (HTTPS `image_url` for now).
 
 **→ See:** [CMS-APP.md](./CMS-APP.md)
 

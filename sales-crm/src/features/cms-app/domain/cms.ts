@@ -2,7 +2,12 @@ export const CMS_PARAM = 'cms'
 export const CMS_PAGE_SIZE = 25
 export const CMS_PAGE_SIZE_OPTIONS = [25, 50, 100] as const
 
-export type CmsViewId = 'dashboard' | 'stores' | 'clients' | 'images'
+export type CmsViewId =
+  | 'dashboard'
+  | 'stores'
+  | 'clients'
+  | 'images'
+  | 'actu'
 
 export type MerchantStatus = 'draft' | 'published' | 'unpublished' | 'deleted'
 
