@@ -49,17 +49,10 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
     Map<String, int> heartLevels, {
     List<String> followedIds = const [],
     String? ownMerchantId,
-    // The Yuztoo brand vignette is a merchant-only affordance (it lets a
-    // merchant viewing their own client carnet preview the Yuztoo
-    // storefront). Pure clients should never see it. The parent passes
-    // [hasLinkedMerchantAccountProvider] here, which combines the
-    // canonical roles flag with a real merchant-doc lookup.
-    bool showYuztooBrandTile = false,
   }) {
     if (merchants.isEmpty) {
       return _buildEmptyCarnet(
         context,
-        showYuztooBrandTile: showYuztooBrandTile,
         ownMerchantId: ownMerchantId,
       );
     }
@@ -73,7 +66,6 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
       heartLevels: heartLevels,
       followedSet: followedSet,
       ownMerchantId: ownMerchantId,
-      showYuztooBrandTile: showYuztooBrandTile,
       onMerchantTap: (id) {
         if (onStoreSelect != null) {
           onStoreSelect!(id);
@@ -252,7 +244,6 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
 
   Widget _buildEmptyCarnet(
     BuildContext context, {
-    bool showYuztooBrandTile = false,
     String? ownMerchantId,
   }) {
     return Padding(
@@ -326,7 +317,8 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
             ),
           ),
           const SizedBox(height: 16),
-          if (showYuztooBrandTile) const _RestonsProchesTile(),
+          // Always pinned — every client sees Yuztoo Restons proches.
+          const _RestonsProchesTile(),
         ],
       ),
     );
@@ -848,7 +840,6 @@ class _CarnetList extends StatefulWidget {
     this.ownMerchantId,
     this.onOrderChanged,
     this.onUnfollow,
-    this.showYuztooBrandTile = false,
   });
 
   final List<Merchant> merchants;
@@ -863,11 +854,6 @@ class _CarnetList extends StatefulWidget {
 
   /// Remove a followed merchant from the carnet (incl. offline shops).
   final Future<void> Function(Merchant merchant)? onUnfollow;
-
-  /// Whether the Yuztoo brand vignette ("Restons Proches") should be
-  /// rendered above « Mon commerce ». Reserved for users who also
-  /// hold a merchant account — pure clients never see it.
-  final bool showYuztooBrandTile;
 
   @override
   State<_CarnetList> createState() => _CarnetListState();
@@ -911,7 +897,6 @@ class _CarnetListState extends State<_CarnetList> {
       ownMerchantId: widget.ownMerchantId,
     );
     final ownMerchant = layout.ownMerchant;
-    final showRestonsProches = _query.isEmpty && widget.showYuztooBrandTile;
     final showOwnMerchant = ownMerchant != null && _query.isEmpty;
     final reorderableList = layout.followed;
     return Padding(
@@ -968,9 +953,8 @@ class _CarnetListState extends State<_CarnetList> {
                   enabled: _query.isEmpty && reorderableList.isNotEmpty,
                   child: _buildMerchantTile(
                     merchant,
-                    isLast: index == reorderableList.length - 1 &&
-                        !showRestonsProches &&
-                        !showOwnMerchant,
+                    // Restons proches (+ own shop) always follow the list.
+                    isLast: false,
                     isReorderable: true,
                   ),
                 );
@@ -988,13 +972,13 @@ class _CarnetListState extends State<_CarnetList> {
                 ),
               ),
             ),
-          if (showRestonsProches) ...[
-            if (reorderableList.isNotEmpty) const SizedBox(height: 16),
-            const _RestonsProchesTile(),
-          ],
+          // Gold Yuztoo tile — always pinned for every client / state.
+          if (reorderableList.isNotEmpty ||
+              (_query.isNotEmpty && filtered.isEmpty))
+            const SizedBox(height: 16),
+          const _RestonsProchesTile(),
           if (showOwnMerchant) ...[
-            if (showRestonsProches || reorderableList.isNotEmpty)
-              const SizedBox(height: 16),
+            const SizedBox(height: 16),
             _buildMerchantTile(
               ownMerchant,
               isLast: true,
@@ -1219,7 +1203,7 @@ class _CarnetListState extends State<_CarnetList> {
 
 // ─── Yuztoo "Restons Proches" brand vignette ────────────────────────────────
 //
-// Shown for dual-profile merchants in the client carnet. Tap opens the
+// Always pinned in the client carnet (every account). Tap opens the
 // YuzToo contact page ([YuztooContactScreen]); the brand sheet is only a
 // fallback for projects without a YuzToo page.
 

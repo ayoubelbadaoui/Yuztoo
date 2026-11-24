@@ -71,9 +71,11 @@ class NewsSection extends StatefulWidget {
   /// Fired when a client opens a photo (fullscreen) — record a view.
   final ValueChanged<String>? onPhotoViewed;
 
-  /// Toggle like for a photo URL. Return `true` when the write succeeded so
-  /// the fullscreen viewer can keep optimistic UI (or revert on `false`).
-  final Future<bool> Function(String url)? onToggleLike;
+  /// Toggle like for a photo URL.
+  ///
+  /// Return the new `likedByMe` after a successful write, or `null` if the
+  /// write failed (viewer reverts optimistic UI).
+  final Future<bool?> Function(String url)? onToggleLike;
 
   @override
   State<NewsSection> createState() => _NewsSectionState();
@@ -89,7 +91,7 @@ class _NewsSectionState extends State<NewsSection> {
 
   late final PageController _pageController = PageController();
 
-  /// Live engagement for the fullscreen viewer, which is a separate route and
+  /// Live engagement for tiles + fullscreen. Fullscreen is a separate route and
   /// would otherwise keep the snapshot taken when it was opened.
   late final ValueNotifier<Map<String, NewsPhotoEngagement>> _liveEngagement =
       ValueNotifier(widget.engagementByUrl);
@@ -100,15 +102,46 @@ class _NewsSectionState extends State<NewsSection> {
   static const double _portraitAspect = 3 / 4;
 
   @override
+  void initState() {
+    super.initState();
+    _liveEngagement.addListener(_onLiveEngagementChanged);
+  }
+
+  void _onLiveEngagementChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void didUpdateWidget(covariant NewsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!mapEquals(oldWidget.engagementByUrl, widget.engagementByUrl)) {
-      _liveEngagement.value = widget.engagementByUrl;
+      // Merge server data with any fresher local like so a view-reload that
+      // lands before the like write is visible cannot wipe the heart.
+      final merged =
+          Map<String, NewsPhotoEngagement>.from(widget.engagementByUrl);
+      for (final entry in _liveEngagement.value.entries) {
+        final server = merged[entry.key];
+        if (server == null) {
+          merged[entry.key] = entry.value;
+          continue;
+        }
+        if (entry.value.likedByMe && !server.likedByMe) {
+          merged[entry.key] = entry.value.copyWith(
+            viewsCount: server.viewsCount > entry.value.viewsCount
+                ? server.viewsCount
+                : entry.value.viewsCount,
+          );
+        } else {
+          merged[entry.key] = server;
+        }
+      }
+      _liveEngagement.value = merged;
     }
   }
 
   @override
   void dispose() {
+    _liveEngagement.removeListener(_onLiveEngagementChanged);
     _pageController.dispose();
     _liveEngagement.dispose();
     super.dispose();

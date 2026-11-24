@@ -57,8 +57,9 @@ extension _NewsSectionUi on _NewsSectionState {
             child: image,
           );
 
-    final stats =
-        widget.showEngagementStats ? widget.engagementByUrl[imageUrl] : null;
+    final stats = widget.showEngagementStats
+        ? (_liveEngagement.value[imageUrl] ?? widget.engagementByUrl[imageUrl])
+        : null;
 
     if (widget.onDeleteImage == null && stats == null) return tappable;
 
@@ -470,9 +471,9 @@ class _FullscreenGalleryViewer extends StatefulWidget {
 
   final List<String> imageUrls;
   final int initialIndex;
-  final ValueListenable<Map<String, NewsPhotoEngagement>>? engagement;
+  final ValueNotifier<Map<String, NewsPhotoEngagement>>? engagement;
   final ValueChanged<String>? onPageViewed;
-  final Future<bool> Function(String url)? onToggleLike;
+  final Future<bool?> Function(String url)? onToggleLike;
 
   @override
   State<_FullscreenGalleryViewer> createState() =>
@@ -520,26 +521,57 @@ class _FullscreenGalleryViewerState extends State<_FullscreenGalleryViewer> {
     if (_pendingLikes.contains(url)) return;
     final current = _engagementFor(url);
     final liked = !current.likedByMe;
+    final optimistic = current.copyWith(
+      likedByMe: liked,
+      likesCount: (current.likesCount + (liked ? 1 : -1)).clamp(0, 1 << 30),
+    );
     setState(() {
       _pendingLikes.add(url);
       _optimisticBase.putIfAbsent(url, () => _live[url]);
-      _optimistic[url] = current.copyWith(
-        likedByMe: liked,
-        likesCount: (current.likesCount + (liked ? 1 : -1)).clamp(0, 1 << 30),
-      );
+      _optimistic[url] = optimistic;
+      // Push into shared live map immediately so tiles update in real time.
+      final notifier = widget.engagement;
+      if (notifier != null) {
+        final next = Map<String, NewsPhotoEngagement>.from(notifier.value);
+        next[url] = optimistic;
+        notifier.value = next;
+      }
     });
     final handler = widget.onToggleLike;
     if (handler == null) {
       _pendingLikes.remove(url);
       return;
     }
-    final ok = await handler(url);
+    // Handler should return instantly (cache); Firestore persists in background.
+    final savedLiked = await handler(url);
     if (!mounted) return;
     setState(() {
       _pendingLikes.remove(url);
-      if (!ok) {
+      if (savedLiked == null) {
+        final base = _optimisticBase.remove(url) ?? _live[url];
         _optimistic.remove(url);
-        _optimisticBase.remove(url);
+        final notifier = widget.engagement;
+        if (notifier != null) {
+          final next = Map<String, NewsPhotoEngagement>.from(notifier.value);
+          if (base != null) {
+            next[url] = base;
+          } else {
+            next.remove(url);
+          }
+          notifier.value = next;
+        }
+        return;
+      }
+      // Keep optimistic; cache already holds the same state.
+      if (savedLiked != liked) {
+        final fixed = optimistic.copyWith(likedByMe: savedLiked);
+        _optimistic[url] = fixed;
+        final notifier = widget.engagement;
+        if (notifier != null) {
+          final next = Map<String, NewsPhotoEngagement>.from(notifier.value);
+          next[url] = fixed;
+          notifier.value = next;
+        }
       }
     });
   }

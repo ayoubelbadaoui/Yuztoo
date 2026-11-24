@@ -3360,9 +3360,18 @@ class _ActualiteTab extends ConsumerWidget {
       imageUrls: imageUrls,
       viewerId: viewerId,
     );
-    final engagement =
+    // Watch cache version so optimistic likes rebuild tiles immediately.
+    ref.watch(newsPhotoEngagementCacheProvider);
+    final remote =
         ref.watch(newsPhotoEngagementMapProvider(engagementKey)).valueOrNull ??
             const <String, NewsPhotoEngagement>{};
+    final engagement = ref
+        .read(newsPhotoEngagementCacheProvider.notifier)
+        .overlay(
+          merchantId: merchantId,
+          viewerId: viewerId,
+          server: remote,
+        );
 
     // Only signed-in clients (never the owner previewing) can like / be counted.
     final canEngage = viewerId != null && viewerId != merchantId;
@@ -3378,25 +3387,25 @@ class _ActualiteTab extends ConsumerWidget {
       showEngagementStats: true,
       engagementInteractive: canEngage,
       onPhotoViewed: canEngage
-          ? (url) async {
-              await ref.read(recordNewsPhotoViewProvider)(
+          ? (url) {
+              // Background only — do not await or invalidate (keeps likes snappy).
+              unawaited(ref.read(recordNewsPhotoViewProvider)(
                 merchantId: merchantId,
                 viewerId: viewerId,
                 imageUrl: url,
-              );
-              ref.invalidate(newsPhotoEngagementMapProvider(engagementKey));
+              ));
             }
           : null,
       onToggleLike: canEngage
           ? (url) async {
-              final liked = await ref.read(toggleNewsPhotoLikeProvider)(
+              // Instant cache + UI; Firestore write runs in the background.
+              return toggleNewsPhotoLikeOptimistic(
+                ref: ref,
                 merchantId: merchantId,
                 viewerId: viewerId,
                 imageUrl: url,
+                current: engagement[url],
               );
-              if (liked == null) return false;
-              ref.invalidate(newsPhotoEngagementMapProvider(engagementKey));
-              return true;
             }
           : null,
     );
