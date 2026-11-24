@@ -117,17 +117,38 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                _selectedRole == UserRole.merchant
-                    ? MerchantView(
-                        onDiscover: _handleDiscover,
-                        onLogin: _handleMerchantLogin,
-                      )
-                    : ClientView(
-                        isScanning: _isScanning,
-                        onScan: _handleScan,
-                        onCreateAccount: _handleClientSignup,
-                        onGuestDiscover: widget.onGuestDiscover,
-                      ),
+                // Cross-fade the role content and let the height follow
+                // smoothly: it used to swap instantly and make the page jump.
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    layoutBuilder: (current, previous) => Stack(
+                      alignment: Alignment.topCenter,
+                      children: [
+                        for (final p in previous) IgnorePointer(child: p),
+                        if (current != null) current,
+                      ],
+                    ),
+                    child: _selectedRole == UserRole.merchant
+                        ? MerchantView(
+                            key: const ValueKey('merchant'),
+                            onDiscover: _handleDiscover,
+                            onLogin: _handleMerchantLogin,
+                          )
+                        : ClientView(
+                            key: const ValueKey('client'),
+                            isScanning: _isScanning,
+                            onScan: _handleScan,
+                            onCreateAccount: _handleClientSignup,
+                            onGuestDiscover: widget.onGuestDiscover,
+                          ),
+                  ),
+                ),
                 const SizedBox(height: 20),
                 // Both roles share the same "already have account?" link widget
                 LoginLink(

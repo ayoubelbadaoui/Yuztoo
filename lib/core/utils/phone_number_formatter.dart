@@ -91,8 +91,15 @@ class PhoneNumberFormatter extends TextInputFormatter {
     final cc = countryCode.replaceAll(RegExp(r'[^\d]'), '');
     if (expected == null || cc.isEmpty) return digits;
     for (final prefix in ['00$cc', cc]) {
-      if (digits.length == prefix.length + expected &&
-          digits.startsWith(prefix)) {
+      // Longer than any national number (even with its trunk 0) and starting
+      // with the country code: the user is typing / pasted the international
+      // form. Typed digit by digit, « +33 6 12 34 56 78 » used to get stuck
+      // at 9 digits and end up as « 3 36 12 34 56 ».
+      // A national number is at most expected + 1 digits, and that longer
+      // form always starts with the trunk « 0 »; « 0033… » only becomes
+      // unambiguous past that length.
+      final limit = prefix.startsWith('00') ? expected + 1 : expected;
+      if (digits.startsWith(prefix) && digits.length > limit) {
         return digits.substring(prefix.length);
       }
     }

@@ -71,6 +71,13 @@ android {
             }
         }
     }
+
+    // AGP lintVital crashes on firebase_core (NoSuchMethodError List.removeLast
+    // under the JDK used here). Skip release lint so APK/AAB builds can finish.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 // Play Store uploads must not use the debug keystore.

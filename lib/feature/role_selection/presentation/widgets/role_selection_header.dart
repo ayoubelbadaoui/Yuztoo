@@ -90,7 +90,11 @@ class RoleSelectionHeader extends StatelessWidget {
   }
 }
 
-/// Role toggle widget
+/// Role toggle — segmented control with ONE sliding gold pill.
+///
+/// The previous version faded a pill out on one side while fading another in
+/// on the other (two half-transparent pills mid-animation) and switched the
+/// label from regular to bold, shifting the text: it read as glitchy.
 class RoleToggle extends StatelessWidget {
   const RoleToggle({
     super.key,
@@ -101,9 +105,12 @@ class RoleToggle extends StatelessWidget {
   final UserRole selectedRole;
   final ValueChanged<UserRole> onRoleChanged;
 
+  static const Duration _duration = Duration(milliseconds: 280);
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final merchantSelected = selectedRole == UserRole.merchant;
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
@@ -114,23 +121,53 @@ class RoleToggle extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Expanded(
-            child: _RoleButton(
-              role: UserRole.merchant,
-              label: l10n?.merchant ?? 'Commerçant',
-              isSelected: selectedRole == UserRole.merchant,
-              onTap: () => onRoleChanged(UserRole.merchant),
+          // The single pill, sliding under the labels.
+          Positioned.fill(
+            child: AnimatedAlign(
+              duration: _duration,
+              curve: Curves.easeOutCubic,
+              alignment: merchantSelected
+                  ? Alignment.centerLeft
+                  : Alignment.centerRight,
+              child: FractionallySizedBox(
+                widthFactor: 0.5,
+                heightFactor: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: RoleSelectionColors.primaryGold,
+                    borderRadius: BorderRadius.circular(50),
+                    boxShadow: [
+                      BoxShadow(
+                        color: RoleSelectionColors.primaryGold
+                            .withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-          Expanded(
-            child: _RoleButton(
-              role: UserRole.client,
-              label: l10n?.client ?? 'Client',
-              isSelected: selectedRole == UserRole.client,
-              onTap: () => onRoleChanged(UserRole.client),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _RoleButton(
+                  label: l10n?.merchant ?? 'Commerçant',
+                  isSelected: merchantSelected,
+                  onTap: () => onRoleChanged(UserRole.merchant),
+                ),
+              ),
+              Expanded(
+                child: _RoleButton(
+                  label: l10n?.client ?? 'Client',
+                  isSelected: !merchantSelected,
+                  onTap: () => onRoleChanged(UserRole.client),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -140,54 +177,41 @@ class RoleToggle extends StatelessWidget {
 
 class _RoleButton extends StatelessWidget {
   const _RoleButton({
-    required this.role,
     required this.label,
     required this.isSelected,
     required this.onTap,
   });
 
-  final UserRole role;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? RoleSelectionColors.primaryGold
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(50),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: RoleSelectionColors.primaryGold
-                        .withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-            color: isSelected
-                ? RoleSelectionColors.bgDark1
-                : RoleSelectionColors.textLight.withValues(alpha: 0.7),
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: isSelected ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
+          // Same weight in both states (no text shift); only the colour
+          // animates, in step with the sliding pill.
+          child: AnimatedDefaultTextStyle(
+            duration: RoleToggle._duration,
+            curve: Curves.easeOutCubic,
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isSelected
+                  ? RoleSelectionColors.bgDark1
+                  : RoleSelectionColors.textLight.withValues(alpha: 0.7),
+            ),
+            child: Text(label, textAlign: TextAlign.center),
           ),
         ),
       ),
     );
   }
 }
-

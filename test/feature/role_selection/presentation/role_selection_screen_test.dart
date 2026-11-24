@@ -82,7 +82,7 @@ void main() {
       await tester.pump();
 
       // Find ElevatedButton (Découvrir button)
-      final discoverButton = find.byType(ElevatedButton);
+      final discoverButton = find.byType(ElevatedButton).hitTestable();
       expect(discoverButton, findsOneWidget);
 
       await tester.tap(discoverButton);
@@ -97,7 +97,7 @@ void main() {
       await tester.pump();
 
       // Find ElevatedButton.icon (Scanner button) - it's wrapped in AnimatedContainer
-      final scanButton = find.byType(ElevatedButton);
+      final scanButton = find.byType(ElevatedButton).hitTestable();
       if (scanButton.evaluate().isEmpty) {
         // Try finding by icon
         final qrIcon = find.byIcon(Icons.qr_code_scanner_rounded);
@@ -185,7 +185,9 @@ void main() {
       // Switch to client view
       final clientToggle = find.text('Client');
       await tester.tap(clientToggle);
-      await tester.pump();
+      // Role content cross-fades (~220 ms): let the transition finish.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(); // outgoing view is removed on the next frame
 
       // Scan (Elevated) + merchant may have Elevated; client has one Elevated (scan)
       expect(find.byType(ElevatedButton), findsWidgets);
@@ -199,11 +201,13 @@ void main() {
       // Step 1: Toggle to merchant
       final merchantToggle = find.text('Commerçant');
       await tester.tap(merchantToggle);
-      await tester.pump();
+      // Role content cross-fades (~220 ms): let the transition finish.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(); // outgoing view is removed on the next frame
       expect(roleChanged, UserRole.merchant);
 
       // Step 2: Tap Découvrir button
-      final discoverButton = find.byType(ElevatedButton);
+      final discoverButton = find.byType(ElevatedButton).hitTestable();
       await tester.tap(discoverButton);
       await tester.pump();
       expect(selectedRole, UserRole.merchant);
@@ -214,11 +218,13 @@ void main() {
       // Step 3: Toggle back to client
       final clientToggle = find.text('Client');
       await tester.tap(clientToggle);
-      await tester.pump();
+      // Role content cross-fades (~220 ms): let the transition finish.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(); // outgoing view is removed on the next frame
       expect(roleChanged, UserRole.client);
 
       // Step 4: Tap Scanner button
-      final scanButton = find.byType(ElevatedButton);
+      final scanButton = find.byType(ElevatedButton).hitTestable();
       if (scanButton.evaluate().isNotEmpty) {
         await tester.ensureVisible(scanButton);
         await tester.pump();

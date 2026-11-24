@@ -502,7 +502,13 @@ class _FullscreenGalleryViewerState extends State<_FullscreenGalleryViewer> {
   void _onLiveChanged() {
     final live = _live;
     setState(() {
-      _optimistic.removeWhere((url, _) => live[url] != _optimisticBase[url]);
+      // Keep the tapped state until the server shows it. Opening a photo
+      // also records a view and reloads the counters: that reload often
+      // lands before the like is committed, and dropping the optimistic
+      // state on « any change » flipped the heart off then on again.
+      _optimistic.removeWhere((url, optimistic) =>
+          !_pendingLikes.contains(url) &&
+          live[url]?.likedByMe == optimistic.likedByMe);
       _optimisticBase.removeWhere((url, _) => !_optimistic.containsKey(url));
     });
   }
@@ -752,14 +758,27 @@ class _FullscreenEngagementBar extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      engagement.likedByMe
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      size: 20,
-                      color: engagement.likedByMe
-                          ? const Color(0xFFFF5A7A)
-                          : Colors.white,
+                    // Small « pop » when the state changes (Instagram-style)
+                    // instead of an abrupt icon swap.
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      switchInCurve: Curves.easeOutBack,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) => ScaleTransition(
+                        scale: Tween<double>(begin: 0.6, end: 1)
+                            .animate(animation),
+                        child: FadeTransition(opacity: animation, child: child),
+                      ),
+                      child: Icon(
+                        engagement.likedByMe
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        key: ValueKey<bool>(engagement.likedByMe),
+                        size: 20,
+                        color: engagement.likedByMe
+                            ? const Color(0xFFFF5A7A)
+                            : Colors.white,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Text(

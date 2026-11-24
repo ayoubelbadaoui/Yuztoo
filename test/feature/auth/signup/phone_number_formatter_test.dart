@@ -117,6 +117,37 @@ void main() {
       expect(digits(paste(fr, '0033 6 12 34 56 78').text), '612345678');
     });
 
+    test('typed digit by digit (Samsung / iPhone keyboard) ends complete',
+        () {
+      var value = const TextEditingValue(text: '');
+      for (final ch in '+33612345678'.split('')) {
+        final text = value.text + ch;
+        value = fr.formatEditUpdate(
+          value,
+          TextEditingValue(
+            text: text,
+            selection: TextSelection.collapsed(offset: text.length),
+          ),
+        );
+      }
+      expect(digits(value.text), '612345678');
+    });
+
+    test('typed 0033… digit by digit ends complete', () {
+      var value = const TextEditingValue(text: '');
+      for (final ch in '0033612345678'.split('')) {
+        final text = value.text + ch;
+        value = fr.formatEditUpdate(
+          value,
+          TextEditingValue(
+            text: text,
+            selection: TextSelection.collapsed(offset: text.length),
+          ),
+        );
+      }
+      expect(digits(value.text), '612345678');
+    });
+
     test('national forms are untouched', () {
       expect(digits(paste(fr, '06 12 34 56 78').text), '0612345678');
       expect(digits(paste(fr, '612345678').text), '612345678');

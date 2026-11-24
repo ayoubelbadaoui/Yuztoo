@@ -41,6 +41,15 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// flow shipped from the signup screen.
   ScreenId _oauthCompletionReturnScreen = ScreenId.signup;
 
+  /// Where « retour » from signup goes: the screen the user opened it from
+  /// (welcome / merchant benefits / login link / guest browsing). It always
+  /// went to login, so welcome → « Créer un compte » → back landed on a
+  /// screen the user had never seen.
+  ScreenId _signupReturnScreen = ScreenId.login;
+
+  void _backFromSignup() =>
+      setState(() => _authScreen = _signupReturnScreen);
+
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _appLinkSubscription;
 
@@ -2219,7 +2228,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
     if (currentScreen == ScreenId.signup) {
-      setState(() => _authScreen = ScreenId.login);
+      _backFromSignup();
       return;
     }
     if (currentScreen == ScreenId.otp) {
@@ -2606,6 +2615,7 @@ class _RootShellState extends ConsumerState<_RootShell>
             // Navigate directly to signup screen from role selection.
             setState(() {
               _role = role;
+              _signupReturnScreen = ScreenId.roleSelection;
               _authScreen = ScreenId.signup;
             });
             ref.read(roleCacheServiceProvider).saveLastSelectedRole(role);
@@ -2669,6 +2679,7 @@ class _RootShellState extends ConsumerState<_RootShell>
               // New user arriving from the unauthenticated onboarding funnel.
               setState(() {
                 _role = UserRole.merchant;
+                _signupReturnScreen = ScreenId.merchantBenefits;
                 _authScreen = ScreenId.signup;
               });
               ref
@@ -2681,7 +2692,10 @@ class _RootShellState extends ConsumerState<_RootShell>
         return LoginScreen(
           role: _role ?? UserRole.client,
           onBack: _handleBackToRole,
-          onSignup: () => setState(() => _authScreen = ScreenId.signup),
+          onSignup: () => setState(() {
+            _signupReturnScreen = ScreenId.login;
+            _authScreen = ScreenId.signup;
+          }),
           onNavigateToOAuthCompletion: () {
             setState(() {
               _oauthCompletionReturnScreen = ScreenId.login;
@@ -2692,7 +2706,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.signup:
         return SignupScreen(
           role: _role ?? UserRole.client,
-          onBack: () => setState(() => _authScreen = ScreenId.login),
+          onBack: _backFromSignup,
           onNavigateToOtp: (data) {
             setState(() {
               _verificationId = data.verificationId;
@@ -2789,6 +2803,7 @@ class _RootShellState extends ConsumerState<_RootShell>
             setState(() => _pushNestedScreen(ScreenId.storeProfile));
           },
           onSignUp: () => setState(() {
+            _signupReturnScreen = ScreenId.guestShell;
             _authScreen = ScreenId.signup;
             _nestedStack.clear();
           }),
