@@ -157,9 +157,8 @@ extension _PromoCardUi on PromoCard {
                     style: GoogleFonts.outfit(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: _isExpired
-                          ? MerchantColors.textGrey
-                          : Colors.white,
+                      color:
+                          _isExpired ? MerchantColors.textGrey : Colors.white,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -210,7 +209,7 @@ extension _PromoCardUi on PromoCard {
           const SizedBox(width: 8),
           _datePill(_fmt(promo.dateTo, prefix: 'au '), muted: _isExpired),
           const Spacer(),
-          // View count badge
+          // Views + likes (merchant analytics)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -222,6 +221,21 @@ extension _PromoCardUi on PromoCard {
               const SizedBox(width: 4),
               Text(
                 '${promo.viewCount}',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: MerchantColors.gold.withValues(alpha: 0.85),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                Icons.favorite_rounded,
+                size: 12,
+                color: MerchantColors.gold.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '$likesCount',
                 style: GoogleFonts.outfit(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -290,8 +304,7 @@ extension _PromoCardUi on PromoCard {
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _isExpired
                       ? MerchantColors.textGrey.withValues(alpha: 0.12)
@@ -313,8 +326,8 @@ extension _PromoCardUi on PromoCard {
               if (promo.diffusionZone != null) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
                     color: MerchantColors.navyCard,
                     borderRadius: BorderRadius.circular(10),
@@ -353,8 +366,8 @@ extension _PromoCardUi on PromoCard {
               children: promo.targetSegments.map((key) {
                 final label = segmentLabels[key] ?? key;
                 return Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: MerchantColors.gold.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
@@ -421,9 +434,8 @@ extension _PromoCardUi on PromoCard {
               alignment: Alignment.center,
               child: Icon(
                 Icons.delete_outline_rounded,
-                color: _isExpired
-                    ? MerchantColors.textGrey
-                    : MerchantColors.gold,
+                color:
+                    _isExpired ? MerchantColors.textGrey : MerchantColors.gold,
                 size: 20,
               ),
             ),
@@ -464,9 +476,7 @@ extension _PromoCardUi on PromoCard {
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: promo.isOnline
-            ? MerchantColors.gold
-            : const Color(0xFF444444),
+        color: promo.isOnline ? MerchantColors.gold : const Color(0xFF444444),
       ),
       child: AnimatedAlign(
         duration: const Duration(milliseconds: 250),

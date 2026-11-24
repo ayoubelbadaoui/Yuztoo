@@ -54,14 +54,13 @@ class StorefrontProfileEditNotifier
     final storedId = merchant?.categoryId?.trim() ?? '';
     final storedSub = merchant?.subcategoryTitle?.trim() ?? '';
     final storedCategories = merchant?.categories ?? const <String>[];
-    final storedFirst = storedCategories.isNotEmpty
-        ? storedCategories.first.trim()
-        : '';
+    final storedFirst =
+        storedCategories.isNotEmpty ? storedCategories.first.trim() : '';
 
-    final cleanSub = storedSub.isNotEmpty &&
-            !_isCorruptedCategory(storedSub, merchantType)
-        ? storedSub
-        : '';
+    final cleanSub =
+        storedSub.isNotEmpty && !_isCorruptedCategory(storedSub, merchantType)
+            ? storedSub
+            : '';
     final cleanFirst = storedFirst.isNotEmpty &&
             !_isCorruptedCategory(storedFirst, merchantType)
         ? storedFirst
@@ -185,14 +184,21 @@ class StorefrontProfileEditNotifier
           final cachedProfilePath =
               cachedData['profileImagePath']?.toString().trim();
 
-          final bannerUrl =
-              cachedBannerPath != null && cachedBannerPath.isNotEmpty
+          // Prefer the live Firestore/storefront URL when present. A stale
+          // local cache path (from an older edit session) was causing the
+          // couverture on "Modifier le profil" to diverge from the vitrine.
+          final liveBanner = storefront.bannerImageUrl.trim();
+          final liveProfile = storefront.profileImageUrl.trim();
+          final bannerUrl = liveBanner.isNotEmpty
+              ? liveBanner
+              : (cachedBannerPath != null && cachedBannerPath.isNotEmpty
                   ? 'file://$cachedBannerPath'
-                  : storefront.bannerImageUrl;
-          final profileUrl =
-              cachedProfilePath != null && cachedProfilePath.isNotEmpty
+                  : '');
+          final profileUrl = liveProfile.isNotEmpty
+              ? liveProfile
+              : (cachedProfilePath != null && cachedProfilePath.isNotEmpty
                   ? 'file://$cachedProfilePath'
-                  : storefront.profileImageUrl;
+                  : '');
 
           LoggerService.logInfo(
             'Profile edit category resolved',
@@ -214,28 +220,30 @@ class StorefrontProfileEditNotifier
             categoryId: taxonomy.categoryId,
             categoryTitle: taxonomy.categoryTitle,
             subcategoryTitle: taxonomy.subcategoryTitle,
-            description: cachedDescription.isNotEmpty
-                ? cachedDescription
-                : (state.description.isEmpty
-                    ? 'Décrivez votre activité en quelques lignes.'
-                    : state.description),
-            phoneNumber: cachedPhone.isNotEmpty
-                ? cachedPhone
-                : (state.phoneNumber.isEmpty
-                    ? '+33 6 12 34 56 78'
-                    : state.phoneNumber),
-            websiteUrl: cachedWebsiteUrl.isNotEmpty
-                ? cachedWebsiteUrl
-                : (state.websiteUrl.isEmpty
-                    ? 'www.votresite.com'
-                    : state.websiteUrl),
-            address: cachedAddress.isNotEmpty
-                ? cachedAddress
-                : (state.address.isEmpty ? 'Votre adresse' : state.address),
+            description: _firstReal([
+              cachedDescription,
+              merchant?.description,
+              storefront.description,
+            ]),
+            phoneNumber:
+                _firstReal([cachedPhone, merchant?.phone, storefront.phone]),
+            email: _realEmail(merchant),
+            websiteUrl: _firstReal([
+              cachedWebsiteUrl,
+              merchant?.websiteUrl,
+              storefront.websiteUrl,
+            ]),
+            address: _firstReal(
+                [cachedAddress, merchant?.address, storefront.address]),
             city: CityInput.forEditField(
               cachedCity.isNotEmpty ? cachedCity : storefront.city,
             ),
+            commune: merchant?.commune,
+            welcomeGiftDescription: merchant?.welcomeGiftDescription ?? '',
             merchantType: resolvedMerchantType,
+            mobilityAccessibility: merchant?.mobilityAccessibility ??
+                MobilityAccessibility.defaultValue,
+            isLoaded: true,
           );
           return;
         }
@@ -264,23 +272,40 @@ class StorefrontProfileEditNotifier
       categoryId: taxonomy.categoryId,
       categoryTitle: taxonomy.categoryTitle,
       subcategoryTitle: taxonomy.subcategoryTitle,
-      description: state.description.isEmpty
-          ? 'Décrivez votre activité en quelques lignes.'
-          : state.description,
-      phoneNumber: (storefront.phone ?? state.phoneNumber).trim().isEmpty
-          ? '+33 6 12 34 56 78'
-          : (storefront.phone ?? state.phoneNumber),
-      email: merchant?.email.isNotEmpty == true ? merchant!.email : '',
-      websiteUrl: (storefront.websiteUrl ?? state.websiteUrl).trim().isEmpty
-          ? 'www.votresite.com'
-          : (storefront.websiteUrl ?? state.websiteUrl),
-      address: (storefront.address ?? state.address).trim().isEmpty
-          ? 'Votre adresse'
-          : (storefront.address ?? state.address),
+      description: _firstReal([merchant?.description, storefront.description]),
+      phoneNumber: _firstReal([merchant?.phone, storefront.phone]),
+      email: _realEmail(merchant),
+      websiteUrl: _firstReal([merchant?.websiteUrl, storefront.websiteUrl]),
+      address: _firstReal([merchant?.address, storefront.address]),
       city: CityInput.forEditField(storefront.city),
+      commune: merchant?.commune,
       welcomeGiftDescription: merchant?.welcomeGiftDescription ?? '',
       merchantType: resolvedMerchantType,
+      mobilityAccessibility:
+          merchant?.mobilityAccessibility ?? MobilityAccessibility.defaultValue,
+      isLoaded: true,
     );
+  }
+
+  static String _firstReal(List<String?> candidates) {
+    for (final candidate in candidates) {
+      final clean = ProfilePlaceholders.clean(candidate);
+      if (clean.isNotEmpty) return clean;
+    }
+    return '';
+  }
+
+  static String _realEmail(Merchant? merchant) {
+    final email = merchant?.email.trim() ?? '';
+    return EmailValidator.isPlaceholderOrEmpty(email) ? '' : email;
+  }
+
+  /// Once loaded, an empty field is an explicit clear (`''`); before that it
+  /// is unknown and must not overwrite Firestore (`null`).
+  String? _forSave(String value) {
+    final clean = ProfilePlaceholders.clean(value);
+    if (clean.isNotEmpty) return clean;
+    return state.isLoaded ? '' : null;
   }
 
   void setBusinessName(String v) => state = state.copyWith(businessName: v);
@@ -333,9 +358,17 @@ class StorefrontProfileEditNotifier
   void setEmail(String v) => state = state.copyWith(email: v);
   void setWebsiteUrl(String v) => state = state.copyWith(websiteUrl: v);
   void setAddress(String v) => state = state.copyWith(address: v);
-  void setCity(String v) => state = state.copyWith(city: v);
+  void setCity(String v) => state = state.copyWith(city: v, clearCommune: true);
+
+  void setCityFromCommune(FrenchCommune commune) => state = state.copyWith(
+        city: commune.name,
+        commune: commune,
+      );
   void setWelcomeGiftDescription(String v) =>
       state = state.copyWith(welcomeGiftDescription: v);
+
+  void setMobilityAccessibility(MobilityAccessibility v) =>
+      state = state.copyWith(mobilityAccessibility: v);
 
   void setMerchantType(String v) {
     if (v != 'b2b' && v != 'b2c') return;
@@ -360,13 +393,15 @@ class StorefrontProfileEditNotifier
 
       final userId = authState.user.id;
 
-      final firestore = ref.read(firebaseFirestoreProvider);
-      final userDoc = await firestore.collection('users').doc(userId).get();
       final merchantId =
-          ((userDoc.data()?['merchant_id'] as String?)?.trim().isNotEmpty ??
-                  false)
-              ? (userDoc.data()?['merchant_id'] as String).trim()
-              : userId;
+          await ref.read(merchant_providers.activeMerchantIdProvider.future);
+      if (merchantId == null || merchantId.isEmpty) {
+        state = state.copyWith(
+          isSaving: false,
+          errorMessage: 'Aucun commerce associé à ce compte.',
+        );
+        return;
+      }
 
       String? logoFilePath;
       if (state.profileImageUrl.startsWith('file://')) {
@@ -389,23 +424,16 @@ class StorefrontProfileEditNotifier
       final displayName = state.businessName.trim().isNotEmpty
           ? state.businessName.trim()
           : null;
-      final description = state.description.trim().isNotEmpty
-          ? state.description.trim()
-          : null;
+      final description = _forSave(state.description);
       final specialty = _specialtyDisplay(
         subcategoryTitle: state.subcategoryTitle,
         categoryTitle: state.categoryTitle,
       );
       final categories = specialty.isNotEmpty ? [specialty] : null;
-      final phone = state.phoneNumber.trim().isNotEmpty
-          ? state.phoneNumber.trim()
-          : null;
-      final address =
-          state.address.trim().isNotEmpty ? state.address.trim() : null;
+      final phone = _forSave(state.phoneNumber);
+      final address = _forSave(state.address);
       final city = CityInput.forFirestore(state.city);
-      final websiteUrl = state.websiteUrl.trim().isNotEmpty
-          ? state.websiteUrl.trim()
-          : null;
+      final websiteUrl = _forSave(state.websiteUrl);
 
       final email = state.email.trim().isNotEmpty ? state.email.trim() : null;
       final welcomeGiftDescription =
@@ -425,6 +453,20 @@ class StorefrontProfileEditNotifier
         },
       );
 
+      FrenchCommune? commune = state.commune;
+      if (city != null &&
+          (commune == null ||
+              commune.epciCode == null ||
+              commune.epciCode!.isEmpty)) {
+        final fallback = commune;
+        // Bounded: a slow geo API must not block the vitrine save.
+        commune = await ref
+            .read(cityCatalogRepositoryProvider)
+            .resolveByName(city)
+            .timeout(const Duration(seconds: 5), onTimeout: () => fallback)
+            .catchError((Object _) => fallback);
+      }
+
       final updateStorefront =
           ref.read(merchant_providers.updateStorefrontProvider);
       final result = await updateStorefront.call(
@@ -438,13 +480,14 @@ class StorefrontProfileEditNotifier
         email: email,
         address: address,
         city: city,
+        commune: commune,
         websiteUrl: websiteUrl,
         welcomeGiftDescription: welcomeGiftDescription,
         merchantType: state.merchantType,
-        categoryId: state.categoryId.trim().isNotEmpty
-            ? state.categoryId.trim()
-            : '',
+        categoryId:
+            state.categoryId.trim().isNotEmpty ? state.categoryId.trim() : '',
         subcategoryTitle: state.subcategoryTitle.trim(),
+        mobilityAccessibility: state.mobilityAccessibility,
         clearMerchantCityField: city == null,
       );
 
@@ -516,20 +559,17 @@ class StorefrontProfileEditNotifier
         userId: userId,
         name: displayName ?? existingCache['name'] ?? 'Nom du commerce',
         email: existingCache['email'] ?? 'demo@example.com',
-        phone: state.phoneNumber.trim().isNotEmpty
-            ? state.phoneNumber.trim()
-            : (existingCache['phone'] ?? '+33123456789'),
+        phone: phone ?? existingCache['phone']?.toString() ?? '',
         city: CityInput.forFirestore(state.city) ??
             (CityInput.isPlaceholder(existingCache['city']?.toString())
                 ? ''
                 : (existingCache['city']?.toString().trim() ?? '')),
-        address: state.address.trim().isNotEmpty ? state.address.trim() : null,
+        address: address,
         category: specialty.isNotEmpty ? specialty : null,
         description: description,
         profileImagePath: profilePath,
         bannerImagePath: bannerPath,
-        websiteUrl:
-            state.websiteUrl.trim().isNotEmpty ? state.websiteUrl.trim() : null,
+        websiteUrl: websiteUrl,
       );
     } catch (e) {
       // Unexpected error — presentation layer surfaces state.errorMessage.

@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../../core/utils/image_pick_with_source.dart';
 import '../../../../core/shared/widgets/cupertino_picker_sheet.dart';
 import '../../../../core/shared/widgets/adaptive_image.dart';
 import '../../domain/entities/promotion.dart';
@@ -63,8 +65,11 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
   }
 
   Future<void> _pickImage() async {
+    // Root navigator: AddPromoSheet is already a modal — nesting another sheet
+    // on the same navigator breaks picker/crop return on some devices.
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: MerchantColors.navyCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -96,18 +101,53 @@ class _AddPromoSheetState extends State<AddPromoSheet> {
     );
     if (source == null || !mounted) return;
     try {
-      final picked = await _picker.pickImage(
+      // safePickImage gates the camera on its runtime permission; without it
+      // Android rejects the capture intent outright (manifest declares CAMERA).
+      // Camera also waits briefly so this sheet's sibling source sheet can
+      // finish dismissing before the system camera activity starts.
+      final picked = await safePickImage(
+        context: context,
+        picker: _picker,
         source: source,
         maxWidth: promotionImagePickMaxSide.toDouble(),
         maxHeight: promotionImagePickMaxSide.toDouble(),
         imageQuality: 95,
       );
+      // null = user cancelled, permission denied (snackbar already shown),
+      // or picker failure (snackbar already shown by safePickImage).
       if (picked == null || !mounted) return;
 
+      // Same fallback as storefront news: if crop is cancelled/fails, keep pick.
       final croppedPath = await cropPromotionImage(picked.path);
-      if (croppedPath == null || !mounted) return;
-      setState(() => _imagePath = croppedPath);
-    } catch (_) {}
+      final sourcePath = croppedPath ?? picked.path;
+      final durablePath = await _persistDraftImage(sourcePath);
+      if (!mounted) return;
+      setState(() => _imagePath = durablePath);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red.shade700,
+          content: Text(
+            'Impossible d\'ajouter l\'image. Réessayez.',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Copy into app temp so the path still exists after the sheet is dismissed
+  /// (cropper/cache paths can disappear before upload runs).
+  Future<String> _persistDraftImage(String sourcePath) async {
+    final src = File(sourcePath);
+    if (!src.existsSync()) return sourcePath;
+    final dir = await getTemporaryDirectory();
+    final dest = File(
+      '${dir.path}/promo_draft_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+    await src.copy(dest.path);
+    return dest.path;
   }
 
   void _submit() {

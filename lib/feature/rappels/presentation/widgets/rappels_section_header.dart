@@ -62,4 +62,3 @@ class RappelsSectionHeader extends StatelessWidget {
     );
   }
 }
-

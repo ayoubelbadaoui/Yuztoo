@@ -1,3 +1,4 @@
+import 'package:flutter_yuztoo/core/domain/entities/french_commune.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_yuztoo/feature/merchant/application/providers.dart'
     as merchant_providers;
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/mobility_accessibility.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
 import 'package:flutter_yuztoo/feature/merchant/infrastructure/merchant_repository_provider.dart';
@@ -57,7 +59,9 @@ class _RecordingMerchantRepository implements MerchantRepository {
     String? categoryId,
     String? subcategoryTitle,
     bool clearCityField = false,
+    FrenchCommune? commune,
     List<MerchantStorefrontLink>? storefrontLinks,
+    MobilityAccessibility? mobilityAccessibility,
   }) async {
     if (loyaltyEnabledStandalone != null) {
       loyaltyStandaloneWrites++;

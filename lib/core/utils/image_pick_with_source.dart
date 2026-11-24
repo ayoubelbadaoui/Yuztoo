@@ -4,13 +4,65 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
+import '../infrastructure/permission_request_queue.dart';
 import '../shared/constants/merchant_colors.dart';
 import '../shared/widgets/snackbar.dart';
 import 'image_crop_utils.dart';
 
 /// Outcome of [pickImageWithSourceChoice].
 enum _PickOutcomeKind { picked, cancelled, error }
+
+/// Makes sure the camera runtime permission is granted before a capture.
+///
+/// The manifest declares `android.permission.CAMERA`, and Android then
+/// refuses `ACTION_IMAGE_CAPTURE` with a `SecurityException` whenever that
+/// permission is not granted — so launching the camera picker without
+/// asking first fails on any install where the user has not already
+/// accepted the camera prompt somewhere else (QR scanner, onboarding).
+///
+/// Returns true when the capture may proceed. On a permanent denial the user
+/// gets a SnackBar pointing at the system settings and false is returned.
+Future<bool> ensureCameraPermission(BuildContext context) async {
+  try {
+    var status = await Permission.camera.status;
+    if (status.isGranted || status.isLimited) return true;
+
+    if (status.isDenied || status.isRestricted) {
+      status = await PermissionRequestQueue.run(Permission.camera.request);
+    }
+    if (status.isGranted || status.isLimited) return true;
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red.shade700,
+          content: Text(
+            'Accès à la caméra refusé. Activez-le dans les réglages.',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+          action: const SnackBarAction(
+            label: 'Réglages',
+            textColor: Colors.white,
+            onPressed: openAppSettings,
+          ),
+        ),
+      );
+    }
+    return false;
+  } catch (error, stackTrace) {
+    developer.log(
+      'camera permission check failed',
+      name: 'image_pick_with_source',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    // Never block the picker on a permission-plugin failure: let
+    // image_picker try and surface its own error if it really cannot run.
+    return true;
+  }
+}
 
 /// Single-entrypoint helper for the "pick a profile / logo / banner photo"
 /// flow used across onboarding and account screens.
@@ -51,6 +103,10 @@ Future<String?> pickImageWithSourceChoice({
     galleryLabel: galleryLabel,
   );
   if (source == null || !context.mounted) return null;
+
+  if (source == ImageSource.camera && !await ensureCameraPermission(context)) {
+    return null;
+  }
 
   final _PickOutcome outcome = await _pickAndOptionallyCrop(
     picker: effectivePicker,
@@ -93,12 +149,23 @@ Future<XFile?> safePickImage({
   double? maxHeight,
   int imageQuality = 85,
 }) async {
+  if (source == ImageSource.camera && !await ensureCameraPermission(context)) {
+    return null;
+  }
+  // Give the previous modal/sheet a beat to finish dismissing before
+  // launching the system camera — otherwise some Android devices (Samsung)
+  // return null / fail while a Flutter route transition is still running.
+  if (source == ImageSource.camera) {
+    await Future<void>.delayed(const Duration(milliseconds: 280));
+    if (!context.mounted) return null;
+  }
   try {
     return await picker.pickImage(
       source: source,
       maxWidth: maxWidth,
       maxHeight: maxHeight,
       imageQuality: imageQuality,
+      preferredCameraDevice: CameraDevice.rear,
     );
   } catch (error, stackTrace) {
     developer.log(
@@ -120,8 +187,7 @@ Future<XFile?> safePickImage({
 }
 
 class _PickOutcome {
-  const _PickOutcome.picked(this.path)
-      : kind = _PickOutcomeKind.picked;
+  const _PickOutcome.picked(this.path) : kind = _PickOutcomeKind.picked;
   const _PickOutcome.cancelled()
       : path = null,
         kind = _PickOutcomeKind.cancelled;
@@ -165,8 +231,8 @@ Future<_PickOutcome> _pickAndOptionallyCrop({
     return const _PickOutcome.cancelled();
   }
 
-  final bool wantsCrop = (cropRatioX != null && cropRatioY != null) ||
-      cropCircleShape;
+  final bool wantsCrop =
+      (cropRatioX != null && cropRatioY != null) || cropCircleShape;
   if (!wantsCrop) {
     return _PickOutcome.picked(picked.path);
   }
@@ -232,8 +298,7 @@ Future<ImageSource?> _showSourceChoiceSheet({
                 cameraLabel,
                 style: GoogleFonts.outfit(color: MerchantColors.textWhite),
               ),
-              onTap: () =>
-                  Navigator.of(sheetContext).pop(ImageSource.camera),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(
@@ -244,8 +309,7 @@ Future<ImageSource?> _showSourceChoiceSheet({
                 galleryLabel,
                 style: GoogleFonts.outfit(color: MerchantColors.textWhite),
               ),
-              onTap: () =>
-                  Navigator.of(sheetContext).pop(ImageSource.gallery),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
             ),
           ],
         ),

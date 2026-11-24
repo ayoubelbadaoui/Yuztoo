@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/utils/image_crop_utils.dart';
 import '../../../core/utils/image_pick_with_source.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
+import '../application/news_photo_engagement_providers.dart';
 import '../application/profile_view_providers.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
@@ -16,6 +17,7 @@ import 'widgets/merchant_info_section.dart';
 import 'widgets/stats_cards.dart';
 import 'widgets/navigation_tabs.dart';
 import 'widgets/news_section.dart';
+import 'widgets/offline_storefront_banner.dart';
 import 'widgets/hours_section.dart';
 import 'storefront_edit_profile_screen.dart';
 import '../application/profile_edit_state.dart';
@@ -29,7 +31,8 @@ part 'storefront_screen.part.dart';
 
 /// Storefront screen - main UI for merchant storefront management
 class StorefrontScreen extends ConsumerStatefulWidget {
-  const StorefrontScreen({super.key, this.onNavigate, this.isDualProfile = false});
+  const StorefrontScreen(
+      {super.key, this.onNavigate, this.isDualProfile = false});
 
   final ValueChanged<String>? onNavigate;
   final bool isDualProfile;
@@ -52,6 +55,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
       setState(() => _offlineBannerDismissed = true);
   String? _precachedImageKey;
   final _imagePicker = ImagePicker();
+
   /// URLs whose Firestore removal is in-flight — excluded from the displayed
   /// list immediately (optimistic UI) and used to avoid concurrent-write races.
   final Set<String> _pendingDeleteUrls = {};
@@ -122,8 +126,7 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     }
   }
 
-  Future<void> _deleteNewsImage(
-      Storefront storefront, String imageUrl) async {
+  Future<void> _deleteNewsImage(Storefront storefront, String imageUrl) async {
     // Guard against re-entrant delete (e.g. user taps the same × twice).
     if (_pendingDeleteUrls.contains(imageUrl)) return;
 
@@ -191,9 +194,9 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     try {
       final result =
           await ref.read(merchant_providers.updateStorefrontProvider).call(
-                merchantId: merchantId,
-                newsImageUrls: [],
-              );
+        merchantId: merchantId,
+        newsImageUrls: [],
+      );
       result.fold(
         (_) {
           if (!mounted) return;
@@ -219,10 +222,8 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
   void _tryDeleteStorageFile(String url) {
     try {
       final uri = Uri.parse(url);
-      final encoded = uri.pathSegments
-          .skipWhile((s) => s != 'o')
-          .skip(1)
-          .firstOrNull;
+      final encoded =
+          uri.pathSegments.skipWhile((s) => s != 'o').skip(1).firstOrNull;
       if (encoded != null && encoded.isNotEmpty) {
         final storagePath = Uri.decodeComponent(encoded);
         ref
@@ -310,10 +311,38 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
             SnackBar(content: Text(failure.message)),
           );
         },
-        (_) {
+        (_) async {
+          final messenger = ScaffoldMessenger.of(context);
+          // Drop stale local image paths so Modifier le profil shows the
+          // same couverture / logo as the vitrine.
+          try {
+            final cache = ref.read(
+              merchant_providers.merchantProfileCacheServiceProvider,
+            );
+            final existing = await cache.loadProfile();
+            final uid = existing['userId']?.trim() ?? '';
+            if (uid.isNotEmpty) {
+              await cache.saveProfile(
+                userId: uid,
+                name: existing['name'] ?? '',
+                email: existing['email'] ?? '',
+                phone: existing['phone'] ?? '',
+                city: existing['city'] ?? '',
+                address: existing['address'],
+                category: existing['category'],
+                description: existing['description'],
+                websiteUrl: existing['websiteUrl'],
+                bannerImagePath: isBanner ? null : existing['bannerImagePath'],
+                profileImagePath: isBanner ? existing['profileImagePath'] : null,
+              );
+            }
+          } catch (_) {
+            // Non-fatal: live storefront URL still wins in edit load.
+          }
+          if (!mounted) return;
           ref.invalidate(storefrontProvider);
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
+          ref.invalidate(storefrontProfileEditProvider);
+          messenger.showSnackBar(
             SnackBar(
               content: Text(
                 isBanner
@@ -368,6 +397,5 @@ class _StorefrontScreenState extends ConsumerState<StorefrontScreen> {
     });
 
     return _buildStorefrontBody(context, storefrontAsync, activeTab);
-
   }
 }

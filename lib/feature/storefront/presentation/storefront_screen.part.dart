@@ -198,318 +198,245 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
               children: [
                 _StorefrontScreenHeader(
                   isDualProfile: widget.isDualProfile,
-                  onSwitchRole: () => widget.onNavigate?.call('switch-to-client'),
+                  onSwitchRole: () =>
+                      widget.onNavigate?.call('switch-to-client'),
                 ),
                 Expanded(
                   child: YuztooPullRefresh(
                     onRefresh: _onPullRefresh,
                     backgroundColor: StorefrontColors.backgroundLight,
                     child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(
-                      parent: BouncingScrollPhysics(),
-                    ),
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).padding.bottom + 80,
-                    ),
-                    child: Column(
-                      children: [
-                        // Offline warning banner — stays open until user explicitly
-                        // dismisses it (X) or taps "Mettre en ligne".
-                        if (!storefront.isPublished && !_offlineBannerDismissed)
-                          Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                            padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF3CD),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: const Color(0xFFFFC107).withValues(alpha: 0.6),
-                              ),
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).padding.bottom + 80,
+                      ),
+                      child: Column(
+                        children: [
+                          if (!storefront.isPublished &&
+                              !_offlineBannerDismissed)
+                            OfflineStorefrontBanner(
+                              isPublishing: _isPublishingToggle,
+                              onPublish: () =>
+                                  _setMerchantPublished(storefront, true),
+                              onDismiss: _dismissOfflineBanner,
                             ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.visibility_off_outlined,
-                                  color: Color(0xFF856404),
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'Votre commerce est hors ligne — invisible des clients.',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 13,
-                                          color: const Color(0xFF856404),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Vous pouvez continuer à modifier votre vitrine ; '
-                                        'elle reste invisible jusqu\'à « Mettre en ligne ».',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 11,
-                                          color: const Color(0xFF856404)
-                                              .withValues(alpha: 0.85),
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                // Explicit action button — only this goes online
-                                if (_isPublishingToggle)
-                                  const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Color(0xFF856404),
-                                    ),
-                                  )
-                                else
-                                  GestureDetector(
-                                    onTap: () =>
-                                        _setMerchantPublished(storefront, true),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF856404),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        'Mettre en ligne',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 11,
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                // Dismiss button — hides banner, does NOT go online
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: Color(0xFF856404),
-                                  ),
-                                  padding: const EdgeInsets.all(4),
-                                  constraints: const BoxConstraints(),
-                                  visualDensity: VisualDensity.compact,
-                                  onPressed: _dismissOfflineBanner,
-                                ),
-                              ],
-                            ),
+                          // Banner with profile picture
+                          BannerSection(
+                            bannerImageUrl: storefront.bannerImageUrl,
+                            profileImageUrl: storefront.profileImageUrl,
+                            onBannerEdit: _isUploadingBannerProfile
+                                ? null
+                                : () {
+                                    _showImagePickerDialog(
+                                      context,
+                                      storefront: storefront,
+                                      isBanner: true,
+                                    );
+                                  },
+                            onProfileEdit: _isUploadingBannerProfile
+                                ? null
+                                : () {
+                                    _showImagePickerDialog(
+                                      context,
+                                      storefront: storefront,
+                                      isBanner: false,
+                                    );
+                                  },
                           ),
-                        // Banner with profile picture
-                        BannerSection(
-                          bannerImageUrl: storefront.bannerImageUrl,
-                          profileImageUrl: storefront.profileImageUrl,
-                          onBannerEdit: _isUploadingBannerProfile
-                              ? null
-                              : () {
-                                  _showImagePickerDialog(
-                                    context,
-                                    storefront: storefront,
-                                    isBanner: true,
-                                  );
-                                },
-                          onProfileEdit: _isUploadingBannerProfile
-                              ? null
-                              : () {
-                                  _showImagePickerDialog(
-                                    context,
-                                    storefront: storefront,
-                                    isBanner: false,
-                                  );
-                                },
-                        ),
-                        const SizedBox(
-                            height: 56), // More space after profile picture
-                        // Merchant info
-                        MerchantInfoSection(
-                          merchantName: storefront.merchantName,
-                          description: storefront.description,
-                          city: storefront.city,
-                          loyaltyEnabled: storefront.loyaltyEnabled,
-                          loyaltyClientSummary: storefront.loyaltyClientSummary,
-                          isVerified: storefront.isVerified,
-                          onEdit: () async {
-                            await ref
-                                .read(storefrontProfileEditProvider.notifier)
-                                .initializeFrom(storefront);
-                            if (!context.mounted) return;
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    const StorefrontEditProfileScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        // Stats cards. The "VUES / SEMAINE" KPI is no
-                        // longer read from [storefront] (which only ever
-                        // exposes a stub `0`); instead we resolve it from
-                        // [profileViewWeeklyStatsProvider] which counts
-                        // distinct (viewer, UTC day) pairs over a 7-day
-                        // sliding window. While the aggregation loads we
-                        // show 0 — same UI affordance as "no views yet",
-                        // and a refresh of the dashboard re-fetches.
-                        Consumer(
-                          builder: (context, ref, _) {
-                            final stats = ref
-                                .watch(profileViewWeeklyStatsProvider(
-                                    storefront.id))
-                                .valueOrNull;
-                            return StatsCards(
-                              profileCompletionPercentage:
-                                  storefront.profileCompletionPercentage,
-                              weeklyViews: stats?.weeklyViews ?? 0,
-                              weeklyViewsChange:
-                                  stats?.weeklyChangePercent ?? 0.0,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        // Quick-action row (notifications hub, clients, store preview)
-                        _buildQuickActions(context),
-                        const SizedBox(height: 24),
-                        // Navigation tabs
-                        NavigationTabs(
-                          activeTab: activeTab,
-                          onTabChanged: (tab) {
-                            ref.read(storefrontTabProvider.notifier).state =
-                                tab;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        if (activeTab == 'accueil') ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: StorefrontColors.primaryGold
-                                      .withValues(alpha: 0.28),
+                          const SizedBox(
+                              height: 56), // More space after profile picture
+                          // Merchant info
+                          MerchantInfoSection(
+                            merchantName: storefront.merchantName,
+                            description: storefront.description,
+                            city: storefront.city,
+                            loyaltyEnabled: storefront.loyaltyEnabled,
+                            loyaltyClientSummary:
+                                storefront.loyaltyClientSummary,
+                            isVerified: storefront.isVerified,
+                            onEdit: () async {
+                              await ref
+                                  .read(storefrontProfileEditProvider.notifier)
+                                  .initializeFrom(storefront);
+                              if (!context.mounted) return;
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const StorefrontEditProfileScreen(),
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 2),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          // Stats cards. The "VUES / SEMAINE" KPI is no
+                          // longer read from [storefront] (which only ever
+                          // exposes a stub `0`); instead we resolve it from
+                          // [profileViewWeeklyStatsProvider] which counts
+                          // distinct (viewer, UTC day) pairs over a 7-day
+                          // sliding window. While the aggregation loads we
+                          // show 0 — same UI affordance as "no views yet",
+                          // and a refresh of the dashboard re-fetches.
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final stats = ref
+                                  .watch(profileViewWeeklyStatsProvider(
+                                      storefront.id))
+                                  .valueOrNull;
+                              return StatsCards(
+                                profileCompletionPercentage:
+                                    storefront.profileCompletionPercentage,
+                                weeklyViews: stats?.weeklyViews ?? 0,
+                                weeklyViewsChange:
+                                    stats?.weeklyChangePercent ?? 0.0,
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          // Quick-action row (notifications hub, clients, store preview)
+                          _buildQuickActions(context),
+                          const SizedBox(height: 24),
+                          // Navigation tabs
+                          NavigationTabs(
+                            activeTab: activeTab,
+                            onTabChanged: (tab) {
+                              ref.read(storefrontTabProvider.notifier).state =
+                                  tab;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          if (activeTab == 'accueil') ...[
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: StorefrontColors.primaryGold
+                                        .withValues(alpha: 0.28),
                                   ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Commerce en ligne',
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color: StorefrontColors.textPrimary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _isPublishingToggle
-                                              ? 'Enregistrement sur Firebase…'
-                                              : storefront.isPublished
-                                                  ? 'Votre vitrine est visible par les clients'
-                                                  : 'Hors ligne — invisible sur Yuztoo',
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 13,
-                                            color:
-                                                StorefrontColors.textSecondary,
-                                            height: 1.35,
-                                          ),
-                                        ),
-                                      ],
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.04),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 2),
                                     ),
-                                  ),
-                                  if (_isPublishingToggle)
-                                    const SizedBox(
-                                      width: 52,
-                                      height: 40,
-                                      child: Center(
-                                        child: SizedBox(
-                                          width: 26,
-                                          height: 26,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                            color: StorefrontColors.primaryGold,
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Commerce en ligne',
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color:
+                                                  StorefrontColors.textPrimary,
+                                            ),
                                           ),
-                                        ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _isPublishingToggle
+                                                ? 'Enregistrement sur Firebase…'
+                                                : storefront.isPublished
+                                                    ? 'Votre vitrine est visible par les clients'
+                                                    : 'Hors ligne — invisible sur Yuztoo',
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 13,
+                                              color: StorefrontColors
+                                                  .textSecondary,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    )
-                                  else
-                                    Switch(
-                                      value: storefront.isPublished,
-                                      onChanged: (v) =>
-                                          _setMerchantPublished(storefront, v),
-                                      activeThumbColor: Colors.white,
-                                      activeTrackColor:
-                                          StorefrontColors.primaryGold,
-                                      inactiveThumbColor: Colors.white,
-                                      inactiveTrackColor: StorefrontColors
-                                          .textTertiary
-                                          .withValues(alpha: 0.4),
                                     ),
-                                ],
+                                    if (_isPublishingToggle)
+                                      const SizedBox(
+                                        width: 52,
+                                        height: 40,
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 26,
+                                            height: 26,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              color:
+                                                  StorefrontColors.primaryGold,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Switch(
+                                        value: storefront.isPublished,
+                                        onChanged: (v) => _setMerchantPublished(
+                                            storefront, v),
+                                        activeThumbColor: Colors.white,
+                                        activeTrackColor:
+                                            StorefrontColors.primaryGold,
+                                        inactiveThumbColor: Colors.white,
+                                        inactiveTrackColor: StorefrontColors
+                                            .textTertiary
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
+                            const SizedBox(height: 16),
+                          ],
+                          // Content based on active tab
+                          if (activeTab == 'horaires')
+                            HoursSection(merchantId: storefront.id)
+                          else if (activeTab == 'accueil')
+                            const SizedBox.shrink()
+                          else if (activeTab == 'actualite')
+                            NewsSection(
+                              content: storefront.newsContent,
+                              imageUrls: storefront.newsImageUrls,
+                              pendingDeleteUrls: _pendingDeleteUrls,
+                              isUploading: _isUploadingNewsImage,
+                              isClearingAll: _isClearingAllNews,
+                              showMedia: true,
+                              showDescription: false,
+                              showUploadButton: true,
+                              onUploadImage: () => _uploadNewsImage(storefront),
+                              onDeleteImage: (url) =>
+                                  _deleteNewsImage(storefront, url),
+                              onClearAll: () => _clearAllNewsImages(storefront),
+                              onSettings: null,
+                              // Merchant sees client likes / views, read-only.
+                              engagementByUrl: ref
+                                      .watch(newsPhotoEngagementMapProvider(
+                                        newsPhotoEngagementKey(
+                                          merchantId: storefront.id,
+                                          imageUrls: storefront.newsImageUrls,
+                                        ),
+                                      ))
+                                      .valueOrNull ??
+                                  const {},
+                              showEngagementStats: true,
+                            ),
+                          const SizedBox(
+                              height: 100), // Space for main app bottom nav
                         ],
-                        // Content based on active tab
-                        if (activeTab == 'horaires')
-                          HoursSection(merchantId: storefront.id)
-                        else if (activeTab == 'accueil')
-                          const SizedBox.shrink()
-                        else if (activeTab == 'actualite')
-                          NewsSection(
-                            content: storefront.newsContent,
-                            imageUrls: storefront.newsImageUrls,
-                            pendingDeleteUrls: _pendingDeleteUrls,
-                            isUploading: _isUploadingNewsImage,
-                            isClearingAll: _isClearingAllNews,
-                            showMedia: true,
-                            showDescription: false,
-                            showUploadButton: true,
-                            onUploadImage: () => _uploadNewsImage(storefront),
-                            onDeleteImage: (url) =>
-                                _deleteNewsImage(storefront, url),
-                            onClearAll: () => _clearAllNewsImages(storefront),
-                            onSettings: null,
-                          ),
-                        const SizedBox(
-                            height: 100), // Space for main app bottom nav
-                      ],
+                      ),
                     ),
                   ),
-                ),
                 ),
               ],
             );
@@ -527,7 +454,7 @@ extension _StorefrontScreenUi on _StorefrontScreenState {
             ],
           ),
           error: (error, stack) => const _StorefrontStateMessage(
-          icon: Icons.error_outline_rounded,
+            icon: Icons.error_outline_rounded,
             title: 'Impossible de charger la boutique.',
           ),
         ),

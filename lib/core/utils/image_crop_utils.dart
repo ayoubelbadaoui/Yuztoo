@@ -112,6 +112,7 @@ Future<String?> cropImage(
       error: error,
       stackTrace: stackTrace,
     );
-    return null;
+    // Match the log message: keep the original pick so callers can still upload.
+    return sourcePath;
   }
 }

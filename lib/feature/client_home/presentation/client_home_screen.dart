@@ -78,6 +78,11 @@ class ClientHomeScreen extends ConsumerWidget {
             _buildTagline(context),
             _buildQuickActions(context),
             const SizedBox(height: 12),
+            // Search bar is pinned here (not inside the scrolling carnet) so
+            // it stays reachable once the client scrolls through a long list.
+            if ((feedAsync.valueOrNull?.merchants.length ?? 0) >
+                _carnetSearchThreshold)
+              _buildCarnetSearch(context),
             Expanded(
               child: YuztooPullRefresh(
                 onRefresh: () async {

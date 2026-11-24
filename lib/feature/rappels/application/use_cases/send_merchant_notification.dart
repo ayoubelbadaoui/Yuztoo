@@ -34,6 +34,7 @@ class SendMerchantNotification {
   final ClientNotificationRepository _notificationRepo;
   final ISentNotificationRepository _sentNotifRepo;
   final ClientLoyaltyRepository _loyaltyRepo;
+
   /// Verifies that [callerUid] owns the merchant identified by [merchantId].
   final Future<bool> Function(String merchantId, String callerUid) _isOwner;
 
@@ -54,7 +55,8 @@ class SendMerchantNotification {
         error: 'callerUid=$callerUid merchantId=$merchantId',
       );
       return const Left(UnexpectedFailure(
-          message: 'Vous n\'êtes pas autorisé à envoyer des notifications pour ce commerce.'));
+          message:
+              'Vous n\'êtes pas autorisé à envoyer des notifications pour ce commerce.'));
     }
 
     // 1. Get all follower IDs.

@@ -10,7 +10,9 @@ import '../../discovery/application/providers.dart'
     show invalidateDiscoveryCatalogWidget;
 import '../application/providers.dart';
 import '../infrastructure/merchant_city_resolution.dart';
+import '../../auth/core/application/onboarding_completion_cache.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
+import '../../merchant_onboarding/application/merchant_onboarding_draft.dart';
 import '../../merchant_onboarding/application/onboarding_flow_provider.dart';
 import '../../merchant_onboarding/application/screens.dart';
 import '../../merchant_onboarding/application/skip_personal_info_resolution.dart';
@@ -62,6 +64,25 @@ class _MerchantProfileFormScreenState
   /// so the user is asked **only** for the missing piece (the step prefills
   /// what's already known).
   bool _effectiveSkipPersonalInfo = false;
+
+  /// Resumed wizard step (app killed mid-onboarding) and draft bookkeeping.
+  int _initialStep = 0;
+  int _draftStep = 0;
+  String? _draftUid;
+  bool _draftClosed = false;
+
+  void _saveDraft(MerchantOnboardingData data) {
+    final uid = _draftUid;
+    if (uid == null || _draftClosed || !_basicsResolved) return;
+    MerchantOnboardingDraftStore.save(
+      uid,
+      MerchantOnboardingDraft(
+        data: data,
+        step: _draftStep,
+        skipPersonalInfo: _effectiveSkipPersonalInfo,
+      ),
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -121,10 +142,14 @@ class _MerchantProfileFormScreenState
     String? lastName;
     DateTime? dateOfBirth;
     if (widget.skipPersonalInfo) {
-      final basicsResult =
-          await ref.read(auth_providers.getUserProfileBasicsProvider).call(userId);
+      // Bounded: this read gates a full-screen spinner. Offline, fall back to
+      // the full wizard (the owner-info step is simply asked again).
+      final basicsResult = await _orNullAfter(
+        ref.read(auth_providers.getUserProfileBasicsProvider).call(userId),
+        _kReadTimeout,
+      );
       if (!mounted) return;
-      final basics = basicsResult.fold((_) => null, (b) => b);
+      final basics = basicsResult?.fold((_) => null, (b) => b);
       if (basics != null) {
         firstName = basics.firstName?.trim();
         lastName = basics.lastName?.trim();
@@ -144,7 +169,11 @@ class _MerchantProfileFormScreenState
       }
     }
 
+    // A saved wizard (app killed mid-onboarding) wins over cache / basics.
+    final draft = await MerchantOnboardingDraftStore.load(userId);
     if (!mounted) return;
+    if (draft != null) notifier.restore(draft.data);
+
     setState(() {
       _effectiveSkipPersonalInfo = resolveMerchantOnboardingSkipPersonalInfo(
         requested: widget.skipPersonalInfo,
@@ -152,6 +181,15 @@ class _MerchantProfileFormScreenState
         lastName: lastName,
         dateOfBirth: dateOfBirth,
       );
+      _initialStep = draft?.resumeStep(
+            skipPersonalInfo: _effectiveSkipPersonalInfo,
+            totalSteps: MerchantOnboardingFlowScreen.stepCount(
+              skipPersonalInfo: _effectiveSkipPersonalInfo,
+            ),
+          ) ??
+          0;
+      _draftStep = _initialStep;
+      _draftUid = userId;
       _basicsResolved = true;
     });
   }
@@ -166,8 +204,9 @@ class _MerchantProfileFormScreenState
     // If the caller didn't request a skip, no resolution is needed — render
     // the full wizard immediately. This keeps the original signup path
     // (new merchant, not dual-profile) free of any extra latency.
-    final mustResolveBasics = widget.skipPersonalInfo;
-    if (mustResolveBasics && !_basicsResolved) {
+    // Wait for the local draft too (fast, on-device) so a resumed wizard
+    // opens directly on the right step with its fields filled.
+    if (!_basicsResolved) {
       return const Scaffold(
         backgroundColor: MerchantColors.bgMain,
         body: Center(
@@ -175,9 +214,18 @@ class _MerchantProfileFormScreenState
         ),
       );
     }
+    ref.listen<MerchantOnboardingData>(
+      onboardingFlowProvider,
+      (_, next) => _saveDraft(next),
+    );
     return MerchantOnboardingFlowScreen(
       isPostSignup: true,
       skipPersonalInfo: _effectiveSkipPersonalInfo,
+      initialStep: _initialStep,
+      onStepChanged: (step) {
+        _draftStep = step;
+        _saveDraft(ref.read(onboardingFlowProvider));
+      },
       onBack: widget.onBack ?? () {},
       onComplete: () {},
       onPostSignupPersist: _saveFromOnboarding,

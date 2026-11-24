@@ -28,7 +28,7 @@ class ActiveNotificationsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -39,10 +39,10 @@ class ActiveNotificationsList extends StatelessWidget {
                   color: MerchantColors.gold, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Notifications actives',
+                'Mes notifications',
                 style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
               ),
@@ -55,7 +55,7 @@ class ActiveNotificationsList extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${notifications.where((n) => n.isEnabled).length} actives',
+                  _activeLabel(notifications.where((n) => n.isEnabled).length),
                   style: GoogleFonts.outfit(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -85,21 +85,17 @@ class ActiveNotificationsList extends StatelessWidget {
               );
             }),
 
-          const SizedBox(height: 20),
-          if (notifications.isEmpty)
-            Text(
-              'Configurez vos notifications pour rester en contact avec vos clients automatiquement',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                color: MerchantColors.textLightGrey,
-                height: 1.6,
-              ),
-            ),
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
+
+  static String _activeLabel(int n) => switch (n) {
+        0 => 'Aucune active',
+        1 => '1 active',
+        _ => '$n actives',
+      };
 
   Widget _buildEmptyState() {
     return Container(
@@ -128,7 +124,7 @@ class ActiveNotificationsList extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Créez votre première notification ci-dessus',
+            'Créez votre première notification ci-dessous',
             style: GoogleFonts.outfit(
               fontSize: 12,
               color: MerchantColors.textLightGrey,
@@ -139,4 +135,3 @@ class ActiveNotificationsList extends StatelessWidget {
     );
   }
 }
-

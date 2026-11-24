@@ -330,8 +330,7 @@ Future<bool> showSaveTemplateDialog({
                 controller: controller,
                 autofocus: true,
                 maxLength: 80,
-                style:
-                    GoogleFonts.outfit(fontSize: 14, color: Colors.white),
+                style: GoogleFonts.outfit(fontSize: 14, color: Colors.white),
                 cursorColor: MerchantColors.gold,
                 decoration: InputDecoration(
                   filled: true,
@@ -344,8 +343,8 @@ Future<bool> showSaveTemplateDialog({
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                      color: MerchantColors.gold.withValues(
-                          alpha: MerchantColors.goldBorderAlpha),
+                      color: MerchantColors.gold
+                          .withValues(alpha: MerchantColors.goldBorderAlpha),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -374,8 +373,7 @@ Future<bool> showSaveTemplateDialog({
           ),
           actions: [
             TextButton(
-              onPressed:
-                  saving ? null : () => Navigator.of(ctx).pop(false),
+              onPressed: saving ? null : () => Navigator.of(ctx).pop(false),
               child: Text('Annuler',
                   style: GoogleFonts.outfit(color: MerchantColors.textGrey)),
             ),

@@ -91,8 +91,8 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
                         Row(
                           children: [
                             Flexible(
-                              child: _infoPill(
-                                  Icons.bolt_rounded, notification.trigger, isOn),
+                              child: _infoPill(Icons.bolt_rounded,
+                                  notification.trigger, isOn),
                             ),
                             const SizedBox(width: 6),
                             Flexible(
@@ -120,69 +120,72 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
               ),
             ),
           ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.03),
-            border: Border(
-              top: BorderSide(
-                color: Colors.white.withValues(alpha: 0.06),
-                width: 1,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.03),
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  width: 1,
+                ),
               ),
             ),
-          ),
-          child: Row(
-            children: [
-              _actionButton(
-                icon: Icons.edit_outlined,
-                label: 'Modifier',
-                color: MerchantColors.gold,
-                onTap: onEdit,
-              ),
-              const SizedBox(width: 4),
-              _actionButton(
-                icon: Icons.science_outlined,
-                label: 'Tester',
-                color: const Color(0xFF64B5F6),
-                onTap: onTest ?? () {},
-              ),
-              const Spacer(),
-              // Delivery stats — show when sent at least once.
-              if (notification.sentCount > 0) ...[
-                const Icon(
-                  Icons.send_rounded,
-                  size: 11,
-                  color: MerchantColors.textGrey,
+            child: Row(
+              children: [
+                _actionButton(
+                  icon: Icons.edit_outlined,
+                  label: 'Modifier',
+                  color: MerchantColors.gold,
+                  onTap: onEdit,
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  _deliveryLabel(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 10,
-                    color: MerchantColors.textGrey,
-                  ),
+                _actionButton(
+                  icon: Icons.science_outlined,
+                  label: 'Tester',
+                  color: const Color(0xFF64B5F6),
+                  onTap: onTest ?? () {},
                 ),
                 const Spacer(),
+                // Delivery stats — show when sent at least once.
+                if (notification.sentCount > 0) ...[
+                  const Icon(
+                    Icons.send_rounded,
+                    size: 11,
+                    color: MerchantColors.textGrey,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _deliveryLabel(),
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      color: MerchantColors.textGrey,
+                    ),
+                  ),
+                  const Spacer(),
+                ],
+                _actionButton(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Supprimer',
+                  color: const Color(0xFFE57373),
+                  onTap: onDelete,
+                ),
               ],
-              _actionButton(
-                icon: Icons.delete_outline_rounded,
-                label: 'Supprimer',
-                color: const Color(0xFFE57373),
-                onTap: onDelete,
-              ),
-            ],
+            ),
           ),
-        ),
         ],
       ),
     );
   }
 
   Widget _cloudStatusBadge() {
-    final isWired = AutoNotificationTriggers.isWiredInCloud(notification.trigger);
+    final isWired =
+        AutoNotificationTriggers.isWiredInCloud(notification.trigger);
     final color = isWired ? const Color(0xFF64B5F6) : const Color(0xFFFFB74D);
     final icon = isWired ? Icons.cloud_done_outlined : Icons.cloud_off_outlined;
-    final label = isWired ? 'Exécuté automatiquement par le service cloud' : 'Déclencheur en cours d\'intégration';
+    final label = isWired
+        ? 'Exécuté automatiquement par le service cloud'
+        : 'Déclencheur en cours d\'intégration';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -249,8 +252,7 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
         children: [
           Icon(icon,
               size: 12,
-              color:
-                  isOn ? MerchantColors.gold : MerchantColors.textLightGrey),
+              color: isOn ? MerchantColors.gold : MerchantColors.textLightGrey),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
@@ -260,9 +262,8 @@ extension _ActiveNotificationCardUi on ActiveNotificationCard {
               style: GoogleFonts.outfit(
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
-                color: isOn
-                    ? MerchantColors.gold
-                    : MerchantColors.textLightGrey,
+                color:
+                    isOn ? MerchantColors.gold : MerchantColors.textLightGrey,
               ),
             ),
           ),

@@ -34,6 +34,32 @@ service firebase.storage {
                == request.auth.uid);
     }
 
+    /// Enseigne owner or gérant of this store (see firestore.rules
+    /// `hasStoreRole`). Stores without `organization_id` stop at the first
+    /// check, so single-store merchants are unaffected.
+    function merchantDoc(merchantId) {
+      return firestore.get(/databases/(default)/documents/merchants/$(merchantId)).data;
+    }
+
+    function storeMemberDoc(merchantId) {
+      return firestore.get(/databases/(default)/documents/organizations/$(merchantDoc(merchantId).organization_id)/members/$(request.auth.uid)).data;
+    }
+
+    function isStoreManager(merchantId) {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/merchants/$(merchantId))
+        && merchantDoc(merchantId).get('organization_id', null) is string
+        && firestore.exists(/databases/(default)/documents/organizations/$(merchantDoc(merchantId).organization_id)/members/$(request.auth.uid))
+        && storeMemberDoc(merchantId).status == 'active'
+        && (storeMemberDoc(merchantId).role == 'owner'
+          || (storeMemberDoc(merchantId).role == 'manager'
+            && merchantId in storeMemberDoc(merchantId).get('store_ids', [])));
+    }
+
+    function canManageStore(merchantId) {
+      return isMerchantOwner(merchantId) || isStoreManager(merchantId);
+    }
+
     /// 5 MB file size cap for all uploads.
     function sizeOk() {
       return request.resource.size <= 5 * 1024 * 1024;
@@ -49,28 +75,28 @@ service firebase.storage {
     // Logo / banner (single file per merchant)
     match /merchants/{merchantId}/logo.png {
       allow read: if true;
-      allow create, update: if isMerchantOwner(merchantId) && sizeOk() && isImage();
-      allow delete: if isMerchantOwner(merchantId);
+      allow create, update: if canManageStore(merchantId) && sizeOk() && isImage();
+      allow delete: if canManageStore(merchantId);
     }
 
     match /merchants/{merchantId}/banner.png {
       allow read: if true;
-      allow create, update: if isMerchantOwner(merchantId) && sizeOk() && isImage();
-      allow delete: if isMerchantOwner(merchantId);
+      allow create, update: if canManageStore(merchantId) && sizeOk() && isImage();
+      allow delete: if canManageStore(merchantId);
     }
 
     // News / gallery slider images  (merchants/{merchantId}/news/{file})
     match /merchants/{merchantId}/news/{file} {
       allow read: if true;
-      allow create, update: if isMerchantOwner(merchantId) && sizeOk() && isImage();
-      allow delete: if isMerchantOwner(merchantId);
+      allow create, update: if canManageStore(merchantId) && sizeOk() && isImage();
+      allow delete: if canManageStore(merchantId);
     }
 
     // Promotion images  (merchants/{merchantId}/promotions/{file})
     match /merchants/{merchantId}/promotions/{file} {
       allow read: if true;
-      allow create, update: if isMerchantOwner(merchantId) && sizeOk() && isImage();
-      allow delete: if isMerchantOwner(merchantId);
+      allow create, update: if canManageStore(merchantId) && sizeOk() && isImage();
+      allow delete: if canManageStore(merchantId);
     }
 
     // ── Client / user assets ───────────────────────────────────────────────

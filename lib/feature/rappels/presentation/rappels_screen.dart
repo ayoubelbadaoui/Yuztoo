@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/shared/widgets/coachmark_tour.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../loyalty/application/active_validation_providers.dart';
@@ -23,13 +24,12 @@ import 'widgets/quick_send_section.dart';
 // so re-enabling the NFC plaque marketing block is a single-line revert.
 // ignore: unused_import
 import 'widgets/rappels_product_section.dart';
-import 'widgets/rappels_toggles_section.dart';
 import '../../../core/shared/widgets/yuztoo_tab_header.dart';
 
 part 'rappels_screen.part.dart';
 
-/// Rappels screen – "Vos rappels" merchant page.
-/// Toggles are loaded from and saved to Firestore.
+/// Notifications screen – quick send, pending clients, auto-notif entry.
+/// Auto-validation toggles live under Vos clients → Validation.
 class RappelsScreen extends ConsumerStatefulWidget {
   final void Function(String)? onNavigate;
   final VoidCallback? onBack;
@@ -41,110 +41,130 @@ class RappelsScreen extends ConsumerStatefulWidget {
 }
 
 class _RappelsScreenState extends ConsumerState<RappelsScreen> {
-  bool _welcomePopupScheduled = false;
+  bool _guideScheduled = false;
 
-  static String _welcomePopupPrefsKey(String merchantId) =>
-      'rappels.welcome_popup_seen.$merchantId';
+  // Coachmark anchors for the page guide.
+  final QuickSendGuideKeys _quickKeys = QuickSendGuideKeys();
+  final GlobalKey _rewardsKey = GlobalKey();
+  final GlobalKey _pendingKey = GlobalKey();
+  final GlobalKey _autoKey = GlobalKey();
+  CoachmarkTourHandle? _tour;
 
-  Future<void> _maybeShowWelcomePopupOnce(String merchantId) async {
-    if (merchantId.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    final key = _welcomePopupPrefsKey(merchantId);
-    if (prefs.getBool(key) == true) return;
-    if (!mounted) return;
-    await _showWelcomePopup();
-    if (!mounted) return;
-    await prefs.setBool(key, true);
+  /// Shown once per device (replaces the old « Comment ça marche ? » popup);
+  /// the small ⓘ in the header replays it.
+  static const String _guideSeenKey = 'coach_rappels_page_seen_v1';
+
+  @override
+  void dispose() {
+    _tour?.dismiss();
+    super.dispose();
   }
 
-  void _scheduleWelcomePopupOnce(String merchantId) {
-    if (_welcomePopupScheduled) return;
-    _welcomePopupScheduled = true;
-    unawaited(_maybeShowWelcomePopupOnce(merchantId));
+  void _scheduleGuideOnce() {
+    if (_guideScheduled) return;
+    _guideScheduled = true;
+    unawaited(_maybeShowGuideOnce());
   }
 
-  Future<void> _showWelcomePopup() async {
-    await showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.65),
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: MerchantColors.bgHeader,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: MerchantColors.gold
-                  .withValues(alpha: MerchantColors.goldBorderStronger),
-              width: 1.5,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: MerchantColors.gold.withValues(alpha: 0.15),
-                  border: Border.all(color: MerchantColors.gold, width: 2),
-                ),
-                child: const Icon(Icons.info_outline_rounded,
-                    color: MerchantColors.gold, size: 26),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Comment ça marche ?',
-                style: GoogleFonts.outfit(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Retrouvez ici les clients ayant scanné votre QR code et '
-                'gérez vos notifications automatiques. '
-                'Les demandes de passage fidélité se valident dans '
-                '« Vos clients » (section Validation des passages).',
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  color: MerchantColors.textLightGrey,
-                  height: 1.6,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              GestureDetector(
-                onTap: () => Navigator.of(ctx).pop(),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [MerchantColors.gold, Color(0xFFD4AF37)],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Compris !',
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: MerchantColors.darkOverlay,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+  Future<void> _maybeShowGuideOnce() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_guideSeenKey) ?? false) return;
+      await prefs.setBool(_guideSeenKey, true);
+    } on Object {
+      return;
+    }
+    // Let sections (history, rewards…) finish their first layout.
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    _showPageGuide();
+  }
+
+  void _showPageGuide() {
+    _tour?.dismiss();
+    _tour = CoachmarkTour.show(
+      context,
+      steps: [
+        CoachmarkStep(
+          targetKey: _quickKeys.compose,
+          icon: Icons.send_rounded,
+          title: 'Envoyez un message à vos clients',
+          message: 'Écrivez ici une notification : promo, nouveauté, '
+              'événement… Elle arrive directement sur le téléphone de '
+              'vos clients.',
         ),
-      ),
+        CoachmarkStep(
+          targetKey: _quickKeys.templates,
+          icon: Icons.bookmark_outline_rounded,
+          title: 'Vos modèles',
+          message: '« Enregistrer » garde le message pour plus tard. '
+              '« Charger un template » le réutilise en un geste.',
+        ),
+        CoachmarkStep(
+          targetKey: _quickKeys.audience,
+          icon: Icons.groups_rounded,
+          title: 'À qui l’envoyer',
+          message: 'Tous vos clients, ou seulement certains : nouveaux, '
+              'habitués, VIP, inactifs…',
+        ),
+        CoachmarkStep(
+          targetKey: _quickKeys.quota,
+          icon: Icons.speed_rounded,
+          title: 'Votre quota',
+          message: 'Le nombre d’envois possibles cette semaine. Il se '
+              'recharge chaque semaine.',
+        ),
+        CoachmarkStep(
+          targetKey: _quickKeys.schedule,
+          icon: Icons.schedule_rounded,
+          title: 'Programmer plus tard',
+          message: 'Choisissez une date et une heure : la notification '
+              'partira toute seule à ce moment-là.',
+        ),
+        CoachmarkStep(
+          targetKey: _quickKeys.send,
+          icon: Icons.rocket_launch_outlined,
+          title: 'Envoyer',
+          message: 'Envoie tout de suite (ou programme, si vous avez choisi '
+              'une heure). Une confirmation indique combien de clients '
+              'l’ont reçue.',
+        ),
+        CoachmarkStep(
+          targetKey: _quickKeys.scheduled,
+          icon: Icons.event_note_rounded,
+          title: 'Vos envois programmés',
+          message: 'Les notifications en attente apparaissent ici. Vous '
+              'pouvez annuler un envoi avant son heure.',
+        ),
+        CoachmarkStep(
+          targetKey: _quickKeys.history,
+          icon: Icons.history_rounded,
+          title: 'Historique',
+          message: 'Tous vos messages déjà envoyés, avec leur date.',
+        ),
+        CoachmarkStep(
+          targetKey: _rewardsKey,
+          icon: Icons.card_giftcard_rounded,
+          title: 'Récompenses à remettre',
+          message: 'Les clients qui ont gagné une récompense fidélité. '
+              'Remettez-la en magasin puis validez-la ici.',
+        ),
+        CoachmarkStep(
+          targetKey: _pendingKey,
+          icon: Icons.person_add_alt_1_rounded,
+          title: 'Nouveaux clients',
+          message: 'Les clients qui ont scanné votre QR code et attendent '
+              'votre accord.',
+        ),
+        CoachmarkStep(
+          targetKey: _autoKey,
+          icon: Icons.auto_awesome_rounded,
+          title: 'Notifications automatiques',
+          message: 'Pour les messages qui partent tout seuls (anniversaire, '
+              'nouveau client, client inactif…). Un guide vous y attend aussi.',
+        ),
+      ],
+      onFinish: () => _tour = null,
     );
   }
 
@@ -153,9 +173,12 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
     String audience,
     List<String> segments,
   ) async {
-    final merchant = ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
+    final merchant = ref
+        .read(merchant_providers.currentMerchantForOwnerProvider)
+        .valueOrNull;
     if (merchant == null) return;
-    final useCase = ref.read(rappels_providers.sendMerchantNotificationProvider);
+    final useCase =
+        ref.read(rappels_providers.sendMerchantNotificationProvider);
     final result = await useCase.call(
       merchantId: merchant.id,
       merchantName: merchant.name,
@@ -176,7 +199,8 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
         ),
       ),
       (sent) {
-        ref.invalidate(rappels_providers.sentNotificationsProvider(merchant.id));
+        ref.invalidate(
+            rappels_providers.sentNotificationsProvider(merchant.id));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -191,8 +215,9 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
   }
 
   Future<void> _onPullRefresh() async {
-    final merchant =
-        ref.read(merchant_providers.currentMerchantForOwnerProvider).valueOrNull;
+    final merchant = ref
+        .read(merchant_providers.currentMerchantForOwnerProvider)
+        .valueOrNull;
     ref.invalidate(storefront_providers.storefrontProvider);
     ref.invalidate(merchant_providers.currentMerchantForOwnerProvider);
     if (merchant != null) {
@@ -210,10 +235,11 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
   @override
   Widget build(BuildContext context) {
     final storefrontAsync = ref.watch(storefront_providers.storefrontProvider);
-    final merchantAsync = ref.watch(merchant_providers.currentMerchantForOwnerProvider);
+    final merchantAsync =
+        ref.watch(merchant_providers.currentMerchantForOwnerProvider);
     final Merchant? merchant = merchantAsync.valueOrNull;
     if (merchant != null) {
-      _scheduleWelcomePopupOnce(merchant.id);
+      _scheduleGuideOnce();
     }
 
     return _buildRappelsScaffold(
@@ -221,39 +247,6 @@ class _RappelsScreenState extends ConsumerState<RappelsScreen> {
       storefrontAsync: storefrontAsync,
       merchantAsync: merchantAsync,
       merchant: merchant,
-    );
-  }
-
-  Future<void> _saveRappels(
-    WidgetRef ref,
-    String merchantId,
-    bool autoClient,
-    bool autoPassage,
-  ) async {
-    final updateRappels =
-        ref.read(merchant_providers.updateRappelsSettingsProvider);
-    final result = await updateRappels.call(
-      merchantId: merchantId,
-      rappelsAutoClientValidation: autoClient,
-      rappelsAutoPassageValidation: autoPassage,
-    );
-    result.fold(
-      (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Erreur lors de l\'enregistrement',
-                style: merchantSnackBarTextOnWarmAccent(),
-              ),
-              backgroundColor: Colors.red[400],
-            ),
-          );
-        }
-      },
-      (_) {
-        ref.invalidate(storefront_providers.storefrontProvider);
-      },
     );
   }
 }

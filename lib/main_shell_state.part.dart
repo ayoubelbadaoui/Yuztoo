@@ -82,6 +82,11 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// FCM message received via getInitialMessage() before the auth state resolved.
   RemoteMessage? _pendingInitialFcmMessage;
 
+  /// Push tapped while the user was in an onboarding wizard or an auth flow.
+  /// Opening it there would leave onboarding half done (notifications screen
+  /// over an unfinished profile); it is replayed once onboarding completes.
+  Map<String, dynamic>? _deferredFcmTapData;
+
   /// Manual passage validation push received before merchant shell / queue ready.
   String? _pendingPassageValidationClientUid;
   String? _pendingPassageValidationMerchantId;
@@ -256,17 +261,11 @@ class _RootShellState extends ConsumerState<_RootShell>
     NotificationService.instance.attachOverlay(Overlay.of(context));
   }
 
-  /// Requests notification permission on every cold-start, regardless of auth
-  /// state. Safe to call repeatedly — Android shows the dialog only when needed.
+  /// Foreground presentation setup. The permission itself is no longer
+  /// requested here (cold start, before signup, no context — iOS asks only
+  /// once): see [_maybeOfferNotifications] / NotificationPermissionPrompt.
   Future<void> _requestRuntimePermissions() async {
     try {
-      await PermissionRequestQueue.run(
-        () => FirebaseMessaging.instance.requestPermission(
-          alert: true,
-          badge: true,
-          sound: true,
-        ),
-      );
       // iOS: play sound + update badge in foreground; suppress system banner
       // since the Flutter overlay (NotificationService) handles the visual.
       await FirebaseMessaging.instance
@@ -398,34 +397,11 @@ class _RootShellState extends ConsumerState<_RootShell>
     } catch (_) {}
   }
 
-  bool _canApplyVitrineDeepLinkNow() {
-    final screen = _nestedScreen ?? _authScreen;
-    if (screen == null || screen == ScreenId.splash) return false;
+  bool _canApplyVitrineDeepLinkNow() => canOpenShopLinkNow(
+        screen: _nestedScreen ?? _authScreen,
+        signedIn: ref.read(authControllerProvider) is Authenticated,
+      );
 
-    final authState = ref.read(authControllerProvider);
-    // Guests: open the store from role selection / guest shell so a QR scan
-    // → install → first open lands on the shop without forcing signup first.
-    if (authState is! Authenticated) {
-      return screen == ScreenId.roleSelection ||
-          screen == ScreenId.guestShell ||
-          screen == ScreenId.discovery ||
-          screen == ScreenId.storeProfile ||
-          screen == ScreenId.qrScanner;
-    }
-
-    const defer = <ScreenId>{
-      ScreenId.login,
-      ScreenId.signup,
-      ScreenId.oauthCompletion,
-      ScreenId.otp,
-      ScreenId.clientOnboarding,
-      ScreenId.merchantOnboarding,
-      ScreenId.merchantSubcategorySelection,
-      ScreenId.merchantBenefits,
-      ScreenId.merchantProfileForm,
-    };
-    return !defer.contains(screen);
-  }
 
   /// Navigates to a merchant's storefront, optionally deep-linking into a
   /// specific promotion. When [promotionId] is non-null the storefront
@@ -517,6 +493,10 @@ class _RootShellState extends ConsumerState<_RootShell>
     if (state == AppLifecycleState.resumed) {
       unawaited(WakelockPlus.enable());
 
+      // Re-read PackageInfo + CRM force_update floor after returning from the
+      // store (or after ops flip the gate while the app was backgrounded).
+      force_update.refreshForceUpdateProviders(ref);
+
       // Refetch vitrine when returning to the app on the merchant storefront;
       // cached Riverpod/Firestore snapshots can otherwise show an outdated page.
       final currentScreen = _nestedScreen ?? _authScreen;
@@ -596,6 +576,10 @@ class _RootShellState extends ConsumerState<_RootShell>
   ///     (`notification_id` scroll when present) — never the bare vitrine.
   void _handleFcmTap(Map<String, dynamic>? data) {
     if (!mounted) return;
+    if (mustDeferPushTap(_nestedScreen ?? _authScreen)) {
+      _deferredFcmTapData = data ?? const <String, dynamic>{};
+      return;
+    }
     if (data == null) {
       _openNotificationsScreen();
       return;
@@ -673,15 +657,67 @@ class _RootShellState extends ConsumerState<_RootShell>
   /// Consumes any pending initial FCM message after the shell is ready.
   void _tryConsumePendingFcmMessage() {
     final msg = _pendingInitialFcmMessage;
-    if (msg == null) return;
+    final deferred = _deferredFcmTapData;
+    if (msg == null && deferred == null) return;
     _pendingInitialFcmMessage = null;
+    _deferredFcmTapData = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _handleFcmTap(msg.data);
+      if (!mounted) return;
+      // Still in a wizard: _handleFcmTap defers it again.
+      _handleFcmTap(msg?.data ?? (deferred!.isEmpty ? null : deferred));
     });
+  }
+
+  /// After an onboarding wizard completes: open what was waiting — the shop
+  /// whose QR brought the user here, then any push tapped meanwhile.
+  void _consumeWaitingLinksAfterOnboarding() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _tryConsumePendingVitrineLink();
+      _tryConsumePendingFcmMessage();
+      // One permission at a time: the notification explanation first, then
+      // BLE (held back during onboarding, see _startBleOnly) whose iOS prompt
+      // would otherwise pop over the sheet.
+      await _maybeOfferNotifications();
+      if (mounted) unawaited(_startMerchantRealtimeServices());
+    });
+  }
+
+  /// Push « soft ask » (explanation sheet, then the system prompt) at a
+  /// meaningful moment: end of onboarding, or first arrival on home.
+  Future<void> _maybeOfferNotifications() async {
+    final auth = ref.read(authControllerProvider);
+    if (!mounted || auth is! Authenticated) return;
+    if (mustDeferPushTap(_nestedScreen ?? _authScreen)) return; // in a wizard
+    final uid = auth.user.id;
+    await NotificationPermissionPrompt.maybeOffer(
+      context,
+      forMerchant: _role == UserRole.merchant,
+      onGranted: () => ref.read(fcmTokenServiceProvider).registerToken(uid),
+    );
+  }
+
+  /// Signed-in user backing out of the first screen of a wizard: the only
+  /// way to leave is signing out (wrong account, changed their mind).
+  Future<void> _confirmLeaveOnboardingAndSignOut() async {
+    final auth = ref.read(authStateProvider);
+    final label = auth is Authenticated
+        ? (auth.user.email?.trim().isNotEmpty == true
+            ? auth.user.email
+            : auth.user.phoneNumber)
+        : null;
+    final leave = await confirmLeaveOnboarding(context, accountLabel: label);
+    if (!leave || !mounted) return;
+    await ref.read(authControllerProvider.notifier).signOut();
   }
 
   bool _hasReceivedFirstAuthState = false;
   bool _isNavigatingToHome = false; // Track when we're navigating to home
+
+  /// Uid the shell last finished routing for. Lets a same-user
+  /// `Authenticated` that follows a transient `AuthError` keep the current
+  /// screen instead of re-routing (which recreated onboarding at step 0).
+  String? _routedUid;
 
   /// Clears transient signup/onboarding draft data to avoid leaking values
   /// between different accounts after logout.
@@ -726,6 +762,18 @@ class _RootShellState extends ConsumerState<_RootShell>
     } catch (_) {}
   }
 
+  /// Categories without subcategories auto-skip the subcategory screen
+  /// forward, so going back there from Benefits bounced straight back to
+  /// Benefits. Return to the category picker instead.
+  void _backFromMerchantBenefits() {
+    final categoryId = ref.read(selectedMerchantCategoryIdProvider);
+    final hasSubcategories =
+        MerchantSubcategoryCatalog.forCategory(categoryId).isNotEmpty;
+    setState(() => _authScreen = hasSubcategories
+        ? ScreenId.merchantSubcategorySelection
+        : ScreenId.merchantOnboarding);
+  }
+
   /// Handle auth state changes and update navigation
   void _handleAuthStateChange(AuthState authState, {AuthState? previous}) {
     if (!mounted) return;
@@ -758,8 +806,9 @@ class _RootShellState extends ConsumerState<_RootShell>
       ScreenId.otp,
     };
     if (authState is Authenticated &&
-        previous is Authenticated &&
-        previous.user.id == authState.user.id &&
+        ((previous is Authenticated &&
+                previous.user.id == authState.user.id) ||
+            (previous is AuthError && _routedUid == authState.user.id)) &&
         _authScreen != null &&
         !preAuthScreens.contains(_authScreen) &&
         !_isNavigatingToHome) {
@@ -799,6 +848,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       _hasReceivedFirstAuthState = true;
 
       if (authState is Unauthenticated) {
+        _routedUid = null;
         // FCM token is cleared **before** Firebase sign-out (see [AuthController.signOut]
         // and pre-[signOutProvider] cleanup in [_handleAuthenticatedUser]).
         unawaited(_clearAuthTransientDrafts());
@@ -915,14 +965,24 @@ class _RootShellState extends ConsumerState<_RootShell>
       final getUserRole = ref.read(getUserRoleProvider);
       UserRole? role;
 
+      // A read that timed out / threw tells us nothing about whether the
+      // profile exists. Track it so a slow network never signs the user out.
+      var networkInconclusive = false;
+
       // Retry to absorb eventual consistency right after signup/profile writes.
       for (int attempt = 0; attempt < roleAttempts; attempt++) {
         if (attempt > 0) {
           await Future.delayed(Duration(milliseconds: 150 * attempt));
         }
-        final roleResult =
-            await getUserRole.call(user.id).timeout(const Duration(seconds: 3));
-        role = roleResult.fold((_) => null, (r) => r);
+        try {
+          final roleResult = await getUserRole
+              .call(user.id)
+              .timeout(const Duration(seconds: 6));
+          role = roleResult.fold((_) => null, (r) => r);
+        } catch (_) {
+          networkInconclusive = true;
+          role = null;
+        }
         if (role != null) break;
       }
 
@@ -936,12 +996,16 @@ class _RootShellState extends ConsumerState<_RootShell>
           if (attempt > 0) {
             await Future.delayed(Duration(milliseconds: 150 * attempt));
           }
-          final basicsResult = await ref
-              .read(getUserProfileBasicsProvider)
-              .call(user.id)
-              .timeout(const Duration(seconds: 3));
-          hasFirestoreProfile =
-              basicsResult.fold((_) => false, (b) => b != null);
+          try {
+            final basicsResult = await ref
+                .read(getUserProfileBasicsProvider)
+                .call(user.id)
+                .timeout(const Duration(seconds: 6));
+            hasFirestoreProfile =
+                basicsResult.fold((_) => false, (b) => b != null);
+          } catch (_) {
+            networkInconclusive = true;
+          }
           if (hasFirestoreProfile) break;
         }
 
@@ -961,7 +1025,9 @@ class _RootShellState extends ConsumerState<_RootShell>
           return;
         }
 
-        if (!hasFirestoreProfile) {
+        // Only sign out on a definitive "no profile". When reads merely timed
+        // out, fall through to the cached-role fallback below instead.
+        if (!hasFirestoreProfile && !networkInconclusive) {
           if (freshOAuthRole != null) {
             // Profile was just written — trust the intended role rather than
             // signing out while Firestore catches up.
@@ -1016,10 +1082,14 @@ class _RootShellState extends ConsumerState<_RootShell>
         while (role == null && elapsed < maxExtraWaitMs && mounted) {
           await Future.delayed(const Duration(milliseconds: stepMs));
           elapsed += stepMs;
-          final roleResult = await getUserRole
-              .call(user.id)
-              .timeout(const Duration(seconds: 5));
-          role = roleResult.fold((_) => null, (r) => r);
+          try {
+            final roleResult = await getUserRole
+                .call(user.id)
+                .timeout(const Duration(seconds: 5));
+            role = roleResult.fold((_) => null, (r) => r);
+          } catch (_) {
+            // Slow network: keep waiting until maxExtraWaitMs.
+          }
         }
         role ??= freshOAuthRole;
       }
@@ -1089,6 +1159,7 @@ class _RootShellState extends ConsumerState<_RootShell>
           _activeTab = role == UserRole.client ? 'home' : 'storefront';
           _nestedStack.clear();
           _isNavigatingToHome = false; // Navigation complete
+          _routedUid = user.id;
         });
         unawaited(
           ref.read(roleCacheServiceProvider).saveLastSelectedRole(
@@ -1101,6 +1172,9 @@ class _RootShellState extends ConsumerState<_RootShell>
           if (!mounted) return;
           _tryConsumePendingVitrineLink();
           _tryConsumePendingFcmMessage();
+          // Returning users (e.g. after a reinstall) land here, not in
+          // onboarding: same contextual push offer.
+          unawaited(_maybeOfferNotifications());
         });
         unawaited(_startMerchantRealtimeServices());
       }
@@ -1250,6 +1324,12 @@ class _RootShellState extends ConsumerState<_RootShell>
   Future<void> _startBleOnly() async {
     final authState = ref.read(authControllerProvider);
     if (authState is! Authenticated) return;
+    // Not during signup / onboarding: starting BLE makes iOS show its one-time
+    // Bluetooth prompt over « Bienvenue », with no context — users deny it and
+    // in-store detection stays off for good. Started when onboarding ends.
+    if (kOnboardingAndAuthScreens.contains(_nestedScreen ?? _authScreen)) {
+      return;
+    }
     final notifier = ref.read(bleProximityProvider.notifier);
     _bleDetectionSub?.cancel();
     _bleDetectionSub = null;
@@ -1847,6 +1927,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       'scheduled-notifications': ScreenId.merchantScheduledNotifications,
       'gratification-config': ScreenId.merchantGratificationConfig,
       'storefront-links': ScreenId.merchantStorefrontLinks,
+      if (kMultiStoreEnabled) 'stores': ScreenId.merchantStores,
     };
 
     final target = map[screen];
@@ -2159,7 +2240,7 @@ class _RootShellState extends ConsumerState<_RootShell>
       return;
     }
     if (currentScreen == ScreenId.merchantBenefits) {
-      setState(() => _authScreen = ScreenId.merchantSubcategorySelection);
+      _backFromMerchantBenefits();
       return;
     }
     if (currentScreen == ScreenId.merchantProfileForm) {
@@ -2333,7 +2414,8 @@ class _RootShellState extends ConsumerState<_RootShell>
             currentScreen == ScreenId.merchantDataPrivacy ||
             currentScreen == ScreenId.merchantProfileSummary ||
             currentScreen == ScreenId.merchantGratificationConfig ||
-            currentScreen == ScreenId.merchantStorefrontLinks;
+            currentScreen == ScreenId.merchantStorefrontLinks ||
+            currentScreen == ScreenId.merchantStores;
     final isMerchantClients = currentScreen == ScreenId.merchantClients;
     final isClientProfile = currentScreen == ScreenId.clientProfile;
     final isClientHome = currentScreen == ScreenId.clientHome;
@@ -2554,6 +2636,11 @@ class _RootShellState extends ConsumerState<_RootShell>
                 _activeTab = 'home';
                 _nestedStack.clear();
               });
+            } else if (ref.read(authStateProvider) is Authenticated) {
+              // Signed-in merchant who backed out of the wizard up to here:
+              // role selection would leave a live session on a pre-auth
+              // screen. Offer a clean sign-out instead.
+              unawaited(_confirmLeaveOnboardingAndSignOut());
             } else {
               setState(() => _authScreen = ScreenId.roleSelection);
             }
@@ -2569,8 +2656,7 @@ class _RootShellState extends ConsumerState<_RootShell>
         );
       case ScreenId.merchantBenefits:
         return MerchantBenefitsScreen(
-          onBack: () => setState(
-              () => _authScreen = ScreenId.merchantSubcategorySelection),
+          onBack: _backFromMerchantBenefits,
           onNext: () {
             final isAuthenticated =
                 ref.read(authStateProvider) is Authenticated;
@@ -2661,6 +2747,7 @@ class _RootShellState extends ConsumerState<_RootShell>
               _authScreen = ScreenId.clientHome;
               _activeTab = 'home';
             });
+            _consumeWaitingLinksAfterOnboarding();
           },
         );
       case ScreenId.clientHome:
@@ -2995,6 +3082,7 @@ class _RootShellState extends ConsumerState<_RootShell>
               _authScreen = ScreenId.merchantStorefront;
               _activeTab = 'storefront';
             });
+            _consumeWaitingLinksAfterOnboarding();
           },
         );
       case ScreenId.merchantRappels:
@@ -3027,6 +3115,20 @@ class _RootShellState extends ConsumerState<_RootShell>
       case ScreenId.merchantStorefrontLinks:
         return MerchantStorefrontLinksScreen(
           onBack: _handleBackFromNested,
+        );
+      case ScreenId.merchantStores:
+        if (!kMultiStoreEnabled) {
+          return const SizedBox.shrink();
+        }
+        return StoresScreen(
+          onBack: _handleBackFromNested,
+          onOpenVitrine: () {
+            setState(() {
+              _authScreen = ScreenId.merchantStorefront;
+              _nestedStack.clear();
+              _activeTab = 'storefront';
+            });
+          },
         );
     }
   }

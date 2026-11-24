@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_yuztoo/core/domain/entities/french_commune.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
 import 'package:flutter_yuztoo/feature/merchant/infrastructure/dto/merchant_dto.dart';
 
@@ -94,7 +95,9 @@ void main() {
         address: '123 Test Street',
         categories: ['Restaurant'],
         description: 'A test',
-        hours: {'monday': {'open': '09:00'}},
+        hours: {
+          'monday': {'open': '09:00'}
+        },
       );
 
       final firestoreMap = dto.toFirestore();
@@ -102,7 +105,44 @@ void main() {
       expect(firestoreMap['address'], '123 Test Street');
       expect(firestoreMap['categories'], ['Restaurant']);
       expect(firestoreMap['description'], 'A test');
-      expect(firestoreMap['hours'], {'monday': {'open': '09:00'}});
+      expect(firestoreMap['hours'], {
+        'monday': {'open': '09:00'}
+      });
+    });
+
+    test('keeps city string and adds official commune metadata', () {
+      const dto = MerchantDto(
+        id: 'merchant-123',
+        ownerUid: 'user-456',
+        name: 'Test Business',
+        email: 'test@example.com',
+        phone: '+33612345678',
+        city: 'Saint-Denis',
+        commune: FrenchCommune(
+          name: 'Saint-Denis',
+          inseeCode: '93066',
+          postalCodes: ['93200'],
+          population: 149077,
+          departmentCode: '93',
+          epciCode: '200054781',
+          epciName: 'Métropole du Grand Paris',
+        ),
+      );
+
+      final firestoreMap = dto.toFirestore();
+
+      expect(firestoreMap['city'], 'Saint-Denis');
+      expect(firestoreMap['city_metadata'], {
+        'name': 'Saint-Denis',
+        'insee_code': '93066',
+        'postal_codes': ['93200'],
+        'population': 149077,
+        'size': 'largeCity',
+        'department_code': '93',
+        'epci_code': '200054781',
+        'epci_name': 'Métropole du Grand Paris',
+        'source': 'geo.api.gouv.fr',
+      });
     });
 
     test('should exclude optional fields from Firestore map when null', () {
@@ -188,7 +228,9 @@ void main() {
     Map<String, dynamic>? parseMapField(dynamic raw) =>
         raw is Map ? Map<String, dynamic>.from(raw) : null;
 
-    group('true-defaulting bool fields (messaging_enabled, galerie_enabled, etc.)', () {
+    group(
+        'true-defaulting bool fields (messaging_enabled, galerie_enabled, etc.)',
+        () {
       test('null → true (default)', () {
         expect(parseDefaultTrue(null), isTrue);
       });
@@ -296,7 +338,8 @@ void main() {
           phone: '+33600000000',
           city: 'Paris',
         );
-        expect(dto.toFirestore().containsKey('passage_cooldown_enabled'), isFalse);
+        expect(
+            dto.toFirestore().containsKey('passage_cooldown_enabled'), isFalse);
         expect(dto.toDomain().passageCooldownEnabled, isNull);
       });
     });
@@ -355,4 +398,3 @@ void main() {
     });
   });
 }
-

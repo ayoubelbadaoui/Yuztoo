@@ -127,13 +127,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     super.dispose();
   }
 
-  void _unfocusAllFields() {
-    _emailFocusNode.unfocus();
-    _passwordFocusNode.unfocus();
-    _confirmPasswordFocusNode.unfocus();
-    _phoneFocusNode.unfocus();
-  }
-
   void _withSetState(VoidCallback fn) {
     if (!mounted) return;
     setState(fn);

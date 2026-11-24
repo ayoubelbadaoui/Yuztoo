@@ -71,6 +71,7 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
                       ref
                           .read(discoveryMerchantTypeFilterProvider.notifier)
                           .state = 'artiste';
+                      ref.invalidate(discoveryAllActiveMerchantsProvider);
                       ref.invalidate(discoveryArtisteMerchantsProvider);
                     },
                   ),
@@ -143,9 +144,14 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     await ref.read(discoveryMerchantsProvider.future);
   }
 
+  /// Built exactly once, directly under the header in [build].
+  ///
+  /// It must NOT be rebuilt from inside the result / content branches: those
+  /// are different widget subtrees, so switching between them destroys the
+  /// `TextField` element and the keyboard loses focus mid-typing.
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchQueryChanged,
@@ -194,17 +200,9 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
   // ── Live search results ─────────────────────────────────────────────────
 
   Widget _buildSearchResults(BuildContext context, Set<String> followedIds) {
-    return Column(
-      children: [
-        _buildSearchBar(),
-        const SizedBox(height: 12),
-        Expanded(
-          child: YuztooPullRefresh(
-            onRefresh: _onRefresh,
-            child: _buildSearchBody(followedIds),
-          ),
-        ),
-      ],
+    return YuztooPullRefresh(
+      onRefresh: _onRefresh,
+      child: _buildSearchBody(followedIds),
     );
   }
 
@@ -298,18 +296,11 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
     final typeFilter = ref.watch(discoveryMerchantTypeFilterProvider);
 
     if (merchants.isEmpty) {
-      return Column(
-        children: [
-          _buildSearchBar(),
-          Expanded(
-            child: YuztooPullRefresh(
-              onRefresh: _onRefresh,
-              child: yuztooRefreshableEmpty(
-                _buildEmptyState(context, typeFilter, followedIds),
-              ),
-            ),
-          ),
-        ],
+      return YuztooPullRefresh(
+        onRefresh: _onRefresh,
+        child: yuztooRefreshableEmpty(
+          _buildEmptyState(context, typeFilter, followedIds),
+        ),
       );
     }
 
@@ -325,7 +316,6 @@ extension _DiscoveryScreenUi on _DiscoveryScreenState {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSearchBar(),
             _buildSectionLabel(context, typeFilter),
             _buildBusinessGrid(context, merchants, viewedIds, followedIds),
             _buildInviteButton(context),

@@ -1,5 +1,6 @@
 import '../../domain/repositories/user_repository.dart';
 import '../../../../../core/domain/core/result.dart';
+import '../../../../../core/domain/entities/french_commune.dart';
 
 class CompleteClientProfile {
   const CompleteClientProfile(this._repository);
@@ -10,6 +11,7 @@ class CompleteClientProfile {
     required String uid,
     required String displayName,
     String? city,
+    FrenchCommune? commune,
     String? photoUrl,
     String? firstName,
     String? lastName,
@@ -19,6 +21,7 @@ class CompleteClientProfile {
         uid: uid,
         displayName: displayName,
         city: city,
+        commune: commune,
         photoUrl: photoUrl,
         firstName: firstName,
         lastName: lastName,

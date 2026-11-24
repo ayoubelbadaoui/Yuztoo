@@ -36,17 +36,21 @@ class FirestoreMerchantCrmRepository implements IMerchantCrmRepository {
         .asyncMap((QuerySnapshot<Map<String, dynamic>> snap) async {
       ClientGratificationConfig gratificationConfig =
           ClientGratificationConfig.defaults;
+      var autoClientValidation = true;
       try {
         final merchantSnap =
             await _firestore.collection('merchants').doc(merchantId).get();
-        final raw = merchantSnap.data()?['gratification_config'];
+        final merchantData = merchantSnap.data();
+        final raw = merchantData?['gratification_config'];
         if (raw is Map) {
           gratificationConfig = ClientGratificationConfig.fromMap(
             Map<String, dynamic>.from(raw),
           );
         }
+        autoClientValidation =
+            merchantData?['rappels_auto_client_validation'] as bool? ?? true;
       } catch (e) {
-        LoggerService.logError('CRM: fetch gratification_config', error: e);
+        LoggerService.logError('CRM: fetch merchant settings', error: e);
       }
 
       // ── 1 read: fetch all loyalty_clients in one shot ──────────────────────
@@ -84,11 +88,31 @@ class FirestoreMerchantCrmRepository implements IMerchantCrmRepository {
         LoggerService.logError('CRM: fetch client overrides', error: e);
       }
 
+      // When validation client automatique is OFF, new followers live in
+      // pending_clients until the merchant acknowledges them. Hide those
+      // UIDs from "Vos clients" so they only appear in the pending queue.
+      final pendingUids = <String>{};
+      if (!autoClientValidation) {
+        try {
+          final pendingSnap = await _firestore
+              .collection('merchants')
+              .doc(merchantId)
+              .collection('pending_clients')
+              .get();
+          for (final doc in pendingSnap.docs) {
+            pendingUids.add(doc.id);
+          }
+        } catch (e) {
+          LoggerService.logError('CRM: fetch pending_clients', error: e);
+        }
+      }
+
       // ── N reads: user profiles (display name + photo + city) ────────────
       final futures = snap.docs.map(
         (QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
           final clientUid = doc.reference.parent.parent?.id ?? '';
           if (clientUid.isEmpty) return null;
+          if (pendingUids.contains(clientUid)) return null;
 
           final ts = doc.data()['followed_at'];
           final followedAt = ts is Timestamp ? ts.toDate() : null;

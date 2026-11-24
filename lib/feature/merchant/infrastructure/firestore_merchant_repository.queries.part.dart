@@ -9,26 +9,54 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
   }) async {
     try {
       // Multi-city list takes precedence over the single-city convenience
-      // parameter. Both are trimmed + lower-cased once here so the per-doc
-      // comparison stays O(n) without re-allocating strings.
+      // parameter. Keys are accent / case / hyphen-insensitive ([CityMatch])
+      // so legacy free-text cities still match official commune names.
       final Set<String> normalizedCities = <String>{
         if (cityFilters != null)
-          ...cityFilters
-              .map((c) => c.trim().toLowerCase())
-              .where((c) => c.isNotEmpty),
+          ...cityFilters.map(CityMatch.key).where((c) => c.isNotEmpty),
         if ((cityFilters == null || cityFilters.isEmpty) &&
             cityFilter != null &&
             cityFilter.trim().isNotEmpty)
-          cityFilter.trim().toLowerCase(),
+          CityMatch.key(cityFilter),
       };
       final useCityFilter = normalizedCities.isNotEmpty;
+
+      // City-scoped: Firestore returns only the matching shops (city_keys
+      // array-contains-any), so a small town's shops are never cut off by the
+      // newest-N slice of the whole base, and reads ≈ matching shops.
+      if (useCityFilter) {
+        try {
+          final byCity = await _activeMerchantsByCityKeys(
+            normalizedCities.toList(),
+            limit: limit,
+          );
+          if (byCity.isNotEmpty) {
+            LoggerService.logInfo(
+              'List merchants by city keys',
+              context: {
+                'count': byCity.length,
+                'keys': normalizedCities.length,
+              },
+            );
+            return Right<MerchantFailure, List<Merchant>>(byCity);
+          }
+          // Empty city_keys index (pre-backfill) → legacy scan below.
+        } on FirebaseException catch (e, st) {
+          // Missing index / rules must not blank Découvrir — fall through.
+          LoggerService.logError(
+            'city_keys query failed; legacy city scan',
+            error: e,
+            stackTrace: st,
+            context: {'code': e.code, 'keys': normalizedCities.length},
+          );
+        }
+      }
       final fetchLimit =
           useCityFilter ? cityFetchCap.clamp(limit, 1000) : limit;
 
       // Only return merchants that are online (status == 'active').
       // The composite index [status ASC, updated_at DESC] in firestore.indexes.json
-      // covers this query. When filtering by city, scan a wider slice so a
-      // commerce that just set its city is not excluded by the global top-N limit.
+      // covers this query.
       final querySnapshot = await _firestore
           .collection('merchants')
           .where('status', isEqualTo: 'active')
@@ -37,9 +65,9 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
           .get();
 
       var merchants = querySnapshot.docs.mapSkippingInvalid(
-            (doc) => MerchantDto.fromFirestore(doc).toDomain(),
-            label: 'merchant',
-          );
+        (doc) => MerchantDto.fromFirestore(doc).toDomain(),
+        label: 'merchant',
+      );
 
       // Safety: keep only active merchants in case Firestore index is not yet
       // deployed or there is a replication lag.
@@ -48,7 +76,7 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
       if (useCityFilter) {
         merchants = merchants
             .where((m) =>
-                normalizedCities.contains(m.city.trim().toLowerCase()))
+                CityMatch.candidateKeys(m.city).any(normalizedCities.contains))
             .take(limit)
             .toList();
       }
@@ -58,8 +86,7 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
         context: {
           'count': merchants.length,
           'limit': limit,
-          'cityFilter':
-              useCityFilter ? normalizedCities.join(',') : null,
+          'cityFilter': useCityFilter ? normalizedCities.join(',') : null,
         },
       );
       return Right<MerchantFailure, List<Merchant>>(merchants);
@@ -96,6 +123,53 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
     }
   }
 
+  /// Firestore cap on `array-contains-any` values per query.
+  static const int _arrayContainsAnyLimit = 30;
+
+  /// Active shops whose `city_keys` hold one of [keys], newest first.
+  /// Index: merchants [status ASC, city_keys CONTAINS, updated_at DESC].
+  /// One query per 30 keys (the whole Territoire de Belfort = 4 queries),
+  /// each capped at [limit], so reads stay bounded by the matching shops.
+  Future<List<Merchant>> _activeMerchantsByCityKeys(
+    List<String> keys, {
+    required int limit,
+  }) async {
+    final chunks = <List<String>>[
+      for (var i = 0; i < keys.length; i += _arrayContainsAnyLimit)
+        keys.sublist(
+          i,
+          i + _arrayContainsAnyLimit > keys.length
+              ? keys.length
+              : i + _arrayContainsAnyLimit,
+        ),
+    ];
+    final snapshots = await Future.wait(
+      chunks.map(
+        (chunk) => _firestore
+            .collection('merchants')
+            .where('status', isEqualTo: 'active')
+            .where('city_keys', arrayContainsAny: chunk)
+            .orderBy('updated_at', descending: true)
+            .limit(limit)
+            .get(),
+      ),
+    );
+    final byId = <String, Merchant>{};
+    for (final snap in snapshots) {
+      for (final m in snap.docs.mapSkippingInvalid(
+        (doc) => MerchantDto.fromFirestore(doc).toDomain(),
+        label: 'merchant',
+      )) {
+        if (m.status == 'active') byId.putIfAbsent(m.id, () => m);
+      }
+    }
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+    final merged = byId.values.toList()
+      ..sort((a, b) =>
+          (b.updatedAt ?? epoch).compareTo(a.updatedAt ?? epoch));
+    return merged.take(limit).toList();
+  }
+
   static const int _whereInLimit = 10;
 
   Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async {
@@ -112,9 +186,9 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
             .where(FieldPath.documentId, whereIn: chunk)
             .get();
         final merchants = snapshot.docs.mapSkippingInvalid(
-            (doc) => MerchantDto.fromFirestore(doc).toDomain(),
-            label: 'merchant',
-          );
+          (doc) => MerchantDto.fromFirestore(doc).toDomain(),
+          label: 'merchant',
+        );
         all.addAll(merchants);
       }
       // Preserve order of [ids] where possible
@@ -149,7 +223,8 @@ mixin _FirestoreMerchantRepositoryQueries on _FirestoreMerchantRepositoryBase {
         MerchantNetworkFailure(cause: e, stackTrace: st),
       );
     } catch (e, st) {
-      LoggerService.logError('Error getMerchantsByIds', error: e, stackTrace: st);
+      LoggerService.logError('Error getMerchantsByIds',
+          error: e, stackTrace: st);
       return Left<MerchantFailure, List<Merchant>>(
         MerchantUnexpectedFailure(
           message: 'Impossible de charger les commerces',

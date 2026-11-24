@@ -786,6 +786,10 @@ extension _ClientListScreenUi on _ClientListScreenState {
               merchantId: merchantId,
               padding: const EdgeInsets.only(bottom: 20),
             ),
+            RecentLikesSection(
+              merchantId: merchantId,
+              padding: const EdgeInsets.only(bottom: 20),
+            ),
             RappelsClientsSection(
               connectedClientsThisMonth:
                   merchant?.rappelsMonthlyConnectedClients ?? 0,

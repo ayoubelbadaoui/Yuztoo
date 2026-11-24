@@ -1,3 +1,4 @@
+import 'package:flutter_yuztoo/core/domain/entities/french_commune.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_yuztoo/feature/merchant/application/use_cases/create_mer
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/mobility_accessibility.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
@@ -44,8 +46,18 @@ class _FakeMerchantRepository implements MerchantRepository {
         UnableToCreateMerchantFailure(),
       );
     }
-    _createdMerchant = merchant.copyWith(id: 'merchant-${DateTime.now().millisecondsSinceEpoch}');
+    _createdMerchant = merchant.copyWith(
+        id: 'merchant-${DateTime.now().millisecondsSinceEpoch}');
     return Right<MerchantFailure, Merchant>(_createdMerchant!);
+  }
+
+  @override
+  Future<Result<List<Merchant>>> getMerchantsByOwnerUid(String ownerUid) async {
+    final one = await getMerchantByOwnerUid(ownerUid);
+    return one.fold<Result<List<Merchant>>>(
+      Left.new,
+      (m) => Right(m == null ? <Merchant>[] : <Merchant>[m]),
+    );
   }
 
   @override
@@ -74,7 +86,8 @@ class _FakeMerchantRepository implements MerchantRepository {
     if (_createdMerchant == null) {
       return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
     }
-    return Right<MerchantFailure, List<Merchant>>(<Merchant>[_createdMerchant!]);
+    return Right<MerchantFailure, List<Merchant>>(
+        <Merchant>[_createdMerchant!]);
   }
 
   @override
@@ -82,7 +95,8 @@ class _FakeMerchantRepository implements MerchantRepository {
     if (_createdMerchant == null || !ids.contains(_createdMerchant!.id)) {
       return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
     }
-    return Right<MerchantFailure, List<Merchant>>(<Merchant>[_createdMerchant!]);
+    return Right<MerchantFailure, List<Merchant>>(
+        <Merchant>[_createdMerchant!]);
   }
 
   @override
@@ -122,7 +136,9 @@ class _FakeMerchantRepository implements MerchantRepository {
     String? categoryId,
     String? subcategoryTitle,
     bool clearCityField = false,
+    FrenchCommune? commune,
     List<MerchantStorefrontLink>? storefrontLinks,
+    MobilityAccessibility? mobilityAccessibility,
   }) async {
     if (_createdMerchant == null || _createdMerchant!.id != merchantId) {
       return const Left<MerchantFailure, Merchant>(
@@ -144,7 +160,8 @@ class _FakeMerchantRepository implements MerchantRepository {
       rappelsAutoClientValidation: rappelsAutoClientValidation,
       rappelsAutoPassageValidation: rappelsAutoPassageValidation,
       loyaltyProgram: loyaltyProgram,
-      loyaltyEnabled: loyaltyProgram?.programEnabled ?? _createdMerchant!.loyaltyEnabled,
+      loyaltyEnabled:
+          loyaltyProgram?.programEnabled ?? _createdMerchant!.loyaltyEnabled,
     );
     return Right<MerchantFailure, Merchant>(_createdMerchant!);
   }
@@ -167,7 +184,8 @@ void main() {
       useCase = CreateMerchantUseCase(repository);
     });
 
-    test('should create merchant successfully when all fields are valid', () async {
+    test('should create merchant successfully when all fields are valid',
+        () async {
       repository.setMerchantExists(false);
 
       final result = await useCase.call(
@@ -200,7 +218,9 @@ void main() {
         address: '123 Test Street',
         categories: ['Restaurant', 'Food'],
         description: 'A test business',
-        hours: {'monday': {'open': '09:00', 'close': '18:00'}},
+        hours: {
+          'monday': {'open': '09:00', 'close': '18:00'}
+        },
       );
 
       expect(result.isRight, isTrue);
@@ -303,7 +323,8 @@ void main() {
       expect(failure, isA<MerchantAlreadyExistsFailure>());
     });
 
-    test('should return error when repository fails to check existence', () async {
+    test('should return error when repository fails to check existence',
+        () async {
       repository.setMerchantExists(false);
       repository.setShouldFailCreate(true);
 
@@ -320,7 +341,8 @@ void main() {
       expect(failure, isA<MerchantNetworkFailure>());
     });
 
-    test('should return error when repository fails to create merchant', () async {
+    test('should return error when repository fails to create merchant',
+        () async {
       final useCaseWithFailingCreate = CreateMerchantUseCase(
         _FailingCreateRepository(),
       );
@@ -337,7 +359,6 @@ void main() {
       final failure = result.leftOrNull;
       expect(failure, isA<UnableToCreateMerchantFailure>());
     });
-
   });
 }
 
@@ -354,6 +375,15 @@ class _FailingCreateRepository implements MerchantRepository {
   }) async {
     return const Left<MerchantFailure, Merchant>(
       UnableToCreateMerchantFailure(),
+    );
+  }
+
+  @override
+  Future<Result<List<Merchant>>> getMerchantsByOwnerUid(String ownerUid) async {
+    final one = await getMerchantByOwnerUid(ownerUid);
+    return one.fold<Result<List<Merchant>>>(
+      Left.new,
+      (m) => Right(m == null ? <Merchant>[] : <Merchant>[m]),
     );
   }
 
@@ -421,7 +451,9 @@ class _FailingCreateRepository implements MerchantRepository {
     String? categoryId,
     String? subcategoryTitle,
     bool clearCityField = false,
+    FrenchCommune? commune,
     List<MerchantStorefrontLink>? storefrontLinks,
+    MobilityAccessibility? mobilityAccessibility,
   }) async {
     return const Left<MerchantFailure, Merchant>(
       UnableToCreateMerchantFailure(),
@@ -435,4 +467,3 @@ class _FailingCreateRepository implements MerchantRepository {
   }) async =>
       const Left<MerchantFailure, void>(UnableToCreateMerchantFailure());
 }
-

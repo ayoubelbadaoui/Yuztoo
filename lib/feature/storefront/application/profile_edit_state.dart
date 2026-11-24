@@ -3,12 +3,16 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/utils/city_input.dart';
+import '../../../../core/domain/entities/french_commune.dart';
 import '../../../../core/infrastructure/firebase_providers.dart';
+import '../../../../core/utils/city_input.dart';
+import '../../../../core/utils/email_validator.dart';
 import '../../../../core/infrastructure/logger_service.dart';
 import '../domain/entities/storefront.dart';
+import '../../../../core/utils/profile_placeholders.dart';
 import '../../discovery/application/providers.dart';
 import '../../merchant/domain/entities/merchant.dart';
+import '../../merchant/domain/entities/mobility_accessibility.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
@@ -34,9 +38,12 @@ class StorefrontProfileEditState {
     required this.websiteUrl,
     required this.address,
     required this.city,
+    this.commune,
     required this.welcomeGiftDescription,
     this.merchantType = 'b2c',
+    this.mobilityAccessibility = MobilityAccessibility.defaultValue,
     this.isSaving = false,
+    this.isLoaded = false,
     this.errorMessage,
   });
 
@@ -62,6 +69,10 @@ class StorefrontProfileEditState {
   final String websiteUrl;
   final String address;
   final String city;
+
+  /// Official commune / EPCI metadata when the city was picked from the catalog.
+  final FrenchCommune? commune;
+
   final String welcomeGiftDescription;
 
   /// 'b2b' or 'b2c'. Persisted to merchants/{id}.merchant_type and read
@@ -70,7 +81,14 @@ class StorefrontProfileEditState {
   /// post-this commit) and legacy docs without the field.
   final String merchantType;
 
+  /// PMR accessibility declared for the vitrine.
+  final MobilityAccessibility mobilityAccessibility;
+
   final bool isSaving;
+
+  /// True once [StorefrontProfileEditNotifier.initializeFrom] filled the form
+  /// from the merchant; until then empty fields mean "unknown", not "cleared".
+  final bool isLoaded;
   final String? errorMessage;
 
   /// True when the main sector has no curated specialties — show a text field.
@@ -97,9 +115,13 @@ class StorefrontProfileEditState {
     String? websiteUrl,
     String? address,
     String? city,
+    FrenchCommune? commune,
+    bool clearCommune = false,
     String? welcomeGiftDescription,
     String? merchantType,
+    MobilityAccessibility? mobilityAccessibility,
     bool? isSaving,
+    bool? isLoaded,
     String? errorMessage,
   }) {
     return StorefrontProfileEditState(
@@ -116,17 +138,20 @@ class StorefrontProfileEditState {
       websiteUrl: websiteUrl ?? this.websiteUrl,
       address: address ?? this.address,
       city: city ?? this.city,
+      commune: clearCommune ? null : (commune ?? this.commune),
       welcomeGiftDescription:
           welcomeGiftDescription ?? this.welcomeGiftDescription,
       merchantType: merchantType ?? this.merchantType,
+      mobilityAccessibility:
+          mobilityAccessibility ?? this.mobilityAccessibility,
       isSaving: isSaving ?? this.isSaving,
+      isLoaded: isLoaded ?? this.isLoaded,
       errorMessage: errorMessage,
     );
   }
 }
 
 final storefrontProfileEditProvider = StateNotifierProvider<
-    StorefrontProfileEditNotifier,
-    StorefrontProfileEditState>((ref) {
+    StorefrontProfileEditNotifier, StorefrontProfileEditState>((ref) {
   return StorefrontProfileEditNotifier(ref);
 });

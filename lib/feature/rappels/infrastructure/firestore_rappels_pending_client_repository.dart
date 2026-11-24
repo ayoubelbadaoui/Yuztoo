@@ -45,24 +45,21 @@ class FirestoreRappelsPendingClientRepository
         .orderBy('followed_at', descending: true)
         .snapshots()
         .asyncMap(
-          (QuerySnapshot<Map<String, dynamic>> snap) async {
-            final futures = snap.docs.map(
-              (QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
-                String? displayName;
-                try {
-                  final userDoc = await _firestore
-                      .collection('users')
-                      .doc(doc.id)
-                      .get();
-                  displayName =
-                      userDoc.data()?['displayName'] as String?;
-                } catch (_) {}
-                return _fromDocWithName(doc, displayName);
-              },
-            );
-            return Future.wait(futures);
+      (QuerySnapshot<Map<String, dynamic>> snap) async {
+        final futures = snap.docs.map(
+          (QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
+            String? displayName;
+            try {
+              final userDoc =
+                  await _firestore.collection('users').doc(doc.id).get();
+              displayName = userDoc.data()?['displayName'] as String?;
+            } catch (_) {}
+            return _fromDocWithName(doc, displayName);
           },
         );
+        return Future.wait(futures);
+      },
+    );
   }
 
   @override

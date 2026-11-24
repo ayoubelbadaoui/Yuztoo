@@ -1,7 +1,6 @@
 part of 'auto_notification_health_panel.dart';
 
-extension _AutoNotificationHealthPanelUi
-    on _AutoNotificationHealthPanelState {
+extension _AutoNotificationHealthPanelUi on _AutoNotificationHealthPanelState {
   // Ignored because we explicitly want to call setState from a part-file
   // extension while keeping the build in this file too.
   void _rebuildWith(VoidCallback fn) =>
@@ -51,7 +50,7 @@ extension _AutoNotificationHealthPanelUi
         ),
         const SizedBox(width: 12),
         Text(
-          'Diagnostic du pipeline en cours…',
+          'Vérification en cours…',
           style: GoogleFonts.outfit(
             color: MerchantColors.textLightGrey,
             fontSize: 13,
@@ -64,8 +63,7 @@ extension _AutoNotificationHealthPanelUi
   Widget _buildErrorState(Object? err) {
     return Row(
       children: [
-        Icon(Icons.error_outline_rounded,
-            color: Colors.red.shade300, size: 18),
+        Icon(Icons.error_outline_rounded, color: Colors.red.shade300, size: 18),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
@@ -112,8 +110,8 @@ extension _AutoNotificationHealthPanelUi
     final icon = allGreen ? Icons.check_circle_rounded : Icons.error_outline;
     final iconColor = allGreen ? const Color(0xFF66BB6A) : Colors.amber;
     final label = allGreen
-        ? 'Pipeline auto-notifications opérationnel'
-        : 'Le pipeline n\'est pas complètement opérationnel';
+        ? 'Tout est prêt : vos notifications partent'
+        : 'Action requise : voir les détails';
 
     return Row(
       children: [
@@ -133,8 +131,7 @@ extension _AutoNotificationHealthPanelUi
           tooltip: 'Rafraîchir',
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          icon: const Icon(Icons.refresh,
-              color: MerchantColors.gold, size: 18),
+          icon: const Icon(Icons.refresh, color: MerchantColors.gold, size: 18),
           onPressed: _refresh,
         ),
         IconButton(
@@ -161,7 +158,7 @@ extension _AutoNotificationHealthPanelUi
       ),
       _checkRow(
         ok: report.fcmTokenRegistered,
-        title: 'Token de notification enregistré',
+        title: 'Téléphone enregistré pour recevoir les notifications',
         subWhenFailing:
             'L\'appareil n\'est pas enregistré côté serveur. Connectez-vous '
             'à nouveau ou redémarrez l\'application — l\'enregistrement est '
@@ -169,20 +166,20 @@ extension _AutoNotificationHealthPanelUi
       ),
       _checkRow(
         ok: report.merchantAutoEnabled,
-        title: 'Auto-notifications activées sur le compte',
+        title: 'Notifications automatiques activées sur le compte',
         subWhenFailing:
             'Vous avez désactivé les notifications automatiques dans les '
-            'paramètres du compte. Réactivez-les pour relancer le pipeline.',
+            'paramètres du compte. Réactivez-les pour reprendre les envois.',
       ),
       _checkRow(
         ok: report.enabledTemplates > 0,
         title: report.enabledTemplates > 0
-            ? '${report.enabledTemplates} template(s) actif(s) '
+            ? '${report.enabledTemplates} notification(s) active(s) '
                 'sur ${report.totalTemplates}'
-            : 'Aucun template actif',
+            : 'Aucune notification active',
         subWhenFailing:
-            'Créez au moins un template ci-dessous et activez-le. Le serveur '
-            'ne déclenche que les templates dont l\'interrupteur est ON.',
+            'Créez au moins une notification et activez-la. Le serveur '
+            'n\'envoie que celles dont l\'interrupteur est activé.',
       ),
       _lastSentRow(report.lastAutoSentAt),
     ];
@@ -257,9 +254,8 @@ extension _AutoNotificationHealthPanelUi
               style: GoogleFonts.outfit(
                 color: MerchantColors.textLightGrey,
                 fontSize: 12.5,
-                fontStyle: lastSentAt == null
-                    ? FontStyle.italic
-                    : FontStyle.normal,
+                fontStyle:
+                    lastSentAt == null ? FontStyle.italic : FontStyle.normal,
               ),
             ),
           ),
@@ -365,7 +361,7 @@ extension _AutoNotificationHealthPanelUi
           merchantName: widget.merchantName,
           type: ClientNotificationType.auto,
           title: widget.merchantName,
-          body: 'Notification de test du pipeline auto-notifications. '
+          body: 'Notification de test YuzToo. '
               'Si vous voyez ce message, tout fonctionne.',
           isRead: false,
           createdAt: DateTime.now(),

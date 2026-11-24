@@ -90,7 +90,9 @@ void main() {
 
     test('dedupes case-sensitive entries as separate (display names)', () {
       final list = mergedOwnerConnectedCities(
-        existingUserData: const {'cities': ['Lyon']},
+        existingUserData: const {
+          'cities': ['Lyon']
+        },
         persistedCity: 'Lyon',
       );
       expect(list, ['Lyon']);

@@ -13,8 +13,7 @@ class PromoAnalytics extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final totalViews =
-        promotions.fold<int>(0, (sum, p) => sum + p.viewCount);
+    final totalViews = promotions.fold<int>(0, (sum, p) => sum + p.viewCount);
     final activeCount =
         promotions.where((p) => p.isOnline && p.dateTo.isAfter(now)).length;
     final totalCount = promotions.length;
@@ -64,9 +63,7 @@ class PromoAnalytics extends StatelessWidget {
                 _statRow(
                   icon: Icons.people_outline_rounded,
                   label: 'Clients ciblés',
-                  value: totalEstimatedReach > 0
-                      ? '$totalEstimatedReach'
-                      : '—',
+                  value: totalEstimatedReach > 0 ? '$totalEstimatedReach' : '—',
                 ),
               ],
             ),
@@ -84,8 +81,7 @@ class PromoAnalytics extends StatelessWidget {
     return Row(
       children: [
         Icon(icon,
-            size: 16,
-            color: MerchantColors.gold.withValues(alpha: 0.85)),
+            size: 16, color: MerchantColors.gold.withValues(alpha: 0.85)),
         const SizedBox(width: 10),
         Expanded(
           child: Text(

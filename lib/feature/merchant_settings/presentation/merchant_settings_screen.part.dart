@@ -16,7 +16,10 @@ extension _MerchantSettingsScreenUi on _MerchantSettingsScreenState {
       }
     });
 
-    final isLoading = !_initialised;
+    // Skeleton only while actually loading. If the store failed to load or is
+    // missing, show the content (defaults + pull-to-refresh + logout) instead
+    // of an endless skeleton. Toggles no-op without a merchant id.
+    final isLoading = !_initialised && merchantAsync.isLoading;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(

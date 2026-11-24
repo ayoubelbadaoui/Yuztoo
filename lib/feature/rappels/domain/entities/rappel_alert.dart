@@ -5,6 +5,9 @@ enum RappelAlertType {
 
   /// Clients are eligible for their loyalty reward right now.
   loyaltyRewardReady,
+
+  /// Unseen promotion / actualité likes since [likes_alerts_seen_at].
+  newLikes,
 }
 
 /// A single alert surfaced on the Rappels screen.

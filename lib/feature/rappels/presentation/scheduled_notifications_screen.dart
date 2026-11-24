@@ -95,8 +95,7 @@ class _ScheduledNotificationsScreenState
                     : StreamBuilder<List<ScheduledNotification>>(
                         stream: repo.watchAll(merchantId),
                         builder: (context, snap) {
-                          if (snap.connectionState ==
-                                  ConnectionState.waiting &&
+                          if (snap.connectionState == ConnectionState.waiting &&
                               !snap.hasData) {
                             return const Center(
                               child: CircularProgressIndicator(
@@ -294,8 +293,7 @@ class _ScheduledNotificationsScreenState
             onPressed: () => _confirmAndCancel(merchantId, s),
             style: TextButton.styleFrom(
               foregroundColor: Colors.redAccent,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               minimumSize: const Size(0, 32),
             ),
             child: Text(

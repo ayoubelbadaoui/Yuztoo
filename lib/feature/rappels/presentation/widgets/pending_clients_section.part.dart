@@ -27,8 +27,8 @@ extension _PendingClientsSectionUi on _PendingClientsSectionState {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: MerchantColors.gold.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),

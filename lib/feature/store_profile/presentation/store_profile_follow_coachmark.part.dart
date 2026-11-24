@@ -13,9 +13,14 @@ class _FollowPassageCoachmark extends StatefulWidget {
     required this.ctaHint,
     required this.onTargetTap,
     required this.onDismiss,
+    this.resolveTargetRect,
   });
 
   final Rect targetRect;
+
+  /// Re-measures the real CTA each frame so the spotlight follows it when the
+  /// page shifts (banner / logo images finishing to load after the scan).
+  final Rect? Function()? resolveTargetRect;
   final String title;
   final String message;
   final String ctaHint;
@@ -49,21 +54,36 @@ class _FollowPassageCoachmarkState extends State<_FollowPassageCoachmark>
     super.dispose();
   }
 
+  Rect _lastTarget = Rect.zero;
+
   @override
   Widget build(BuildContext context) {
+    // Pulse ticks every frame anyway — rebuild the whole layout with it so the
+    // hole + tooltip track the live button position.
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, _) => _buildFrame(context),
+    );
+  }
+
+  Widget _buildFrame(BuildContext context) {
     final media = MediaQuery.of(context);
     final screen = media.size;
 
+    final live = widget.resolveTargetRect?.call();
+    final target =
+        live ?? (_lastTarget == Rect.zero ? widget.targetRect : _lastTarget);
+    _lastTarget = target;
+
     final hole = Rect.fromLTRB(
-      widget.targetRect.left - _spotlightPadding,
-      widget.targetRect.top - _spotlightPadding,
-      widget.targetRect.right + _spotlightPadding,
-      widget.targetRect.bottom + _spotlightPadding,
+      target.left - _spotlightPadding,
+      target.top - _spotlightPadding,
+      target.right + _spotlightPadding,
+      target.bottom + _spotlightPadding,
     );
 
     // Prefer the tooltip below the CTA; flip above when there isn't room.
-    final bool below =
-        hole.bottom + 190 < screen.height - media.padding.bottom;
+    final bool below = hole.bottom + 190 < screen.height - media.padding.bottom;
     const double cardMargin = 20;
 
     return Material(
@@ -75,14 +95,11 @@ class _FollowPassageCoachmarkState extends State<_FollowPassageCoachmark>
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: widget.onDismiss,
-              child: AnimatedBuilder(
-                animation: _pulse,
-                builder: (_, __) => CustomPaint(
-                  painter: _SpotlightPainter(
-                    hole: hole,
-                    radius: _spotlightRadius,
-                    pulse: _pulse.value,
-                  ),
+              child: CustomPaint(
+                painter: _SpotlightPainter(
+                  hole: hole,
+                  radius: _spotlightRadius,
+                  pulse: _pulse.value,
                 ),
               ),
             ),
@@ -276,8 +293,7 @@ class _SpotlightPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final scrim = Paint()..color = Colors.black.withValues(alpha: 0.72);
-    final holeRRect =
-        RRect.fromRectAndRadius(hole, Radius.circular(radius));
+    final holeRRect = RRect.fromRectAndRadius(hole, Radius.circular(radius));
     final cutout = Path.combine(
       PathOperation.difference,
       Path()..addRect(Offset.zero & size),

@@ -66,7 +66,7 @@ class NotificationsAutoEntry extends StatelessWidget {
                   ],
                 ),
               ),
-          const Icon(Icons.chevron_right_rounded,
+              const Icon(Icons.chevron_right_rounded,
                   color: MerchantColors.gold, size: 24),
             ],
           ),
@@ -75,4 +75,3 @@ class NotificationsAutoEntry extends StatelessWidget {
     );
   }
 }
-

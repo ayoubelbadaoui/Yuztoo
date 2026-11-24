@@ -18,6 +18,7 @@ Future<void> _refreshUserProfileCacheImpl({
 }) async {
   invalidate(auth_providers.userProfileBasicsProvider(uid));
   invalidate(auth_providers.connectedCitiesProvider(uid));
+  invalidate(auth_providers.connectedCitiesMetadataProvider(uid));
 
   final merchant = isMerchant ??
       (read(auth_providers.authControllerProvider) is Authenticated &&

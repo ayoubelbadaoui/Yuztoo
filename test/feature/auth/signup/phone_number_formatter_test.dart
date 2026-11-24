@@ -94,4 +94,32 @@ void main() {
       );
     });
   });
+
+  group('pasted international numbers (iOS contact autofill)', () {
+    TextEditingValue paste(PhoneNumberFormatter f, String text) =>
+        f.formatEditUpdate(
+          const TextEditingValue(text: ''),
+          TextEditingValue(
+            text: text,
+            selection: TextSelection.collapsed(offset: text.length),
+          ),
+        );
+
+    String digits(String s) => s.replaceAll(RegExp(r'[^\d]'), '');
+
+    final fr = PhoneNumberFormatter(countryCode: '+33');
+
+    test('+33 6 12 34 56 78 keeps the full national number', () {
+      expect(digits(paste(fr, '+33 6 12 34 56 78').text), '612345678');
+    });
+
+    test('0033 6 12 34 56 78 keeps the full national number', () {
+      expect(digits(paste(fr, '0033 6 12 34 56 78').text), '612345678');
+    });
+
+    test('national forms are untouched', () {
+      expect(digits(paste(fr, '06 12 34 56 78').text), '0612345678');
+      expect(digits(paste(fr, '612345678').text), '612345678');
+    });
+  });
 }

@@ -7,8 +7,13 @@ const double kResponsiveFormMaxWidth = 520;
 
 /// Scrollable area with:
 /// - Bottom padding for the software keyboard (`viewInsets`)
-/// - Dismiss keyboard on drag
 /// - Optional max content width so forms do not stretch edge-to-edge on Pro Max / iPad
+///
+/// Keyboard dismiss defaults to [ScrollViewKeyboardDismissBehavior.manual].
+/// `onDrag` was removed as the default because on Samsung (and some other
+/// Android devices) a tap on a [TextField] is often classified as a tiny
+/// drag, so the keyboard opens then immediately dismisses — users report
+/// "le clavier n'apparaît pas" on the onboarding name step.
 class ResponsiveScrollBody extends StatelessWidget {
   const ResponsiveScrollBody({
     super.key,
@@ -16,6 +21,7 @@ class ResponsiveScrollBody extends StatelessWidget {
     this.horizontalPadding = 24,
     this.verticalPadding = 8,
     this.maxContentWidth = kResponsiveFormMaxWidth,
+    this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.manual,
   });
 
   final Widget child;
@@ -24,6 +30,8 @@ class ResponsiveScrollBody extends StatelessWidget {
 
   /// Set to 0 to use full width (minus horizontal padding only).
   final double maxContentWidth;
+
+  final ScrollViewKeyboardDismissBehavior keyboardDismissBehavior;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +48,7 @@ class ResponsiveScrollBody extends StatelessWidget {
             : math.min(maxContentWidth, innerWidth);
 
         return SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          keyboardDismissBehavior: keyboardDismissBehavior,
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
             verticalPadding,

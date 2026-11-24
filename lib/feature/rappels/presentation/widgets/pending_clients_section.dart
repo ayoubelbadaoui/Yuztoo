@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
+import '../../../client_list/application/providers.dart' as crm_providers;
 import '../../application/providers.dart' as rappels_providers;
 import '../../domain/entities/pending_client_row.dart';
 import 'rappels_section_header.dart';
@@ -60,6 +61,9 @@ class _PendingClientsSectionState extends ConsumerState<PendingClientsSection> {
         );
       },
       (_) {
+        ref.invalidate(
+          crm_providers.merchantClientsProvider(widget.merchantId),
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -88,6 +92,7 @@ class _PendingClientsSectionState extends ConsumerState<PendingClientsSection> {
 
     if (!mounted) return;
     setState(() => _busyAll = false);
+    ref.invalidate(crm_providers.merchantClientsProvider(widget.merchantId));
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

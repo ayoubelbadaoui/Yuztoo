@@ -5,13 +5,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
+import '../../../core/utils/image_pick_with_source.dart';
 import '../../../core/shared/widgets/snackbar.dart';
 import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../client_notification/application/providers.dart';
 import '../../merchant/application/providers.dart'
-    show currentMerchantForOwnerProvider;
+    show activeMerchantIdProvider, currentMerchantForOwnerProvider;
 import '../../merchant_partners/application/providers.dart'
     as partners_providers;
+import '../../merchant_associations/presentation/association_section.dart';
 import '../../merchant_partners/domain/entities/merchant_partner.dart';
 import '../../merchant_partners/presentation/partner_invite_sheet.dart';
 import '../application/providers.dart';
@@ -77,11 +79,14 @@ class _PromotionsManagementScreenState
     );
     if (result == null || !context.mounted) return;
 
+    final merchantId = await ref.read(activeMerchantIdProvider.future);
+    if (merchantId == null || merchantId.isEmpty || !context.mounted) return;
+
     _setCreating(true);
     final createPromotion = ref.read(createPromotionProvider);
     final createResult = await createPromotion.call(
-      merchantId: authState.user.id,
-      promotion: result.copyWith(merchantId: authState.user.id),
+      merchantId: merchantId,
+      promotion: result.copyWith(merchantId: merchantId),
       imageFilePath: result.imagePath,
     );
     if (!context.mounted) return;
@@ -89,6 +94,8 @@ class _PromotionsManagementScreenState
 
     createResult.fold(
       (failure) {
+        // Promo may already exist when only the image step failed — refresh list.
+        ref.invalidate(merchantPromotionsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -101,10 +108,16 @@ class _PromotionsManagementScreenState
       },
       (savedPromo) {
         ref.invalidate(merchantPromotionsProvider);
+        final wantedImage =
+            result.imagePath != null && result.imagePath!.trim().isNotEmpty;
+        final gotImage =
+            savedPromo.imageUrl != null && savedPromo.imageUrl!.isNotEmpty;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Promotion créée',
+              wantedImage && !gotImage
+                  ? 'Promotion créée — ajoutez la photo depuis la carte.'
+                  : 'Promotion créée',
               style: merchantSnackBarTextOnGold(),
             ),
             backgroundColor: MerchantColors.gold,
@@ -207,11 +220,12 @@ class _PromotionsManagementScreenState
           final authState = ref.read(authStateProvider);
           if (authState is Authenticated) {
             ref.read(currentMerchantForOwnerProvider.future).then((merchant) {
-              final merchantName = merchant?.name ??
-                  authState.user.displayName ??
-                  'Votre commerce';
+              if (merchant == null) return;
+              final merchantName = merchant.name.isNotEmpty
+                  ? merchant.name
+                  : authState.user.displayName ?? 'Votre commerce';
               ref.read(notifyFollowersOfPromotionProvider).call(
-                    merchantId: authState.user.id,
+                    merchantId: merchant.id,
                     merchantName: merchantName,
                     promotion: updated,
                     callerUid: authState.user.id,
@@ -258,9 +272,12 @@ class _PromotionsManagementScreenState
         ),
       ),
     );
-    if (source == null || !context.mounted) return;
+    if (source == null || !mounted) return;
     try {
-      final picked = await _picker.pickImage(
+      // Camera capture needs the runtime permission first — see safePickImage.
+      final picked = await safePickImage(
+        context: context,
+        picker: _picker,
         source: source,
         maxWidth: promotionImagePickMaxSide.toDouble(),
         maxHeight: promotionImagePickMaxSide.toDouble(),
@@ -269,14 +286,16 @@ class _PromotionsManagementScreenState
       if (picked == null || !context.mounted) return;
 
       final croppedPath = await cropPromotionImage(picked.path);
-      if (croppedPath == null || !context.mounted) return;
+      // Keep original pick if crop is cancelled/fails (parity with create sheet).
+      final imagePath = croppedPath ?? picked.path;
+      if (!context.mounted) return;
 
       setState(() => _isUpdatingImage = true);
       final promo = promotions[index];
       final updatePromotion = ref.read(updatePromotionProvider);
       final result = await updatePromotion.call(
         promo,
-        imageFilePath: croppedPath,
+        imageFilePath: imagePath,
       );
       if (!context.mounted) return;
       setState(() => _isUpdatingImage = false);

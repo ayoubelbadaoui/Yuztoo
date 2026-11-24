@@ -1,30 +1,32 @@
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/domain/entities/french_commune.dart';
 import '../entities/merchant_storefront_link.dart';
 import '../entities/client_gratification_config.dart';
 import '../entities/loyalty_program_config.dart';
 import '../entities/merchant.dart';
+import '../entities/mobility_accessibility.dart';
 
 /// Repository interface for merchant operations in Firestore.
-/// 
+///
 /// This interface is in the domain layer and contains no Firebase types.
 /// Implementations should be in the infrastructure layer.
 abstract class MerchantRepository {
   /// Check if a merchant already exists for the given owner UID.
-  /// 
+  ///
   /// [ownerUid] - User ID of the merchant owner
-  /// 
+  ///
   /// Returns Result<bool> - true if merchant exists, false otherwise
   Future<Result<bool>> merchantExists(String ownerUid);
 
   /// Create a merchant document and link it to the user atomically.
-  /// 
+  ///
   /// This operation uses a Firestore batch write to ensure atomicity:
   /// - Creates merchant document in /merchants/{merchantId}
   /// - Updates user document in /users/{uid} with merchant_id field
-  /// 
+  ///
   /// [merchant] - Merchant entity to create
   /// [userId] - User ID to link the merchant to
-  /// 
+  ///
   /// Returns Result<Merchant> on success, Result with failure on error
   Future<Result<Merchant>> createMerchantAndLinkUser({
     required Merchant merchant,
@@ -32,16 +34,20 @@ abstract class MerchantRepository {
   });
 
   /// Get merchant by owner UID.
-  /// 
+  ///
   /// [ownerUid] - User ID of the merchant owner
-  /// 
+  ///
   /// Returns Result<Merchant?> - Merchant if found, null if not found
   Future<Result<Merchant?>> getMerchantByOwnerUid(String ownerUid);
 
+  /// Every store owned by [ownerUid] (oldest first). Soft-deleted stores are
+  /// excluded.
+  Future<Result<List<Merchant>>> getMerchantsByOwnerUid(String ownerUid);
+
   /// Get merchant by document ID (for client store profile).
-  /// 
+  ///
   /// [merchantId] - Firestore document ID of the merchant
-  /// 
+  ///
   /// Returns Result<Merchant?> - Merchant if found, null if not found
   Future<Result<Merchant?>> getMerchantById(String merchantId);
 
@@ -67,21 +73,21 @@ abstract class MerchantRepository {
   });
 
   /// List merchants by their document IDs (e.g. for followed merchants).
-  /// 
+  ///
   /// [ids] - List of merchant document IDs
-  /// 
+  ///
   /// Returns Result<List<Merchant>> - Merchants that exist, in the order of [ids] where possible
   Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids);
 
   /// Link an existing merchant to a user (recovery for edge case: merchant exists but user not linked).
-  /// 
+  ///
   /// This method handles the edge case where a merchant document exists but the user
   /// document doesn't have the merchant_id field set. This can happen in rare scenarios
   /// like partial batch failures or data inconsistencies.
-  /// 
+  ///
   /// [merchantId] - ID of the existing merchant
   /// [userId] - User ID to link the merchant to
-  /// 
+  ///
   /// Returns Result<Unit> on success, Result with failure on error
   Future<Result<Unit>> linkExistingMerchantToUser({
     required String merchantId,
@@ -122,6 +128,7 @@ abstract class MerchantRepository {
     String? email,
     String? address,
     String? city,
+    FrenchCommune? commune,
     String? websiteUrl,
     String? bannerUrl,
     List<String>? newsImageUrls,
@@ -141,6 +148,7 @@ abstract class MerchantRepository {
     String? subcategoryTitle,
     bool clearCityField = false,
     List<MerchantStorefrontLink>? storefrontLinks,
+    MobilityAccessibility? mobilityAccessibility,
   });
 
   /// Persist the merchant's client gratification configuration.
@@ -149,4 +157,3 @@ abstract class MerchantRepository {
     required ClientGratificationConfig config,
   });
 }
-

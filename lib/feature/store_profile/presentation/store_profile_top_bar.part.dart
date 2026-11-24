@@ -1,45 +1,39 @@
 part of 'store_profile_screen.dart';
 
-/// Pinned top bar of the client vitrine: back, business name, safety menu.
+/// Light vitrine system bars: dark icons on white header / cream page.
 ///
-/// [progress] 0 = floating over the banner (white on translucent chips),
-/// 1 = solid cream once the banner has scrolled away, so the name stays
-/// readable on any banner image.
+/// Android 15+ draws edge-to-edge and ignores `systemNavigationBarColor`, so
+/// the navigation buttons sit directly on the page and must be dark here.
+const SystemUiOverlayStyle _storeProfileOverlayStyle = SystemUiOverlayStyle(
+  statusBarColor: Colors.white,
+  statusBarBrightness: Brightness.light,
+  statusBarIconBrightness: Brightness.dark,
+  systemNavigationBarColor: Colors.transparent,
+  systemNavigationBarDividerColor: Colors.transparent,
+  systemNavigationBarIconBrightness: Brightness.dark,
+  systemNavigationBarContrastEnforced: false,
+);
+
+/// Pinned white top bar of the client vitrine: back, business name, safety
+/// menu. Always solid so the name stays readable whatever the banner image.
 class _StoreProfileTopBar extends StatelessWidget {
   const _StoreProfileTopBar({
     required this.title,
     required this.onBack,
     this.onMore,
-    this.progress = 1,
   });
 
   final String title;
   final VoidCallback onBack;
   final VoidCallback? onMore;
-  final double progress;
+
+  /// Bar height below the status bar (8 + 40 + 8).
+  static const double contentHeight = 56;
 
   @override
   Widget build(BuildContext context) {
-    final t = progress.clamp(0.0, 1.0);
-    final solid = t >= 0.6;
-    // Title follows scroll fade; action chips stay high-contrast so Retour
-    // never disappears on a light / gold banner (common merchant photos).
-    final titleColor =
-        Color.lerp(Colors.white, StorefrontColors.textPrimary, t)!;
-    final actionFg =
-        solid ? StorefrontColors.textPrimary : Colors.white;
-    final actionBg = solid
-        ? Colors.black.withValues(alpha: 0.06)
-        : Colors.black.withValues(alpha: 0.45);
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarBrightness: solid ? Brightness.light : Brightness.dark,
-        statusBarIconBrightness: solid ? Brightness.dark : Brightness.light,
-        systemNavigationBarColor: StorefrontColors.navyDark,
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
+      value: _storeProfileOverlayStyle,
       child: Container(
         padding: EdgeInsets.fromLTRB(
           12,
@@ -48,11 +42,9 @@ class _StoreProfileTopBar extends StatelessWidget {
           8,
         ),
         decoration: BoxDecoration(
-          color: StorefrontColors.backgroundLight.withValues(alpha: t),
+          color: Colors.white,
           border: Border(
-            bottom: BorderSide(
-              color: Colors.black.withValues(alpha: 0.06 * t),
-            ),
+            bottom: BorderSide(color: Colors.black.withValues(alpha: 0.06)),
           ),
         ),
         child: Row(
@@ -60,8 +52,6 @@ class _StoreProfileTopBar extends StatelessWidget {
             _StoreProfileTopBarButton(
               icon: Icons.arrow_back_ios_new_rounded,
               semanticLabel: 'Retour',
-              color: actionFg,
-              background: actionBg,
               onTap: onBack,
             ),
             const SizedBox(width: 12),
@@ -73,10 +63,7 @@ class _StoreProfileTopBar extends StatelessWidget {
                 style: GoogleFonts.outfit(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: titleColor,
-                  shadows: t < 0.5
-                      ? const [Shadow(color: Color(0x73000000), blurRadius: 6)]
-                      : null,
+                  color: StorefrontColors.navyDark,
                 ),
               ),
             ),
@@ -85,8 +72,6 @@ class _StoreProfileTopBar extends StatelessWidget {
               _StoreProfileTopBarButton(
                 icon: Icons.more_vert_rounded,
                 semanticLabel: 'Plus d\'options',
-                color: actionFg,
-                background: actionBg,
                 onTap: onMore!,
               )
             else
@@ -102,15 +87,11 @@ class _StoreProfileTopBarButton extends StatelessWidget {
   const _StoreProfileTopBarButton({
     required this.icon,
     required this.semanticLabel,
-    required this.color,
-    required this.background,
     required this.onTap,
   });
 
   final IconData icon;
   final String semanticLabel;
-  final Color color;
-  final Color background;
   final VoidCallback onTap;
 
   @override
@@ -124,8 +105,11 @@ class _StoreProfileTopBarButton extends StatelessWidget {
         child: Container(
           width: 40,
           height: 40,
-          decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-          child: Icon(icon, color: color, size: 20),
+          decoration: BoxDecoration(
+            color: StorefrontColors.navyDark.withValues(alpha: 0.06),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: StorefrontColors.navyDark, size: 20),
         ),
       ),
     );

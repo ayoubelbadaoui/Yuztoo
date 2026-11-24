@@ -1,9 +1,10 @@
 import '../../domain/entities/merchant.dart';
 import '../../domain/repositories/merchant_repository.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/domain/entities/french_commune.dart';
 
 /// Use case for completing merchant onboarding.
-/// 
+///
 /// This use case:
 /// - Creates merchant entity
 /// - Links `users/{uid}.merchant_id` to the created merchant (completion signal)
@@ -19,6 +20,7 @@ class CompleteMerchantOnboarding {
     required String email,
     required String phone,
     required String city,
+    FrenchCommune? commune,
     String? address,
     List<String>? categories,
     String? description,
@@ -44,6 +46,7 @@ class CompleteMerchantOnboarding {
       email: email,
       phone: phone,
       city: city,
+      commune: commune,
       address: address,
       categories: categories,
       description: description,
@@ -66,4 +69,3 @@ class CompleteMerchantOnboarding {
     );
   }
 }
-

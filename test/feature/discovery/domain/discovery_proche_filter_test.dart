@@ -6,6 +6,9 @@ Merchant _m(
   String id, {
   String status = 'active',
   String city = 'Paris',
+  String? categoryId,
+  String? subcategoryTitle,
+  List<String>? categories,
 }) =>
     Merchant(
       id: id,
@@ -15,6 +18,9 @@ Merchant _m(
       phone: '+33600000000',
       city: city,
       status: status,
+      categoryId: categoryId,
+      subcategoryTitle: subcategoryTitle,
+      categories: categories,
     );
 
 void main() {
@@ -74,6 +80,29 @@ void main() {
         currentUserId: 'me',
       );
       expect(out, isEmpty);
+    });
+
+    test('excludes association category from Proche de moi', () {
+      final out = filterProcheDeMoiMerchants(
+        cityMerchants: [
+          _m('shop', categoryId: 'bouche', subcategoryTitle: 'Boulangerie'),
+          _m('assoc', categoryId: 'association'),
+          _m('sport', categories: const ['Association sportive']),
+        ],
+        followedMerchantIds: const {},
+      );
+      expect(out.map((m) => m.id), ['shop']);
+    });
+
+    test('keeps regular shops in Proche de moi', () {
+      final out = filterProcheDeMoiMerchants(
+        cityMerchants: [
+          _m('bakery', categoryId: 'bouche', subcategoryTitle: 'Boulangerie'),
+          _m('cafe', categoryId: 'bouche', subcategoryTitle: 'Café'),
+        ],
+        followedMerchantIds: const {},
+      );
+      expect(out.map((m) => m.id), ['bakery', 'cafe']);
     });
   });
 }

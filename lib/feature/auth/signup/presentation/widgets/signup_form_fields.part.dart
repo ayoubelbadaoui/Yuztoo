@@ -35,7 +35,6 @@ class EmailField extends StatelessWidget {
   final bool hasBeenValidated;
   final bool enabled;
   final VoidCallback? onTap;
-  final VoidCallback onUnfocusAll;
 
   const EmailField({
     super.key,
@@ -45,7 +44,6 @@ class EmailField extends StatelessWidget {
     required this.hasBeenValidated,
     required this.enabled,
     this.onTap,
-    required this.onUnfocusAll,
   });
 
   @override
@@ -64,10 +62,11 @@ class EmailField extends StatelessWidget {
           validator: SignupValidators.validateEmail,
           autovalidateMode: AutovalidateMode.disabled,
           cursorColor: SignupConstants.primaryGold,
-          onTap: onTap ?? () {
-            onUnfocusAll();
-            focusNode.requestFocus();
-          },
+          // Let EditableText own its focus transition. Unfocusing every field
+          // and synchronously requesting this one again races Samsung's IME:
+          // the keyboard receives a close followed by an open in one tap and
+          // can finish in the closed state.
+          onTap: onTap,
           onChanged: (value) {
             if (hasBeenValidated && value.isNotEmpty) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -120,7 +119,6 @@ class PasswordField extends StatefulWidget {
   final bool hasBeenValidated;
   final bool enabled;
   final VoidCallback? onTap;
-  final VoidCallback onUnfocusAll;
   final ValueChanged<bool> onFocusChanged;
 
   const PasswordField({
@@ -131,7 +129,6 @@ class PasswordField extends StatefulWidget {
     required this.hasBeenValidated,
     required this.enabled,
     this.onTap,
-    required this.onUnfocusAll,
     required this.onFocusChanged,
   });
 
@@ -161,10 +158,7 @@ class _PasswordFieldState extends State<PasswordField> {
           validator: SignupValidators.validatePassword,
           autovalidateMode: AutovalidateMode.disabled,
           cursorColor: SignupConstants.primaryGold,
-          onTap: widget.onTap ?? () {
-            widget.onUnfocusAll();
-            widget.focusNode.requestFocus();
-          },
+          onTap: widget.onTap,
           onChanged: (value) {
             if (widget.hasBeenValidated && value.isNotEmpty) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -190,7 +184,8 @@ class _PasswordFieldState extends State<PasswordField> {
                 size: 20,
               ),
               onPressed: widget.enabled
-                  ? () => setState(() => _isPasswordVisible = !_isPasswordVisible)
+                  ? () =>
+                      setState(() => _isPasswordVisible = !_isPasswordVisible)
                   : null,
             ),
             filled: true,
@@ -257,7 +252,6 @@ class ConfirmPasswordField extends StatefulWidget {
   final bool hasBeenValidated;
   final bool enabled;
   final VoidCallback? onTap;
-  final VoidCallback onUnfocusAll;
 
   const ConfirmPasswordField({
     super.key,
@@ -268,7 +262,6 @@ class ConfirmPasswordField extends StatefulWidget {
     required this.hasBeenValidated,
     required this.enabled,
     this.onTap,
-    required this.onUnfocusAll,
   });
 
   @override
@@ -298,10 +291,7 @@ class _ConfirmPasswordFieldState extends State<ConfirmPasswordField> {
               value, widget.passwordController.text),
           autovalidateMode: AutovalidateMode.disabled,
           cursorColor: SignupConstants.primaryGold,
-          onTap: widget.onTap ?? () {
-            widget.onUnfocusAll();
-            widget.focusNode.requestFocus();
-          },
+          onTap: widget.onTap,
           onChanged: (value) {
             if (widget.hasBeenValidated && value.isNotEmpty) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -327,8 +317,8 @@ class _ConfirmPasswordFieldState extends State<ConfirmPasswordField> {
                 size: 20,
               ),
               onPressed: widget.enabled
-                  ? () => setState(
-                      () => _isPasswordVisible = !_isPasswordVisible)
+                  ? () =>
+                      setState(() => _isPasswordVisible = !_isPasswordVisible)
                   : null,
             ),
             filled: true,
@@ -362,7 +352,6 @@ class PhoneField extends StatelessWidget {
   final String selectedCountryCode;
   final bool hasBeenValidated;
   final bool enabled;
-  final VoidCallback onUnfocusAll;
   final Function(String) onPhoneNumberUpdate;
   final Function(String) onCountryCodeChange;
   final Function() onRevalidatePhone;
@@ -375,7 +364,6 @@ class PhoneField extends StatelessWidget {
     required this.selectedCountryCode,
     required this.hasBeenValidated,
     required this.enabled,
-    required this.onUnfocusAll,
     required this.onPhoneNumberUpdate,
     required this.onCountryCodeChange,
     required this.onRevalidatePhone,
@@ -402,8 +390,7 @@ class PhoneField extends StatelessWidget {
                 : (isFocused
                     ? SignupConstants.primaryGold
                     : SignupConstants.borderColor);
-            final borderWidth =
-                (hasError || isFocused) ? 1.5 : 1.0;
+            final borderWidth = (hasError || isFocused) ? 1.5 : 1.0;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,8 +419,7 @@ class PhoneField extends StatelessWidget {
                                   phoneController: controller,
                                   onPhoneNumberUpdate: onPhoneNumberUpdate,
                                   onRevalidatePhone: onRevalidatePhone,
-                                  phoneFieldHasBeenValidated:
-                                      hasBeenValidated,
+                                  phoneFieldHasBeenValidated: hasBeenValidated,
                                 )
                             : null,
                         child: Container(
@@ -482,14 +468,10 @@ class PhoneField extends StatelessWidget {
                                 countryCode: selectedCountryCode),
                           ],
                           cursorColor: SignupConstants.primaryGold,
-                          onTap: () {
-                            onUnfocusAll();
-                            focusNode.requestFocus();
-                          },
                           style: _inputTextStyle,
                           decoration: InputDecoration(
-                            hintText: SignupConstants.countryPhoneHints[
-                                    selectedCountryCode] ??
+                            hintText: SignupConstants
+                                    .countryPhoneHints[selectedCountryCode] ??
                                 '---',
                             hintStyle: _hintStyle(),
                             filled: false,
@@ -497,8 +479,7 @@ class PhoneField extends StatelessWidget {
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             disabledBorder: InputBorder.none,
-                            contentPadding:
-                                const EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 15,
                             ),
@@ -511,10 +492,8 @@ class PhoneField extends StatelessWidget {
                                 PhoneFormatter.formatPhoneNumber(
                                     selectedCountryCode, digitsOnly);
                             onPhoneNumberUpdate(formattedPhone);
-                            if (hasBeenValidated &&
-                                digitsOnly.isNotEmpty) {
-                              WidgetsBinding.instance
-                                  .addPostFrameCallback((_) {
+                            if (hasBeenValidated && digitsOnly.isNotEmpty) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
                                 formFieldState.validate();
                               });
                             }
@@ -599,8 +578,8 @@ class CityDropdown extends StatelessWidget {
                     }
                   : null,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 15),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(

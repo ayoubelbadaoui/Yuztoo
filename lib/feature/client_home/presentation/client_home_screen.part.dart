@@ -1,5 +1,8 @@
 part of 'client_home_screen.dart';
 
+/// Above this many carnet entries the search bar appears.
+const int _carnetSearchThreshold = 6;
+
 extension _ClientHomeScreenUi on ClientHomeScreen {
   Widget _buildHeader(
     BuildContext context, {
@@ -66,6 +69,7 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
 
     return _CarnetList(
       merchants: merchants,
+      query: ref.watch(carnetSearchQueryProvider),
       heartLevels: heartLevels,
       followedSet: followedSet,
       ownMerchantId: ownMerchantId,
@@ -322,10 +326,16 @@ extension _ClientHomeScreenUi on ClientHomeScreen {
             ),
           ),
           const SizedBox(height: 16),
-          if (showYuztooBrandTile)
-            const _RestonsProchesTile(),
+          if (showYuztooBrandTile) const _RestonsProchesTile(),
         ],
       ),
+    );
+  }
+
+  Widget _buildCarnetSearch(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+      child: _CarnetSearchField(),
     );
   }
 
@@ -743,14 +753,98 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
-/// Stateful carnet list with optional search bar (auto-shown when > 6 merchants)
-/// and reorder support.
+/// Pinned carnet search bar.
+///
+/// Keeps its own [TextEditingController] (so the cursor survives rebuilds of
+/// the feed) and publishes the text to [carnetSearchQueryProvider], which the
+/// carnet list reads to filter.
+class _CarnetSearchField extends ConsumerStatefulWidget {
+  const _CarnetSearchField();
+
+  @override
+  ConsumerState<_CarnetSearchField> createState() => _CarnetSearchFieldState();
+}
+
+class _CarnetSearchFieldState extends ConsumerState<_CarnetSearchField> {
+  late final TextEditingController _controller =
+      TextEditingController(text: ref.read(carnetSearchQueryProvider));
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasQuery = ref.watch(carnetSearchQueryProvider).isNotEmpty;
+    return TextField(
+      controller: _controller,
+      onChanged: (v) =>
+          ref.read(carnetSearchQueryProvider.notifier).state = v.trim(),
+      style: GoogleFonts.outfit(
+        color: MerchantColors.textWhite,
+        fontSize: 14,
+      ),
+      cursorColor: MerchantColors.gold,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: 'Rechercher un commerce…',
+        hintStyle: GoogleFonts.outfit(
+          color: MerchantColors.textGrey,
+          fontSize: 13,
+        ),
+        prefixIcon: const Icon(
+          Icons.search_rounded,
+          color: MerchantColors.gold,
+          size: 20,
+        ),
+        suffixIcon: hasQuery
+            ? IconButton(
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: MerchantColors.textGrey,
+                  size: 18,
+                ),
+                onPressed: () {
+                  _controller.clear();
+                  ref.read(carnetSearchQueryProvider.notifier).state = '';
+                  FocusScope.of(context).unfocus();
+                },
+              )
+            : null,
+        filled: true,
+        fillColor: MerchantColors.inputFill,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide:
+              BorderSide(color: MerchantColors.gold.withValues(alpha: 0.2)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide:
+              BorderSide(color: MerchantColors.gold.withValues(alpha: 0.2)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: MerchantColors.gold),
+        ),
+      ),
+    );
+  }
+}
+
+/// Stateful carnet list with reorder support. The search text comes from the
+/// pinned search bar above the scroll view, via [query].
 class _CarnetList extends StatefulWidget {
   const _CarnetList({
     required this.merchants,
     required this.heartLevels,
     required this.followedSet,
     required this.onMerchantTap,
+    this.query = '',
     this.ownMerchantId,
     this.onOrderChanged,
     this.onUnfollow,
@@ -761,6 +855,9 @@ class _CarnetList extends StatefulWidget {
   final Map<String, int> heartLevels;
   final Set<String> followedSet;
   final void Function(String merchantId) onMerchantTap;
+
+  /// Current carnet search text (owned by the pinned search bar).
+  final String query;
   final String? ownMerchantId;
   final void Function(Map<String, int> sortIndexes)? onOrderChanged;
 
@@ -777,8 +874,9 @@ class _CarnetList extends StatefulWidget {
 }
 
 class _CarnetListState extends State<_CarnetList> {
-  String _query = '';
   late List<Merchant> _ordered;
+
+  String get _query => widget.query;
 
   @override
   void initState() {
@@ -805,7 +903,6 @@ class _CarnetListState extends State<_CarnetList> {
 
   @override
   Widget build(BuildContext context) {
-    final showSearch = widget.merchants.length > 6;
     final filtered = _filtered;
 
     // Production layout: followed (reorderable) → Restons Proches → Mon commerce last.
@@ -822,40 +919,6 @@ class _CarnetListState extends State<_CarnetList> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showSearch) ...[
-            TextField(
-              onChanged: (v) => setState(() => _query = v),
-              style: GoogleFonts.outfit(
-                  color: MerchantColors.textWhite, fontSize: 14),
-              cursorColor: MerchantColors.gold,
-              decoration: InputDecoration(
-                hintText: 'Rechercher un commerce…',
-                hintStyle: GoogleFonts.outfit(
-                    color: MerchantColors.textGrey, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: MerchantColors.gold, size: 20),
-                filled: true,
-                fillColor: MerchantColors.inputFill,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                      color: MerchantColors.gold.withValues(alpha: 0.2)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                      color: MerchantColors.gold.withValues(alpha: 0.2)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: MerchantColors.gold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
           if (reorderableList.isNotEmpty && _query.isEmpty) ...[
             Text(
               'Maintenir une vignette pour réorganiser · menu ⋮ pour ne plus suivre',
@@ -913,13 +976,24 @@ class _CarnetListState extends State<_CarnetList> {
                 );
               },
             ),
+          if (_query.isNotEmpty && filtered.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'Aucun commerce de votre carnet ne correspond à « $_query ».',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: MerchantColors.textGrey,
+                  height: 1.45,
+                ),
+              ),
+            ),
           if (showRestonsProches) ...[
-            if (showSearch || reorderableList.isNotEmpty)
-              const SizedBox(height: 16),
+            if (reorderableList.isNotEmpty) const SizedBox(height: 16),
             const _RestonsProchesTile(),
           ],
           if (showOwnMerchant) ...[
-            if (showSearch || showRestonsProches || reorderableList.isNotEmpty)
+            if (showRestonsProches || reorderableList.isNotEmpty)
               const SizedBox(height: 16),
             _buildMerchantTile(
               ownMerchant,

@@ -18,10 +18,7 @@ import 'use_cases/update_rappels_settings.dart';
 import '../../storage/application/providers.dart' as storage_providers;
 
 export '../../auth/core/application/providers.dart'
-    show
-        authStateProvider,
-        getUserProfileBasicsProvider,
-        getUserCityProvider;
+    show authStateProvider, getUserProfileBasicsProvider, getUserCityProvider;
 export '../../auth/core/application/state/auth_state.dart' show Authenticated;
 export '../../storefront/application/providers.dart' show storefrontProvider;
 export '../../storage/application/providers.dart'
@@ -81,9 +78,44 @@ final merchantProfileCacheServiceProvider =
   return MerchantProfileCacheService();
 });
 
-/// Signed-in merchant profile (from `users.merchant_id` + [MerchantRepository.getMerchantById]).
+/// The store the signed-in merchant is currently managing.
 ///
-/// `null` when not authenticated, no `merchant_id`, or merchant doc missing.
+/// Live from `users/{uid}.merchant_id`; switching store rewrites that field and
+/// every merchant screen follows. When the field is missing (interrupted
+/// onboarding writes) the oldest store owned via `owner_uid` is used.
+final activeMerchantIdProvider = StreamProvider<String?>((ref) {
+  final authState = ref.watch(auth_providers.authStateProvider);
+  if (authState is! Authenticated) return Stream<String?>.value(null);
+  final userId = authState.user.id;
+  final firestore = ref.watch(firebaseFirestoreProvider);
+  final merchantRepo = ref.watch(merchantRepositoryProvider);
+
+  return firestore
+      .collection('users')
+      .doc(userId)
+      .snapshots()
+      .asyncMap<String?>((doc) async {
+    final linked = (doc.data()?['merchant_id'] as String?)?.trim();
+    if (linked != null && linked.isNotEmpty) return linked;
+    final owned = await merchantRepo.getMerchantsByOwnerUid(userId);
+    return owned.fold((_) => null, (l) => l.isEmpty ? null : l.first.id);
+  }).distinct();
+});
+
+/// Every store the signed-in user owns (oldest first).
+final ownedMerchantsProvider =
+    FutureProvider.autoDispose<List<Merchant>>((ref) async {
+  final authState = ref.watch(auth_providers.authStateProvider);
+  if (authState is! Authenticated) return const <Merchant>[];
+  final result = await ref
+      .watch(merchantRepositoryProvider)
+      .getMerchantsByOwnerUid(authState.user.id);
+  return result.fold((_) => const <Merchant>[], (l) => l);
+});
+
+/// Signed-in merchant profile for the active store ([activeMerchantIdProvider]).
+///
+/// `null` when not authenticated or no store is linked.
 ///
 /// Network/Firestore throws are caught so screens (e.g. E-Fidélité) do not
 /// surface [AsyncError] red states on transient failures — same as a missing
@@ -92,31 +124,28 @@ final currentMerchantForOwnerProvider =
     FutureProvider.autoDispose<Merchant?>((ref) async {
   // Avoid aggressive refetch/dispose churn on Android when navigating
   // (e.g. E-Fidélité) while still invalidating explicitly after saves.
-  ref.keepAlive();
+  // Only cache successes: a failed load must not stick as "no store" for the
+  // whole session — closing the link lets the next visit refetch.
+  final keepAlive = ref.keepAlive();
 
-  final authState = ref.watch(auth_providers.authStateProvider);
-  if (authState is! Authenticated) {
-    return null;
-  }
-  final userId = authState.user.id;
-  final firestore = ref.watch(firebaseFirestoreProvider);
   final merchantRepo = ref.watch(merchantRepositoryProvider);
-
+  String? merchantId;
   try {
-    final userDoc = await firestore.collection('users').doc(userId).get();
-    final merchantId = (userDoc.data()?['merchant_id'] as String?)?.trim();
-    if (merchantId == null || merchantId.isEmpty) {
-      return null;
-    }
+    merchantId = await ref.watch(activeMerchantIdProvider.future);
+    if (merchantId == null || merchantId.isEmpty) return null;
 
     final result = await merchantRepo.getMerchantById(merchantId);
-    return result.fold<Merchant?>((_) => null, (m) => m);
+    return result.fold<Merchant?>((_) {
+      keepAlive.close();
+      return null;
+    }, (m) => m);
   } catch (e, st) {
+    keepAlive.close();
     LoggerService.logError(
       'currentMerchantForOwnerProvider: load failed',
       error: e,
       stackTrace: st,
-      context: <String, dynamic>{'userId': userId},
+      context: <String, dynamic>{'merchantId': merchantId},
     );
     return null;
   }

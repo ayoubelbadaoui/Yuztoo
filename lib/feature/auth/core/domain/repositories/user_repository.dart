@@ -1,4 +1,5 @@
 import '../../../../../core/domain/core/result.dart';
+import '../../../../../core/domain/entities/french_commune.dart';
 import '../../../../../types.dart';
 import '../entities/client_profile_readiness.dart';
 import '../entities/user_profile_basics.dart';
@@ -97,6 +98,7 @@ abstract class UserRepository {
     required String uid,
     required String displayName,
     String? city,
+    FrenchCommune? commune,
     String? photoUrl,
     String? firstName,
     String? lastName,
@@ -123,10 +125,21 @@ abstract class UserRepository {
   /// Returns [city] if no cities array, else the cities array.
   Future<Result<List<String>>> getConnectedCities(String uid);
 
+  /// Official commune metadata keyed by city display name (`cities_metadata`).
+  /// Empty map when absent — callers still expand via live geo API.
+  Future<Result<Map<String, FrenchCommune>>> getConnectedCitiesMetadata(
+    String uid,
+  );
+
   /// Set connected cities in Firestore (replaces the list and updates city to first).
+  ///
+  /// When [citiesMetadata] is provided, it is written as `cities_metadata`
+  /// (EPCI codes for Découvrir agglomeration expansion). Keys should match
+  /// the display names in [cities].
   Future<Result<Unit>> setConnectedCities({
     required String uid,
     required List<String> cities,
+    Map<String, FrenchCommune>? citiesMetadata,
   });
 
   /// Patch missing fields in user document for legacy users

@@ -6,7 +6,9 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'city_catalog_repository.dart';
 import 'crash_guard.dart';
 
 // Web OAuth 2.0 Client ID (type 3) — required by google_sign_in v7+ for idToken on Android.
@@ -30,6 +32,7 @@ final firebaseInitializationProvider = FutureProvider<void>((ref) async {
   await FirebaseCrashlytics.instance
       .setCrashlyticsCollectionEnabled(!kDebugMode);
   CrashGuard.attachContext();
+  await signOutSessionRestoredByFreshInstall();
   // The iOS keychain persists Firebase Auth sessions across app reinstalls —
   // and even across server-side account deletion (e.g. the signup rollback
   // that removes an orphan user). A restored session whose account no longer
@@ -65,8 +68,49 @@ final firebaseInitializationProvider = FutureProvider<void>((ref) async {
   }
 });
 
+const _kInstallMarkerKey = 'yuztoo_install_marker_v1';
+
+/// iOS keeps the Firebase Auth session in the keychain when the app is
+/// deleted, so a reinstall opened straight into the previous account — often
+/// an unfinished onboarding — instead of the welcome screen. App data
+/// (SharedPreferences) *is* wiped on uninstall: no marker and no other saved
+/// key means a fresh install, so the restored session is dropped.
+///
+/// Users updating the app already have saved keys (role cache, …): they only
+/// get the marker and stay signed in.
+@visibleForTesting
+Future<void> signOutSessionRestoredByFreshInstall({
+  FirebaseAuth? auth,
+}) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.containsKey(_kInstallMarkerKey)) return;
+    try {
+      final freshInstall = prefs.getKeys().isEmpty;
+      final firebaseAuth = auth ?? FirebaseAuth.instance;
+      if (freshInstall && firebaseAuth.currentUser != null) {
+        await firebaseAuth.signOut();
+      }
+    } finally {
+      // Always mark: a retry next launch would see saved keys and wrongly
+      // treat the app as updated.
+      await prefs.setBool(_kInstallMarkerKey, true);
+    }
+  } catch (e) {
+    // Never block startup on this clean-up.
+    debugPrint('[Auth] fresh-install check failed: $e');
+  }
+}
+
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
 
 final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
 
 final firebaseStorageProvider = Provider<FirebaseStorage>((ref) => FirebaseStorage.instance);
+
+/// Shared geo.api.gouv.fr catalog (EPCI expansion for Découvrir, city pickers).
+final cityCatalogRepositoryProvider = Provider<CityCatalogRepository>((ref) {
+  final catalog = CityCatalogRepository(persistDepartmentLists: true);
+  ref.onDispose(catalog.close);
+  return catalog;
+});

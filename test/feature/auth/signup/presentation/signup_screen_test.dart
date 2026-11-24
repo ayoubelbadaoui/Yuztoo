@@ -20,6 +20,7 @@ import 'package:flutter_yuztoo/feature/auth/signup/application/widgets.dart';
 import 'package:flutter_yuztoo/types.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
+import 'package:flutter_yuztoo/core/domain/entities/french_commune.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({
@@ -178,11 +179,11 @@ class _FakeUserRepository implements UserRepository {
       throw UnimplementedError();
 
   @override
-  Future<Result<UserRole?>> getUserRole(String uid) => throw UnimplementedError();
+  Future<Result<UserRole?>> getUserRole(String uid) =>
+      throw UnimplementedError();
 
   @override
-  Future<Result<String?>> getUserCity(String uid) =>
-      throw UnimplementedError();
+  Future<Result<String?>> getUserCity(String uid) => throw UnimplementedError();
 
   @override
   Future<Result<UserProfileBasics?>> getUserProfileBasics(String uid) =>
@@ -201,7 +202,8 @@ class _FakeUserRepository implements UserRepository {
       throw UnimplementedError();
 
   @override
-  Future<Result<ClientProfileReadiness>> getClientProfileReadiness(String uid) =>
+  Future<Result<ClientProfileReadiness>> getClientProfileReadiness(
+          String uid) =>
       throw UnimplementedError();
 
   @override
@@ -209,6 +211,7 @@ class _FakeUserRepository implements UserRepository {
     required String uid,
     required String displayName,
     String? city,
+    FrenchCommune? commune,
     String? photoUrl,
     String? firstName,
     String? lastName,
@@ -243,9 +246,16 @@ class _FakeUserRepository implements UserRepository {
       throw UnimplementedError();
 
   @override
+  Future<Result<Map<String, FrenchCommune>>> getConnectedCitiesMetadata(
+    String uid,
+  ) =>
+      throw UnimplementedError();
+
+  @override
   Future<Result<Unit>> setConnectedCities({
     required String uid,
     required List<String> cities,
+    Map<String, FrenchCommune>? citiesMetadata,
   }) =>
       throw UnimplementedError();
 
@@ -300,84 +310,127 @@ class _FakeUserRepositoryWithProfile extends _FakeUserRepository {
 
 void main() {
   testWidgets(
-    'Signup flow navigates to OTPScreen with formatted phone number',
+    'Signup keeps the active field focused after repeated taps and scrolling',
     (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
-          userRepositoryProvider.overrideWithValue(_FakeUserRepository()),
-        ],
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) => SignupScreen(
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+            userRepositoryProvider.overrideWithValue(_FakeUserRepository()),
+          ],
+          child: MaterialApp(
+            home: SignupScreen(
               role: UserRole.client,
               onBack: () {},
               onNavigateToOAuthCompletion: () {},
-              onNavigateToOtp: (data) {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => OTPScreen(
-                      userId: '',
-                      phone: data.phone,
-                      onResend: (_) {},
-                      email: data.email,
-                      password: data.password,
-                      role: UserRole.client,
-                      verificationId: data.verificationId,
-                    ),
-                  ),
-                );
-              },
+              onNavigateToOtp: (_) {},
             ),
           ),
         ),
-      ),
-    );
+      );
+      await tester.pumpAndSettle();
 
-    final fields = find.byType(TextFormField);
-    expect(fields, findsNWidgets(3));
+      final emailField = find.byType(TextFormField).first;
+      final editable = find.descendant(
+        of: emailField,
+        matching: find.byType(EditableText),
+      );
 
-    final phoneField = find.descendant(
-      of: find.byType(PhoneField),
-      matching: find.byType(TextField),
-    );
-    expect(phoneField, findsOneWidget);
+      await tester.tap(emailField);
+      await tester.pump();
+      expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
 
-    await tester.enterText(
-      fields.at(0),
-      'test@example.com',
-    );
-    await tester.enterText(
-      fields.at(1),
-      'Password1',
-    );
-    await tester.enterText(
-      fields.at(2),
-      'Password1',
-    );
-    await tester.enterText(
-      phoneField,
-      '612345678',
-    );
+      // Samsung may report a tap as a tiny drag. Scrolling the signup form
+      // must not dismiss the IME or detach the active EditableText.
+      await tester.tap(emailField);
+      await tester.drag(
+          find.byType(SingleChildScrollView), const Offset(0, -80));
+      await tester.pump();
 
-    final submitBtn = find.text('Créer mon compte');
-    await tester.ensureVisible(submitBtn);
-    await tester.pump();
-    await tester.tap(submitBtn);
-    await tester.pumpAndSettle();
+      expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
+    },
+  );
 
-    final otpFinder = find.byType(OTPScreen);
-    expect(otpFinder, findsOneWidget);
+  testWidgets(
+    'Signup flow navigates to OTPScreen with formatted phone number',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+            userRepositoryProvider.overrideWithValue(_FakeUserRepository()),
+          ],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => SignupScreen(
+                role: UserRole.client,
+                onBack: () {},
+                onNavigateToOAuthCompletion: () {},
+                onNavigateToOtp: (data) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => OTPScreen(
+                        userId: '',
+                        phone: data.phone,
+                        onResend: (_) {},
+                        email: data.email,
+                        password: data.password,
+                        role: UserRole.client,
+                        verificationId: data.verificationId,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
 
-    final otp = tester.widget<OTPScreen>(otpFinder);
-    expect(otp.userId, ''); // SignupScreen defers user creation until OTP verification
-    expect(otp.phone, '+33612345678');
-    expect(otp.verificationId, 'verif-123');
-    expect(otp.email, 'test@example.com');
-    expect(otp.password, 'Password1');
-    expect(otp.role, UserRole.client);
-  },
+      final fields = find.byType(TextFormField);
+      expect(fields, findsNWidgets(3));
+
+      final phoneField = find.descendant(
+        of: find.byType(PhoneField),
+        matching: find.byType(TextField),
+      );
+      expect(phoneField, findsOneWidget);
+
+      await tester.enterText(
+        fields.at(0),
+        'test@example.com',
+      );
+      await tester.enterText(
+        fields.at(1),
+        'Password1',
+      );
+      await tester.enterText(
+        fields.at(2),
+        'Password1',
+      );
+      await tester.enterText(
+        phoneField,
+        '612345678',
+      );
+
+      final submitBtn = find.text('Créer mon compte');
+      await tester.ensureVisible(submitBtn);
+      await tester.pump();
+      await tester.tap(submitBtn);
+      await tester.pumpAndSettle();
+
+      final otpFinder = find.byType(OTPScreen);
+      expect(otpFinder, findsOneWidget);
+
+      final otp = tester.widget<OTPScreen>(otpFinder);
+      expect(otp.userId,
+          ''); // SignupScreen defers user creation until OTP verification
+      expect(otp.phone, '+33612345678');
+      expect(otp.verificationId, 'verif-123');
+      expect(otp.email, 'test@example.com');
+      expect(otp.password, 'Password1');
+      expect(otp.role, UserRole.client);
+    },
   );
 
   testWidgets(
@@ -636,4 +689,3 @@ void main() {
     },
   );
 }
-

@@ -80,7 +80,10 @@ class AutoNotificationHealthReport {
   /// True when every gate is green: push allowed, token registered,
   /// merchant enabled, and at least one template active.
   bool get isFullyOperational =>
-      pushAllowed && fcmTokenRegistered && merchantAutoEnabled && enabledTemplates > 0;
+      pushAllowed &&
+      fcmTokenRegistered &&
+      merchantAutoEnabled &&
+      enabledTemplates > 0;
 
   /// True when the OS will display incoming pushes. Provisional counts
   /// because the notification still reaches the device (notification
@@ -181,7 +184,8 @@ class AutoNotificationHealthChecker {
   Future<bool> _readMerchantAutoEnabled(String merchantId) async {
     if (merchantId.isEmpty) return false;
     try {
-      final doc = await _firestore.collection('merchants').doc(merchantId).get();
+      final doc =
+          await _firestore.collection('merchants').doc(merchantId).get();
       if (!doc.exists) return false;
       // Match `isMerchantAutoNotificationsEnabled` (Cloud Functions): only
       // a strict `false` (or 0/"0") disables. Anything else, including

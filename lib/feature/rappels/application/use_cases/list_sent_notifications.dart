@@ -7,6 +7,6 @@ class ListSentNotifications {
   final ISentNotificationRepository _repo;
 
   Future<Result<List<SentNotification>>> call(String merchantId,
-      {int limit = 20}) =>
+          {int limit = 20}) =>
       _repo.list(merchantId, limit: limit);
 }

@@ -61,12 +61,11 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
                 onTap: () => onSegmentToggled(seg.$1),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? MerchantColors.gold
-                        : Colors.transparent,
+                    color:
+                        isSelected ? MerchantColors.gold : Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
@@ -111,8 +110,7 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
             TextSpan(children: [
               TextSpan(
                   text: 'Vous avez ciblé ',
-                  style:
-                      GoogleFonts.outfit(fontSize: 11, color: Colors.white)),
+                  style: GoogleFonts.outfit(fontSize: 11, color: Colors.white)),
               TextSpan(
                   text: selectedSegments.isEmpty
                       ? 'tous'
@@ -123,8 +121,7 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
                       color: MerchantColors.gold)),
               TextSpan(
                   text: ' — Tarif: 5 € HT ou inclus avec abonnement premium',
-                  style:
-                      GoogleFonts.outfit(fontSize: 11, color: Colors.white)),
+                  style: GoogleFonts.outfit(fontSize: 11, color: Colors.white)),
             ]),
             textAlign: TextAlign.center,
           ),
@@ -218,8 +215,7 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: isSelected ? MerchantColors.gold : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
@@ -253,8 +249,7 @@ extension _ClientTypeDetailsUi on ClientTypeDetails {
               ),
               TextSpan(
                 text: ' clients',
-                style:
-                    GoogleFonts.outfit(fontSize: 10, color: Colors.white),
+                style: GoogleFonts.outfit(fontSize: 10, color: Colors.white),
               ),
             ]),
           ),

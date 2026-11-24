@@ -284,9 +284,83 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
     }
   }
 
+  Future<Result<Map<String, FrenchCommune>>> getConnectedCitiesMetadata(
+    String uid,
+  ) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists || doc.data() == null) {
+        return const Right<AuthFailure, Map<String, FrenchCommune>>({});
+      }
+      final raw = doc.data()!['cities_metadata'];
+      if (raw is! Map) {
+        // Legacy single city_metadata — map under primary city when present.
+        final single = doc.data()!['city_metadata'];
+        final city = (doc.data()!['city'] as String?)?.trim();
+        if (single is Map && city != null && city.isNotEmpty) {
+          final commune = FrenchCommune.fromFirestore(
+            Map<String, dynamic>.from(single),
+          );
+          if (commune.name.isNotEmpty || commune.epciCode != null) {
+            return Right<AuthFailure, Map<String, FrenchCommune>>({
+              city: commune.name.isNotEmpty
+                  ? commune
+                  : FrenchCommune(
+                      name: city,
+                      inseeCode: commune.inseeCode,
+                      postalCodes: commune.postalCodes,
+                      population: commune.population,
+                      departmentCode: commune.departmentCode,
+                      regionCode: commune.regionCode,
+                      epciCode: commune.epciCode,
+                      epciName: commune.epciName,
+                      longitude: commune.longitude,
+                      latitude: commune.latitude,
+                    ),
+            });
+          }
+        }
+        return const Right<AuthFailure, Map<String, FrenchCommune>>({});
+      }
+
+      final out = <String, FrenchCommune>{};
+      for (final entry in raw.entries) {
+        final key = entry.key?.toString().trim() ?? '';
+        if (key.isEmpty || entry.value is! Map) continue;
+        final commune = FrenchCommune.fromFirestore(
+          Map<String, dynamic>.from(entry.value as Map),
+        );
+        out[key] = commune.name.isNotEmpty
+            ? commune
+            : FrenchCommune(
+                name: key,
+                inseeCode: commune.inseeCode,
+                postalCodes: commune.postalCodes,
+                population: commune.population,
+                departmentCode: commune.departmentCode,
+                regionCode: commune.regionCode,
+                epciCode: commune.epciCode,
+                epciName: commune.epciName,
+                longitude: commune.longitude,
+                latitude: commune.latitude,
+              );
+      }
+      return Right<AuthFailure, Map<String, FrenchCommune>>(out);
+    } catch (e, st) {
+      LoggerService.logError(
+        'Error getting connected cities metadata',
+        error: e,
+        stackTrace: st,
+        context: {'uid': uid},
+      );
+      return const Right<AuthFailure, Map<String, FrenchCommune>>({});
+    }
+  }
+
   Future<Result<Unit>> setConnectedCities({
     required String uid,
     required List<String> cities,
+    Map<String, FrenchCommune>? citiesMetadata,
   }) async {
     try {
       final userRef = _firestore.collection('users').doc(uid);
@@ -311,6 +385,27 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         final primary = CityInput.forFirestore(trimmed.first);
         if (primary != null) {
           updateData['city'] = primary;
+        }
+      }
+      if (citiesMetadata != null) {
+        final metaMap = <String, dynamic>{};
+        for (final name in trimmed) {
+          FrenchCommune? commune = citiesMetadata[name];
+          if (commune == null) {
+            for (final entry in citiesMetadata.entries) {
+              if (entry.key.trim().toLowerCase() == name.toLowerCase()) {
+                commune = entry.value;
+                break;
+              }
+            }
+          }
+          if (commune == null) continue;
+          metaMap[name] = commune.toFirestore();
+        }
+        updateData['cities_metadata'] = metaMap;
+        final primaryMeta = metaMap[trimmed.isNotEmpty ? trimmed.first : ''];
+        if (primaryMeta is Map) {
+          updateData['city_metadata'] = primaryMeta;
         }
       }
       mergeUserPatchForFirestoreRules(existing, updateData);
@@ -571,11 +666,9 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       final hasClientRole = roles?['client'] == true;
 
       final onboarding = fsMap(data['onboarding']);
-      final clientRaw =
-          (fsString(onboarding?['client']))?.trim().toLowerCase();
-      final onboardingCompleted = onboarding == null
-          ? hasClientRole
-          : (clientRaw == 'completed');
+      final clientRaw = (fsString(onboarding?['client']))?.trim().toLowerCase();
+      final onboardingCompleted =
+          onboarding == null ? hasClientRole : (clientRaw == 'completed');
 
       final firstName = (fsString(data['first_name']))?.trim();
       final lastName = (fsString(data['last_name']))?.trim();
@@ -631,6 +724,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
     required String uid,
     required String displayName,
     String? city,
+    FrenchCommune? commune,
     String? photoUrl,
     String? firstName,
     String? lastName,
@@ -652,16 +746,26 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       // a minimal valid document now so onboarding can still complete.
       if (!snap.exists) {
         // ignore: avoid_print
-        print('[completeClientProfile] user doc missing for uid=$uid — creating minimal doc');
+        print(
+            '[completeClientProfile] user doc missing for uid=$uid — creating minimal doc');
         final authUser = FirebaseAuth.instance.currentUser;
         final minimalDoc = <String, dynamic>{
           'uid': uid,
           'email': authUser?.email ?? '',
           'phone': authUser?.phoneNumber ?? '',
-          'roles': <String, bool>{'client': true, 'merchant': false, 'provider': false},
+          'roles': <String, bool>{
+            'client': true,
+            'merchant': false,
+            'provider': false
+          },
           'primary_role': 'client',
           'merchant_id': null,
-          'onboarding': <String, String>{'merchant': 'completed', 'client': 'not_started'},
+          // Client-only bootstrap: never pre-mark merchant onboarding done
+          // or a later dual-profile upgrade skips the merchant wizard.
+          'onboarding': <String, String>{
+            'merchant': 'not_started',
+            'client': 'not_started',
+          },
           'status': 'active',
           'created_at': FieldValue.serverTimestamp(),
           'updated_at': FieldValue.serverTimestamp(),
@@ -669,7 +773,8 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
           'force_merchant_next_login': false,
         };
         await userRef.set(minimalDoc, SetOptions(merge: false));
-        LoggerService.logInfo('completeClientProfile: created missing user doc', context: {'uid': uid});
+        LoggerService.logInfo('completeClientProfile: created missing user doc',
+            context: {'uid': uid});
       }
 
       final freshSnap = snap.exists ? snap : await userRef.get();
@@ -700,10 +805,13 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       if (photoUrl != null && photoUrl.trim().isNotEmpty) {
         update['photoUrl'] = photoUrl.trim();
       }
-      final trimmedCity = CityInput.forFirestore(city ?? '');
-      if (trimmedCity != null) {
-        update['city'] = trimmedCity;
-      }
+      // Also updates `cities` / `cities_metadata` when the account already
+      // has a list (dual profile) — Découvrir reads that list first.
+      update.addAll(clientOnboardingCityPatch(
+        existingUserData: data,
+        city: city,
+        commune: commune,
+      ));
       if (firstName != null && firstName.trim().isNotEmpty) {
         update['first_name'] = firstName.trim();
       }
@@ -782,7 +890,8 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
         // just because only firstName was passed.
         final existingLn = (fsString(existing['last_name']) ?? '').trim();
         final effectiveLn = ln.isNotEmpty ? ln : existingLn;
-        update['displayName'] = effectiveLn.isNotEmpty ? '$fn $effectiveLn' : fn;
+        update['displayName'] =
+            effectiveLn.isNotEmpty ? '$fn $effectiveLn' : fn;
       }
 
       if (ln.isNotEmpty) {
@@ -822,8 +931,7 @@ mixin _FirebaseUserRepositoryReads on _FirebaseUserRepositoryBase {
       if (e is FirebaseException && e.code == 'permission-denied') {
         return const Left<AuthFailure, Unit>(
           AuthUnexpectedFailure(
-            message:
-                'Modification refusée. Reconnectez-vous et réessayez.',
+            message: 'Modification refusée. Reconnectez-vous et réessayez.',
           ),
         );
       }

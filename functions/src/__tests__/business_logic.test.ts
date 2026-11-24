@@ -34,13 +34,16 @@ const pubsubSchedule = {
   onRun: noopFn,
 };
 const pubsubRegion = { schedule: jest.fn().mockReturnValue(pubsubSchedule) };
-const httpsRegion = { onCall: noopFn };
+const httpsRegion = { onCall: noopFn, onRequest: noopFn };
+const authUser = { onDelete: noopFn };
+const authRegion = { user: jest.fn().mockReturnValue(authUser) };
 // runWith returns the same region-like object so the chain
 // `region().runWith().pubsub.schedule().onRun(...)` resolves.
 const regionMock: any = {
   firestore: firestoreRegion,
   pubsub: pubsubRegion,
   https: httpsRegion,
+  auth: authRegion,
 };
 regionMock.runWith = jest.fn().mockReturnValue(regionMock);
 
@@ -50,7 +53,11 @@ jest.mock("firebase-functions", () => ({
 }));
 
 import { filterEnabledNotificationsForTrigger } from "../auto_notification_core";
-import { computeSegment, computeBonValidUntil } from "../index";
+import {
+  computeSegment,
+  computeBonValidUntil,
+  resolveClientPublicName,
+} from "../index";
 
 // ── DOB date parsing ──────────────────────────────────────────────────────────
 // Mirror of the logic in dailyScheduledTriggers:
@@ -60,6 +67,29 @@ import { computeSegment, computeBonValidUntil } from "../index";
 function parseDobToMD(dob: string): string {
   return dob.length >= 5 ? dob.slice(dob.length - 5) : dob;
 }
+
+describe("resolveClientPublicName — merchant new-follower copy", () => {
+  test("prefers displayName", () => {
+    expect(
+      resolveClientPublicName({
+        displayName: "Alice",
+        firstName: "A",
+        lastName: "B",
+      })
+    ).toBe("Alice");
+  });
+
+  test("falls back to first + last name", () => {
+    expect(
+      resolveClientPublicName({ first_name: "Jean", last_name: "Dupont" })
+    ).toBe("Jean Dupont");
+  });
+
+  test("defaults when empty", () => {
+    expect(resolveClientPublicName(undefined)).toBe("Un client");
+    expect(resolveClientPublicName({})).toBe("Un client");
+  });
+});
 
 describe("DOB date parsing (dailyScheduledTriggers)", () => {
   test("B12 — YYYY-MM-DD format extracts MM-DD correctly", () => {
@@ -589,7 +619,7 @@ describe("G6: Merchant self-follow — dual-profile notification contract", () =
     expect(followers.length).toBe(1000);
 
     const promoId = "promo_stress";
-    const docIds = new Set(followers.map((uid) => `promo_${promoId}`));
+    const docIds = new Set(followers.map(() => `promo_${promoId}`));
     // All followers get the same doc ID (relative to their user path).
     expect(docIds.size).toBe(1);
   });

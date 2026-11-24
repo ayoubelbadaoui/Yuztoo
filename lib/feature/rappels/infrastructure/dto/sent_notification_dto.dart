@@ -33,9 +33,7 @@ class SentNotificationDto {
       merchantId: fsString(d['merchant_id']) ?? '',
       text: fsString(d['text']) ?? '',
       audience: fsString(d['audience']) ?? 'Tous mes clients',
-      segments: d['segments'] is List
-          ? fsStringList(d['segments'])
-          : const [],
+      segments: d['segments'] is List ? fsStringList(d['segments']) : const [],
       sentCount: fsNum(d['sent_count'])?.toInt() ?? 0,
       openCount: fsNum(d['open_count'])?.toInt() ?? 0,
       sentAt: fsTimestamp(d['sent_at'])?.toDate() ?? DateTime.now(),

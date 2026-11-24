@@ -120,10 +120,11 @@ extension _SignupScreenUi on _SignupScreenState {
 
     String formattedPhoneNumber = '';
     if (hasPhone) {
-      formattedPhoneNumber = PhoneFormatter.formatPhoneNumber(
-        _selectedCountryCode,
-        _phoneController.text,
-      );
+      formattedPhoneNumber = _phoneNumber ??
+          PhoneFormatter.formatPhoneNumber(
+            _selectedCountryCode,
+            _phoneController.text,
+          );
 
       if (!PhoneFormatter.isValidE164(formattedPhoneNumber)) {
         if (mounted) {
@@ -312,11 +313,11 @@ extension _SignupScreenUi on _SignupScreenState {
         },
         (authUser) async {
           final createResult = await createUserDoc.call(
-                uid: authUser.id,
-                email: email,
-                phone: '',
-                roles: signupRolesMap(signupRole),
-              );
+            uid: authUser.id,
+            email: email,
+            phone: '',
+            roles: signupRolesMap(signupRole),
+          );
 
           await createResult.fold<Future<void>>(
             (failure) async {
@@ -478,8 +479,7 @@ extension _SignupScreenUi on _SignupScreenState {
                     oauthBusy: oauthBusy,
                   ),
                 ),
-                if (oauthBusy)
-                  _OAuthLoadingOverlay(state: oauthState),
+                if (oauthBusy) _OAuthLoadingOverlay(state: oauthState),
               ],
             ),
           ),
@@ -495,166 +495,160 @@ extension _SignupScreenUi on _SignupScreenState {
     required bool oauthBusy,
   }) {
     return Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Top bar: back arrow ← + Yuztoo brand mark →
+        SizedBox(
+          height: 44,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              GestureDetector(
+                onTap: widget.onBack,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: SignupConstants.primaryGold,
+                    size: 20,
+                  ),
+                ),
+              ),
+              // Inline brand mark — keeps identity without wasting space
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Top bar: back arrow ← + Yuztoo brand mark →
-                  SizedBox(
-                    height: 44,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        GestureDetector(
-                          onTap: widget.onBack,
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 10),
-                            child: Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: SignupConstants.primaryGold,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                        // Inline brand mark — keeps identity without wasting space
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 26,
-                              height: 26,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: SignupConstants.primaryGold,
-                                  width: 1.5,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                'Y',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: SignupConstants.primaryGold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Yuztoo',
-                              style: GoogleFonts.outfit(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: SignupConstants.textLight,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Hero
-                  SignupLogoSection(role: widget.role),
-                  const SizedBox(height: 20),
-                  // Form card
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    width: 26,
+                    height: 26,
                     decoration: BoxDecoration(
-                      color: MerchantColors.bgHeader,
-                      borderRadius: BorderRadius.circular(20),
+                      shape: BoxShape.circle,
                       border: Border.all(
-                        color: MerchantColors.gold.withValues(
-                            alpha: MerchantColors.goldBorderAlpha),
-                        width: 1,
+                        color: SignupConstants.primaryGold,
+                        width: 1.5,
                       ),
                     ),
-                    child: Form(
-                      key: _formKey,
-                      autovalidateMode: AutovalidateMode.disabled,
-                      child: Column(
-                        children: [
-                          EmailField(
-                            controller: _emailController,
-                            focusNode: _emailFocusNode,
-                            fieldKey: _emailFieldKey,
-                            hasBeenValidated: _emailFieldHasBeenValidated,
-                            enabled: !_isLoading,
-                            onUnfocusAll: _unfocusAllFields,
-                          ),
-                          const SizedBox(height: 16),
-                          PasswordField(
-                            controller: _passwordController,
-                            focusNode: _passwordFocusNode,
-                            fieldKey: _passwordFieldKey,
-                            hasBeenValidated: _passwordFieldHasBeenValidated,
-                            enabled: !_isLoading,
-                            onUnfocusAll: _unfocusAllFields,
-                            onFocusChanged: _onPasswordFieldFocusChanged,
-                          ),
-                          if (_isPasswordFocused) ...[
-                            const SizedBox(height: 8),
-                            const PasswordHint(),
-                          ],
-                          const SizedBox(height: 16),
-                          ConfirmPasswordField(
-                            controller: _confirmPasswordController,
-                            passwordController: _passwordController,
-                            focusNode: _confirmPasswordFocusNode,
-                            fieldKey: _confirmPasswordFieldKey,
-                            hasBeenValidated:
-                                _confirmPasswordFieldHasBeenValidated,
-                            enabled: !_isLoading,
-                            onUnfocusAll: _unfocusAllFields,
-                          ),
-                          const SizedBox(height: 16),
-                          PhoneField(
-                            controller: _phoneController,
-                            focusNode: _phoneFocusNode,
-                            fieldKey: _phoneFieldKey,
-                            selectedCountryCode: _selectedCountryCode,
-                            hasBeenValidated: _phoneFieldHasBeenValidated,
-                            enabled: !_isLoading,
-                            onUnfocusAll: _unfocusAllFields,
-                            onPhoneNumberUpdate: _onPhoneNumberUpdate,
-                            onCountryCodeChange: _onCountryCodeChange,
-                            onRevalidatePhone: _revalidatePhoneAfterEdit,
-                          ),
-                        ],
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Y',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: SignupConstants.primaryGold,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  SignupButton(
-                    isLoading: _isLoading,
-                    onPressed:
-                        (_isLoading || _isSubmitting) ? null : _handleSignup,
+                  const SizedBox(width: 6),
+                  Text(
+                    'Yuztoo',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: SignupConstants.textLight,
+                      letterSpacing: 0.2,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  // RGPD/CGU consent disclaimer. Implicit acceptance via
-                  // account creation — explicit checkbox would add
-                  // friction without legal benefit since the action is
-                  // already a clear consent gesture under French law.
-                  // The two links MUST be tappable here (not just in
-                  // settings) so a prospective user can read both
-                  // documents BEFORE committing.
-                  const _LegalConsentDisclaimer(),
-                  const SizedBox(height: 16),
-                  const SocialDivider(),
-                  const SizedBox(height: 16),
-                  SocialLoginButtons(
-                    isLoading: _isLoading || oauthBusy,
-                    googleLoading: googleBusy,
-                    appleLoading: appleBusy,
-                    onSocialLogin: _handleSocialLogin,
-                  ),
-                  const SizedBox(height: 24),
-                  SignupFooter(
-                    onBack: widget.onBack,
-                  ),
-                  const SizedBox(height: 16),
                 ],
-              );
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Hero
+        SignupLogoSection(role: widget.role),
+        const SizedBox(height: 20),
+        // Form card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: MerchantColors.bgHeader,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: MerchantColors.gold
+                  .withValues(alpha: MerchantColors.goldBorderAlpha),
+              width: 1,
+            ),
+          ),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.disabled,
+            child: Column(
+              children: [
+                EmailField(
+                  controller: _emailController,
+                  focusNode: _emailFocusNode,
+                  fieldKey: _emailFieldKey,
+                  hasBeenValidated: _emailFieldHasBeenValidated,
+                  enabled: !_isLoading,
+                ),
+                const SizedBox(height: 16),
+                PasswordField(
+                  controller: _passwordController,
+                  focusNode: _passwordFocusNode,
+                  fieldKey: _passwordFieldKey,
+                  hasBeenValidated: _passwordFieldHasBeenValidated,
+                  enabled: !_isLoading,
+                  onFocusChanged: _onPasswordFieldFocusChanged,
+                ),
+                if (_isPasswordFocused) ...[
+                  const SizedBox(height: 8),
+                  const PasswordHint(),
+                ],
+                const SizedBox(height: 16),
+                ConfirmPasswordField(
+                  controller: _confirmPasswordController,
+                  passwordController: _passwordController,
+                  focusNode: _confirmPasswordFocusNode,
+                  fieldKey: _confirmPasswordFieldKey,
+                  hasBeenValidated: _confirmPasswordFieldHasBeenValidated,
+                  enabled: !_isLoading,
+                ),
+                const SizedBox(height: 16),
+                PhoneField(
+                  controller: _phoneController,
+                  focusNode: _phoneFocusNode,
+                  fieldKey: _phoneFieldKey,
+                  selectedCountryCode: _selectedCountryCode,
+                  hasBeenValidated: _phoneFieldHasBeenValidated,
+                  enabled: !_isLoading,
+                  onPhoneNumberUpdate: _onPhoneNumberUpdate,
+                  onCountryCodeChange: _onCountryCodeChange,
+                  onRevalidatePhone: _revalidatePhoneAfterEdit,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        SignupButton(
+          isLoading: _isLoading,
+          onPressed: (_isLoading || _isSubmitting) ? null : _handleSignup,
+        ),
+        const SizedBox(height: 12),
+        // RGPD/CGU consent disclaimer. Implicit acceptance via
+        // account creation — explicit checkbox would add
+        // friction without legal benefit since the action is
+        // already a clear consent gesture under French law.
+        // The two links MUST be tappable here (not just in
+        // settings) so a prospective user can read both
+        // documents BEFORE committing.
+        const _LegalConsentDisclaimer(),
+        const SizedBox(height: 16),
+        const SocialDivider(),
+        const SizedBox(height: 16),
+        SocialLoginButtons(
+          isLoading: _isLoading || oauthBusy,
+          googleLoading: googleBusy,
+          appleLoading: appleBusy,
+          onSocialLogin: _handleSocialLogin,
+        ),
+        const SizedBox(height: 24),
+        SignupFooter(
+          onBack: widget.onBack,
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
   }
 }
 

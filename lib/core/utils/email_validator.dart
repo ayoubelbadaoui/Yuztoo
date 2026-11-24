@@ -39,4 +39,17 @@ class EmailValidator {
     final v = value.trim().toLowerCase();
     return v.isEmpty || v == _legacyPlaceholder;
   }
+
+  /// Apple « Masquer mon adresse e-mail » relay (`…@privaterelay.appleid.com`).
+  /// Apple only forwards mail from senders registered for this app, so such
+  /// an address must never become a merchant's public contact email: client
+  /// emails would bounce silently.
+  static bool isApplePrivateRelay(String? value) =>
+      (value ?? '').trim().toLowerCase().endsWith('@privaterelay.appleid.com');
+
+  /// Usable as a public contact email: valid and not a placeholder / relay.
+  static bool isPublicContactCandidate(String? value) =>
+      isValid(value ?? '') &&
+      !isPlaceholderOrEmpty(value) &&
+      !isApplePrivateRelay(value);
 }

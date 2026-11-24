@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/infrastructure/firebase_providers.dart';
 import '../../../core/utils/city_input.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../client_home/application/providers.dart'
@@ -9,6 +10,7 @@ import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import '../../profile/application/user_safety_providers.dart'
     show blockedMerchantIdsProvider;
+import '../domain/city_agglomeration_expander.dart';
 import '../domain/discovery_association_filter.dart';
 import '../domain/discovery_proche_filter.dart';
 import '../domain/discovery_recommended_partners.dart';
@@ -16,7 +18,10 @@ import '../domain/discovery_subscription_visibility.dart';
 
 /// 'recommandes' | 'proche' | 'associations' | 'artiste'
 final discoveryMerchantTypeFilterProvider =
-    StateProvider<String>((ref) => 'recommandes');
+    StateProvider<String>((ref) => 'proche');
+
+/// Max shops returned for the connected-cities (département) catalogue.
+const int _kDiscoveryCityLimit = 150;
 
 List<Merchant> _activeOnly(List<Merchant> merchants) =>
     merchants.where((m) => m.status == 'active').toList();
@@ -26,6 +31,10 @@ List<Merchant> _discoveryCatalogMerchants(List<Merchant> merchants) =>
 
 /// City / global catalogue slice for Découvrir — expensive Firestore scan.
 /// Cached separately so follow/unfollow only refreshes [discoveryMerchantsProvider].
+///
+/// Connected cities are expanded to their local area — the whole Territoire
+/// de Belfort for a 90 city, otherwise the city's intercommunalité
+/// (Héricourt, Montbéliard stay separate). See [CityAgglomerationExpander].
 final discoveryCityMerchantsProvider =
     FutureProvider<List<Merchant>>((ref) async {
   final userId = ref.watch(auth_providers.currentUserIdProvider);
@@ -61,25 +70,55 @@ final discoveryCityMerchantsProvider =
       final result = await repo.listMerchants(limit: 50);
       merchants = result.fold((failure) => <Merchant>[], (list) => list);
     } else {
-      final result = await repo.listMerchants(
-        limit: 50,
-        cityFilters: cities.toList(),
-        cityFetchCap: 200,
+      final knownMetadata = await ref.watch(
+        auth_providers.connectedCitiesMetadataProvider(userId).future,
       );
-      merchants = result.fold((failure) => <Merchant>[], (list) => list);
+      final catalog = ref.watch(cityCatalogRepositoryProvider);
+      final expander = CityAgglomerationExpander(catalog: catalog);
+      final area = await expander.expandArea(
+        cities,
+        knownMetadata: knownMetadata,
+      );
+      final expanded = area.names;
+
+      // Active shops, newest first, whose city is one of the expanded
+      // communes — filtered by Firestore (`city_keys`), so only matching shops
+      // are read. No distance rule: Belfort, Héricourt and Montbéliard stay
+      // separate areas.
+      final result = await repo.listMerchants(
+        limit: _kDiscoveryCityLimit,
+        cityFilters: expanded,
+      );
+      // Same-name commune in another département (Héricourt 62 for a
+      // Héricourt 70 client): drop it when both sides say so.
+      merchants = result
+          .fold((failure) => <Merchant>[], (list) => list)
+          .where((m) => area.allowsShop(city: m.city, commune: m.commune))
+          .toList();
     }
   }
 
   return _discoveryCatalogMerchants(merchants);
 });
 
+/// Every visible active merchant, any city — the Découvrir **search** pool.
+///
+/// Browsing stays local (connected cities + département), but typing a shop
+/// name must find it wherever it is (Belfort client → Montbéliard shop), as
+/// search did before it was narrowed to the city catalogue.
+final discoveryAllActiveMerchantsProvider =
+    FutureProvider<List<Merchant>>((ref) async {
+  final repo = ref.watch(merchantRepositoryProvider);
+  final result = await repo.listMerchants(limit: 500, cityFetchCap: 500);
+  final merchants = result.fold((failure) => <Merchant>[], (list) => list);
+  return _discoveryCatalogMerchants(merchants);
+});
+
 /// National artiste catalogue — no city filter (all active artistes France).
 final discoveryArtisteMerchantsProvider =
     FutureProvider<List<Merchant>>((ref) async {
-  final repo = ref.watch(merchantRepositoryProvider);
-  final result = await repo.listMerchants(limit: 200, cityFetchCap: 500);
-  final merchants = result.fold((failure) => <Merchant>[], (list) => list);
-  return filterArtisteMerchants(_discoveryCatalogMerchants(merchants));
+  final all = await ref.watch(discoveryAllActiveMerchantsProvider.future);
+  return filterArtisteMerchants(all);
 });
 
 /// Merchants the current user follows (for Découvrir empty states / previews).
@@ -212,6 +251,7 @@ void _invalidateDiscoveryCatalog(
   void Function(ProviderOrFamily provider) invalidate,
 ) {
   invalidate(discoveryCityMerchantsProvider);
+  invalidate(discoveryAllActiveMerchantsProvider);
   invalidate(discoveryArtisteMerchantsProvider);
   invalidate(discoveryRecommendedMerchantsProvider);
   invalidate(discoveryFollowedMerchantsProvider);
@@ -219,7 +259,8 @@ void _invalidateDiscoveryCatalog(
 }
 
 /// Refreshes Découvrir catalog providers (call after merchant city / vitrine save).
-void invalidateDiscoveryCatalog(Ref ref) => _invalidateDiscoveryCatalog(ref.invalidate);
+void invalidateDiscoveryCatalog(Ref ref) =>
+    _invalidateDiscoveryCatalog(ref.invalidate);
 
 /// Same as [invalidateDiscoveryCatalog] for [WidgetRef] (Consumer widgets).
 void invalidateDiscoveryCatalogWidget(WidgetRef ref) =>

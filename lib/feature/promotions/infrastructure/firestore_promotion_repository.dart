@@ -24,7 +24,10 @@ class FirestorePromotionRepository implements PromotionRepository {
   final StorageRepository _storage;
 
   CollectionReference<Map<String, dynamic>> _promotionsRef(String merchantId) =>
-      _firestore.collection('merchants').doc(merchantId).collection('promotions');
+      _firestore
+          .collection('merchants')
+          .doc(merchantId)
+          .collection('promotions');
 
   @override
   Future<Result<Promotion>> create({
@@ -34,50 +37,22 @@ class FirestorePromotionRepository implements PromotionRepository {
   }) async {
     if (merchantId.isEmpty) {
       return const Left(
-        PromotionUnexpectedFailure(message: 'L\'identifiant du commerce est requis'),
+        PromotionUnexpectedFailure(
+            message: 'L\'identifiant du commerce est requis'),
       );
     }
     try {
       final ref = _promotionsRef(merchantId).doc();
       final id = ref.id;
 
-      String? imageUrl;
-      if (imageFilePath != null && imageFilePath.isNotEmpty) {
-        final file = File(imageFilePath);
-        if (file.existsSync()) {
-          final storagePath = 'merchants/$merchantId/promotions/$id.jpg';
-          final uploadResult = await _storage.uploadImage(
-            filePath: imageFilePath,
-            storagePath: storagePath,
-          );
-          final uploadFailed = uploadResult.fold(
-            (f) {
-              LoggerService.logError(
-                'Image upload failed during promo create',
-                error: f,
-                context: {'merchantId': merchantId, 'promotionId': id},
-              );
-              return true;
-            },
-            (url) {
-              imageUrl = url;
-              return false;
-            },
-          );
-          if (uploadFailed) {
-            return const Left(
-              PromotionUnexpectedFailure(
-                message: 'Échec du téléchargement de l\'image. Veuillez réessayer.',
-              ),
-            );
-          }
-        }
-      }
-
+      // 1) Persist the promotion first (same as “validate then add photo”).
+      //    Uploading the image before the doc existed was brittle: a missing
+      //    temp file silently skipped the image, and an upload failure aborted
+      //    the whole create. Edit-after-create already worked — mirror that.
       final promo = promotion.copyWith(
         id: id,
         merchantId: merchantId,
-        imageUrl: imageUrl,
+        imageUrl: null,
       );
       final dto = PromotionDto(
         id: id,
@@ -88,17 +63,74 @@ class FirestorePromotionRepository implements PromotionRepository {
         dateTo: promo.dateTo,
         clientType: promo.selectedClientType.value,
         isOnline: promo.isOnline,
-        imageUrl: promo.imageUrl,
+        imageUrl: null,
         targetSegments: promo.targetSegments,
         diffusionZone: promo.diffusionZone?.value,
       );
       await ref.set(dto.toFirestore());
 
+      // 2) Attach image via the same upload + update path as [update].
+      String? imageUrl;
+      final path = imageFilePath?.trim() ?? '';
+      if (path.isNotEmpty) {
+        final file = File(path);
+        if (!file.existsSync()) {
+          LoggerService.logError(
+            'Promo create: image file missing after draft save',
+            context: {
+              'merchantId': merchantId,
+              'promotionId': id,
+              'imageFilePath': path,
+            },
+          );
+          return const Left(
+            PromotionUnexpectedFailure(
+              message:
+                  'Promotion créée, mais le fichier image est introuvable. '
+                  'Ajoutez la photo depuis la carte de la promotion.',
+            ),
+          );
+        }
+        final storagePath = 'merchants/$merchantId/promotions/$id.jpg';
+        final uploadResult = await _storage.uploadImage(
+          filePath: path,
+          storagePath: storagePath,
+        );
+        final uploadedUrl = uploadResult.fold<String?>(
+          (f) {
+            LoggerService.logError(
+              'Image upload failed during promo create',
+              error: f,
+              context: {'merchantId': merchantId, 'promotionId': id},
+            );
+            return null;
+          },
+          (url) => url,
+        );
+        if (uploadedUrl == null || uploadedUrl.isEmpty) {
+          // Doc already exists — same recovery as “validate first, photo later”.
+          return const Left(
+            PromotionUnexpectedFailure(
+              message:
+                  'Promotion créée, mais l\'image n\'a pas pu être envoyée. '
+                  'Ajoutez-la depuis la carte de la promotion.',
+            ),
+          );
+        }
+        imageUrl = uploadedUrl;
+        await ref.update(<String, dynamic>{'image_url': imageUrl});
+      }
+
+      final saved = promo.copyWith(imageUrl: imageUrl);
       LoggerService.logInfo(
         'Promotion created',
-        context: {'merchantId': merchantId, 'promotionId': id},
+        context: {
+          'merchantId': merchantId,
+          'promotionId': id,
+          'hasImage': imageUrl != null,
+        },
       );
-      return Right(promo);
+      return Right(saved);
     } on FirebaseException catch (e, st) {
       LoggerService.logError(
         'Firebase error creating promotion',
@@ -175,7 +207,9 @@ class FirestorePromotionRepository implements PromotionRepository {
   }) async {
     if (promotion.merchantId.isEmpty || promotion.id.isEmpty) {
       return const Left(
-        PromotionUnexpectedFailure(message: 'Identifiant du commerce et identifiant de la promotion requis'),
+        PromotionUnexpectedFailure(
+            message:
+                'Identifiant du commerce et identifiant de la promotion requis'),
       );
     }
     try {
@@ -206,7 +240,8 @@ class FirestorePromotionRepository implements PromotionRepository {
           if (uploadFailed) {
             return const Left(
               PromotionUnexpectedFailure(
-                message: 'Échec du téléchargement de l\'image. Veuillez réessayer.',
+                message:
+                    'Échec du téléchargement de l\'image. Veuillez réessayer.',
               ),
             );
           }
@@ -259,7 +294,9 @@ class FirestorePromotionRepository implements PromotionRepository {
   }) async {
     if (merchantId.isEmpty || promotionId.isEmpty) {
       return const Left(
-        PromotionUnexpectedFailure(message: 'Identifiant du commerce et identifiant de la promotion requis'),
+        PromotionUnexpectedFailure(
+            message:
+                'Identifiant du commerce et identifiant de la promotion requis'),
       );
     }
     try {
@@ -278,8 +315,7 @@ class FirestorePromotionRepository implements PromotionRepository {
 
       // Best-effort Storage cleanup — don't fail delete if image removal fails.
       if (imageUrl != null && imageUrl.isNotEmpty) {
-        final storagePath =
-            'merchants/$merchantId/promotions/$promotionId.jpg';
+        final storagePath = 'merchants/$merchantId/promotions/$promotionId.jpg';
         final deleteResult = await _storage.deleteImage(storagePath);
         deleteResult.fold(
           (f) => LoggerService.logError(

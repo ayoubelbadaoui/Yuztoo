@@ -36,7 +36,9 @@ class _WizardPageBody extends StatelessWidget {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            // `manual`, not `onDrag`: Samsung keyboards classify a tap on a
+            // TextField as a tiny drag, which dismisses the keyboard instantly.
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
             padding: EdgeInsets.fromLTRB(0, 0, 0, 16 + kb),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),

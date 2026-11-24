@@ -57,34 +57,44 @@ extension _NewsSectionUi on _NewsSectionState {
             child: image,
           );
 
-    if (widget.onDeleteImage == null) return tappable;
+    final stats =
+        widget.showEngagementStats ? widget.engagementByUrl[imageUrl] : null;
+
+    if (widget.onDeleteImage == null && stats == null) return tappable;
 
     return Stack(
       children: [
         tappable,
-        Positioned(
-          top: 8,
-          right: 8,
-          child: GestureDetector(
-            onTap: () => _confirmDelete(imageUrl),
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: Colors.red.shade600,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                  ),
-                ],
+        if (stats != null)
+          Positioned(
+            left: 8,
+            bottom: 8,
+            child: _EngagementBadge(engagement: stats),
+          ),
+        if (widget.onDeleteImage != null)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () => _confirmDelete(imageUrl),
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade600,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.close_rounded,
+                    color: Colors.white, size: 16),
               ),
-              child: const Icon(Icons.close_rounded,
-                  color: Colors.white, size: 16),
             ),
           ),
-        ),
       ],
     );
   }
@@ -93,6 +103,7 @@ extension _NewsSectionUi on _NewsSectionState {
   /// fade transition so the tap feels like an "expand" rather than a
   /// route change.
   void _openFullscreenViewer(List<String> urls, int initialIndex) {
+    widget.onPhotoViewed?.call(urls[initialIndex]);
     Navigator.of(context).push<void>(
       PageRouteBuilder<void>(
         opaque: false,
@@ -104,6 +115,10 @@ extension _NewsSectionUi on _NewsSectionState {
           child: _FullscreenGalleryViewer(
             imageUrls: urls,
             initialIndex: initialIndex,
+            engagement: widget.showEngagementStats ? _liveEngagement : null,
+            onPageViewed: widget.onPhotoViewed,
+            onToggleLike:
+                widget.engagementInteractive ? widget.onToggleLike : null,
           ),
         ),
       ),
@@ -142,10 +157,8 @@ extension _NewsSectionUi on _NewsSectionState {
     final hasMultiplePages = pageCount > 1;
     // Single page: two images use full row. Multiple pages: reserve a cream strip
     // after each pair so the next slide starts after visible breathing room.
-    final trailing =
-        hasMultiplePages ? _NewsSectionState._interSlideGap : 0.0;
-    final tileW =
-        (maxWidth - _NewsSectionState._pairGap - trailing) / 2;
+    final trailing = hasMultiplePages ? _NewsSectionState._interSlideGap : 0.0;
+    final tileW = (maxWidth - _NewsSectionState._pairGap - trailing) / 2;
     final tileH = tileW / _NewsSectionState._portraitAspect;
 
     return Column(
@@ -211,7 +224,8 @@ extension _NewsSectionUi on _NewsSectionState {
                       decoration: BoxDecoration(
                         color: _currentPage == index
                             ? StorefrontColors.primaryGold
-                            : StorefrontColors.primaryGold.withValues(alpha: 0.3),
+                            : StorefrontColors.primaryGold
+                                .withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(6),
                       ),
                     ),
@@ -414,7 +428,8 @@ class _UploadContentButton extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: StorefrontColors.primaryGold.withValues(alpha: 0.7),
+                        color:
+                            StorefrontColors.primaryGold.withValues(alpha: 0.7),
                         letterSpacing: 1.5,
                         height: 1.2,
                       ),
@@ -448,10 +463,16 @@ class _FullscreenGalleryViewer extends StatefulWidget {
   const _FullscreenGalleryViewer({
     required this.imageUrls,
     required this.initialIndex,
+    this.engagement,
+    this.onPageViewed,
+    this.onToggleLike,
   });
 
   final List<String> imageUrls;
   final int initialIndex;
+  final ValueListenable<Map<String, NewsPhotoEngagement>>? engagement;
+  final ValueChanged<String>? onPageViewed;
+  final Future<bool> Function(String url)? onToggleLike;
 
   @override
   State<_FullscreenGalleryViewer> createState() =>
@@ -463,8 +484,63 @@ class _FullscreenGalleryViewerState extends State<_FullscreenGalleryViewer> {
       PageController(initialPage: widget.initialIndex);
   late int _currentIndex = widget.initialIndex;
 
+  /// Tapped-but-unconfirmed likes, keyed by URL, with the live value at tap
+  /// time; dropped once the live value for that URL changes.
+  final Map<String, NewsPhotoEngagement> _optimistic = {};
+  final Map<String, NewsPhotoEngagement?> _optimisticBase = {};
+  final Set<String> _pendingLikes = {};
+
+  Map<String, NewsPhotoEngagement> get _live =>
+      widget.engagement?.value ?? const {};
+
+  @override
+  void initState() {
+    super.initState();
+    widget.engagement?.addListener(_onLiveChanged);
+  }
+
+  void _onLiveChanged() {
+    final live = _live;
+    setState(() {
+      _optimistic.removeWhere((url, _) => live[url] != _optimisticBase[url]);
+      _optimisticBase.removeWhere((url, _) => !_optimistic.containsKey(url));
+    });
+  }
+
+  NewsPhotoEngagement _engagementFor(String url) =>
+      _optimistic[url] ?? _live[url] ?? NewsPhotoEngagement(imageUrl: url);
+
+  Future<void> _toggleLike(String url) async {
+    if (_pendingLikes.contains(url)) return;
+    final current = _engagementFor(url);
+    final liked = !current.likedByMe;
+    setState(() {
+      _pendingLikes.add(url);
+      _optimisticBase.putIfAbsent(url, () => _live[url]);
+      _optimistic[url] = current.copyWith(
+        likedByMe: liked,
+        likesCount: (current.likesCount + (liked ? 1 : -1)).clamp(0, 1 << 30),
+      );
+    });
+    final handler = widget.onToggleLike;
+    if (handler == null) {
+      _pendingLikes.remove(url);
+      return;
+    }
+    final ok = await handler(url);
+    if (!mounted) return;
+    setState(() {
+      _pendingLikes.remove(url);
+      if (!ok) {
+        _optimistic.remove(url);
+        _optimisticBase.remove(url);
+      }
+    });
+  }
+
   @override
   void dispose() {
+    widget.engagement?.removeListener(_onLiveChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -474,92 +550,252 @@ class _FullscreenGalleryViewerState extends State<_FullscreenGalleryViewer> {
     final urls = widget.imageUrls;
     final hasMultiple = urls.length > 1;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            PageView.builder(
-              controller: _controller,
-              itemCount: urls.length,
-              physics: hasMultiple
-                  ? const PageScrollPhysics()
-                  : const NeverScrollableScrollPhysics(),
-              onPageChanged: (i) => setState(() => _currentIndex = i),
-              itemBuilder: (_, index) {
-                return InteractiveViewer(
-                  minScale: 1,
-                  maxScale: 4,
-                  child: Center(
-                    child: Image.network(
-                      urls[index],
-                      fit: BoxFit.contain,
-                      loadingBuilder: (_, child, progress) {
-                        if (progress == null) return child;
-                        return const Center(
-                          child: SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: StorefrontColors.primaryGold,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.black,
+        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              PageView.builder(
+                controller: _controller,
+                itemCount: urls.length,
+                physics: hasMultiple
+                    ? const PageScrollPhysics()
+                    : const NeverScrollableScrollPhysics(),
+                onPageChanged: (i) {
+                  setState(() => _currentIndex = i);
+                  widget.onPageViewed?.call(urls[i]);
+                },
+                itemBuilder: (_, index) {
+                  return InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 4,
+                    child: Center(
+                      child: Image.network(
+                        urls[index],
+                        fit: BoxFit.contain,
+                        loadingBuilder: (_, child, progress) {
+                          if (progress == null) return child;
+                          return const Center(
+                            child: SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: StorefrontColors.primaryGold,
+                              ),
                             ),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white54,
+                            size: 56,
                           ),
-                        );
-                      },
-                      errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(
-                          Icons.broken_image_outlined,
-                          color: Colors.white54,
-                          size: 56,
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
-            Positioned(
-              top: 8,
-              left: 8,
-              child: Material(
-                color: Colors.black.withValues(alpha: 0.4),
-                shape: const CircleBorder(),
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
-                  tooltip: 'Fermer',
-                ),
+                  );
+                },
               ),
-            ),
-            if (hasMultiple)
               Positioned(
-                top: 16,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${_currentIndex + 1} / ${urls.length}',
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                top: 8,
+                left: 8,
+                child: Material(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: 'Fermer',
+                  ),
+                ),
+              ),
+              if (hasMultiple)
+                Positioned(
+                  top: 16,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_currentIndex + 1} / ${urls.length}',
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+              if (widget.engagement != null || widget.onToggleLike != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 20,
+                  child: Center(
+                    child: _FullscreenEngagementBar(
+                      engagement: _engagementFor(urls[_currentIndex]),
+                      onToggleLike: widget.onToggleLike == null
+                          ? null
+                          : () => _toggleLike(urls[_currentIndex]),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// Likes / views overlay on a gallery thumbnail.
+class _EngagementBadge extends StatelessWidget {
+  const _EngagementBadge({required this.engagement});
+
+  final NewsPhotoEngagement engagement;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            engagement.likedByMe
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
+            size: 13,
+            color:
+                engagement.likedByMe ? const Color(0xFFFF5A7A) : Colors.white,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${engagement.likesCount}',
+            style: GoogleFonts.outfit(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Icon(Icons.visibility_outlined, size: 13, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(
+            '${engagement.viewsCount}',
+            style: GoogleFonts.outfit(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Fullscreen likes / views bar; the heart is tappable for clients.
+class _FullscreenEngagementBar extends StatelessWidget {
+  const _FullscreenEngagementBar({
+    required this.engagement,
+    this.onToggleLike,
+  });
+
+  final NewsPhotoEngagement engagement;
+  final VoidCallback? onToggleLike;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: onToggleLike,
+              customBorder: const CircleBorder(),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      engagement.likedByMe
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      size: 20,
+                      color: engagement.likedByMe
+                          ? const Color(0xFFFF5A7A)
+                          : Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${engagement.likesCount}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Padding(
+            padding: const EdgeInsets.only(right: 12, left: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.visibility_outlined,
+                    size: 18, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(
+                  '${engagement.viewsCount}',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

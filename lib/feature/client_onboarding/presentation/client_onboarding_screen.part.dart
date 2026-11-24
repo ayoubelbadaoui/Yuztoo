@@ -34,7 +34,8 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
               child: TweenAnimationBuilder<double>(
                 tween: Tween(
                   begin: 0,
-                  end: (_currentStep + 1) / _ClientOnboardingScreenState._totalSteps,
+                  end: (_currentStep + 1) /
+                      _ClientOnboardingScreenState._totalSteps,
                 ),
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
@@ -111,6 +112,22 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             enabled: !_isSaving,
             onTap: _goNext,
           ),
+          const SizedBox(height: 20),
+          // Only way out for a signed-in user (wrong Google / Apple account):
+          // without it they had to finish onboarding just to log out.
+          TextButton(
+            onPressed: _isSaving ? null : _leaveOnboarding,
+            child: Text(
+              'Ce n\'est pas votre compte ? Se déconnecter',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: MerchantOnboardingColors.textGrey,
+                decoration: TextDecoration.underline,
+                decorationColor: MerchantOnboardingColors.textGrey,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -173,14 +190,22 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
           const SizedBox(height: 32),
           _buildNameField(
             controller: _firstNameController,
+            focusNode: _firstNameFocus,
             hintText: 'Prénom',
             icon: Icons.badge_outlined,
+            textInputAction: TextInputAction.next,
+            onSubmitted: (_) => _lastNameFocus.requestFocus(),
           ),
           const SizedBox(height: 12),
           _buildNameField(
             controller: _lastNameController,
+            focusNode: _lastNameFocus,
             hintText: 'Nom de famille',
             icon: Icons.person_outline_rounded,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) {
+              if (_canProceedName && !_isSaving) _goNext();
+            },
           ),
           const SizedBox(height: 32),
           _buildGoldButton(
@@ -195,20 +220,38 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
 
   Widget _buildNameField({
     required TextEditingController controller,
+    required FocusNode focusNode,
     required String hintText,
     required IconData icon,
+    required TextInputAction textInputAction,
+    required ValueChanged<String> onSubmitted,
   }) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
+      enabled: !_isSaving,
+      keyboardType: TextInputType.name,
+      textInputAction: textInputAction,
       textCapitalization: TextCapitalization.words,
+      autocorrect: false,
+      enableSuggestions: false,
+      // Shown on merchant CRM cards and in pushes; a pasted wall of text
+      // broke both.
+      inputFormatters: [LengthLimitingTextInputFormatter(50)],
+      // Explicit tap → focus helps Samsung IME attach when a prior
+      // PageView transition left the field without a soft-keyboard session.
+      onTap: () {
+        if (!focusNode.hasFocus) focusNode.requestFocus();
+      },
+      onSubmitted: onSubmitted,
       style: GoogleFonts.outfit(
         fontSize: 16,
         color: MerchantOnboardingColors.textLight,
       ),
       cursorColor: MerchantOnboardingColors.primaryGold,
       decoration: InputDecoration(
-        prefixIcon: Icon(icon,
-            color: MerchantOnboardingColors.textGrey, size: 20),
+        prefixIcon:
+            Icon(icon, color: MerchantOnboardingColors.textGrey, size: 20),
         hintText: hintText,
         hintStyle: GoogleFonts.outfit(
           color: MerchantOnboardingColors.textGrey,
@@ -217,11 +260,13 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
         fillColor: MerchantColors.inputFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
+          borderSide:
+              const BorderSide(color: MerchantOnboardingColors.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
+          borderSide:
+              const BorderSide(color: MerchantOnboardingColors.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -256,7 +301,10 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeOut,
         width: double.infinity,
-        height: 54,
+        // Min height so large accessibility text grows the pill instead of
+        // being clipped.
+        constraints: const BoxConstraints(minHeight: 54),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: enabled ? goldEnabled : goldDisabled,
           borderRadius: BorderRadius.circular(14),
@@ -264,6 +312,7 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
         child: Center(
           child: Text(
             label,
+            textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
               fontSize: 17,
               fontWeight: FontWeight.w600,
@@ -363,8 +412,7 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
   }
 
   Widget _buildCityStep() {
-    final hasCity =
-        _selectedCity != null && _selectedCity!.trim().isNotEmpty;
+    final hasCity = _selectedCity != null && _selectedCity!.trim().isNotEmpty;
     return ResponsiveScrollBody(
       horizontalPadding: 24,
       verticalPadding: 0,
@@ -374,10 +422,16 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
           _buildStepHero(Icons.location_city_rounded),
           const SizedBox(height: 32),
           _buildStepTitle('Dans quelle ville êtes-vous ?'),
-          const SizedBox(height: 12),
-          _buildStepSubtitle(
-              'Nous vous montrerons les commerces proches de chez vous.'),
-          const SizedBox(height: 32),
+          const SizedBox(height: 8),
+          Text(
+            'Facultatif — pour voir les commerces près de chez vous.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: MerchantOnboardingColors.textGrey,
+            ),
+          ),
+          const SizedBox(height: 24),
           GestureDetector(
             onTap: _isSaving
                 ? null
@@ -388,20 +442,20 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
                       onCitySelected: (city) {
                         _onCitySelected(city);
                       },
+                      onCommuneSelected: _onCommuneSelected,
                       onValidateCity: () {},
                     ),
             child: Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               decoration: BoxDecoration(
                 color: MerchantOnboardingColors.bgDark2,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: hasCity
                       ? MerchantOnboardingColors.primaryGold
-                      : MerchantOnboardingColors.bgDark2,
-                  width: 1.5,
+                      : MerchantOnboardingColors.borderColor,
+                  width: hasCity ? 1.5 : 1,
                 ),
               ),
               child: Row(
@@ -416,14 +470,13 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      hasCity
-                          ? _selectedCity!
-                          : 'Sélectionnez votre ville',
+                      hasCity ? _selectedCity! : 'Sélectionnez votre ville',
                       style: GoogleFonts.outfit(
                         fontSize: 15,
                         color: hasCity
                             ? MerchantOnboardingColors.textLight
                             : MerchantOnboardingColors.textGrey,
+                        fontWeight: hasCity ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),
                   ),
@@ -437,9 +490,11 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             ),
           ),
           const SizedBox(height: 32),
+          // Align with ClientProfileReadiness: city is optional. A hard
+          // gate here left new clients stuck at onboarding.client=not_started.
           _buildGoldButton(
-            label: 'Suivant',
-            enabled: hasCity && !_isSaving,
+            label: hasCity ? 'Suivant' : 'Passer cette étape',
+            enabled: !_isSaving,
             onTap: _goNext,
           ),
         ],
@@ -517,10 +572,12 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.12),
+                color: MerchantOnboardingColors.primaryGold
+                    .withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.35),
+                  color: MerchantOnboardingColors.primaryGold
+                      .withValues(alpha: 0.35),
                 ),
               ),
               child: Text(
@@ -548,7 +605,10 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             onTap: _isSaving ? null : _pickPhoto,
             child: Container(
               width: double.infinity,
-              height: 50,
+              // Min height, not fixed: with large system text (accessibility)
+              // the label wraps instead of overflowing off-screen.
+              constraints: const BoxConstraints(minHeight: 50),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 border: Border.all(
                   color: MerchantOnboardingColors.primaryGold,
@@ -567,14 +627,17 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    hasOAuthOnly
-                        ? 'Choisir une autre photo'
-                        : 'Prendre ou choisir une photo',
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: MerchantOnboardingColors.primaryGold,
+                  Flexible(
+                    child: Text(
+                      hasOAuthOnly
+                          ? 'Choisir une autre photo'
+                          : 'Prendre ou choisir une photo',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: MerchantOnboardingColors.primaryGold,
+                      ),
                     ),
                   ),
                 ],
@@ -582,22 +645,17 @@ extension _ClientOnboardingScreenUi on _ClientOnboardingScreenState {
             ),
           ),
           const SizedBox(height: 16),
+          // The photo is optional, so the primary CTA must never be disabled:
+          // a greyed-out "Terminer" on the last step is what left clients at
+          // onboarding.client=not_started with no obvious way out.
           _buildGoldButton(
-            label: hasOAuthOnly ? 'Garder cette photo' : 'Terminer',
-            enabled: !_isSaving && _hasPhotoPreview,
-            onTap: () => _finish(skipPhoto: false),
-          ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: _isSaving ? null : () => _finish(skipPhoto: true),
-            child: Text(
-              'Passer cette étape',
-              style: GoogleFonts.outfit(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: MerchantOnboardingColors.textGrey,
-              ),
-            ),
+            label: hasOAuthOnly
+                ? 'Garder cette photo'
+                : _hasPhotoPreview
+                    ? 'Terminer'
+                    : 'Terminer sans photo',
+            enabled: !_isSaving,
+            onTap: () => _finish(skipPhoto: !_hasPhotoPreview),
           ),
         ],
       ),

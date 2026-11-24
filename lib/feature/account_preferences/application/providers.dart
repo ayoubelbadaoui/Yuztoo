@@ -9,6 +9,7 @@ export '../../auth/core/application/providers.dart'
         authStateProvider,
         userProfileBasicsProvider,
         connectedCitiesProvider,
+        connectedCitiesMetadataProvider,
         setConnectedCitiesProvider;
 
 export '../../auth/core/application/state/auth_state.dart'

@@ -4,8 +4,10 @@ import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefr
 void main() {
   group('MerchantStorefrontLink', () {
     test('looksLikeUrl accepts http and https', () {
-      expect(MerchantStorefrontLink.looksLikeUrl('https://book.example'), isTrue);
-      expect(MerchantStorefrontLink.looksLikeUrl('http://book.example'), isTrue);
+      expect(
+          MerchantStorefrontLink.looksLikeUrl('https://book.example'), isTrue);
+      expect(
+          MerchantStorefrontLink.looksLikeUrl('http://book.example'), isTrue);
       expect(MerchantStorefrontLink.looksLikeUrl('book.example'), isTrue);
       expect(MerchantStorefrontLink.looksLikeUrl('tel:+33123456789'), isFalse);
       expect(MerchantStorefrontLink.looksLikeUrl(''), isFalse);
@@ -33,10 +35,10 @@ void main() {
       });
 
       test('single handle is kept, deeper or long paths are dropped', () {
-        expect(short('https://www.tiktok.com/@lebistro'),
-            'tiktok.com/@lebistro');
-        expect(short('https://facebook.com/lebistro/photos/123'),
-            'facebook.com');
+        expect(
+            short('https://www.tiktok.com/@lebistro'), 'tiktok.com/@lebistro');
+        expect(
+            short('https://facebook.com/lebistro/photos/123'), 'facebook.com');
         expect(short('https://linktr.ee/le-bistro-de-la-place-belfort'),
             'linktr.ee');
       });

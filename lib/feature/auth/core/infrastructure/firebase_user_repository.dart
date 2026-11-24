@@ -9,11 +9,13 @@ import '../domain/entities/user_profile_basics.dart';
 import '../domain/repositories/user_repository.dart';
 import '../../../../../core/domain/core/either.dart';
 import '../../../../../core/domain/core/result.dart';
+import '../../../../../core/domain/entities/french_commune.dart';
 import '../../../../../core/infrastructure/firestore_user_rules_patch.dart';
 import '../../../../../core/utils/city_input.dart';
 import '../../../../../core/infrastructure/logger_service.dart';
 import '../../../../../core/infrastructure/firestore_field_readers.dart';
 import '../../../../../types.dart';
+import 'client_onboarding_city_patch.dart';
 
 part 'firebase_user_repository.create.part.dart';
 part 'firebase_user_repository.reads.part.dart';
@@ -42,5 +44,6 @@ class FirebaseUserRepository extends _FirebaseUserRepositoryBase
         _FirebaseUserRepositoryReads,
         _FirebaseUserRepositoryWrites
     implements UserRepository {
-  FirebaseUserRepository({required FirebaseFirestore firestore}) : super(firestore);
+  FirebaseUserRepository({required FirebaseFirestore firestore})
+      : super(firestore);
 }

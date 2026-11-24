@@ -42,15 +42,13 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
     // MVP: Use userId as merchantId (one merchant per user)
     // This ensures merchantId == user.uid for MVP
     final merchantId = merchant.id.isEmpty
-        ? userId  // Use userId as merchantId (MVP requirement)
+        ? userId // Use userId as merchantId (MVP requirement)
         : merchant.id;
 
     try {
       // Recover ville d'inscription from /users if onboarding sent a placeholder.
-      final userSnap =
-          await _firestore.collection('users').doc(userId).get();
-      final signupCity =
-          (userSnap.data()?['city'] as String?)?.trim() ?? '';
+      final userSnap = await _firestore.collection('users').doc(userId).get();
+      final signupCity = (userSnap.data()?['city'] as String?)?.trim() ?? '';
 
       var merchantToCreate = merchant.copyWith(id: merchantId);
       final resolvedCity = resolveMerchantCityForCreation(
@@ -75,7 +73,26 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
       // Create merchant document
       final merchantRef = _firestore.collection('merchants').doc(merchantId);
       final merchantDto = MerchantDto.fromDomain(merchantToCreate);
-      batch.set(merchantRef, merchantDto.toFirestore(), SetOptions(merge: false));
+      final existingSnap = await merchantRef.get();
+      final existing = existingSnap.data();
+      final ownsLiveShop = existingSnap.exists &&
+          existing != null &&
+          existing['owner_uid'] == userId &&
+          existing['deleted_at'] == null;
+      if (ownsLiveShop) {
+        // The shop already exists (wizard re-run after a routing glitch, or
+        // a pre-created / imported shop). A full overwrite would reset it to
+        // `inactive` and wipe loyalty, gallery, plan and counters — only
+        // merge what the onboarding wizard actually collects.
+        batch.set(
+          merchantRef,
+          onboardingFieldsForExistingMerchant(merchantDto.toFirestore()),
+          SetOptions(merge: true),
+        );
+      } else {
+        batch.set(
+            merchantRef, merchantDto.toFirestore(), SetOptions(merge: false));
+      }
 
       // Update user document with merchant_id and merchant role flags.
       // Build the onboarding + roles maps by MERGING into the existing
@@ -111,10 +128,17 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
         'roles': existingRoles,
         'updated_at': FieldValue.serverTimestamp(),
       };
-      // Keep owner user city + connected cities in sync (Découvrir / préférences).
+      // Keep owner connected cities in sync (Découvrir / préférences): the
+      // shop city is added to `cities`. The personal `city` is only filled
+      // when empty — a client creating their shop keeps their own home city
+      // (it used to be silently replaced by the shop's).
       final trimmedCity = merchantToCreate.city.trim();
       if (trimmedCity.isNotEmpty && !CityInput.isPlaceholder(trimmedCity)) {
-        userPayload['city'] = trimmedCity;
+        final personalCity =
+            (userSnap.data()?['city'] as String?)?.trim() ?? '';
+        if (personalCity.isEmpty || CityInput.isPlaceholder(personalCity)) {
+          userPayload['city'] = trimmedCity;
+        }
         userPayload['cities'] = mergedOwnerConnectedCities(
           existingUserData: userSnap.data(),
           persistedCity: trimmedCity,
@@ -199,33 +223,50 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
   }
 
   Future<Result<Merchant?>> getMerchantByOwnerUid(String ownerUid) async {
+    final result = await getMerchantsByOwnerUid(ownerUid);
+    return result.fold<Result<Merchant?>>(
+      Left.new,
+      (list) => Right(list.isEmpty ? null : list.first),
+    );
+  }
+
+  Future<Result<List<Merchant>>> getMerchantsByOwnerUid(String ownerUid) async {
     if (ownerUid.isEmpty) {
-      return const Right<MerchantFailure, Merchant?>(null);
+      return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
     }
 
     try {
-      // MVP: merchantId == ownerUid, so we can do a direct document read
-      // This is more efficient than a query
-      final doc = await _firestore.collection('merchants').doc(ownerUid).get();
-
-      if (!doc.exists) {
-        return const Right<MerchantFailure, Merchant?>(null);
+      final snap = await _firestore
+          .collection('merchants')
+          .where('owner_uid', isEqualTo: ownerUid)
+          .get();
+      final merchants = <Merchant>[
+        for (final doc in snap.docs)
+          if (doc.data()['deleted_at'] == null)
+            MerchantDto.fromFirestore(doc).toDomain(),
+      ];
+      if (merchants.isEmpty) {
+        // Very early accounts: doc id == uid and no `owner_uid` field.
+        final legacy =
+            await _firestore.collection('merchants').doc(ownerUid).get();
+        if (legacy.exists) {
+          merchants.add(MerchantDto.fromFirestore(legacy).toDomain());
+        }
       }
-
-      final merchant = MerchantDto.fromFirestore(doc).toDomain();
-      LoggerService.logInfo(
-        'Merchant retrieved by owner UID (direct read)',
-        context: {'ownerUid': ownerUid, 'merchantId': merchant.id},
-      );
-      return Right<MerchantFailure, Merchant?>(merchant);
+      merchants.sort((a, b) {
+        final ad = a.createdAt, bd = b.createdAt;
+        if (ad == null || bd == null) return 0;
+        return ad.compareTo(bd);
+      });
+      return Right<MerchantFailure, List<Merchant>>(merchants);
     } catch (e, st) {
       LoggerService.logError(
-        'Error getting merchant by owner UID',
+        'Error getting merchants by owner UID',
         error: e,
         stackTrace: st,
         context: {'ownerUid': ownerUid},
       );
-      return Left<MerchantFailure, Merchant?>(
+      return Left<MerchantFailure, List<Merchant>>(
         MerchantNetworkFailure(
           cause: e,
           stackTrace: st,
@@ -239,7 +280,8 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
       return const Right<MerchantFailure, Merchant?>(null);
     }
     try {
-      final doc = await _firestore.collection('merchants').doc(merchantId).get();
+      final doc =
+          await _firestore.collection('merchants').doc(merchantId).get();
       if (!doc.exists) {
         return const Right<MerchantFailure, Merchant?>(null);
       }
@@ -264,4 +306,40 @@ mixin _FirestoreMerchantRepositoryCore on _FirestoreMerchantRepositoryBase {
       );
     }
   }
+}
+
+/// Profile fields the onboarding wizard collects. Used to update an existing
+/// shop without touching status, plan, loyalty, gallery or counters. Null
+/// images are dropped so an existing logo / cover is kept.
+const Set<String> _kOnboardingMerchantFields = {
+  'name',
+  'name_lowercase',
+  'email',
+  'phone',
+  'city',
+  'city_keys',
+  'city_metadata',
+  'address',
+  'categories',
+  'category_id',
+  'subcategory_title',
+  'merchant_type',
+  'description',
+  'website_url',
+  'hours',
+  'logo_url',
+  'banner_url',
+  'updated_at',
+};
+
+@visibleForTesting
+Map<String, dynamic> onboardingFieldsForExistingMerchant(
+  Map<String, dynamic> full,
+) {
+  return <String, dynamic>{
+    for (final e in full.entries)
+      if (_kOnboardingMerchantFields.contains(e.key) &&
+          !((e.key == 'logo_url' || e.key == 'banner_url') && e.value == null))
+        e.key: e.value,
+  };
 }

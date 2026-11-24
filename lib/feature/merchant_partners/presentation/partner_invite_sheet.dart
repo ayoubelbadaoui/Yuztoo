@@ -96,6 +96,7 @@ class _PartnerInviteSheetState extends ConsumerState<PartnerInviteSheet> {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Container(
       margin: const EdgeInsets.only(top: 80),
+      padding: EdgeInsets.only(bottom: bottom),
       decoration: const BoxDecoration(
         color: MerchantColors.bgMain,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -217,14 +218,16 @@ class _PartnerInviteSheetState extends ConsumerState<PartnerInviteSheet> {
           const SizedBox(height: 12),
           // Results
           Expanded(
-            child: _buildBody(bottom),
+            child: _buildBody(
+              bottom > 0 ? 16 : MediaQuery.viewPaddingOf(context).bottom + 32,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBody(double bottomInset) {
+  Widget _buildBody(double bottomPadding) {
     if (_query.isEmpty) {
       return _buildHint(
         icon: Icons.storefront_rounded,
@@ -254,7 +257,8 @@ class _PartnerInviteSheetState extends ConsumerState<PartnerInviteSheet> {
       );
     }
     return ListView.separated(
-      padding: EdgeInsets.fromLTRB(16, 4, 16, bottomInset + 32),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.fromLTRB(16, 4, 16, bottomPadding),
       itemCount: _results.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) => _ResultTile(

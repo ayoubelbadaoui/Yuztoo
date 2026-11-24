@@ -23,8 +23,8 @@ Merchant _m({
 void main() {
   final created = DateTime(2026, 1, 1, 12);
 
-  group('isMerchantVisibleInDiscovery', () {
-    test('paid essentiel is always visible', () {
+  group('isMerchantVisibleInDiscovery (P3 — active = visible)', () {
+    test('paid plans stay visible', () {
       expect(
         isMerchantVisibleInDiscovery(
           merchant: _m(
@@ -38,80 +38,56 @@ void main() {
       );
     });
 
-    test('paid premium is always visible', () {
-      expect(
-        isMerchantVisibleInDiscovery(
-          merchant: _m(
-            id: 'premium',
-            plan: MerchantSubscriptionPlan.premium,
-            createdAt: DateTime(2020, 1, 1),
-          ),
-          now: DateTime(2026, 8, 24),
-        ),
-        isTrue,
-      );
-    });
-
-    test('gratuit within 3 months stays visible', () {
-      expect(
-        isMerchantVisibleInDiscovery(
-          merchant: _m(id: 'new', createdAt: created),
-          now: created.add(const Duration(days: 89)),
-        ),
-        isTrue,
-      );
-    });
-
-    test('gratuit exactly at 90 days is still visible', () {
-      expect(
-        isMerchantVisibleInDiscovery(
-          merchant: _m(id: 'edge', createdAt: created),
-          now: created.add(const Duration(days: 90)),
-        ),
-        isTrue,
-      );
-    });
-
-    test('gratuit after 3 months is hidden', () {
+    test('gratuit older than 90 days stays visible in Découvrir', () {
       expect(
         isMerchantVisibleInDiscovery(
           merchant: _m(id: 'old', createdAt: created),
-          now: created.add(const Duration(days: 91)),
-        ),
-        isFalse,
-      );
-    });
-
-    test('gratuit without created_at stays visible (legacy docs)', () {
-      expect(
-        isMerchantVisibleInDiscovery(
-          merchant: _m(id: 'legacy'),
-          now: DateTime(2026, 8, 24),
+          now: created.add(const Duration(days: 200)),
         ),
         isTrue,
       );
     });
-  });
 
-  group('filterDiscoverySubscriptionVisibility', () {
-    test('keeps Belfort free merchants inside window and drops expired ones',
-        () {
+    test('filter keeps every merchant (subscription no longer gates)', () {
       final out = filterDiscoverySubscriptionVisibility(
         [
-          _m(id: 'fresh', createdAt: DateTime(2026, 7, 1)),
+          _m(id: 'a', createdAt: created),
           _m(
-            id: 'expired',
-            createdAt: DateTime(2025, 1, 1),
-          ),
-          _m(
-            id: 'paid',
+            id: 'b',
             plan: MerchantSubscriptionPlan.premium,
-            createdAt: DateTime(2020, 1, 1),
+            createdAt: created,
           ),
+          _m(id: 'c', createdAt: created.subtract(const Duration(days: 400))),
         ],
-        now: DateTime(2026, 8, 24),
+        now: DateTime(2026, 11, 24),
       );
-      expect(out.map((m) => m.id), ['fresh', 'paid']);
+      expect(out.map((m) => m.id), ['a', 'b', 'c']);
+    });
+  });
+
+  group('isLegacyFreeDiscoveryTrialExpired', () {
+    test('true after 90 days for gratuit', () {
+      expect(
+        isLegacyFreeDiscoveryTrialExpired(
+          merchant: _m(id: 'old', createdAt: created),
+          now: created.add(const Duration(days: 91)),
+        ),
+        isTrue,
+      );
+    });
+
+    test('false for paid even if old', () {
+      expect(
+        isLegacyFreeDiscoveryTrialExpired(
+          merchant: _m(
+            id: 'paid',
+            plan: MerchantSubscriptionPlan.essentiel,
+            createdAt: created,
+          ),
+          now: created.add(const Duration(days: 400)),
+        ),
+        isFalse,
+      );
     });
   });
 }

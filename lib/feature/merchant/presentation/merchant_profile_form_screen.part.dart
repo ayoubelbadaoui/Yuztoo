@@ -1,5 +1,20 @@
 part of 'merchant_profile_form_screen.dart';
 
+/// Offline / very slow network: Firestore and Storage calls otherwise wait
+/// for minutes and leave « Création… » spinning with no way out.
+const Duration _kReadTimeout = Duration(seconds: 10);
+const Duration _kUploadTimeout = Duration(seconds: 60);
+const Duration _kWriteTimeout = Duration(seconds: 30);
+
+/// [future] or null when it fails / takes longer than [limit].
+Future<T?> _orNullAfter<T>(Future<T> future, Duration limit) async {
+  try {
+    return await future.timeout(limit);
+  } catch (_) {
+    return null;
+  }
+}
+
 extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
   Future<void> _saveFromOnboarding() async {
     if (_isSubmitting) return;
@@ -7,6 +22,15 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
     final authState = ref.read(authStateProvider);
     if (authState is! Authenticated) {
       _setSubmitting(false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Session expirée. Reconnectez-vous puis réessayez.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
       return;
     }
 
@@ -22,33 +46,38 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         : trimmedName;
 
     final addrTrim = data.address?.trim();
-    final address =
-        (addrTrim == null || addrTrim.isEmpty) ? null : addrTrim;
+    final address = (addrTrim == null || addrTrim.isEmpty) ? null : addrTrim;
 
     final descTrim = data.description?.trim();
     final description =
         (descTrim == null || descTrim.isEmpty) ? null : descTrim;
 
     final localImagePath = data.imagePath?.trim();
-    final hasLocalLogo =
-        localImagePath != null && localImagePath.isNotEmpty;
+    final hasLocalLogo = localImagePath != null && localImagePath.isNotEmpty;
 
     final cacheService = ref.read(merchantProfileCacheServiceProvider);
     final cachedData = await cacheService.loadProfile();
 
-    var basicsResult =
-        await ref.read(getUserProfileBasicsProvider).call(userId);
-    var basics = basicsResult.fold((_) => null, (b) => b);
+    final basicsResult = await _orNullAfter(
+      ref.read(getUserProfileBasicsProvider).call(userId),
+      _kReadTimeout,
+    );
+    final basics = basicsResult?.fold((_) => null, (b) => b);
 
     // Source-of-truth for the merchant contact email is the address step
     // of the onboarding flow (data.contactEmail). Cached / basics / auth
     // values are kept only as graceful fallbacks for older builds where
     // the step did not exist. The legacy `demo@example.com` placeholder
     // is now treated as "no email" so we never persist it again.
+    // Fallbacks skip Apple relay addresses (`@privaterelay.appleid.com`):
+    // as a public contact email they silently bounce client mail. The
+    // address step's own value (typed by the merchant) is kept as is.
+    String? fallbackEmail(String? v) =>
+        EmailValidator.isPublicContactCandidate(v) ? v : null;
     String email = (data.contactEmail ??
-            cachedData['email'] ??
-            basics?.email ??
-            user.email ??
+            fallbackEmail(cachedData['email']) ??
+            fallbackEmail(basics?.email) ??
+            fallbackEmail(user.email) ??
             '')
         .trim();
     if (EmailValidator.isPlaceholderOrEmpty(email)) email = '';
@@ -87,9 +116,6 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
       return;
     }
     phone = phone.trim();
-    if (phone.isEmpty) {
-      phone = '+33123456789';
-    }
 
     String? logoUrl;
     String? bannerUrl;
@@ -98,19 +124,25 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
     final localBannerPath = data.bannerImagePath?.trim();
 
     if (hasLocalLogo) {
-      final uploadLogoResult =
-          await ref.read(uploadLogoProvider).call(
-                filePath: localImagePath,
-                merchantId: userId,
-              );
-      logoUrl = uploadLogoResult.fold((_) => null, (url) => url);
+      final uploadLogoResult = await _orNullAfter(
+        ref.read(uploadLogoProvider).call(
+              filePath: localImagePath,
+              merchantId: userId,
+            ),
+        _kUploadTimeout,
+      );
+      logoUrl = uploadLogoResult?.fold((_) => null, (url) => url);
       didUploadLogo = logoUrl != null && logoUrl.isNotEmpty;
       if (!didUploadLogo) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Échec du téléversement.'),
+              content: Text(
+                'Échec du téléversement du logo. Vérifiez votre connexion '
+                'puis réessayez.',
+              ),
               backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
             ),
           );
           _setSubmitting(false);
@@ -120,12 +152,14 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
     }
 
     if (localBannerPath != null && localBannerPath.isNotEmpty) {
-      final uploadResult =
-          await ref.read(uploadBannerProvider).call(
-                filePath: localBannerPath,
-                merchantId: userId,
-              );
-      bannerUrl = uploadResult.fold((_) => null, (url) => url);
+      final uploadResult = await _orNullAfter(
+        ref.read(uploadBannerProvider).call(
+              filePath: localBannerPath,
+              merchantId: userId,
+            ),
+        _kUploadTimeout,
+      );
+      bannerUrl = uploadResult?.fold((_) => null, (url) => url);
       didUploadBanner = bannerUrl != null && bannerUrl.isNotEmpty;
     }
 
@@ -154,16 +188,20 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         (ownerLast?.isNotEmpty == true) ||
         ownerDob != null) {
       try {
-        await ref.read(auth_providers.updateClientBasicInfoProvider).call(
+        await ref
+            .read(auth_providers.updateClientBasicInfoProvider)
+            .call(
               uid: userId,
               firstName: ownerFirst,
               lastName: ownerLast,
               dateOfBirth: ownerDob,
-            );
+            )
+            .timeout(_kWriteTimeout);
       } catch (_) {}
     }
 
     bool firestoreSuccess = false;
+    var timedOut = false;
     try {
       // Profile "Catégorie" shows the specialty; write that into `categories`
       // so display and Firestore stay aligned. Parent sector stays on
@@ -189,6 +227,7 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         email: email,
         phone: phone,
         city: city,
+        commune: data.commune,
         address: address,
         categories: categoriesWritten,
         description: description,
@@ -199,7 +238,7 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
         merchantType: data.merchantType,
         categoryId: data.categoryId,
         subcategoryTitle: data.subcategoryTitle,
-      );
+      ).timeout(_kWriteTimeout);
       firestoreSuccess = result.fold((_) => false, (_) => true);
       LoggerService.logInfo(
         'Onboarding persist merchant category result',
@@ -208,20 +247,40 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
           'success': firestoreSuccess,
         },
       );
+    } on TimeoutException {
+      timedOut = true;
     } catch (_) {}
+
+    if (firestoreSuccess) {
+      unawaited(OnboardingCompletionCache.markCompleted('merchant', userId));
+      _draftClosed = true;
+      unawaited(MerchantOnboardingDraftStore.clear(userId));
+    }
 
     if (!firestoreSuccess) {
       final deleteImage = ref.read(deleteStorageImageProvider);
-      if (didUploadLogo) {
-        await deleteImage.call('merchants/$userId/logo.png');
+      // Not after a timeout: the queued write may still land and would then
+      // point at deleted images. Retrying re-uploads them anyway.
+      if (!timedOut && didUploadLogo) {
+        await _orNullAfter(
+          deleteImage.call('merchants/$userId/logo.png'),
+          _kReadTimeout,
+        );
       }
-      if (didUploadBanner) {
-        await deleteImage.call('merchants/$userId/banner.png');
+      if (!timedOut && didUploadBanner) {
+        await _orNullAfter(
+          deleteImage.call('merchants/$userId/banner.png'),
+          _kReadTimeout,
+        );
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Impossible de créer votre commerce.'),
+          SnackBar(
+            content: Text(
+              timedOut
+                  ? 'Connexion trop lente. Vérifiez votre réseau puis réessayez.'
+                  : 'Impossible de créer votre commerce.',
+            ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             duration: Duration(seconds: 3),
@@ -242,8 +301,16 @@ extension _MerchantProfileFormScreenActions on _MerchantProfileFormScreenState {
     // through the freshly-invalidated providers on its first build.
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil commerçant créé avec succès.'),
+        SnackBar(
+          // A failed cover upload is not blocking, but must not be silent.
+          content: Text(
+            localBannerPath != null &&
+                    localBannerPath.isNotEmpty &&
+                    !didUploadBanner
+                ? 'Profil créé. La photo de couverture n\'a pas pu être '
+                    'envoyée : ajoutez-la depuis votre profil.'
+                : 'Profil commerçant créé avec succès.',
+          ),
           backgroundColor: MerchantOnboardingColors.primaryGold,
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),

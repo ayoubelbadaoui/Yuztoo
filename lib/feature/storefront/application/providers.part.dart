@@ -1,16 +1,8 @@
 part of 'providers.dart';
 
 /// Check if a value is a placeholder/default text (DDD: domain logic)
-bool _isPlaceholderText(String? value) {
-  if (value == null || value.trim().isEmpty) return true;
-  final trimmed = value.trim();
-  return trimmed == 'Décrivez votre activité en quelques lignes.' ||
-      trimmed == '+33 6 12 34 56 78' ||
-      trimmed == 'www.votresite.com' ||
-      trimmed == 'Votre adresse' ||
-      trimmed == 'Nom du commerce' ||
-      trimmed.isEmpty;
-}
+bool _isPlaceholderText(String? value) =>
+    ProfilePlaceholders.isPlaceholder(value);
 
 /// Calculate profile completion percentage based on filled fields (DDD: domain logic)
 ///

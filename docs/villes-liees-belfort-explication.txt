@@ -1,0 +1,140 @@
+YUZTOO — Audit villes (travail Claude) + commerces en prod
+========================================================================
+
+0) CE QUE FAIT LE CODE ACTUEL (travail Claude / APK test)
+------------------------------------------------------------------------
+Découvrir élargit les villes connectées du CLIENT par DÉPARTEMENT
+(geo.api.gouv.fr), plus matching tolérant (CityMatch) :
+
+  - Accents / tirets / Saint≈St ignorés
+  - Labels multi-villes type "Belfort/ andelnans" → Belfort + Andelnans
+  - Timeout 6s par ville (si API geo lente → fallback match exact)
+
+Fichiers clés :
+  - lib/feature/discovery/domain/city_agglomeration_expander.dart
+  - lib/core/utils/city_match.dart
+  - firestore_merchant_repository.queries.part.dart (filtre CityMatch)
+
+IMPORTANT : ce n’est PAS “tous les stores de France”.
+C’est : stores actifs dont la ville du commerce est dans le(s)
+département(s) des villes liées du client.
+
+
+1) TOUTES LES VILLES DES COMMERCES EN PROD (Firestore merchants)
+------------------------------------------------------------------------
+67 commerces · 11 labels ville distincts
+
+  Active | Inactive | Ville (telle qu’en base)
+  -------|----------|-------------------------
+     37  |    11    | Belfort
+      5  |     2    | Montbéliard
+      1  |     0    | Giromagny
+      1  |     0    | Héricourt
+      1  |     0    | Saint-Louis   ← ATTENTION: résolu en Réunion (974) !
+      1  |     0    | Belfort/ andelnans  ← legacy multi-ville (corrigé par CityMatch)
+      0  |     1    | Bavilliers
+      0  |     3    | Agde
+      0  |     2    | Agen
+      0  |     1    | Bordeaux
+      0  |     1    | Rabat-les-Trois-Seigneurs
+
+Stores actifs “locaux” vraiment utiles au bassin Belfort :
+  Belfort (37) + Giromagny (1) + Belfort/andelnans (1) + Héricourt (1)
+  + Montbéliard (5)  ← autre département
+
+
+2) PETITES VILLES LIÉES (mode département — APK actuelle)
+------------------------------------------------------------------------
+
+A) Si le client a Belfort / Giromagny / Petit-Croix / Bavilliers / Andelnans
+   → département 90 Territoire de Belfort = 101 communes liées
+
+   CA Grand Belfort (52) — déjà “agglo Belfort”
+     Andelnans, Angeot, Argiésans, Autrechêne, Banvillars, Bavilliers,
+     Belfort, Bermont, Bessoncourt, Bethonvilliers, Botans, Bourogne, Buc,
+     Charmois, Châtenois-les-Forges, Chèvremont, Cravanche, Cunelières,
+     Danjoutin, Denney, Dorans, Eguenigue, Essert, Fontaine, Fontenelle,
+     Foussemagne, Frais, Lacollonge, Lagrange, Larivière, Menoncourt,
+     Meroux-Moval, Montreux-Château, Morvillars, Méziré, Novillard,
+     Offemont, Petit-Croix, Phaffans, Pérouse, Reppe, Roppe, Sermamagny,
+     Sevenans, Trévenans, Urcerey, Valdoie, Vauthiermont, Vétrigne,
+     Vézelois, Éloie, Évette-Salbert
+
+   CC des Vosges du Sud (22) — dont Giromagny
+     Anjoutey, Auxelles-Bas, Auxelles-Haut, Bourg-sous-Châtelet, Chaux,
+     Felon, Giromagny, Grosmagny, Lachapelle-sous-Chaux,
+     Lachapelle-sous-Rougemont, Lamadeleine-Val-des-Anges, Lepuix, Leval,
+     Petitefontaine, Petitmagny, Riervescemont, Romagny-sous-Rougemont,
+     Rougegoutte, Rougemont-le-Château, Saint-Germain-le-Châtelet,
+     Vescemont, Étueffont
+
+   CC du Sud Territoire (27) — Delle / Beaucourt…
+     Beaucourt, Boron, Brebotte, Bretagne, Chavanatte, Chavannes-les-Grands,
+     Courcelles, Courtelevant, Croix, Delle, Faverois, Florimont,
+     Froidefontaine, Fêche-l'Église, Grandvillars, Grosne, Joncherey,
+     Lebetain, Lepuix-Neuf, Montbouton, Recouvrance, Réchésy,
+     Saint-Dizier-l'Évêque, Suarce, Thiancourt, Vellescot, Villars-le-Sec
+
+   → Oui : un commerce à Giromagny / Delle / Bavilliers devient visible
+     pour un client lié à Belfort (et inversement), SI le commerce est
+     actif et sa ville en base = un de ces noms officiels.
+
+
+B) Si le client a Montbéliard (ou Sochaux…)
+   → département 25 Doubs = 563 communes (très large)
+   dont Pays de Montbéliard Agglomération (73) :
+     Montbéliard, Audincourt, Valentigney, Sochaux, Bethoncourt, …
+   → NE croise PAS Belfort (90).
+
+
+C) Si le client a Héricourt (cas Pascal)
+   → département 70 Haute-Saône = 536 communes
+   → NE croise PAS Belfort (90) ni Montbéliard (25),
+     sauf s’il a AUSSI Petit-Croix / Belfort dans cities.
+
+
+3) QUI VOIT QUI (bassin local) — APK département
+------------------------------------------------------------------------
+Client lié à…     Voit commerces Belfort?  Giromagny?  Montbéliard?  Héricourt?
+Belfort / 90      OUI                      OUI         NON           NON
+Giromagny         OUI                      OUI         NON           NON
+Petit-Croix       OUI                      OUI         NON           NON
+Montbéliard / 25  NON                      NON         OUI           NON*
+Héricourt / 70    NON                      NON         NON           OUI
+Héricourt+Petit-Croix (Pascal)  OUI        OUI         NON           OUI
+
+* sauf overlap EPCI rare ; en pratique Héricourt ≠ Montbéliard pour Découvrir.
+
+
+4) DIFFÉRENCE VS PROD STORE (avant ce travail)
+------------------------------------------------------------------------
+Avant (EPCI) :
+  Belfort ↔ seulement Grand Belfort (~52)
+  Giromagny ↔ seulement Vosges du Sud (~22)  → PAS Belfort
+  Montbéliard ↔ seulement son agglo (~73)
+
+Maintenant (département, APK Hostinger / code actuel) :
+  Belfort ↔ TOUT le 90 (101)  → Giromagny + Delle inclus
+  Montbéliard toujours séparé (25)
+  Matching plus tolérant (accents, "Belfort/ andelnans")
+
+
+5) POURQUOI “TOUS LES STORES” NE SONT PAS VISIBLES
+------------------------------------------------------------------------
+Les 37 Belfort actifs + 1 Giromagny + 1 Belfort/andelnans = visibles
+pour un client 90.
+
+Les 5 Montbéliard actifs = visibles seulement si le client a une ville
+du Doubs (25) — Pascal n’a que Héricourt + Petit-Croix → voit 90+70,
+pas 25.
+
+Stores inactifs (Agde, Agen, Bordeaux…) = exclus (status != active).
+
+Saint-Louis actif : attention, le geo API le mappe à La Réunion (974)
+si on ne force pas le département Haut-Rhin — risque de mauvais élargissement.
+
+
+6) LIENS TEST
+------------------------------------------------------------------------
+Hostinger : https://silver-mongoose-353480.hostingersite.com/  (1.0.10 build 71)
+Firebase  : https://yuztoo.web.app/telecharger-android

@@ -82,12 +82,30 @@ class PhoneNumberFormatter extends TextInputFormatter {
     return 12;
   }
 
+  /// iOS contact autofill and copy-paste give the full international form
+  /// (« +33 6 12 34 56 78 », « 0033 6… »). The country code is already
+  /// picked separately, so drop it when the remaining digits are exactly a
+  /// national number — otherwise the field kept « 3 36 12 34 56 ».
+  String _stripPastedCountryCode(String digits) {
+    final expected = _kCountryPhoneLengths[countryCode];
+    final cc = countryCode.replaceAll(RegExp(r'[^\d]'), '');
+    if (expected == null || cc.isEmpty) return digits;
+    for (final prefix in ['00$cc', cc]) {
+      if (digits.length == prefix.length + expected &&
+          digits.startsWith(prefix)) {
+        return digits.substring(prefix.length);
+      }
+    }
+    return digits;
+  }
+
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final newDigits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    final newDigits =
+        _stripPastedCountryCode(newValue.text.replaceAll(RegExp(r'[^\d]'), ''));
     final oldDigits = oldValue.text.replaceAll(RegExp(r'[^\d]'), '');
 
     final maxDigits = _getMaxDigits();

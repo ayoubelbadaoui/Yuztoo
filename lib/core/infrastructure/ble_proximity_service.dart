@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:ble_peripheral/ble_peripheral.dart' as peripheral;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/vitrine_qr_config.dart';
 import 'logger_service.dart';
@@ -61,6 +62,24 @@ enum MerchantPermissionStatus {
 class BleProximityService {
   /// 128-bit service UUID reserved for Yuztoo BLE proximity sessions.
   static const String serviceUuid = '12340000-1234-1000-8000-00805f9b34fb';
+
+  /// Set once client advertising succeeded on iOS (user accepted Bluetooth).
+  static const String _iosBleConsentedKey = 'ble_ios_client_consented';
+
+  /// iOS: creating the peripheral manager shows the Bluetooth prompt, and
+  /// there is no prompt-free way to check consent first. The automatic
+  /// background start (app shell, right after onboarding) uses this to stay
+  /// off until advertising has succeeded once from the passage-validation
+  /// screen. Always true on Android (permissions are checked without prompt).
+  static Future<bool> mayAutoStartClientBroadcast() async {
+    if (!Platform.isIOS) return true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_iosBleConsentedKey) == true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// Characteristic that holds the client's Firebase UID (UTF-8 encoded).
   static const String clientIdCharUuid =
@@ -229,6 +248,12 @@ class BleProximityService {
         'BLE startClientBroadcast — advertising started',
         context: <String, Object?>{'clientId': clientId},
       );
+      if (Platform.isIOS) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool(_iosBleConsentedKey, true);
+        } catch (_) {}
+      }
       return true;
     } catch (e, st) {
       _logPeripheralFailure('BLE startClientBroadcast — failed', e, st);

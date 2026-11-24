@@ -73,6 +73,44 @@ export function phoneCandidates(raw: string): string[] {
   return [...out];
 }
 
+function capitalize(word: string): string {
+  return word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : word;
+}
+
+/**
+ * "pascal guyomar" → first-name variants ["pascal","Pascal","PASCAL"],
+ * full-name variants for `displayName`, and the last name used for ranking.
+ * Pure — unit tested.
+ */
+export function nameCandidates(raw: string): {
+  first: string[];
+  full: string[];
+  last: string | null;
+} {
+  const words = raw.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.some((w) => w.length > 60)) {
+    return { first: [], full: [], last: null };
+  }
+  const variants = (w: string) => [w, w.toLowerCase(), capitalize(w), w.toUpperCase()];
+  const fullRaw = words.join(" ");
+  return {
+    first: [...new Set(variants(words[0]))],
+    full: [...new Set([fullRaw, fullRaw.toLowerCase(), words.map(capitalize).join(" ")])],
+    last: words.length > 1 ? words.slice(1).join(" ").toLowerCase() : null,
+  };
+}
+
+/** Matching last names first, then the rest (dedup happens in the caller). */
+function rankByLastName(docs: DocumentSnapshot[], last: string | null): DocumentSnapshot[] {
+  if (!last) return docs;
+  const score = (doc: DocumentSnapshot) => {
+    const data = (doc.data() ?? {}) as Record<string, unknown>;
+    const name = `${str(data.lastName) ?? ""} ${str(data.displayName) ?? ""}`.toLowerCase();
+    return name.includes(last) ? 0 : 1;
+  };
+  return [...docs].sort((a, b) => score(a) - score(b));
+}
+
 /** Display name from the mixed-convention user document. Pure. */
 export function clientDisplayName(data: Record<string, unknown>): string {
   const display = str(data.displayName);
@@ -131,6 +169,17 @@ export async function findNewsTestClientHandler(
         .limit(MAX_RESULTS)
         .get();
       snap.docs.forEach(add);
+    } else {
+      // Exact first name / full display name (no substring search exists).
+      const names = nameCandidates(search);
+      if (names.first.length > 0) {
+        const snaps = await Promise.all([
+          users.where("firstName", "in", names.first).limit(30).get(),
+          users.where("displayName", "in", names.full).limit(30).get(),
+        ]);
+        const docs = snaps.flatMap((snap) => snap.docs);
+        rankByLastName(docs, names.last).forEach(add);
+      }
     }
   }
 

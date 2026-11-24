@@ -35,6 +35,7 @@ enum ScreenId {
   merchantEFidelite,
   merchantGratificationConfig,
   merchantStorefrontLinks,
+  merchantStores,
   merchantAccountPreferences,
   merchantSecurity,
   merchantDataPrivacy,

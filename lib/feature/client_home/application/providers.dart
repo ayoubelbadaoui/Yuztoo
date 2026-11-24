@@ -15,6 +15,13 @@ import '../../promotions/infrastructure/promotion_repository_provider.dart';
 import '../domain/carnet_merchant_order.dart';
 import '../infrastructure/viewed_merchants_local_service.dart';
 
+/// Text typed in the carnet search bar.
+///
+/// Lives outside the list widget because the bar is pinned above the scroll
+/// view (it must stay visible while the carnet scrolls) while the filtering
+/// happens further down the tree.
+final carnetSearchQueryProvider = StateProvider<String>((ref) => '');
+
 /// Live followed merchant IDs for the current user.
 final followedMerchantIdsForCurrentUserProvider =
     StreamProvider<List<String>>((ref) {

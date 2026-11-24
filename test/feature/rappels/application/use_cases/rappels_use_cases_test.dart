@@ -12,12 +12,15 @@ import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/acknowledge_new_client.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/create_auto_notification.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/delete_auto_notification.dart';
+import 'package:flutter_yuztoo/feature/rappels/application/use_cases/mark_like_alerts_seen.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/send_merchant_notification.dart';
 import 'package:flutter_yuztoo/feature/rappels/application/use_cases/update_auto_notification.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/entities/active_notification.dart';
+import 'package:flutter_yuztoo/feature/rappels/domain/entities/merchant_like_alert.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/entities/pending_client_row.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/entities/sent_notification.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/repositories/auto_notification_repository.dart';
+import 'package:flutter_yuztoo/feature/rappels/domain/repositories/i_merchant_like_alerts_repository.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/repositories/i_rappels_pending_client_repository.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/repositories/i_sent_notification_repository.dart';
 
@@ -245,6 +248,27 @@ class _FakePendingClientRepo implements IRappelsPendingClientRepository {
       String merchantId, String clientUid) async {
     lastAcknowledgedMerchantId = merchantId;
     lastAcknowledgedClientUid = clientUid;
+    if (shouldFail) {
+      return const Left(UnexpectedFailure(message: 'Firestore error'));
+    }
+    return const Right(unit);
+  }
+}
+
+// ── Fake: IMerchantLikeAlertsRepository ──────────────────────────────────────
+
+class _FakeMerchantLikeAlertsRepo implements IMerchantLikeAlertsRepository {
+  String? lastMarkedMerchantId;
+  bool shouldFail;
+  _FakeMerchantLikeAlertsRepo({this.shouldFail = false});
+
+  @override
+  Stream<List<MerchantLikeAlert>> watchUnseenLikeAlerts(String merchantId) =>
+      Stream.value(const []);
+
+  @override
+  Future<Result<Unit>> markAllSeen(String merchantId) async {
+    lastMarkedMerchantId = merchantId;
     if (shouldFail) {
       return const Left(UnexpectedFailure(message: 'Firestore error'));
     }
@@ -636,6 +660,31 @@ void main() {
       );
       expect(result.fold((_) => -1, (n) => n), 2);
       expect(clientNotifRepo.createCallCount, 2);
+    });
+  });
+
+  // ── MarkLikeAlertsSeen ────────────────────────────────────────────────────
+
+  group('MarkLikeAlertsSeen', () {
+    late _FakeMerchantLikeAlertsRepo repo;
+    late MarkLikeAlertsSeen useCase;
+
+    setUp(() {
+      repo = _FakeMerchantLikeAlertsRepo();
+      useCase = MarkLikeAlertsSeen(repo);
+    });
+
+    test('delegates merchantId to repo', () async {
+      final result = await useCase.call(merchantId: 'm1');
+      expect(result.isRight, isTrue);
+      expect(repo.lastMarkedMerchantId, 'm1');
+    });
+
+    test('propagates repo failure as Left', () async {
+      repo = _FakeMerchantLikeAlertsRepo(shouldFail: true);
+      useCase = MarkLikeAlertsSeen(repo);
+      final result = await useCase.call(merchantId: 'm1');
+      expect(result.isLeft, isTrue);
     });
   });
 

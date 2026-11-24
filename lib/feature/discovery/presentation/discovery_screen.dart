@@ -16,7 +16,6 @@ import '../../merchant/domain/entities/merchant.dart';
 
 part 'discovery_screen.part.dart';
 
-
 /// Découvrir / Recommandations – design.md layout, MerchantColors, real data from Firestore.
 class DiscoveryScreen extends ConsumerStatefulWidget {
   const DiscoveryScreen({
@@ -31,8 +30,10 @@ class DiscoveryScreen extends ConsumerStatefulWidget {
 
   final VoidCallback onBack;
   final VoidCallback onNotifications;
+
   /// Called with merchant id when user taps a business (featured or grid).
   final ValueChanged<String> onStoreSelect;
+
   /// True when the user also has a merchant account.
   final bool isDualProfile;
 
@@ -54,6 +55,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.invalidate(discoveryCityMerchantsProvider);
+      ref.invalidate(discoveryAllActiveMerchantsProvider);
       ref.invalidate(discoveryArtisteMerchantsProvider);
       ref.invalidate(discoveryRecommendedMerchantsProvider);
       ref.invalidate(discoveryFollowedMerchantsProvider);
@@ -78,7 +80,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         () => _performSearch(v.trim()),
       );
     } else {
-      setState(() { _searchResults = []; _searchLoading = false; });
+      setState(() {
+        _searchResults = [];
+        _searchLoading = false;
+      });
     }
   }
 
@@ -86,17 +91,25 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     try {
       final cityMerchants =
           await ref.read(discoveryCityMerchantsProvider.future);
-      final artisteMerchants =
-          await ref.read(discoveryArtisteMerchantsProvider.future);
+      // Any city: a shop outside the client's area must still be findable
+      // by name. City catalogue first so its order wins on duplicates.
+      final allMerchants =
+          await ref.read(discoveryAllActiveMerchantsProvider.future);
       final pool = <String, Merchant>{
         for (final m in cityMerchants) m.id: m,
-        for (final m in artisteMerchants) m.id: m,
+        for (final m in allMerchants) m.id: m,
       };
       final matches = filterDiscoverySearchMerchants(
         merchants: pool.values.toList(),
         query: q,
       );
-      final results = matches.map(discoverySearchResultRow).toList();
+      // Client's own area first, other cities after (each keeps score order).
+      final localIds = {for (final m in cityMerchants) m.id};
+      final ordered = [
+        ...matches.where((m) => localIds.contains(m.id)),
+        ...matches.where((m) => !localIds.contains(m.id)),
+      ];
+      final results = ordered.map(discoverySearchResultRow).toList();
       if (mounted && _searchQuery.trim() == q) {
         setState(() => _searchResults = results);
       }
@@ -114,10 +127,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   @override
   Widget build(BuildContext context) {
     final merchantsAsync = ref.watch(discoveryMerchantsProvider);
-    final viewedIdsAsync =
-        ref.watch(client_home_providers.viewedMerchantIdsForCurrentUserProvider);
-    final followedIdsAsync =
-        ref.watch(client_home_providers.followedMerchantIdsForCurrentUserProvider);
+    final viewedIdsAsync = ref
+        .watch(client_home_providers.viewedMerchantIdsForCurrentUserProvider);
+    final followedIdsAsync = ref
+        .watch(client_home_providers.followedMerchantIdsForCurrentUserProvider);
     final isSearching = _searchQuery.trim().length >= 2;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -133,6 +146,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         body: Column(
           children: [
             _buildHeader(context),
+            // Outside the branch below on purpose: the search bar keeps its
+            // element (and the keyboard focus) while the body swaps between
+            // results and catalog as the user types.
+            _buildSearchBar(),
             Expanded(
               child: isSearching
                   ? _buildSearchResults(

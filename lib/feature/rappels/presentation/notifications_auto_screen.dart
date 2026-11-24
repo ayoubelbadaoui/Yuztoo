@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/infrastructure/firebase_providers.dart';
 import '../../../core/shared/constants/merchant_colors.dart';
@@ -14,11 +17,13 @@ import '../domain/auto_notification_triggers.dart';
 import '../domain/entities/active_notification.dart';
 import 'widgets/active_notifications_list.dart';
 import 'widgets/audience_section.dart';
+import 'widgets/edit_notification_help_card.dart';
 import 'widgets/auto_notification_health_panel.dart';
 import 'widgets/compose_section.dart';
 import 'widgets/step_header.dart';
 import 'widgets/trigger_grid.dart';
 import '../../../core/shared/widgets/back_button.dart';
+import '../../../core/shared/widgets/coachmark_tour.dart';
 import '../../../core/shared/widgets/yuztoo_gradient_title.dart';
 
 part 'notifications_auto_screen.part.dart';
@@ -37,6 +42,7 @@ class NotificationsAutoScreen extends ConsumerStatefulWidget {
 class _NotificationsAutoScreenState
     extends ConsumerState<NotificationsAutoScreen> {
   final TextEditingController _textCtrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
 
   int _clientSelection = 0;
   int _selectedTrigger = 0;
@@ -44,9 +50,29 @@ class _NotificationsAutoScreenState
   int? _editingIndex;
   ActiveNotification? _editingNotification;
 
+  // Coachmark targets (page guide + edit guide).
+  final GlobalKey _listKey = GlobalKey();
+  final GlobalKey _formKey = GlobalKey();
+  final GlobalKey _healthKey = GlobalKey();
+  final GlobalKey _composeKey = GlobalKey();
+  final GlobalKey _audienceKey = GlobalKey();
+  final GlobalKey _triggerKey = GlobalKey();
+  final GlobalKey _saveKey = GlobalKey();
+  CoachmarkTourHandle? _editTour;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_maybeAutoShowPageGuide());
+    });
+  }
+
   @override
   void dispose() {
+    _editTour?.dismiss();
     _textCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -69,7 +95,8 @@ class _NotificationsAutoScreenState
   void _onClientSelectionChanged(int v) {
     _withSetState(() {
       _clientSelection = v;
-      if (v == 0) _targetSegments = const []; // reset segments when switching to "Tous"
+      if (v == 0)
+        _targetSegments = const []; // reset segments when switching to "Tous"
     });
   }
 

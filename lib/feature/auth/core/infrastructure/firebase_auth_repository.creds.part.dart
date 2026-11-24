@@ -346,11 +346,21 @@ mixin _FirebaseAuthRepositoryCreds on _FirebaseAuthRepositoryBase {
       // Update display name from Apple credential if not set
       final firstName = appleCredential.givenName?.trim();
       final lastName = appleCredential.familyName?.trim();
+      // Apple sends the name only on the very first authorization: keep it
+      // on the Firebase account right away (survives reinstalls; client
+      // onboarding prefills from it). Bounded — a slow network must not keep
+      // the Apple sign-in spinning; an empty "" display name counts as unset.
       if (firstName != null &&
           firstName.isNotEmpty &&
-          user.displayName == null) {
-        await user.updateDisplayName('$firstName ${lastName ?? ''}'.trim());
-        await user.reload();
+          (user.displayName?.trim().isEmpty ?? true)) {
+        try {
+          await user
+              .updateDisplayName('$firstName ${lastName ?? ''}'.trim())
+              .timeout(const Duration(seconds: 8));
+          await user.reload().timeout(const Duration(seconds: 5));
+        } catch (_) {
+          // Name still reaches Firestore via oauthFirstName / oauthLastName.
+        }
       }
       DocumentSnapshot<Map<String, dynamic>>? profileDoc;
       try {

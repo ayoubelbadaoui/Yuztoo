@@ -62,8 +62,7 @@ class ComposeSection extends StatelessWidget {
                     fontSize: 14,
                     color: MerchantColors.textGrey,
                   ),
-                  contentPadding:
-                      const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                   counterStyle: GoogleFonts.outfit(
                     fontSize: 11,
                     color: MerchantColors.textGrey,
@@ -72,24 +71,7 @@ class ComposeSection extends StatelessWidget {
               ),
             ),
           ),
-          if (isEditing)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: GestureDetector(
-                onTap: () {
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  onCancelEdit?.call();
-                },
-                child: Text(
-                  'Annuler la modification',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: MerchantColors.textGrey,
-                    decoration: TextDecoration.none,
-                  ),
-                ),
-              ),
-            ),
+          // Cancel lives in EditNotificationHelpCard while editing.
         ],
       ),
     );
@@ -107,4 +89,3 @@ class ComposeSection extends StatelessWidget {
     );
   }
 }
-

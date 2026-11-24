@@ -160,7 +160,8 @@ class _AlertCard extends StatelessWidget {
                     color: Colors.white,
                   ),
                 ),
-                if (alert.detail != null || config.subtitle(alert.count) != null)
+                if (alert.detail != null ||
+                    config.subtitle(alert.count) != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
@@ -175,8 +176,7 @@ class _AlertCard extends StatelessWidget {
             ),
           ),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: config.bgColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(10),
@@ -201,15 +201,26 @@ class _AlertCard extends StatelessWidget {
         return _AlertConfig(
           icon: Icons.local_offer_outlined,
           bgColor: const Color(0xFFFF9800),
-          title: (n) => n == 1 ? 'Promotion expire bientôt' : '$n promos expirent bientôt',
+          title: (n) => n == 1
+              ? 'Promotion expire bientôt'
+              : '$n promos expirent bientôt',
           subtitle: (_) => 'Dans moins de 3 jours',
         );
       case RappelAlertType.loyaltyRewardReady:
         return _AlertConfig(
           icon: Icons.card_giftcard_outlined,
           bgColor: MerchantColors.gold,
-          title: (n) => n == 1 ? '1 client a droit à sa récompense' : '$n clients ont droit à leur récompense',
+          title: (n) => n == 1
+              ? '1 client a droit à sa récompense'
+              : '$n clients ont droit à leur récompense',
           subtitle: (_) => 'Objectif fidélité atteint',
+        );
+      case RappelAlertType.newLikes:
+        return _AlertConfig(
+          icon: Icons.favorite_rounded,
+          bgColor: const Color(0xFFFF5A7A),
+          title: (n) => n == 1 ? '1 nouveau like' : '$n nouveaux likes',
+          subtitle: (_) => 'Promos et actualités',
         );
     }
   }

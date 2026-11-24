@@ -14,12 +14,18 @@ import '../../../core/shared/widgets/yuztoo_pull_refresh.dart';
 import '../../client_home/application/providers.dart';
 import '../../discovery/application/providers.dart'
     show discoveryCityMerchantsProvider;
+import '../../merchant/domain/entities/merchant.dart';
 import '../../notifications/application/providers.dart';
 import '../../client_notification/application/providers.dart';
 import '../../followed_merchants/application/providers.dart'
     show setMuteStateProvider;
-import '../../promotions/application/providers.dart' show recordPromoViewsProvider;
+import '../../promotions/application/providers.dart'
+    show recordPromoViewsProvider;
 import '../../promotions/domain/entities/promotion.dart';
+import '../../yuztoo_news/application/providers.dart'
+    show yuztooNewsFeedProvider;
+import '../../yuztoo_news/presentation/yuztoo_news_banner.dart';
+import '../domain/promotion_enseigne_group.dart';
 
 part 'notifications_screen.part.dart';
 
@@ -53,6 +59,8 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   String _activeTab = 'alertes'; // 'alertes' | 'promos' | 'ville'
   final Map<String, GlobalKey> _notificationRowKeys = <String, GlobalKey>{};
+  final TextEditingController _promoSearchController = TextEditingController();
+  String _promoSearchQuery = '';
 
   Future<void> _onPullRefresh() async {
     ref.invalidate(clientNotificationsStreamProvider);
@@ -60,6 +68,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     ref.invalidate(clientCityPromotionsProvider);
     ref.invalidate(clientHomeFeedProvider);
     ref.invalidate(discoveryCityMerchantsProvider);
+    // Re-evaluates which actu is due — the day can have rolled over while the
+    // app stayed open.
+    ref.invalidate(yuztooNewsFeedProvider);
     await Future<void>.delayed(const Duration(milliseconds: 350));
   }
 
@@ -111,9 +122,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         content: Text(
           'Toutes vos alertes seront définitivement supprimées.',
           style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: MerchantColors.textLightGrey,
-              height: 1.4),
+              fontSize: 14, color: MerchantColors.textLightGrey, height: 1.4),
         ),
         actions: [
           TextButton(
@@ -134,9 +143,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    final result = await ref
-        .read(deleteAllNotificationsProvider)
-        .call(authState.user.id);
+    final result =
+        await ref.read(deleteAllNotificationsProvider).call(authState.user.id);
     if (!mounted) return;
     result.fold(
       (_) => ScaffoldMessenger.of(context).showSnackBar(
@@ -172,7 +180,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         notification.promotionId != null &&
         notification.promotionId!.isNotEmpty &&
         widget.onPromotionTap != null) {
-      widget.onPromotionTap!(notification.merchantId, notification.promotionId!);
+      widget.onPromotionTap!(
+          notification.merchantId, notification.promotionId!);
     } else {
       // "quand un client clique sur une notification il veut voir la
       // notification, pas repartir sur la vitrine" — generic rows (rappels
@@ -280,7 +289,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  void _setTab(String tab) => setState(() => _activeTab = tab);
+  void _setTab(String tab) {
+    setState(() {
+      _activeTab = tab;
+      if (tab != 'promos' && tab != 'ville') {
+        _promoSearchQuery = '';
+        _promoSearchController.clear();
+      }
+    });
+  }
+
+  void _onPromoSearchChanged(String value) {
+    setState(() => _promoSearchQuery = value);
+  }
 
   /// Applies tab + scroll intent from [NotificationInboxDeepLink]. Caller must
   /// clear the provider before calling, or pass a copy (FCM sets the provider
@@ -293,6 +314,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       setState(() {
         if (tab == 'promos' || tab == 'alertes' || tab == 'ville') {
           _activeTab = tab;
+          if (tab != 'promos' && tab != 'ville') {
+            _promoSearchQuery = '';
+            _promoSearchController.clear();
+          }
         }
       });
       if (scrollId != null && scrollId.isNotEmpty) {
@@ -319,6 +344,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ref.read(notificationInboxDeepLinkProvider.notifier).state = null;
       _applyInboxDeepLink(pending);
     });
+  }
+
+  @override
+  void dispose() {
+    _promoSearchController.dispose();
+    super.dispose();
   }
 
   @override

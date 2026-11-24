@@ -1,10 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../../core/domain/entities/french_commune.dart';
 import '../../../../core/utils/city_input.dart';
+import '../../../../core/utils/city_match.dart';
+import '../../../../core/utils/profile_placeholders.dart';
 import '../../domain/entities/merchant_storefront_link.dart';
 import '../../domain/entities/client_gratification_config.dart';
 import '../../domain/entities/merchant.dart';
 import '../../domain/entities/merchant_subscription_plan.dart';
+import '../../domain/entities/mobility_accessibility.dart';
 import '../loyalty_program_firestore_mapper.dart';
 
 /// Data Transfer Object for Merchant entity in Firestore.
@@ -16,6 +20,7 @@ class MerchantDto {
     required this.email,
     required this.phone,
     required this.city,
+    this.commune,
     this.address,
     this.categories,
     this.description,
@@ -26,6 +31,8 @@ class MerchantDto {
     this.displayName,
     this.logoUrl,
     this.websiteUrl,
+    this.organizationId,
+    this.storeLabel,
     this.bannerUrl,
     this.newsImageUrls,
     this.loyaltyEnabled = false,
@@ -48,6 +55,7 @@ class MerchantDto {
     this.publicFollowersCount = 0,
     this.storefrontLinks = const [],
     this.subscriptionPlan = MerchantSubscriptionPlan.gratuit,
+    this.mobilityAccessibility = MobilityAccessibility.defaultValue,
   });
 
   final String id;
@@ -56,6 +64,7 @@ class MerchantDto {
   final String email;
   final String phone;
   final String city;
+  final FrenchCommune? commune;
   final String? address;
   final List<String>? categories;
   final String? description;
@@ -66,9 +75,12 @@ class MerchantDto {
   final String? displayName;
   final String? logoUrl;
   final String? websiteUrl;
+  final String? organizationId;
+  final String? storeLabel;
   final String? bannerUrl;
   final List<String>? newsImageUrls;
   final bool loyaltyEnabled;
+
   /// Raw `loyalty_program` map from Firestore (parsed in [toDomain]).
   final Map<String, dynamic>? loyaltyProgramRaw;
   final bool messagingEnabled;
@@ -85,6 +97,7 @@ class MerchantDto {
   final String? welcomeGiftDescription;
   final String? categoryId;
   final String? subcategoryTitle;
+
   /// Raw `gratification_config` map from Firestore (parsed in [toDomain]).
   final Map<String, dynamic>? gratificationConfigRaw;
 
@@ -95,9 +108,17 @@ class MerchantDto {
 
   final MerchantSubscriptionPlan subscriptionPlan;
 
+  final MobilityAccessibility mobilityAccessibility;
+
   // Merchant docs are also edited from the console and Cloud Functions, so a
   // field can hold the wrong type; one bad doc must not fail a whole feed.
   static String? _str(dynamic v) => v is String ? v : null;
+
+  /// Real value or null — legacy example strings count as unset.
+  static String? _realOrNull(dynamic v) {
+    final clean = ProfilePlaceholders.clean(_str(v));
+    return clean.isEmpty ? null : clean;
+  }
 
   static List<String> _strList(dynamic v) =>
       v is List ? v.whereType<String>().toList() : const <String>[];
@@ -149,21 +170,25 @@ class MerchantDto {
       loyaltyRaw = Map<String, dynamic>.from(lp);
     }
     final loyaltyParsed = LoyaltyProgramFirestoreMapper.fromFirestoreMap(lp);
-    final loyaltyEnabledEffective = loyaltyParsed?.programEnabled ??
-        (data['loyalty_enabled'] == true);
+    final loyaltyEnabledEffective =
+        loyaltyParsed?.programEnabled ?? (data['loyalty_enabled'] == true);
 
     return MerchantDto(
       id: doc.id,
       ownerUid: (_str(data['owner_uid']) ?? ''),
       name: (_str(data['name']) ?? ''),
       email: (_str(data['email']) ?? ''),
-      phone: (_str(data['phone']) ?? ''),
+      phone: ProfilePlaceholders.clean(_str(data['phone'])),
       city: (_str(data['city']) ?? ''),
-      address: _str(data['address']),
-      categories: data['categories'] is List
-          ? _strList(data['categories'])
+      commune: data['city_metadata'] is Map
+          ? FrenchCommune.fromFirestore(
+              Map<String, dynamic>.from(data['city_metadata'] as Map),
+            )
           : null,
-      description: _str(data['description']),
+      address: _realOrNull(data['address']),
+      categories:
+          data['categories'] is List ? _strList(data['categories']) : null,
+      description: _realOrNull(data['description']),
       hours: data['hours'] is Map
           ? Map<String, dynamic>.from(data['hours'] as Map)
           : null,
@@ -172,7 +197,9 @@ class MerchantDto {
       updatedAt: parseTimestamp(data['updated_at']),
       displayName: _str(data['display_name']),
       logoUrl: _str(data['logo_url']),
-      websiteUrl: _str(data['website_url']),
+      websiteUrl: _realOrNull(data['website_url']),
+      organizationId: _str(data['organization_id']),
+      storeLabel: _str(data['store_label']),
       bannerUrl: _str(data['banner_url']),
       newsImageUrls: data['news_image_urls'] is List
           ? _strList(data['news_image_urls'])
@@ -207,13 +234,15 @@ class MerchantDto {
       categoryId: _str(data['category_id']),
       subcategoryTitle: _str(data['subcategory_title']),
       gratificationConfigRaw: data['gratification_config'] is Map
-          ? Map<String, dynamic>.from(
-              data['gratification_config'] as Map)
+          ? Map<String, dynamic>.from(data['gratification_config'] as Map)
           : null,
       publicFollowersCount: nonNegativeInt(data['public_followers_count']),
       storefrontLinks: _parseStorefrontLinks(data['storefront_links']),
       subscriptionPlan: MerchantSubscriptionPlan.fromFirestore(
         _str(data['subscription_plan']),
+      ),
+      mobilityAccessibility: MobilityAccessibility.fromFirestore(
+        _str(data['mobility_accessibility']),
       ),
     );
   }
@@ -226,6 +255,7 @@ class MerchantDto {
         email: email,
         phone: phone,
         city: city,
+        commune: commune,
         address: address,
         categories: categories,
         description: description,
@@ -236,6 +266,8 @@ class MerchantDto {
         displayName: displayName,
         logoUrl: logoUrl,
         websiteUrl: websiteUrl,
+        organizationId: organizationId,
+        storeLabel: storeLabel,
         bannerUrl: bannerUrl,
         newsImageUrls: newsImageUrls,
         loyaltyEnabled: loyaltyEnabled,
@@ -261,6 +293,7 @@ class MerchantDto {
         publicFollowersCount: publicFollowersCount,
         storefrontLinks: storefrontLinks,
         subscriptionPlan: subscriptionPlan,
+        mobilityAccessibility: mobilityAccessibility,
       );
   factory MerchantDto.fromDomain(Merchant merchant) => MerchantDto(
         id: merchant.id,
@@ -269,6 +302,7 @@ class MerchantDto {
         email: merchant.email,
         phone: merchant.phone,
         city: merchant.city,
+        commune: merchant.commune,
         address: merchant.address,
         categories: merchant.categories,
         description: merchant.description,
@@ -279,11 +313,14 @@ class MerchantDto {
         displayName: merchant.displayName,
         logoUrl: merchant.logoUrl,
         websiteUrl: merchant.websiteUrl,
+        organizationId: merchant.organizationId,
+        storeLabel: merchant.storeLabel,
         bannerUrl: merchant.bannerUrl,
         newsImageUrls: merchant.newsImageUrls,
         loyaltyEnabled: merchant.loyaltyEnabled,
         loyaltyProgramRaw: merchant.loyaltyProgram != null
-            ? LoyaltyProgramFirestoreMapper.toFirestoreMap(merchant.loyaltyProgram!)
+            ? LoyaltyProgramFirestoreMapper.toFirestoreMap(
+                merchant.loyaltyProgram!)
             : null,
         messagingEnabled: merchant.messagingEnabled,
         notificationsAutoEnabled: merchant.notificationsAutoEnabled,
@@ -292,7 +329,8 @@ class MerchantDto {
         rappelsAutoPassageValidation: merchant.rappelsAutoPassageValidation,
         passageCooldownEnabled: merchant.passageCooldownEnabled,
         rappelsMonthlyConnectedClients: merchant.rappelsMonthlyConnectedClients,
-        rappelsMonthlyValidatedPassages: merchant.rappelsMonthlyValidatedPassages,
+        rappelsMonthlyValidatedPassages:
+            merchant.rappelsMonthlyValidatedPassages,
         weeklyNotifSentCount: merchant.weeklyNotifSentCount,
         weeklyNotifResetAt: merchant.weeklyNotifResetAt,
         merchantType: merchant.merchantType,
@@ -303,7 +341,9 @@ class MerchantDto {
         publicFollowersCount: merchant.publicFollowersCount,
         storefrontLinks: merchant.storefrontLinks,
         subscriptionPlan: merchant.subscriptionPlan,
+        mobilityAccessibility: merchant.mobilityAccessibility,
       );
+
   /// Note: 'id' is not included as it's the Firestore document ID.
   Map<String, dynamic> toFirestore() => <String, dynamic>{
         'owner_uid': ownerUid,
@@ -312,6 +352,13 @@ class MerchantDto {
         'email': email,
         'phone': phone,
         'city': CityInput.forFirestore(city) ?? city,
+        // Découvrir queries `city_keys` (array-contains-any). The server
+        // trigger `onMerchantCityKeysSync` computes the same keys.
+        'city_keys': merchantCityKeys(
+          CityInput.forFirestore(city) ?? city,
+          communeName: commune?.name,
+        ),
+        if (commune != null) 'city_metadata': commune!.toFirestore(),
         if (address != null) 'address': address,
         if (categories != null) 'categories': categories,
         if (description != null) 'description': description,
@@ -319,6 +366,8 @@ class MerchantDto {
         if (displayName != null) 'display_name': displayName,
         if (logoUrl != null) 'logo_url': logoUrl,
         if (websiteUrl != null) 'website_url': websiteUrl,
+        if (organizationId != null) 'organization_id': organizationId,
+        if (storeLabel != null) 'store_label': storeLabel,
         if (bannerUrl != null) 'banner_url': bannerUrl,
         if (newsImageUrls != null) 'news_image_urls': newsImageUrls,
         'loyalty_enabled': loyaltyEnabled,
@@ -326,11 +375,15 @@ class MerchantDto {
         'messaging_enabled': messagingEnabled,
         'notifications_auto_enabled': notificationsAutoEnabled,
         'galerie_enabled': galerieEnabled,
-        if (rappelsAutoClientValidation != null) 'rappels_auto_client_validation': rappelsAutoClientValidation,
-        if (rappelsAutoPassageValidation != null) 'rappels_auto_passage_validation': rappelsAutoPassageValidation,
-        if (passageCooldownEnabled != null) 'passage_cooldown_enabled': passageCooldownEnabled,
+        if (rappelsAutoClientValidation != null)
+          'rappels_auto_client_validation': rappelsAutoClientValidation,
+        if (rappelsAutoPassageValidation != null)
+          'rappels_auto_passage_validation': rappelsAutoPassageValidation,
+        if (passageCooldownEnabled != null)
+          'passage_cooldown_enabled': passageCooldownEnabled,
         'merchant_type': merchantType,
         'subscription_plan': subscriptionPlan.firestoreValue,
+        'mobility_accessibility': mobilityAccessibility.firestoreValue,
         if (welcomeGiftDescription != null)
           'welcome_gift_description': welcomeGiftDescription,
         if (categoryId != null) 'category_id': categoryId,
@@ -344,4 +397,3 @@ class MerchantDto {
         'updated_at': FieldValue.serverTimestamp(),
       };
 }
-

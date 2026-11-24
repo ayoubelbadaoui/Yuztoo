@@ -1,8 +1,10 @@
 import '../../merchant/domain/entities/merchant.dart';
+import 'discovery_association_filter.dart';
 
 /// Rules for Découvrir → « Proche de moi » (production product constraints):
 ///
 /// * only **active** (en ligne) merchants
+/// * shops / magasins only — **associations** belong in the Associations tab
 /// * never merchants the client **already follows** (those live in Mon Carnet)
 /// * never the client's **own** store
 ///
@@ -22,6 +24,7 @@ List<Merchant> filterProcheDeMoiMerchants({
     final id = m.id.trim();
     if (id.isEmpty || !seen.add(id)) continue;
     if (m.status != 'active') continue;
+    if (isAssociationMerchant(m)) continue;
     if (followed.contains(id)) continue;
     if (selfId != null && selfId.isNotEmpty && id == selfId) continue;
     out.add(m);

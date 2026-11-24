@@ -79,10 +79,16 @@ class BleProximityNotifier extends StateNotifier<BleProximityState> {
     BleMerchantPermissionsGrantedFn? merchantPermissionsGranted,
     FirebaseFirestore? firestore,
   })  : _startBroadcast = startBroadcast ??
-            ((uid) => BleProximityService.startClientBroadcast(
-                  uid,
-                  requestPermissions: false,
-                )),
+            ((uid) async {
+              // iOS: no unsolicited Bluetooth prompt from the background start.
+              if (!await BleProximityService.mayAutoStartClientBroadcast()) {
+                return false;
+              }
+              return BleProximityService.startClientBroadcast(
+                uid,
+                requestPermissions: false,
+              );
+            }),
         _isAvailable = isAvailable ?? (() => BleProximityService.isAvailable),
         _readClientId = readClientId ?? BleProximityService.readClientId,
         _startScan = startScan ??

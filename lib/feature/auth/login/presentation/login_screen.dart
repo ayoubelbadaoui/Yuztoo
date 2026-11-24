@@ -9,7 +9,7 @@ import '../../core/application/auth_error_mapper.dart';
 import '../../core/application/providers.dart' as auth_providers;
 import '../../core/domain/value_objects/email_address.dart';
 import '../../../../core/presentation/responsive_scroll_body.dart';
-import '../../../../core/utils/cities.dart';
+import '../../../../core/shared/widgets/city_search_sheet.dart';
 import '../../../../core/shared/widgets/snackbar.dart';
 import '../../../../types.dart';
 import '../application/providers.dart';

@@ -24,6 +24,8 @@ import 'theme.dart';
 import 'types.dart';
 import 'core/shared/widgets/bottom_nav.dart';
 import 'core/shared/widgets/edge_swipe_back.dart';
+import 'core/shared/widgets/leave_onboarding_dialog.dart';
+import 'core/navigation/onboarding_link_policy.dart';
 import 'core/shared/widgets/keyboard_dismiss_on_tap.dart';
 import 'feature/client_home/application/providers.dart';
 import 'feature/client_list/application/screens.dart';
@@ -51,6 +53,9 @@ import 'feature/merchant_stats/application/screens.dart';
 import 'feature/merchant_onboarding/application/screens.dart';
 import 'feature/merchant_onboarding/application/onboarding_flow_provider.dart'
     as merchant_onboarding_providers;
+import 'feature/merchant_onboarding/application/providers.dart'
+    show selectedMerchantCategoryIdProvider;
+import 'feature/merchant_onboarding/presentation/widgets/subcategory/merchant_subcategory_catalog.dart';
 import 'feature/storefront/application/screens.dart';
 import 'feature/storefront/application/providers.dart' as storefront_providers;
 import 'feature/storefront/presentation/storefront_edit_profile_screen.dart';
@@ -58,6 +63,7 @@ import 'feature/storefront/application/profile_edit_state.dart';
 import 'feature/merchant/application/screens.dart';
 import 'feature/rappels/application/screens.dart';
 import 'feature/merchant_settings/application/screens.dart';
+import 'feature/organization/application/screens.dart';
 import 'feature/merchant_notifications/presentation/merchant_notifications_hub_screen.dart';
 import 'feature/merchant_partners/presentation/merchant_partners_screen.dart';
 import 'feature/e_fidelite/application/screens.dart';
@@ -66,10 +72,13 @@ import 'feature/merchant/application/providers.dart' as merchant_providers;
 import 'feature/merchant/domain/entities/merchant.dart';
 import 'feature/client_notification/application/providers.dart'
     as client_notification_providers;
+import 'feature/client_notification/application/notification_permission_prompt.dart';
 import 'feature/client_notification/infrastructure/fcm_token_service.dart';
 import 'feature/client_notification/infrastructure/notification_service.dart';
 import 'core/config/vitrine_qr_config.dart';
 import 'feature/yuztoo_contact/presentation/yuztoo_contact_screen.dart';
+import 'feature/force_update/application/providers.dart' as force_update;
+import 'feature/force_update/presentation/force_update_gate.dart';
 import 'core/infrastructure/ble_proximity_notifier.dart';
 import 'core/infrastructure/crash_guard.dart';
 import 'core/infrastructure/logger_service.dart';
@@ -144,11 +153,13 @@ class YuztooApp extends StatelessWidget {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       // Tap outside any field → dismiss keyboard on every route / sheet.
       builder: (context, child) {
-        return KeyboardDismissOnTap(
-          // Kill Flutter's debug/fallback underlines on bare text styles.
-          child: DefaultTextStyle.merge(
-            style: const TextStyle(decoration: TextDecoration.none),
-            child: child ?? const SizedBox.shrink(),
+        return ForceUpdateGate(
+          child: KeyboardDismissOnTap(
+            // Kill Flutter's debug/fallback underlines on bare text styles.
+            child: DefaultTextStyle.merge(
+              style: const TextStyle(decoration: TextDecoration.none),
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },

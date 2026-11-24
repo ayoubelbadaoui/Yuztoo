@@ -6,6 +6,7 @@ export '../../auth/core/application/providers.dart'
         authStateProvider,
         userProfileBasicsProvider,
         connectedCitiesProvider,
+        connectedCitiesMetadataProvider,
         setConnectedCitiesProvider,
         updateClientBasicInfoProvider;
 

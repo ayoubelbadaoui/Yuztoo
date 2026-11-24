@@ -12,18 +12,19 @@ class _Trigger {
 }
 
 /// Trigger labels shown in [TriggerGrid] (cloud-wired triggers only).
-List<String> get triggerLabels => AutoNotificationTriggers.selectableTriggerLabels;
+List<String> get triggerLabels =>
+    AutoNotificationTriggers.selectableTriggerLabels;
 
 const _allTriggers = [
   _Trigger('Date anniversaire', Icons.cake_outlined),
   _Trigger('Changement statut', Icons.swap_horiz_rounded),
   _Trigger('Nouveau client', Icons.person_add_outlined),
   _Trigger('Visite détectée', Icons.storefront_outlined),
-  _Trigger('Fidélité validé', Icons.loyalty_outlined),
+  _Trigger('Fidélité validée', Icons.loyalty_outlined),
   _Trigger('Client inactif', Icons.schedule_outlined),
-  _Trigger('Récompense dispo', Icons.card_giftcard_outlined),
+  _Trigger('Récompense disponible', Icons.card_giftcard_outlined),
   _Trigger('Récompense proche', Icons.star_outline_rounded),
-  _Trigger('Fermeture excep.', Icons.event_busy_outlined),
+  _Trigger('Fermeture exceptionnelle', Icons.event_busy_outlined),
   _Trigger('Nouveau partenaire', Icons.handshake_outlined),
   _Trigger('Anniversaire connexion', Icons.celebration_outlined),
 ];

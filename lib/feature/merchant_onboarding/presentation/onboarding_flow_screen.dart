@@ -7,9 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/domain/entities/french_commune.dart';
 import '../../../../core/shared/constants/merchant_colors.dart';
 import '../../../../core/shared/widgets/cupertino_dob_picker.dart';
 import '../../../../core/shared/widgets/edge_swipe_back.dart';
+import '../../../../core/shared/widgets/step_switcher_layout.dart';
 import '../../../../core/shared/widgets/time_slot_picker.dart';
 import '../../../../core/utils/cities.dart';
 import '../../../../core/utils/email_validator.dart';
@@ -39,11 +41,25 @@ class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
     required this.onComplete,
     this.isPostSignup = false,
     this.skipPersonalInfo = false,
+
     /// When set with [isPostSignup], the final button **only** awaits this (e.g. create
     /// merchant in Firestore). Do not fire-and-forget [onComplete] for the same work —
     /// otherwise routing can unmount the screen before signup city is read from `/users`.
     this.onPostSignupPersist,
+    this.initialStep = 0,
+    this.onStepChanged,
   });
+
+  /// Number of steps for the given mode (owner-info + logo steps removed
+  /// when [skipPersonalInfo]).
+  static int stepCount({required bool skipPersonalInfo}) =>
+      skipPersonalInfo ? _totalStepsSkipPersonal : _totalSteps;
+
+  /// Step to open on (resumed draft). Clamped to the available steps.
+  final int initialStep;
+
+  /// Called after every step change, e.g. to save progress.
+  final ValueChanged<int>? onStepChanged;
 
   final VoidCallback onBack;
   final VoidCallback onComplete;
@@ -65,7 +81,6 @@ class MerchantOnboardingFlowScreen extends ConsumerStatefulWidget {
 
 class _MerchantOnboardingFlowScreenState
     extends ConsumerState<MerchantOnboardingFlowScreen> {
-  final _pageController = PageController();
   final _ownerFirstNameController = TextEditingController();
   final _ownerLastNameController = TextEditingController();
   final _nameController = TextEditingController();
@@ -79,8 +94,13 @@ class _MerchantOnboardingFlowScreenState
   int _currentStep = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _currentStep = widget.initialStep.clamp(0, _effectiveTotalSteps - 1);
+  }
+
+  @override
   void dispose() {
-    _pageController.dispose();
     _ownerFirstNameController.dispose();
     _ownerLastNameController.dispose();
     _nameController.dispose();
@@ -98,11 +118,8 @@ class _MerchantOnboardingFlowScreenState
   void _goNext() {
     FocusManager.instance.primaryFocus?.unfocus();
     if (_currentStep < _effectiveTotalSteps - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
       setState(() => _currentStep++);
+      widget.onStepChanged?.call(_currentStep);
     } else {
       widget.onComplete();
     }
@@ -111,35 +128,18 @@ class _MerchantOnboardingFlowScreenState
   void _goBack() {
     FocusManager.instance.primaryFocus?.unfocus();
     if (_currentStep > 0) {
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
       setState(() => _currentStep--);
+      widget.onStepChanged?.call(_currentStep);
     } else {
       widget.onBack();
     }
   }
 
-  void _handleSystemBack() {
-    // On optional steps, phone back behaves like "Passer".
-    if (_isOptionalStep()) {
-      _goNext();
-      return;
-    }
-    _goBack();
-  }
-
-  bool _isOptionalStep() {
-    if (widget.skipPersonalInfo) {
-      // 0 Welcome · 1 Name · 2 MerchantType · 3 City
-      // 4 Address · 5 Description (optional) · 6 Hours (optional) · 7 Ready
-      return _currentStep == 5 || _currentStep == 6;
-    }
-    // 0 Welcome · 1 OwnerInfo · 2 Name · 3 MerchantType · 4 City
-    // 5 Image (optional) · 6 Address · 7 Description (optional) · 8 Hours (optional) · 9 Ready
-    return _currentStep == 5 || _currentStep == 7 || _currentStep == 8;
-  }
+  /// System back and iOS edge swipe always go back one step. They used to
+  /// skip FORWARD on optional steps (image / description / hours), so a
+  /// swipe-back on iPhone jumped ahead instead of returning to fix the
+  /// address. « Passer » stays the explicit skip.
+  void _handleSystemBack() => _goBack();
 
   Future<void> _persistMerchantOnboardingCompleted() async {
     final uid = ref.read(currentUserIdProvider);
@@ -154,10 +154,120 @@ class _MerchantOnboardingFlowScreenState
   String? _authEmailForPrefill() {
     try {
       final auth = ref.read(authStateProvider);
-      return auth is Authenticated ? auth.user.email : null;
+      final email = auth is Authenticated ? auth.user.email : null;
+      // Apple « Masquer mon adresse » relay: not a usable public contact.
+      return EmailValidator.isPublicContactCandidate(email) ? email : null;
     } catch (_) {
       return null;
     }
+  }
+
+  /// Mount only the visible step. Keeping every onboarding [TextField]
+  /// mounted in a [PageView] leaves Samsung's IME attached to an off-screen
+  /// input after a transition, making the keyboard immediately disappear on
+  /// the next field.
+  Widget _buildCurrentStep(MerchantOnboardingData data) {
+    final steps = <Widget>[
+      _StepWelcome(onNext: _goNext),
+      if (!widget.skipPersonalInfo)
+        _StepOwnerInfo(
+          firstNameController: _ownerFirstNameController,
+          lastNameController: _ownerLastNameController,
+          initialFirstName: data.ownerFirstName,
+          initialLastName: data.ownerLastName,
+          initialDob: data.ownerDateOfBirth,
+          onFirstNameChanged: (value) => ref
+              .read(onboardingFlowProvider.notifier)
+              .setOwnerFirstName(value),
+          onLastNameChanged: (value) =>
+              ref.read(onboardingFlowProvider.notifier).setOwnerLastName(value),
+          onDobChanged: (value) => ref
+              .read(onboardingFlowProvider.notifier)
+              .setOwnerDateOfBirth(value),
+          onNext: _goNext,
+        ),
+      _StepName(
+        controller: _nameController,
+        initialValue: data.fullName,
+        onChanged: (value) =>
+            ref.read(onboardingFlowProvider.notifier).setFullName(value),
+        onNext: _goNext,
+      ),
+      _StepMerchantType(
+        value: data.merchantType,
+        onChanged: (value) =>
+            ref.read(onboardingFlowProvider.notifier).setMerchantType(value),
+        onNext: _goNext,
+      ),
+      _StepCity(
+        initialValue: data.city,
+        onChanged: (value) =>
+            ref.read(onboardingFlowProvider.notifier).setCity(value),
+        onCommuneChanged: (commune) =>
+            ref.read(onboardingFlowProvider.notifier).setCommune(commune),
+        onNext: _goNext,
+      ),
+      if (!widget.skipPersonalInfo)
+        _StepImage(
+          imagePath: data.imagePath,
+          bannerImagePath: data.bannerImagePath,
+          onPickedLogo: (path) =>
+              ref.read(onboardingFlowProvider.notifier).setImagePath(path),
+          onPickedBanner: (path) => ref
+              .read(onboardingFlowProvider.notifier)
+              .setBannerImagePath(path),
+          onNext: _goNext,
+          picker: _imagePicker,
+        ),
+      _StepAddress(
+        controller: _addressController,
+        phoneController: _phoneController,
+        emailController: _emailController,
+        websiteController: _websiteController,
+        initialValue: data.address,
+        initialPhone: data.phoneNumber,
+        initialEmail: data.contactEmail ?? _authEmailForPrefill(),
+        initialWebsite: data.websiteUrl,
+        onChanged: (value) =>
+            ref.read(onboardingFlowProvider.notifier).setAddress(value),
+        onPhoneChanged: (value) =>
+            ref.read(onboardingFlowProvider.notifier).setPhoneNumber(value),
+        onEmailChanged: (value) =>
+            ref.read(onboardingFlowProvider.notifier).setContactEmail(value),
+        onWebsiteChanged: (value) =>
+            ref.read(onboardingFlowProvider.notifier).setWebsiteUrl(value),
+        onNext: _goNext,
+      ),
+      _StepDescription(
+        controller: _descriptionController,
+        initialValue: data.description,
+        onChanged: (value) =>
+            ref.read(onboardingFlowProvider.notifier).setDescription(value),
+        onNext: _goNext,
+      ),
+      _StepHours(
+        initialHours: data.hoursJson,
+        onChanged: (hours) =>
+            ref.read(onboardingFlowProvider.notifier).setHours(hours),
+        onSkip: _goNext,
+        onNext: _goNext,
+      ),
+      _StepReady(
+        onComplete: widget.onComplete,
+        isPostSignup: widget.isPostSignup,
+        postSignupAwaitFullPersistOnly:
+            widget.isPostSignup && widget.onPostSignupPersist != null,
+        onPostSignupPersistMerchantReady: widget.isPostSignup
+            ? (widget.onPostSignupPersist ??
+                _persistMerchantOnboardingCompleted)
+            : null,
+      ),
+    ];
+
+    return KeyedSubtree(
+      key: ValueKey<int>(_currentStep),
+      child: steps[_currentStep],
+    );
   }
 
   @override
@@ -181,128 +291,24 @@ class _MerchantOnboardingFlowScreenState
           enabled: true,
           onBack: _handleSystemBack,
           child: Scaffold(
-          backgroundColor: MerchantColors.bgMain,
-          body: Column(
-            children: [
-              SizedBox(height: MediaQuery.of(context).padding.top),
-              _buildProgressBar(),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _StepWelcome(onNext: _goNext),
-                    if (!widget.skipPersonalInfo)
-                      _StepOwnerInfo(
-                        firstNameController: _ownerFirstNameController,
-                        lastNameController: _ownerLastNameController,
-                        initialFirstName: data.ownerFirstName,
-                        initialLastName: data.ownerLastName,
-                        initialDob: data.ownerDateOfBirth,
-                        onFirstNameChanged: (v) => ref
-                            .read(onboardingFlowProvider.notifier)
-                            .setOwnerFirstName(v),
-                        onLastNameChanged: (v) => ref
-                            .read(onboardingFlowProvider.notifier)
-                            .setOwnerLastName(v),
-                        onDobChanged: (d) => ref
-                            .read(onboardingFlowProvider.notifier)
-                            .setOwnerDateOfBirth(d),
-                        onNext: _goNext,
-                      ),
-                    _StepName(
-                      controller: _nameController,
-                      initialValue: data.fullName,
-                      onChanged: (v) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setFullName(v),
-                      onNext: _goNext,
-                    ),
-                    _StepMerchantType(
-                      value: data.merchantType,
-                      onChanged: (v) {
-                        ref
-                            .read(onboardingFlowProvider.notifier)
-                            .setMerchantType(v);
-                      },
-                      onNext: _goNext,
-                    ),
-                    _StepCity(
-                      initialValue: data.city,
-                      onChanged: (v) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setCity(v),
-                      onNext: _goNext,
-                    ),
-                    if (!widget.skipPersonalInfo)
-                      _StepImage(
-                        imagePath: data.imagePath,
-                        bannerImagePath: data.bannerImagePath,
-                        onPickedLogo: (p) => ref
-                            .read(onboardingFlowProvider.notifier)
-                            .setImagePath(p),
-                        onPickedBanner: (p) => ref
-                            .read(onboardingFlowProvider.notifier)
-                            .setBannerImagePath(p),
-                        onNext: _goNext,
-                        picker: _imagePicker,
-                      ),
-                    _StepAddress(
-                      controller: _addressController,
-                      phoneController: _phoneController,
-                      emailController: _emailController,
-                      websiteController: _websiteController,
-                      initialValue: data.address,
-                      initialPhone: data.phoneNumber,
-                      initialEmail:
-                          data.contactEmail ?? _authEmailForPrefill(),
-                      initialWebsite: data.websiteUrl,
-                      onChanged: (v) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setAddress(v),
-                      onPhoneChanged: (v) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setPhoneNumber(v),
-                      onEmailChanged: (v) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setContactEmail(v),
-                      onWebsiteChanged: (v) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setWebsiteUrl(v),
-                      onNext: _goNext,
-                    ),
-                    _StepDescription(
-                      controller: _descriptionController,
-                      initialValue: data.description,
-                      onChanged: (v) => ref
-                          .read(onboardingFlowProvider.notifier)
-                          .setDescription(v),
-                      onNext: _goNext,
-                    ),
-                    _StepHours(
-                      initialHours: data.hoursJson,
-                      onChanged: (h) =>
-                          ref.read(onboardingFlowProvider.notifier).setHours(h),
-                      onSkip: _goNext,
-                      onNext: _goNext,
-                    ),
-                    _StepReady(
-                      onComplete: widget.onComplete,
-                      isPostSignup: widget.isPostSignup,
-                      postSignupAwaitFullPersistOnly:
-                          widget.isPostSignup && widget.onPostSignupPersist != null,
-                      onPostSignupPersistMerchantReady: widget.isPostSignup
-                          ? (widget.onPostSignupPersist ??
-                              _persistMerchantOnboardingCompleted)
-                          : null,
-                    ),
-                  ],
+            backgroundColor: MerchantColors.bgMain,
+            body: Column(
+              children: [
+                SizedBox(height: MediaQuery.of(context).padding.top),
+                _buildProgressBar(),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    layoutBuilder: stepSwitcherLayout,
+                    child: _buildCurrentStep(data),
+                  ),
                 ),
-              ),
-              _buildBottomBar(data),
-            ],
+                _buildBottomBar(data),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -359,4 +365,3 @@ class _MerchantOnboardingFlowScreenState
     return const SizedBox.shrink();
   }
 }
-

@@ -4,7 +4,11 @@ part of 'quick_send_section.dart';
 // helper that is not @protected from the main class context.
 extension _QuickSendSectionUi on _QuickSendSectionState {
   // Workaround: call setState via a non-protected wrapper.
-  void _rebuildWith(VoidCallback fn) => setState(fn); // ignore: invalid_use_of_protected_member
+  void _rebuildWith(VoidCallback fn) =>
+      setState(fn); // ignore: invalid_use_of_protected_member
+  Widget _guide(GlobalKey? key, Widget child) =>
+      key == null ? child : KeyedSubtree(key: key, child: child);
+
   Widget _buildBody(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -26,24 +30,25 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
             subtitle: 'envoi immédiat à vos clients',
           ),
           const SizedBox(height: 12),
-          _buildTemplateToolbar(context),
+          _guide(widget.guideKeys?.templates, _buildTemplateToolbar(context)),
           const SizedBox(height: 10),
-          _buildCompose(context),
+          _guide(widget.guideKeys?.compose, _buildCompose(context)),
           const SizedBox(height: 14),
-          _buildAudienceChips(),
+          _guide(widget.guideKeys?.audience, _buildAudienceChips()),
           if (widget.quotaLabel != null) ...[
             const SizedBox(height: 10),
-            _buildQuotaRow(widget.quotaLabel!),
+            _guide(widget.guideKeys?.quota, _buildQuotaRow(widget.quotaLabel!)),
           ],
           const SizedBox(height: 12),
-          _buildScheduleRow(context),
+          _guide(widget.guideKeys?.schedule, _buildScheduleRow(context)),
           const SizedBox(height: 16),
-          _buildSendButton(context),
+          _guide(widget.guideKeys?.send, _buildSendButton(context)),
           const SizedBox(height: 16),
-          _buildPendingScheduledList(context),
+          _guide(
+              widget.guideKeys?.scheduled, _buildPendingScheduledList(context)),
           if (widget.history.isNotEmpty || widget.historyLoading) ...[
             const SizedBox(height: 20),
-            _buildHistory(context),
+            _guide(widget.guideKeys?.history, _buildHistory(context)),
           ],
         ],
       ),
@@ -91,9 +96,9 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
         maxLines: 3,
         minLines: 2,
         maxLength: 280,
-        onTapOutside: (_) =>
-            FocusManager.instance.primaryFocus?.unfocus(),
-        style: GoogleFonts.outfit(fontSize: 14, color: Colors.white, height: 1.5),
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+        style:
+            GoogleFonts.outfit(fontSize: 14, color: Colors.white, height: 1.5),
         cursorColor: MerchantColors.gold,
         decoration: MerchantColors.inputDecorationOnDarkSurface(
           InputDecoration(
@@ -121,11 +126,15 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: List.generate(_QuickSendSectionState._audienceOptions.length, (i) {
+        children:
+            List.generate(_QuickSendSectionState._audienceOptions.length, (i) {
           final opt = _QuickSendSectionState._audienceOptions[i];
           final selected = _audienceIndex == i;
           return Padding(
-            padding: EdgeInsets.only(right: i < _QuickSendSectionState._audienceOptions.length - 1 ? 8 : 0),
+            padding: EdgeInsets.only(
+                right: i < _QuickSendSectionState._audienceOptions.length - 1
+                    ? 8
+                    : 0),
             child: GestureDetector(
               onTap: () {
                 FocusManager.instance.primaryFocus?.unfocus();
@@ -218,7 +227,8 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
   // ── Send button ───────────────────────────────────────────────────────────
 
   Widget _buildSendButton(BuildContext context) {
-    final canSend = _ctrl.text.trim().isNotEmpty && !_sending && !widget.quotaExceeded;
+    final canSend =
+        _ctrl.text.trim().isNotEmpty && !_sending && !widget.quotaExceeded;
     return GestureDetector(
       onTap: canSend
           ? () {
@@ -434,8 +444,7 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
               onPressed: () => _cancelScheduled(s),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.redAccent,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 minimumSize: const Size(0, 28),
               ),
               child: Text(
@@ -514,8 +523,8 @@ extension _QuickSendSectionUi on _QuickSendSectionState {
           color: MerchantColors.navyCard,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color:
-                MerchantColors.gold.withValues(alpha: MerchantColors.goldBorderAlpha),
+            color: MerchantColors.gold
+                .withValues(alpha: MerchantColors.goldBorderAlpha),
           ),
         ),
         child: Row(
@@ -661,9 +670,7 @@ class _TemplateChip extends StatelessWidget {
             Icon(
               icon,
               size: 14,
-              color: disabled
-                  ? MerchantColors.textGrey
-                  : MerchantColors.gold,
+              color: disabled ? MerchantColors.textGrey : MerchantColors.gold,
             ),
             const SizedBox(width: 6),
             Text(
@@ -671,9 +678,7 @@ class _TemplateChip extends StatelessWidget {
               style: GoogleFonts.outfit(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: disabled
-                    ? MerchantColors.textGrey
-                    : MerchantColors.gold,
+                color: disabled ? MerchantColors.textGrey : MerchantColors.gold,
               ),
             ),
           ],

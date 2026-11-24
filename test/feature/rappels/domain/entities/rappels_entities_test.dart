@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/entities/active_notification.dart';
+import 'package:flutter_yuztoo/feature/rappels/domain/entities/merchant_like_alert.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/entities/pending_client_row.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/entities/rappel_alert.dart';
 import 'package:flutter_yuztoo/feature/rappels/domain/entities/sent_notification.dart';
@@ -175,8 +176,109 @@ void main() {
       expect(alert.type, RappelAlertType.loyaltyRewardReady);
     });
 
-    test('RappelAlertType has exactly 2 values', () {
-      expect(RappelAlertType.values.length, 2);
+    test('newLikes type stored correctly', () {
+      const alert = RappelAlert(type: RappelAlertType.newLikes, count: 3);
+      expect(alert.type, RappelAlertType.newLikes);
+      expect(alert.count, 3);
+    });
+
+    test('RappelAlertType has exactly 3 values', () {
+      expect(RappelAlertType.values.length, 3);
+    });
+  });
+
+  // ── MerchantLikeAlert ─────────────────────────────────────────────────────
+
+  group('MerchantLikeAlert', () {
+    final t0 = DateTime(2025, 1, 1, 12);
+    final t1 = DateTime(2025, 1, 2, 12);
+    final t2 = DateTime(2025, 1, 3, 12);
+
+    MerchantLikeAlert alert({
+      required String id,
+      required DateTime at,
+      MerchantLikeSource source = MerchantLikeSource.promotion,
+      String? name,
+      String? title,
+    }) =>
+        MerchantLikeAlert(
+          markerId: id,
+          source: source,
+          viewerUid: 'uid_abcdefgh',
+          targetId: 'target_$id',
+          createdAt: at,
+          displayName: name,
+          targetLabel: title,
+        );
+
+    test('displayLabel prefers displayName', () {
+      expect(alert(id: '1', at: t0, name: 'Marie').displayLabel, 'Marie');
+    });
+
+    test('displayLabel falls back to truncated uid', () {
+      expect(alert(id: '1', at: t0).displayLabel, '…abcdefgh');
+    });
+
+    test('actionLabel for promo with title', () {
+      expect(
+        alert(id: '1', at: t0, title: 'Soldes').actionLabel,
+        'a aimé votre promo Soldes',
+      );
+    });
+
+    test('actionLabel for promo without title', () {
+      expect(alert(id: '1', at: t0).actionLabel, 'a aimé une promo');
+    });
+
+    test('actionLabel for news photo', () {
+      expect(
+        alert(
+          id: '1',
+          at: t0,
+          source: MerchantLikeSource.newsPhoto,
+        ).actionLabel,
+        'a aimé une actualité',
+      );
+    });
+
+    test('filterUnseen keeps all when seenAt is null, newest first', () {
+      final filtered = filterUnseenMerchantLikeAlerts([
+        alert(id: 'old', at: t0),
+        alert(id: 'new', at: t2),
+        alert(id: 'mid', at: t1),
+      ]);
+      expect(filtered.map((a) => a.markerId), ['new', 'mid', 'old']);
+    });
+
+    test('filterUnseen drops likes at or before watermark', () {
+      final filtered = filterUnseenMerchantLikeAlerts(
+        [
+          alert(id: 'old', at: t0),
+          alert(id: 'edge', at: t1),
+          alert(id: 'new', at: t2),
+        ],
+        seenAt: t1,
+      );
+      expect(filtered.map((a) => a.markerId), ['new']);
+    });
+
+    test('filterUnseen merges promo and news and respects limit', () {
+      final filtered = filterUnseenMerchantLikeAlerts(
+        [
+          alert(id: 'p', at: t1),
+          alert(
+            id: 'n',
+            at: t2,
+            source: MerchantLikeSource.newsPhoto,
+          ),
+          alert(id: 'old', at: t0),
+        ],
+        limit: 2,
+      );
+      expect(filtered.length, 2);
+      expect(filtered[0].markerId, 'n');
+      expect(filtered[0].source, MerchantLikeSource.newsPhoto);
+      expect(filtered[1].markerId, 'p');
     });
   });
 }

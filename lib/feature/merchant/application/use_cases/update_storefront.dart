@@ -1,6 +1,8 @@
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/domain/entities/french_commune.dart';
 import '../../domain/entities/merchant.dart';
+import '../../domain/entities/mobility_accessibility.dart';
 import '../../domain/merchant_failure.dart';
 import '../../domain/repositories/merchant_repository.dart';
 import '../../../storage/application/use_cases/upload_banner.dart';
@@ -51,6 +53,7 @@ class UpdateStorefront {
     String? email,
     String? address,
     String? city,
+    FrenchCommune? commune,
     String? websiteUrl,
     List<String>? newsImageUrls,
     String? status,
@@ -59,6 +62,7 @@ class UpdateStorefront {
     String? merchantType,
     String? categoryId,
     String? subcategoryTitle,
+    MobilityAccessibility? mobilityAccessibility,
     bool clearMerchantCityField = false,
   }) async {
     if (merchantId.isEmpty) {
@@ -143,6 +147,7 @@ class UpdateStorefront {
       email: email,
       address: address,
       city: city,
+      commune: commune,
       websiteUrl: websiteUrl,
       bannerUrl: bannerUrl,
       newsImageUrls: newsImageUrls,
@@ -152,6 +157,7 @@ class UpdateStorefront {
       merchantType: merchantType,
       categoryId: categoryId,
       subcategoryTitle: subcategoryTitle,
+      mobilityAccessibility: mobilityAccessibility,
       clearCityField: clearMerchantCityField,
     );
 
@@ -169,4 +175,3 @@ class UpdateStorefront {
     );
   }
 }
-

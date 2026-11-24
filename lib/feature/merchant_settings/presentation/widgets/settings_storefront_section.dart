@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/shared/constants/merchant_colors.dart';
+import '../../../organization/application/multi_store_feature.dart';
 
 /// Storefront-facing settings (links, vitrine content) — separate from account prefs.
 class SettingsStorefrontSection extends StatelessWidget {
@@ -35,6 +36,13 @@ class SettingsStorefrontSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+          if (kMultiStoreEnabled)
+            _settingsItem(
+              icon: Icons.store_mall_directory_rounded,
+              label: 'Points de vente',
+              subtitle: 'Plusieurs commerces, équipe et fidélité',
+              onTap: () => onNavigate?.call('stores'),
+            ),
           _settingsItem(
             icon: Icons.link_rounded,
             label: 'Liens personnalisés',

@@ -55,8 +55,8 @@ class FirestoreScheduledNotificationRepository
           UnexpectedFailure(message: 'Le message ne peut pas être vide'));
     }
     if (cleaned.length > 500) {
-      return const Left<AppFailure, String>(UnexpectedFailure(
-          message: 'Message trop long (max 500 caractères)'));
+      return const Left<AppFailure, String>(
+          UnexpectedFailure(message: 'Message trop long (max 500 caractères)'));
     }
     if (!_validAudiences.contains(audience)) {
       return const Left<AppFailure, String>(
@@ -67,8 +67,7 @@ class FirestoreScheduledNotificationRepository
     // The tick CF runs every 5 minutes anyway, so anything sub-5min
     // would land at the same tick as an immediate send with extra
     // round-trips.
-    final earliest =
-        DateTime.now().toUtc().add(const Duration(minutes: 5));
+    final earliest = DateTime.now().toUtc().add(const Duration(minutes: 5));
     if (scheduledAt.toUtc().isBefore(earliest)) {
       return const Left<AppFailure, String>(UnexpectedFailure(
           message: 'L\'envoi doit être programmé au moins 5 min plus tard.'));
@@ -119,8 +118,8 @@ class FirestoreScheduledNotificationRepository
       await ref.update({'status': 'cancelled'});
       return const Right<AppFailure, Unit>(unit);
     } catch (e) {
-      return Left<AppFailure, Unit>(UnexpectedFailure(
-          message: 'Impossible d\'annuler', cause: e));
+      return Left<AppFailure, Unit>(
+          UnexpectedFailure(message: 'Impossible d\'annuler', cause: e));
     }
   }
 
@@ -155,9 +154,7 @@ class FirestoreScheduledNotificationRepository
         createdAt: _ts(data['created_at']),
         createdByUid: data['created_by_uid'] as String?,
         sentAt: _ts(data['sent_at']),
-        sentCount: data['sent_count'] is int
-            ? data['sent_count'] as int
-            : null,
+        sentCount: data['sent_count'] is int ? data['sent_count'] as int : null,
         failureReason: data['failure_reason'] as String?,
       );
     } catch (_) {

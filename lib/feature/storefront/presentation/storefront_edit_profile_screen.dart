@@ -7,15 +7,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/widgets/back_button.dart';
+import '../../../core/shared/widgets/city_search_sheet.dart';
 import '../../../core/utils/city_input.dart';
 import '../../../core/utils/email_validator.dart';
 import '../../../core/utils/image_crop_utils.dart';
 import '../../../core/utils/image_pick_with_source.dart';
+import '../../../core/utils/profile_placeholders.dart';
 import '../application/profile_edit_state.dart';
 import '../application/providers.dart';
 import 'widgets/storefront_colors.dart';
 import '../../storage/application/providers.dart' as storage_providers;
 import '../../merchant/application/providers.dart' as merchant_providers;
+import '../../merchant/domain/entities/mobility_accessibility.dart';
 import '../../merchant_onboarding/domain/entities/merchant_audience.dart';
 import '../../merchant_onboarding/presentation/widgets/merchant_category_catalog.dart';
 import '../../merchant_onboarding/presentation/widgets/subcategory/merchant_subcategory_catalog.dart';
@@ -50,6 +53,17 @@ class _StorefrontEditProfileScreenState
   File? _bannerImageFile;
   File? _profileImageFile;
 
+  /// Red field states only appear once the merchant has tried to save.
+  bool _showValidation = false;
+  final _visualsKey = GlobalKey();
+  final _nameKey = GlobalKey();
+  final _categoryKey = GlobalKey();
+  final _descKey = GlobalKey();
+  final _phoneKey = GlobalKey();
+  final _emailKey = GlobalKey();
+  final _cityKey = GlobalKey();
+  final _addressKey = GlobalKey();
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -77,8 +91,7 @@ class _StorefrontEditProfileScreenState
       if (_giftCtrl.text != s.welcomeGiftDescription) {
         _giftCtrl.text = s.welcomeGiftDescription;
       }
-      if (s.isOtherCategory &&
-          _otherCategoryCtrl.text != s.subcategoryTitle) {
+      if (s.isOtherCategory && _otherCategoryCtrl.text != s.subcategoryTitle) {
         _otherCategoryCtrl.text = s.subcategoryTitle;
       }
       _controllersInitialized = true;
@@ -93,10 +106,10 @@ class _StorefrontEditProfileScreenState
           _webCtrl.text = s.websiteUrl.isNotEmpty ? s.websiteUrl : '';
           _addrCtrl.text = s.address.isNotEmpty ? s.address : '';
           _cityCtrl.text = s.city.isNotEmpty ? s.city : '';
-          _giftCtrl.text =
-              s.welcomeGiftDescription.isNotEmpty ? s.welcomeGiftDescription : '';
-          _otherCategoryCtrl.text =
-              s.isOtherCategory ? s.subcategoryTitle : '';
+          _giftCtrl.text = s.welcomeGiftDescription.isNotEmpty
+              ? s.welcomeGiftDescription
+              : '';
+          _otherCategoryCtrl.text = s.isOtherCategory ? s.subcategoryTitle : '';
           _controllersInitialized = true;
         } catch (_) {
           // Final fallback - set empty strings
@@ -170,7 +183,8 @@ class _StorefrontEditProfileScreenState
       } catch (_) {
         // File doesn't exist or path is invalid - ignore
       }
-    } else if (!state.bannerImageUrl.startsWith('http') && _bannerImageFile != null) {
+    } else if (!state.bannerImageUrl.startsWith('http') &&
+        _bannerImageFile != null) {
       // If URL changed to non-file, clear the file
       if (mounted) {
         setState(() {
@@ -178,7 +192,7 @@ class _StorefrontEditProfileScreenState
         });
       }
     }
-    
+
     // Load profile image if it's a file path
     if (state.profileImageUrl.startsWith('file://')) {
       try {
@@ -194,7 +208,8 @@ class _StorefrontEditProfileScreenState
       } catch (_) {
         // File doesn't exist or path is invalid - ignore
       }
-    } else if (!state.profileImageUrl.startsWith('http') && _profileImageFile != null) {
+    } else if (!state.profileImageUrl.startsWith('http') &&
+        _profileImageFile != null) {
       // If URL changed to non-file, clear the file
       if (mounted) {
         setState(() {
@@ -204,16 +219,63 @@ class _StorefrontEditProfileScreenState
     }
   }
 
-  /// Check if a field value is incomplete (empty or placeholder)
-  bool _isFieldIncomplete(String? value) {
-    if (value == null) return true;
-    final trimmed = value.trim();
-    if (trimmed.isEmpty || CityInput.isPlaceholder(trimmed)) return true;
-    return trimmed == 'Décrivez votre activité en quelques lignes.' ||
-        trimmed == '+33 6 12 34 56 78' ||
-        trimmed == 'www.votresite.com' ||
-        trimmed == 'Votre adresse' ||
-        trimmed == 'Nom du commerce';
+  bool _isFieldIncomplete(String? value) =>
+      ProfilePlaceholders.isPlaceholder(value) ||
+      CityInput.isPlaceholder(value?.trim() ?? '');
+
+  bool _hasImage(String url, File? file) =>
+      file != null || (url.isNotEmpty && !url.contains('aida-public'));
+
+  bool _isEmailIncomplete(String email) =>
+      EmailValidator.isPlaceholderOrEmpty(email) ||
+      !EmailValidator.isValid(email);
+
+  /// Required fields that are still missing, in on-screen order.
+  List<_ProfileGap> _profileGaps(StorefrontProfileEditState s) {
+    return [
+      if (!_hasImage(s.profileImageUrl, _profileImageFile))
+        _ProfileGap('Logo', _visualsKey,
+            required: false,
+            onTap: () => _showImagePickerSheet(context,
+                title: 'Photo de profil', isBanner: false)),
+      if (!_hasImage(s.bannerImageUrl, _bannerImageFile))
+        _ProfileGap('Bannière', _visualsKey,
+            required: false,
+            onTap: () => _showImagePickerSheet(context,
+                title: 'Changer la bannière', isBanner: true)),
+      if (_isFieldIncomplete(s.businessName)) _ProfileGap('Nom', _nameKey),
+      if (s.categoryId.isEmpty || s.subcategoryTitle.trim().isEmpty)
+        _ProfileGap('Activité', _categoryKey),
+      if (_isFieldIncomplete(s.description))
+        _ProfileGap('Description', _descKey, required: false),
+      if (_isFieldIncomplete(s.phoneNumber))
+        _ProfileGap('Téléphone', _phoneKey),
+      if (_isEmailIncomplete(s.email)) _ProfileGap('Email', _emailKey),
+      if (_isFieldIncomplete(s.city)) _ProfileGap('Ville', _cityKey),
+      if (_isFieldIncomplete(s.address))
+        _ProfileGap('Adresse', _addressKey, required: false),
+    ];
+  }
+
+  static const int _profileItemCount = 9;
+
+  void _enableValidation() {
+    if (!_showValidation) setState(() => _showValidation = true);
+  }
+
+  void _revealGap(_ProfileGap gap) {
+    if (gap.onTap != null) {
+      gap.onTap!();
+      return;
+    }
+    final ctx = gap.key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+      alignment: 0.15,
+    );
   }
 
   void _clearBannerFile() {
@@ -252,5 +314,4 @@ class _StorefrontEditProfileScreenState
 
     return _buildEditProfileScaffold(context, state, notifier);
   }
-
 }

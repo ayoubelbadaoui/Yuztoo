@@ -55,4 +55,3 @@ class StepHeader extends StatelessWidget {
     );
   }
 }
-

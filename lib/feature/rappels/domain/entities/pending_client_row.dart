@@ -12,8 +12,9 @@ class PendingClientRow extends Equatable {
   final String? displayName;
   final DateTime? followedAt;
 
-  String get displayLabel =>
-      displayName?.isNotEmpty == true ? displayName! : '…${clientUid.substring(clientUid.length > 8 ? clientUid.length - 8 : 0)}';
+  String get displayLabel => displayName?.isNotEmpty == true
+      ? displayName!
+      : '…${clientUid.substring(clientUid.length > 8 ? clientUid.length - 8 : 0)}';
 
   @override
   List<Object?> get props => <Object?>[clientUid, displayName, followedAt];

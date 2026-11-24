@@ -6,6 +6,7 @@ import '../../../merchant/domain/notification_quota_policy.dart';
 import '../../domain/entities/promotion.dart';
 
 part 'client_type_details.part.dart';
+
 /// Displays the detail panel for the currently selected [ClientType].
 class ClientTypeDetails extends StatelessWidget {
   const ClientTypeDetails({
@@ -18,9 +19,11 @@ class ClientTypeDetails extends StatelessWidget {
   });
 
   final ClientType clientType;
+
   /// Active segment keys for premium type (multi-select).
   final Set<String> selectedSegments;
   final int selectedDistanceIndex;
+
   /// Called with the toggled segment key (e.g. 'vip', 'soutien', 'habitue').
   final ValueChanged<String> onSegmentToggled;
   final ValueChanged<int> onDistanceChanged;
@@ -44,4 +47,3 @@ class ClientTypeDetails extends StatelessWidget {
     };
   }
 }
-

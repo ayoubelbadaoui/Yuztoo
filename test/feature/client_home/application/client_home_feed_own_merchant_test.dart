@@ -1,3 +1,4 @@
+import 'package:flutter_yuztoo/core/domain/entities/french_commune.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,6 +13,7 @@ import 'package:flutter_yuztoo/feature/followed_merchants/infrastructure/followe
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/mobility_accessibility.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/repositories/merchant_repository.dart';
@@ -62,6 +64,15 @@ class _FakeMerchantRepository implements MerchantRepository {
   Merchant? byDocId;
   int byOwnerUidCalls = 0;
   int byDocIdCalls = 0;
+
+  @override
+  Future<Result<List<Merchant>>> getMerchantsByOwnerUid(String ownerUid) async {
+    final one = await getMerchantByOwnerUid(ownerUid);
+    return one.fold<Result<List<Merchant>>>(
+      Left.new,
+      (m) => Right(m == null ? <Merchant>[] : <Merchant>[m]),
+    );
+  }
 
   @override
   Future<Result<Merchant?>> getMerchantByOwnerUid(String ownerUid) async {
@@ -145,7 +156,9 @@ class _FakeMerchantRepository implements MerchantRepository {
     String? categoryId,
     String? subcategoryTitle,
     bool clearCityField = false,
+    FrenchCommune? commune,
     List<MerchantStorefrontLink>? storefrontLinks,
+    MobilityAccessibility? mobilityAccessibility,
   }) async =>
       const Left<MerchantFailure, Merchant>(
         MerchantUnexpectedFailure(message: 'unused'),

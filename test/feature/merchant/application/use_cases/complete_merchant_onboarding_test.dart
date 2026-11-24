@@ -1,9 +1,11 @@
+import 'package:flutter_yuztoo/core/domain/entities/french_commune.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/merchant/application/use_cases/complete_merchant_onboarding.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/mobility_accessibility.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
@@ -43,6 +45,15 @@ class _FakeMerchantRepository implements MerchantRepository {
   }
 
   @override
+  Future<Result<List<Merchant>>> getMerchantsByOwnerUid(String ownerUid) async {
+    final one = await getMerchantByOwnerUid(ownerUid);
+    return one.fold<Result<List<Merchant>>>(
+      Left.new,
+      (m) => Right(m == null ? <Merchant>[] : <Merchant>[m]),
+    );
+  }
+
+  @override
   Future<Result<Merchant?>> getMerchantByOwnerUid(String ownerUid) async {
     if (_createdMerchant != null && _createdMerchant!.ownerUid == ownerUid) {
       return Right<MerchantFailure, Merchant?>(_createdMerchant);
@@ -68,7 +79,8 @@ class _FakeMerchantRepository implements MerchantRepository {
     if (_createdMerchant == null) {
       return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
     }
-    return Right<MerchantFailure, List<Merchant>>(<Merchant>[_createdMerchant!]);
+    return Right<MerchantFailure, List<Merchant>>(
+        <Merchant>[_createdMerchant!]);
   }
 
   @override
@@ -76,7 +88,8 @@ class _FakeMerchantRepository implements MerchantRepository {
     if (_createdMerchant == null || !ids.contains(_createdMerchant!.id)) {
       return const Right<MerchantFailure, List<Merchant>>(<Merchant>[]);
     }
-    return Right<MerchantFailure, List<Merchant>>(<Merchant>[_createdMerchant!]);
+    return Right<MerchantFailure, List<Merchant>>(
+        <Merchant>[_createdMerchant!]);
   }
 
   @override
@@ -116,7 +129,9 @@ class _FakeMerchantRepository implements MerchantRepository {
     String? categoryId,
     String? subcategoryTitle,
     bool clearCityField = false,
+    FrenchCommune? commune,
     List<MerchantStorefrontLink>? storefrontLinks,
+    MobilityAccessibility? mobilityAccessibility,
   }) async {
     final current = _createdMerchant;
     if (current == null || current.id != merchantId) {
@@ -162,7 +177,8 @@ void main() {
       useCase = CompleteMerchantOnboarding(repository);
     });
 
-    test('should create merchant successfully with all required fields', () async {
+    test('should create merchant successfully with all required fields',
+        () async {
       final result = await useCase.call(
         userId: 'user-123',
         name: 'Test Business',
@@ -253,4 +269,3 @@ void main() {
     });
   });
 }
-

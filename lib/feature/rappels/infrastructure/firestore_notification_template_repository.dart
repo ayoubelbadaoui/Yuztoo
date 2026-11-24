@@ -9,7 +9,8 @@ import '../domain/repositories/notification_template_repository.dart';
 
 class FirestoreNotificationTemplateRepository
     implements NotificationTemplateRepository {
-  FirestoreNotificationTemplateRepository({required FirebaseFirestore firestore})
+  FirestoreNotificationTemplateRepository(
+      {required FirebaseFirestore firestore})
       : _firestore = firestore;
 
   final FirebaseFirestore _firestore;
@@ -126,18 +127,16 @@ class FirestoreNotificationTemplateRepository
           UnexpectedFailure(message: 'Donnez un nom au template'));
     }
     if (name.length > _maxNameLen) {
-      return const Left<AppFailure, NotificationTemplate>(
-          UnexpectedFailure(
-              message: 'Nom trop long (max $_maxNameLen caractères)'));
+      return const Left<AppFailure, NotificationTemplate>(UnexpectedFailure(
+          message: 'Nom trop long (max $_maxNameLen caractères)'));
     }
     if (text.isEmpty) {
       return const Left<AppFailure, NotificationTemplate>(
           UnexpectedFailure(message: 'Le message ne peut pas être vide'));
     }
     if (text.length > _maxTextLen) {
-      return const Left<AppFailure, NotificationTemplate>(
-          UnexpectedFailure(
-              message: 'Message trop long (max $_maxTextLen caractères)'));
+      return const Left<AppFailure, NotificationTemplate>(UnexpectedFailure(
+          message: 'Message trop long (max $_maxTextLen caractères)'));
     }
     if (!_validAudiences.contains(t.audience)) {
       return const Left<AppFailure, NotificationTemplate>(
@@ -153,8 +152,7 @@ class FirestoreNotificationTemplateRepository
       final name = (data['name'] as String?)?.trim() ?? '';
       final text = (data['text'] as String?)?.trim() ?? '';
       if (name.isEmpty || text.isEmpty) return null;
-      final audience =
-          (data['audience'] as String?) ?? 'Tous mes clients';
+      final audience = (data['audience'] as String?) ?? 'Tous mes clients';
       final rawSegments = data['segments'];
       final segments = rawSegments is List
           ? rawSegments.whereType<String>().toList()

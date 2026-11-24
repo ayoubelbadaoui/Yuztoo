@@ -8,17 +8,16 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     if (merchantId.isEmpty || userId.isEmpty) {
       return const Left<MerchantFailure, Unit>(
         MerchantUnexpectedFailure(
-          message: 'L\'identifiant du commerce et l\'identifiant utilisateur sont requis',
+          message:
+              'L\'identifiant du commerce et l\'identifiant utilisateur sont requis',
         ),
       );
     }
 
     try {
       // Verify merchant exists
-      final merchantDoc = await _firestore
-          .collection('merchants')
-          .doc(merchantId)
-          .get();
+      final merchantDoc =
+          await _firestore.collection('merchants').doc(merchantId).get();
 
       if (!merchantDoc.exists) {
         LoggerService.logError(
@@ -75,8 +74,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       existingRoles['provider'] = true;
       existingRoles.putIfAbsent('client', () => false);
 
-      final merchantCity =
-          (merchantData?['city'] as String?)?.trim() ?? '';
+      final merchantCity = (merchantData?['city'] as String?)?.trim() ?? '';
       final linkUpdate = <String, dynamic>{
         'merchant_id': merchantId,
         'onboarding': existingOnboarding,
@@ -145,6 +143,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     String? email,
     String? address,
     String? city,
+    FrenchCommune? commune,
     String? websiteUrl,
     String? bannerUrl,
     List<String>? newsImageUrls,
@@ -164,6 +163,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
     String? subcategoryTitle,
     bool clearCityField = false,
     List<MerchantStorefrontLink>? storefrontLinks,
+    MobilityAccessibility? mobilityAccessibility,
   }) async {
     if (merchantId.isEmpty) {
       return const Left<MerchantFailure, Merchant>(
@@ -189,7 +189,7 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       final updateData = <String, dynamic>{
         'updated_at': FieldValue.serverTimestamp(),
       };
-      
+
       if (displayName != null) {
         updateData['display_name'] = displayName;
       }
@@ -226,8 +226,12 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
               CityInput.isPlaceholder(city));
       if (persistedCity != null) {
         updateData['city'] = persistedCity;
+        if (commune != null) {
+          updateData['city_metadata'] = commune.toFirestore();
+        }
       } else if (removeCity) {
         updateData['city'] = FieldValue.delete();
+        updateData['city_metadata'] = FieldValue.delete();
       }
       if (websiteUrl != null) {
         updateData['website_url'] = websiteUrl;
@@ -268,10 +272,12 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
         }
       }
       if (rappelsAutoClientValidation != null) {
-        updateData['rappels_auto_client_validation'] = rappelsAutoClientValidation;
+        updateData['rappels_auto_client_validation'] =
+            rappelsAutoClientValidation;
       }
       if (rappelsAutoPassageValidation != null) {
-        updateData['rappels_auto_passage_validation'] = rappelsAutoPassageValidation;
+        updateData['rappels_auto_passage_validation'] =
+            rappelsAutoPassageValidation;
       }
       if (passageCooldownEnabled != null) {
         updateData['passage_cooldown_enabled'] = passageCooldownEnabled;
@@ -316,6 +322,10 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
               storefrontLinks.map((l) => l.toMap()).toList(growable: false);
         }
       }
+      if (mobilityAccessibility != null) {
+        updateData['mobility_accessibility'] =
+            mobilityAccessibility.firestoreValue;
+      }
 
       // Merge partial fields (same as update; avoids update() on missing docs)
       await merchantRef.set(updateData, SetOptions(merge: true));
@@ -359,6 +369,12 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
               ),
               'updated_at': FieldValue.serverTimestamp(),
             };
+            if (commune != null) {
+              userPatch['city_metadata'] = commune.toFirestore();
+              userPatch['cities_metadata'] = {
+                persistedCity: commune.toFirestore(),
+              };
+            }
             mergeUserPatchForFirestoreRules(existing, userPatch);
             await userRef.set(userPatch, SetOptions(merge: true));
           }
@@ -379,6 +395,8 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
             final userPatch = <String, dynamic>{
               'city': FieldValue.delete(),
               'cities': <String>[],
+              'city_metadata': FieldValue.delete(),
+              'cities_metadata': FieldValue.delete(),
               'updated_at': FieldValue.serverTimestamp(),
             };
             mergeUserPatchForFirestoreRules(existing, userPatch);
@@ -409,7 +427,8 @@ mixin _FirestoreMerchantRepositoryWrites on _FirestoreMerchantRepositoryBase {
       if (e.code == 'permission-denied') {
         return const Left<MerchantFailure, Merchant>(
           MerchantUnexpectedFailure(
-            message: 'Permission refusée (règles Firestore). Impossible d\'enregistrer la vitrine.',
+            message:
+                'Permission refusée (règles Firestore). Impossible d\'enregistrer la vitrine.',
           ),
         );
       }

@@ -216,7 +216,8 @@ class _StepWelcome extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(32, 0, 32, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(32, 0, 32, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -232,12 +233,14 @@ class _StepWelcome extends StatelessWidget {
                   end: Alignment.bottomRight,
                 ),
                 border: Border.all(
-                  color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.8),
+                  color: MerchantOnboardingColors.primaryGold
+                      .withValues(alpha: 0.8),
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.3),
+                    color: MerchantOnboardingColors.primaryGold
+                        .withValues(alpha: 0.3),
                     blurRadius: 28,
                     spreadRadius: 2,
                   ),
@@ -362,10 +365,12 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
   void initState() {
     super.initState();
     if (widget.initialFirstName != null) {
-      widget.firstNameController.text = widget.initialFirstName!;
+      _prefillController(
+          this, widget.firstNameController, widget.initialFirstName);
     }
     if (widget.initialLastName != null) {
-      widget.lastNameController.text = widget.initialLastName!;
+      _prefillController(
+          this, widget.lastNameController, widget.initialLastName);
     }
     _dob = widget.initialDob;
     _updateCanProceed();
@@ -410,7 +415,8 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         children: [
           const SizedBox(height: 32),
@@ -444,6 +450,7 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
               children: [
                 Expanded(
                   child: _TextField(
+                    maxLength: 50,
                     controller: widget.firstNameController,
                     hint: 'Prénom',
                     onChanged: widget.onFirstNameChanged,
@@ -452,6 +459,7 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _TextField(
+                    maxLength: 50,
                     controller: widget.lastNameController,
                     hint: 'Nom',
                     onChanged: widget.onLastNameChanged,
@@ -467,14 +475,17 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
               onTap: _pickDob,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                 decoration: BoxDecoration(
                   color: MerchantOnboardingColors.bgDark2,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: _dob != null
-                        ? MerchantOnboardingColors.primaryGold.withValues(alpha: 0.6)
-                        : MerchantOnboardingColors.primaryGold.withValues(alpha: 0.2),
+                        ? MerchantOnboardingColors.primaryGold
+                            .withValues(alpha: 0.6)
+                        : MerchantOnboardingColors.primaryGold
+                            .withValues(alpha: 0.2),
                   ),
                 ),
                 child: Row(
@@ -487,15 +498,17 @@ class _StepOwnerInfoState extends State<_StepOwnerInfo> {
                       size: 20,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      _dob != null
-                          ? _formatDate(_dob!)
-                          : 'Date de naissance (facultatif)',
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        color: _dob != null
-                            ? Colors.white
-                            : MerchantOnboardingColors.textGrey,
+                    Expanded(
+                      child: Text(
+                        _dob != null
+                            ? _formatDate(_dob!)
+                            : 'Date de naissance (facultatif)',
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          color: _dob != null
+                              ? Colors.white
+                              : MerchantOnboardingColors.textGrey,
+                        ),
                       ),
                     ),
                   ],
@@ -542,7 +555,7 @@ class _StepNameState extends State<_StepName> {
   void initState() {
     super.initState();
     if (widget.initialValue != null) {
-      widget.controller.text = widget.initialValue!;
+      _prefillController(this, widget.controller, widget.initialValue);
     }
     _canProceed = widget.controller.text.trim().isNotEmpty;
     widget.controller.addListener(_onTextChange);
@@ -565,7 +578,8 @@ class _StepNameState extends State<_StepName> {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         children: [
           const SizedBox(height: 32),
@@ -596,6 +610,7 @@ class _StepNameState extends State<_StepName> {
           _StepEntrance(
             delayMs: 110,
             child: _TextField(
+              maxLength: 60,
               controller: widget.controller,
               hint: 'Ex: La Boulangerie du Coin',
               onChanged: widget.onChanged,
@@ -636,8 +651,8 @@ class _StepMerchantType extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-          28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         children: [
           const SizedBox(height: 32),
@@ -788,11 +803,13 @@ class _StepCity extends StatefulWidget {
   const _StepCity({
     required this.initialValue,
     required this.onChanged,
+    required this.onCommuneChanged,
     required this.onNext,
   });
 
   final String? initialValue;
   final ValueChanged<String> onChanged;
+  final ValueChanged<FrenchCommune> onCommuneChanged;
   final VoidCallback onNext;
 
   @override
@@ -814,9 +831,11 @@ class _StepCityState extends State<_StepCity> {
       cities: frenchCities,
       selectedCity: _selectedCity,
       onCitySelected: (city) {
-        setState(() => _selectedCity = city);
+        // Save first: the sheet result can land after this step is gone.
         widget.onChanged(city);
+        if (mounted) setState(() => _selectedCity = city);
       },
+      onCommuneSelected: widget.onCommuneChanged,
       onValidateCity: () {},
     );
   }
@@ -826,7 +845,8 @@ class _StepCityState extends State<_StepCity> {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final hasCity = _selectedCity != null && _selectedCity!.trim().isNotEmpty;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         children: [
           const SizedBox(height: 32),
@@ -861,7 +881,8 @@ class _StepCityState extends State<_StepCity> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
                   color: MerchantOnboardingColors.bgDark2,
                   borderRadius: BorderRadius.circular(14),
@@ -896,7 +917,8 @@ class _StepCityState extends State<_StepCity> {
                         hasCity ? _selectedCity! : 'Sélectionnez votre ville',
                         style: GoogleFonts.outfit(
                           fontSize: 15,
-                          fontWeight: hasCity ? FontWeight.w600 : FontWeight.w400,
+                          fontWeight:
+                              hasCity ? FontWeight.w600 : FontWeight.w400,
                           color: hasCity
                               ? MerchantOnboardingColors.textLight
                               : MerchantOnboardingColors.textGrey,
@@ -916,10 +938,19 @@ class _StepCityState extends State<_StepCity> {
             ),
           ),
           const SizedBox(height: 28),
+          // Unlike client onboarding, a merchant city is NOT optional:
+          // Merchant.isValid() rejects an empty city, so skipping here
+          // fails the final "créer mon commerce" write instead of the step.
           _StepEntrance(
             delayMs: 140,
-            child: _SuivantButton(
-              onPressed: hasCity ? widget.onNext : null,
+            child: SizedBox(
+              width: double.infinity,
+              child: _GoldCTAButton(
+                label: 'Suivant',
+                onTap: widget.onNext,
+                enabled: hasCity,
+                height: 52,
+              ),
             ),
           ),
         ],
@@ -973,9 +1004,11 @@ class _StepImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final hasLogo = imagePath != null && imagePath!.trim().isNotEmpty;
-    final hasBanner = bannerImagePath != null && bannerImagePath!.trim().isNotEmpty;
+    final hasBanner =
+        bannerImagePath != null && bannerImagePath!.trim().isNotEmpty;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         children: [
           const SizedBox(height: 32),
@@ -1062,7 +1095,8 @@ class _StepImage extends StatelessWidget {
               onTap: () => _pickLogo(context),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: MerchantOnboardingColors.bgDark2,
                   borderRadius: BorderRadius.circular(14),
@@ -1112,7 +1146,12 @@ class _StepImage extends StatelessWidget {
           // Banner section
           _StepEntrance(
             delayMs: 130,
-            child: Row(
+            // Wrap, not Row: with large accessibility text the « Optionnel »
+            // badge moves to the next line instead of overflowing.
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
                   'Image de couverture',
@@ -1123,11 +1162,12 @@ class _StepImage extends StatelessWidget {
                     letterSpacing: 0.2,
                   ),
                 ),
-                const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.15),
+                    color: MerchantOnboardingColors.primaryGold
+                        .withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -1279,8 +1319,19 @@ class _StepAddressState extends State<_StepAddress> {
   /// which broke later "real email" flows (Stripe, support, etc.).
   bool _isEmailOk() => EmailValidator.isValid(widget.emailController.text);
 
+  /// Phone stays optional, but a started number must be complete: « 06 »
+  /// used to be saved as « +336 », shown to clients and impossible to call.
+  bool _isPhoneOk() {
+    final e164 = _toFrenchE164(widget.phoneController.text);
+    return e164.isEmpty || e164.length == '+33'.length + 9;
+  }
+
+  bool get _phoneIncomplete => !_isPhoneOk();
+
   void _recomputeCanProceed() {
-    final next = widget.controller.text.trim().isNotEmpty && _isEmailOk();
+    final next = widget.controller.text.trim().isNotEmpty &&
+        _isEmailOk() &&
+        _isPhoneOk();
     if (next != _canProceed) {
       setState(() => _canProceed = next);
     }
@@ -1290,13 +1341,13 @@ class _StepAddressState extends State<_StepAddress> {
   void initState() {
     super.initState();
     if (widget.initialValue != null) {
-      widget.controller.text = widget.initialValue!;
+      _prefillController(this, widget.controller, widget.initialValue);
     }
     if (widget.initialPhone != null) {
       final digits = widget.initialPhone!.replaceAll(RegExp(r'[^\d]'), '');
       var local = digits.startsWith('33') ? digits.substring(2) : digits;
       if (local.startsWith('0')) local = local.substring(1);
-      widget.phoneController.text = local;
+      _prefillController(this, widget.phoneController, local);
     }
     if (widget.initialEmail != null && widget.initialEmail!.isNotEmpty) {
       // Pre-fill once on mount. We don't push this back into the
@@ -1307,15 +1358,18 @@ class _StepAddressState extends State<_StepAddress> {
       // Skip the legacy placeholder so the merchant doesn't carry it
       // forward through onboarding.
       if (!EmailValidator.isPlaceholderOrEmpty(prefill)) {
-        widget.emailController.text = prefill;
+        _prefillController(this, widget.emailController, prefill);
       }
     }
     if (widget.initialWebsite != null) {
-      widget.websiteController.text = widget.initialWebsite!;
+      _prefillController(this, widget.websiteController, widget.initialWebsite);
     }
-    _canProceed = widget.controller.text.trim().isNotEmpty && _isEmailOk();
+    _canProceed = widget.controller.text.trim().isNotEmpty &&
+        _isEmailOk() &&
+        _isPhoneOk();
     widget.controller.addListener(_onAddressChange);
     widget.emailController.addListener(_onEmailFieldChange);
+    widget.phoneController.addListener(_onPhoneFieldChange);
   }
 
   void _schedulePhonePersist(String raw) {
@@ -1336,7 +1390,13 @@ class _StepAddressState extends State<_StepAddress> {
     _phoneDebounce?.cancel();
     widget.controller.removeListener(_onAddressChange);
     widget.emailController.removeListener(_onEmailFieldChange);
+    widget.phoneController.removeListener(_onPhoneFieldChange);
     super.dispose();
+  }
+
+  void _onPhoneFieldChange() {
+    _recomputeCanProceed();
+    if (mounted) setState(() {}); // refresh the « incomplet » hint
   }
 
   void _onAddressChange() => _recomputeCanProceed();
@@ -1347,7 +1407,8 @@ class _StepAddressState extends State<_StepAddress> {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         children: [
           const SizedBox(height: 32),
@@ -1378,6 +1439,7 @@ class _StepAddressState extends State<_StepAddress> {
           _StepEntrance(
             delayMs: 100,
             child: _TextField(
+              maxLength: 150,
               controller: widget.controller,
               hint: '123 Rue de la République, Paris',
               maxLines: 2,
@@ -1397,8 +1459,8 @@ class _StepAddressState extends State<_StepAddress> {
               child: Row(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       border: Border(
                         right: BorderSide(
@@ -1451,6 +1513,20 @@ class _StepAddressState extends State<_StepAddress> {
               ),
             ),
           ),
+          if (_phoneIncomplete)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Numéro incomplet (10 chiffres), ou laissez le champ vide.',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           // Email — required. Prefilled with auth email so most merchants
           // just confirm. Validation runs on every keystroke; the Suivant
@@ -1459,6 +1535,7 @@ class _StepAddressState extends State<_StepAddress> {
           _StepEntrance(
             delayMs: 130,
             child: _TextField(
+              maxLength: 254,
               controller: widget.emailController,
               hint: 'Email de contact (ex: contact@moncommerce.fr)',
               keyboardType: TextInputType.emailAddress,
@@ -1483,6 +1560,7 @@ class _StepAddressState extends State<_StepAddress> {
           _StepEntrance(
             delayMs: 140,
             child: _TextField(
+              maxLength: 200,
               controller: widget.websiteController,
               hint: 'Site web (ex: www.moncommerce.com)',
               onChanged: widget.onWebsiteChanged,
@@ -1525,7 +1603,8 @@ class _StepCategory extends StatelessWidget {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final canProceed = selectedId != null;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, 0, 24, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(24, 0, 24, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         children: [
           const SizedBox(height: 24),
@@ -1588,7 +1667,7 @@ class _StepDescriptionState extends State<_StepDescription> {
   void initState() {
     super.initState();
     if (widget.initialValue != null) {
-      widget.controller.text = widget.initialValue!;
+      _prefillController(this, widget.controller, widget.initialValue);
     }
     _canProceed = widget.controller.text.trim().isNotEmpty;
     widget.controller.addListener(_onTextChange);
@@ -1611,7 +1690,8 @@ class _StepDescriptionState extends State<_StepDescription> {
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(28, 0, 28, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         children: [
           const SizedBox(height: 32),
@@ -1642,8 +1722,10 @@ class _StepDescriptionState extends State<_StepDescription> {
           _StepEntrance(
             delayMs: 110,
             child: _TextField(
+              maxLength: 1000,
               controller: widget.controller,
-              hint: 'Une boulangerie artisanale au cœur du quartier — pain au levain, viennoiseries fraîches chaque matin...',
+              hint:
+                  'Une boulangerie artisanale au cœur du quartier — pain au levain, viennoiseries fraîches chaque matin...',
               maxLines: 4,
               onChanged: widget.onChanged,
             ),
@@ -1651,7 +1733,8 @@ class _StepDescriptionState extends State<_StepDescription> {
           const SizedBox(height: 28),
           _StepEntrance(
             delayMs: 140,
-            child: _SuivantButton(onPressed: _canProceed ? widget.onNext : null),
+            child:
+                _SuivantButton(onPressed: _canProceed ? widget.onNext : null),
           ),
           _StepEntrance(
             delayMs: 160,
@@ -1714,7 +1797,8 @@ class _StepHoursState extends State<_StepHours> {
     final days = _hours.allDays;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, 0, 24, (bottomPad > 0 ? bottomPad : 16) + 8),
+      padding:
+          EdgeInsets.fromLTRB(24, 0, 24, (bottomPad > 0 ? bottomPad : 16) + 8),
       child: Column(
         children: [
           const SizedBox(height: 24),
@@ -2070,8 +2154,7 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(Icons.add_rounded,
-                        size: 16,
-                        color: MerchantOnboardingColors.primaryGold),
+                        size: 16, color: MerchantOnboardingColors.primaryGold),
                     const SizedBox(width: 6),
                     Text(
                       'Ajouter un créneau',
@@ -2117,11 +2200,9 @@ class _OnboardingDayRowState extends State<_OnboardingDayRow> {
                                   .withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: MerchantOnboardingColors.primaryGold
-                                .withValues(
-                              alpha: _applyToOtherDays.contains(name)
-                                  ? 1
-                                  : 0.3,
+                            color:
+                                MerchantOnboardingColors.primaryGold.withValues(
+                              alpha: _applyToOtherDays.contains(name) ? 1 : 0.3,
                             ),
                           ),
                         ),
@@ -2248,6 +2329,7 @@ class _StepReady extends StatefulWidget {
 
   final VoidCallback onComplete;
   final bool isPostSignup;
+
   /// When true, [onPostSignupPersistMerchantReady] is the full Firestore save; do not
   /// call [onComplete] afterward (the persist callback handles success navigation).
   final bool postSignupAwaitFullPersistOnly;
@@ -2273,7 +2355,9 @@ class _StepReadyState extends State<_StepReady> {
         widget.onComplete();
       }
     } finally {
-      await Future<void>.delayed(const Duration(seconds: 8));
+      // On success this step is already gone; on failure the snackbar is up
+      // and the merchant must be able to retry right away (an 8 s hold here
+      // kept the button spinning after the error).
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -2281,113 +2365,131 @@ class _StepReadyState extends State<_StepReady> {
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(32, 0, 32, (bottomPad > 0 ? bottomPad : 16) + 8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _StepEntrance(
-            child: Stack(
-              alignment: Alignment.center,
+    // Scrollable when it doesn't fit (small phone + large accessibility
+    // text): a fixed centred Column pushed « Créer mon compte » off-screen
+    // and the merchant could not finish. Still centred when it fits.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                32, 0, 32, (bottomPad > 0 ? bottomPad : 16) + 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Glow ring
-                Container(
-                  width: 130,
-                  height: 130,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        MerchantOnboardingColors.primaryGold.withValues(alpha: 0.18),
-                        MerchantOnboardingColors.primaryGold.withValues(alpha: 0.0),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF163352), Color(0xFF0B1F33)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(
-                      color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.9),
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: MerchantOnboardingColors.primaryGold.withValues(alpha: 0.35),
-                        blurRadius: 24,
-                        spreadRadius: 2,
+                _StepEntrance(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Glow ring
+                      Container(
+                        width: 130,
+                        height: 130,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              MerchantOnboardingColors.primaryGold
+                                  .withValues(alpha: 0.18),
+                              MerchantOnboardingColors.primaryGold
+                                  .withValues(alpha: 0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF163352), Color(0xFF0B1F33)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          border: Border.all(
+                            color: MerchantOnboardingColors.primaryGold
+                                .withValues(alpha: 0.9),
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: MerchantOnboardingColors.primaryGold
+                                  .withValues(alpha: 0.35),
+                              blurRadius: 24,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.check_rounded,
+                          size: 50,
+                          color: MerchantOnboardingColors.primaryGold,
+                        ),
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    size: 50,
-                    color: MerchantOnboardingColors.primaryGold,
+                ),
+                const SizedBox(height: 32),
+                _StepEntrance(
+                  delayMs: 60,
+                  child: ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [
+                        MerchantOnboardingColors.textLight,
+                        Color(0xFFD4AF37)
+                      ],
+                      stops: [0.3, 1.0],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ).createShader(bounds),
+                    child: Text(
+                      'Tout est prêt !',
+                      style: GoogleFonts.outfit(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _StepEntrance(
+                  delayMs: 100,
+                  child: Text(
+                    widget.isPostSignup
+                        ? 'Votre vitrine est prête.\nAccédez à votre espace commerçant.'
+                        : 'Votre profil est configuré.\nBienvenue dans la communauté Yuztoo.',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: MerchantOnboardingColors.textGrey,
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 48),
+                _StepEntrance(
+                  delayMs: 160,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: _GoldCTAButton(
+                      label: widget.isPostSignup
+                          ? 'Accéder à mon commerce'
+                          : 'Lancer mon commerce',
+                      onTap: _handleComplete,
+                      isLoading: _isLoading,
+                      height: 56,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 32),
-          _StepEntrance(
-            delayMs: 60,
-            child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [MerchantOnboardingColors.textLight, Color(0xFFD4AF37)],
-                stops: [0.3, 1.0],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ).createShader(bounds),
-              child: Text(
-                'Tout est prêt !',
-                style: GoogleFonts.outfit(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _StepEntrance(
-            delayMs: 100,
-            child: Text(
-              widget.isPostSignup
-                  ? 'Votre vitrine est prête.\nAccédez à votre espace commerçant.'
-                  : 'Votre profil est configuré.\nBienvenue dans la communauté Yuztoo.',
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: MerchantOnboardingColors.textGrey,
-                height: 1.6,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 48),
-          _StepEntrance(
-            delayMs: 160,
-            child: SizedBox(
-              width: double.infinity,
-              child: _GoldCTAButton(
-                label: widget.isPostSignup
-                    ? 'Accéder à mon commerce'
-                    : 'Lancer mon commerce',
-                onTap: _handleComplete,
-                isLoading: _isLoading,
-                height: 56,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2395,35 +2497,63 @@ class _StepReadyState extends State<_StepReady> {
 
 // ─── Shared text field ────────────────────────────────────────────────────────
 
-class _TextField extends StatelessWidget {
+class _TextField extends StatefulWidget {
   const _TextField({
     required this.controller,
     required this.hint,
     this.maxLines = 1,
     this.keyboardType,
+    this.maxLength,
     required this.onChanged,
   });
 
   final TextEditingController controller;
   final String hint;
   final int maxLines;
+
+  /// Hard cap without a visible counter. Shop name / description end up in
+  /// push payloads (FCM ≤ 4 KB) and cards: an unbounded paste broke them.
+  final int? maxLength;
   final TextInputType? keyboardType;
   final ValueChanged<String> onChanged;
 
   @override
+  State<_TextField> createState() => _TextFieldState();
+}
+
+class _TextFieldState extends State<_TextField> {
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return TextField(
-      controller: controller,
+      controller: widget.controller,
+      focusNode: _focusNode,
       cursorColor: MerchantOnboardingColors.primaryGold,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      onChanged: onChanged,
+      maxLines: widget.maxLines,
+      keyboardType: widget.keyboardType,
+      inputFormatters: [
+        if (widget.maxLength != null)
+          LengthLimitingTextInputFormatter(widget.maxLength),
+      ],
+      onChanged: widget.onChanged,
+      // Explicit tap → focus, same hardening as the client name step: after a
+      // PageView transition Samsung's IME sometimes fails to attach on its own.
+      onTap: () {
+        if (!_focusNode.hasFocus) _focusNode.requestFocus();
+      },
       style: GoogleFonts.outfit(
         fontSize: 15,
         color: MerchantOnboardingColors.textLight,
       ),
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: widget.hint,
         hintStyle: GoogleFonts.outfit(
           color: MerchantOnboardingColors.textGrey,
           fontSize: 14,
@@ -2433,11 +2563,13 @@ class _TextField extends StatelessWidget {
         fillColor: MerchantColors.inputFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
+          borderSide:
+              const BorderSide(color: MerchantOnboardingColors.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: MerchantOnboardingColors.borderColor),
+          borderSide:
+              const BorderSide(color: MerchantOnboardingColors.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -2451,4 +2583,24 @@ class _TextField extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Prefills a controller owned by the flow screen from a step's initState.
+///
+/// Those controllers outlive the steps, so their listeners can belong to
+/// widgets that are mid-build; writing `.text` synchronously in initState
+/// threw « setState() or markNeedsBuild() called during build ». Same value
+/// → nothing to do; otherwise write right after this frame, unless the user
+/// has typed something else meanwhile.
+void _prefillController(
+  State<StatefulWidget> state,
+  TextEditingController controller,
+  String? value,
+) {
+  if (value == null || controller.text == value) return;
+  final before = controller.text;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!state.mounted || controller.text != before) return;
+    controller.text = value;
+  });
 }

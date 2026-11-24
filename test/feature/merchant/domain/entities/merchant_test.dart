@@ -115,8 +115,8 @@ void main() {
       expect(invalidMerchant.isValid(), isFalse);
     });
 
-    test('should return false for invalid merchant with empty phone', () {
-      const invalidMerchant = Merchant(
+    test('phone is optional: empty phone is still valid', () {
+      const merchant = Merchant(
         id: 'merchant-1',
         ownerUid: 'user-1',
         name: 'Business',
@@ -125,7 +125,7 @@ void main() {
         city: 'Paris',
       );
 
-      expect(invalidMerchant.isValid(), isFalse);
+      expect(merchant.isValid(), isTrue);
     });
 
     test('should return false for invalid merchant with empty city', () {
@@ -300,4 +300,3 @@ void main() {
     });
   });
 }
-

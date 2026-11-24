@@ -26,6 +26,7 @@ import {
   isOverWeeklyNotificationQuota,
   NOTIFICATION_QUOTA_WINDOW_MS,
 } from "./notification_quota_core";
+import { merchantCityKeys, sameKeys } from "./merchant_city_keys_core";
 
 admin.initializeApp();
 
@@ -2165,6 +2166,27 @@ export const onMerchantHoursUpdated = functions
         AUTO_NOTIFICATION_TRIGGERS.exceptionalClosure
       );
     }
+    return null;
+  });
+
+// ─── 5d. Keep `city_keys` in sync with the merchant's city ───────────────────
+
+/**
+ * Découvrir asks Firestore for active shops whose `city_keys` contain one of
+ * the client's local-area communes (array-contains-any), so it reads only the
+ * matching shops instead of the newest N of the whole base. Every writer of
+ * `city` (app, CRM, scripts) is covered here; only writes when the key set
+ * changes, so the update this makes does not loop.
+ */
+export const onMerchantCityKeysSync = functions
+  .region("europe-west1")
+  .firestore.document("merchants/{merchantId}")
+  .onWrite(async (change) => {
+    if (!change.after.exists) return null;
+    const data = change.after.data() ?? {};
+    const keys = merchantCityKeys(data);
+    if (sameKeys(data.city_keys, keys)) return null;
+    await change.after.ref.update({ city_keys: keys });
     return null;
   });
 

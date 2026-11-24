@@ -17,12 +17,16 @@ class PromoCard extends StatelessWidget {
     required this.onToggle,
     required this.onDelete,
     required this.onPickImage,
+    this.likesCount = 0,
   });
 
   final Promotion promo;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
   final VoidCallback onPickImage;
+
+  /// Client likes on this offer (merchant read-only).
+  final int likesCount;
 
   @override
   Widget build(BuildContext context) => _buildPromoCard(context);

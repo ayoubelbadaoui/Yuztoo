@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/shared/constants/merchant_colors.dart';
-import '../../../../../core/utils/cities.dart';
+import '../../../../../core/shared/widgets/city_search_sheet.dart';
 import '../../application/providers.dart';
 
 /// "Villes connectées" – shows only cities stored in DB; add saves to DB.
@@ -17,178 +17,47 @@ class CitiesSection extends ConsumerStatefulWidget {
 }
 
 class _CitiesSectionState extends ConsumerState<CitiesSection> {
-  void _openAddCityPicker(BuildContext context, String uid, List<String> current) {
-    final available = frenchCities
-        .where((c) => !current.any((x) => x.toLowerCase() == c.toLowerCase()))
-        .toList();
+  Future<void> _openAddCityPicker(
+      BuildContext context, String uid, List<String> current) async {
+    final commune = await showCitySearchSheet(
+      context,
+      title: 'Ajouter une ville connectée',
+      excludedCities: current,
+    );
+    if (commune == null || !context.mounted) return;
 
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: MerchantColors.navyCard,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        // `filtered` lives in the outer closure so that StatefulBuilder reads
-        // the updated reference on each setState call.
-        var filtered = available;
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.3,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (_, scrollController) {
-            return StatefulBuilder(
-              builder: (ctx, setSheetState) {
-                return Column(
-                  children: [
-                    // ── Drag handle ──────────────────────────────────────────
-                    Container(
-                      margin: const EdgeInsets.only(top: 12, bottom: 4),
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: MerchantColors.gold.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                      child: Text(
-                        'Ajouter une ville connectée',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    // ── Search field ─────────────────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      child: TextField(
-                        autofocus: true,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher une ville...',
-                          hintStyle: GoogleFonts.outfit(
-                            color: MerchantColors.textGrey,
-                            fontSize: 14,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: MerchantColors.textGrey,
-                            size: 20,
-                          ),
-                          filled: true,
-                          fillColor: MerchantColors.inputFill,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        onChanged: (query) {
-                          setSheetState(() {
-                            filtered = query.trim().isEmpty
-                                ? available
-                                : available
-                                    .where((c) => c
-                                        .toLowerCase()
-                                        .contains(query.toLowerCase().trim()))
-                                    .toList();
-                          });
-                        },
-                      ),
-                    ),
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: MerchantColors.gold.withValues(alpha: 0.12),
-                    ),
-                    // ── List ─────────────────────────────────────────────────
-                    if (filtered.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: Text(
-                          'Aucune ville trouvée',
-                          style: GoogleFonts.outfit(
-                            color: MerchantColors.textGrey,
-                            fontSize: 14,
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          controller: scrollController,
-                          itemCount: filtered.length,
-                          itemBuilder: (_, i) {
-                            final city = filtered[i];
-                            return ListTile(
-                              title: Text(
-                                city,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 14,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              onTap: () async {
-                                Navigator.of(ctx).pop();
-                                final newList = [...current, city];
-                                final setCities =
-                                    ref.read(setConnectedCitiesProvider);
-                                final result = await setCities.call(
-                                    uid: uid, cities: newList);
-                                if (!context.mounted) return;
-                                result.fold(
-                                  (failure) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          failure.message,
-                                          style: GoogleFonts.outfit(
-                                              color: Colors.white),
-                                        ),
-                                        backgroundColor: MerchantColors.navyCard,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  (_) {
-                                    final auth = ref.read(authStateProvider);
-                                    final isMerchant = auth is Authenticated &&
-                                        auth.user.isMerchant;
-                                    unawaited(refreshUserProfileCacheWidget(
-                                      ref,
-                                      uid: uid,
-                                      isMerchant: isMerchant,
-                                      cityChanged: true,
-                                    ));
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                );
-              },
-            );
-          },
+    final result = await ref.read(setConnectedCitiesProvider).call(
+          uid: uid,
+          cities: [...current, commune.name],
+          citiesMetadata: {commune.name: commune},
         );
+    if (!context.mounted) return;
+    result.fold(
+      (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failure.message,
+              style: GoogleFonts.outfit(color: Colors.white),
+            ),
+            backgroundColor: MerchantColors.navyCard,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      },
+      (_) {
+        ref.invalidate(connectedCitiesMetadataProvider(uid));
+        final auth = ref.read(authStateProvider);
+        final isMerchant = auth is Authenticated && auth.user.isMerchant;
+        unawaited(refreshUserProfileCacheWidget(
+          ref,
+          uid: uid,
+          isMerchant: isMerchant,
+          cityChanged: true,
+        ));
       },
     );
   }
@@ -301,8 +170,9 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
   }
 
   Future<void> _removeCity(String uid, String city) async {
-    final current =
-        ref.read(connectedCitiesProvider(uid)).value ?? [];
+    // Not loaded yet (slow network / error): never overwrite with [].
+    final current = ref.read(connectedCitiesProvider(uid)).value;
+    if (current == null) return;
     final updated = current.where((c) => c != city).toList();
     final result = await ref.read(setConnectedCitiesProvider).call(
           uid: uid,
@@ -341,9 +211,9 @@ class _CitiesSectionState extends ConsumerState<CitiesSection> {
       onTap: uid == null
           ? null
           : () {
-              final cities = ref
-                  .read(connectedCitiesProvider(uid))
-                  .value ?? [];
+              // Not loaded yet: adding now would wipe existing cities.
+              final cities = ref.read(connectedCitiesProvider(uid)).value;
+              if (cities == null) return;
               _openAddCityPicker(context, uid, cities);
             },
       child: Container(

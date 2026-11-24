@@ -9,17 +9,29 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/application/precache_network_images.dart';
 import '../../../core/debug/nfc_debug_flags.dart';
 import '../../../core/shared/widgets/adaptive_image.dart';
+import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/providers.dart' show authStateProvider;
 import '../../auth/core/application/state/auth_state.dart' show Authenticated;
+import '../../merchant_associations/application/providers.dart';
+import '../../merchant_associations/presentation/association_group_page.dart';
 import '../../merchant_partners/application/providers.dart'
     as partners_providers;
 import '../../merchant/domain/entities/merchant.dart';
 import '../../merchant/domain/entities/merchant_storefront_link.dart';
+import '../../merchant/domain/entities/mobility_accessibility.dart';
 import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../promotions/application/providers.dart'
-    show recordPromoViewsProvider;
+    show
+        promotionEngagementKey,
+        promotionEngagementMapProvider,
+        promotionViewerIdFromAuth,
+        recordPromoViewsProvider,
+        togglePromotionLikeProvider;
 import '../../promotions/domain/entities/promotion.dart';
+import '../../promotions/domain/entities/promotion_engagement.dart';
+import '../../storefront/application/news_photo_engagement_providers.dart';
 import '../../storefront/application/profile_view_providers.dart';
+import '../../storefront/domain/entities/news_photo_engagement.dart';
 import '../../storefront/domain/entities/business_hours.dart';
 import '../../storefront/application/widgets.dart';
 import '../../loyalty/application/client_loyalty_providers.dart'
@@ -100,7 +112,7 @@ class _StoreProfileSkeletonState extends State<_StoreProfileSkeleton>
                 builder: (_, __) => Opacity(
                   opacity: _anim.value,
                   child: Container(
-                    height: 180 + top,
+                    height: 180 + top + _StoreProfileTopBar.contentHeight,
                     color: const Color(0xFFE8E0D0),
                   ),
                 ),
@@ -161,7 +173,6 @@ class _StoreProfileSkeletonState extends State<_StoreProfileSkeleton>
             right: 0,
             child: _StoreProfileTopBar(
               title: 'Commerce',
-              progress: 0,
               onBack: widget.onBack!,
             ),
           ),
@@ -231,7 +242,6 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
   /// even the no-op network round-trip on each frame.
   String? _profileViewRecordedFor;
 
-  /// Drives the top bar from transparent (over the banner) to solid cream.
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -246,22 +256,17 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     final pageAsync = ref.watch(storeProfilePageDataProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        // Status bar sits over the banner — transparent so the image shows
-        statusBarColor: Colors.transparent,
-        statusBarBrightness: Brightness.dark,
-        statusBarIconBrightness: Brightness.light,
-        // Bottom nav is dark navy
-        systemNavigationBarColor: StorefrontColors.navyDark,
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
+      value: _storeProfileOverlayStyle,
       child: Scaffold(
         backgroundColor: StorefrontColors.backgroundLight,
         body: pageAsync.when(
           data: (data) {
             final merchant = data.merchant;
             if (merchant == null) {
-              return _StoreProfileErrorBack(onBack: widget.onBack);
+              return _StoreProfileErrorBack(
+                onBack: widget.onBack,
+                onRetry: () => ref.invalidate(storeProfilePageDataProvider),
+              );
             }
             final ownerAsync =
                 ref.watch(merchant_providers.currentMerchantForOwnerProvider);
@@ -315,7 +320,10 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
             );
           },
           loading: () => _StoreProfileSkeleton(onBack: widget.onBack),
-          error: (_, __) => _StoreProfileErrorBack(onBack: widget.onBack),
+          error: (_, __) => _StoreProfileErrorBack(
+                onBack: widget.onBack,
+                onRetry: () => ref.invalidate(storeProfilePageDataProvider),
+              ),
         ),
       ),
     );
@@ -409,12 +417,12 @@ class _StoreProfileScreenState extends ConsumerState<StoreProfileScreen> {
     ref.invalidate(followersCountByMerchantIdsProvider(<String>[merchantId]));
     if (!context.mounted) return;
 
-    // Fresh follow → reveal the merchant's welcome gift, scan-or-no-scan.
-    // The post-scan modal that used to do this was removed in the NFC MVP
-    // (see [_showScanFollowFirstSheet] legacy comment), so the only
-    // remaining trigger for the welcome sheet is the regular Suivre CTA.
+    // Fresh follow → welcome gift only. Following must NEVER validate a
+    // loyalty passage (that is a separate action: scan / NFC / BLE / request).
+    // The scan funnel uses [_afterScanFollowSuccess] for the same welcome
+    // sheet without auto-passage either.
     if (!currentlyFollowing) {
-      _afterScanFollowSuccess(context, merchant, userId);
+      unawaited(_showWelcomeGiftAfterFollow(context, merchant));
     }
     // `currentlyFollowing` is the state BEFORE the toggle, so when it was
     // true we just unfollowed. Offer a 5-second undo on the unfollow path —

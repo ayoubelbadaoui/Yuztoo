@@ -1,14 +1,16 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/domain/entities/french_commune.dart';
 import '../../../../core/utils/city_input.dart';
 import 'client_gratification_config.dart';
 import 'loyalty_program_config.dart';
 import 'merchant_storefront_link.dart';
 import '../notification_quota_policy.dart';
 import 'merchant_subscription_plan.dart';
+import 'mobility_accessibility.dart';
 
 /// Domain representation of a merchant business entity.
-/// 
+///
 /// This entity is separate from user identity and represents a business
 /// that can be owned by a user.
 class Merchant extends Equatable {
@@ -19,6 +21,7 @@ class Merchant extends Equatable {
     required this.email,
     required this.phone,
     required this.city,
+    this.commune,
     this.address,
     this.categories,
     this.description,
@@ -29,6 +32,8 @@ class Merchant extends Equatable {
     this.displayName,
     this.logoUrl,
     this.websiteUrl,
+    this.organizationId,
+    this.storeLabel,
     this.bannerUrl,
     this.newsImageUrls,
     this.loyaltyEnabled = false,
@@ -51,6 +56,7 @@ class Merchant extends Equatable {
     this.publicFollowersCount = 0,
     this.storefrontLinks = const [],
     this.subscriptionPlan = MerchantSubscriptionPlan.gratuit,
+    this.mobilityAccessibility = MobilityAccessibility.defaultValue,
   });
 
   /// Unique identifier for the merchant document
@@ -70,6 +76,9 @@ class Merchant extends Equatable {
 
   /// City where the business is located
   final String city;
+
+  /// Optional official commune metadata. [city] remains for legacy readers.
+  final FrenchCommune? commune;
 
   /// Business address (optional)
   final String? address;
@@ -91,6 +100,13 @@ class Merchant extends Equatable {
 
   /// Website URL (optional)
   final String? websiteUrl;
+
+  /// Enseigne this store belongs to (`organizations/{id}`); null for an
+  /// independent shop.
+  final String? organizationId;
+
+  /// Short name distinguishing stores of one enseigne (e.g. "Belfort Centre").
+  final String? storeLabel;
 
   /// Banner image URL from Firebase Storage (optional)
   final String? bannerUrl;
@@ -159,6 +175,9 @@ class Merchant extends Equatable {
   /// Billing tier (`subscription_plan` in Firestore). Drives Découvrir visibility.
   final MerchantSubscriptionPlan subscriptionPlan;
 
+  /// Declared PMR / wheelchair accessibility of the premises.
+  final MobilityAccessibility mobilityAccessibility;
+
   /// Returns the effective gratification config (never null).
   ClientGratificationConfig get effectiveGratificationConfig =>
       gratificationConfig ?? ClientGratificationConfig.defaults;
@@ -173,9 +192,8 @@ class Merchant extends Equatable {
   String? get displayCategory {
     final sub = subcategoryTitle?.trim() ?? '';
     if (sub.isNotEmpty && sub != _corruptedLegacyCategory) return sub;
-    final first = (categories?.isNotEmpty ?? false)
-        ? categories!.first.trim()
-        : '';
+    final first =
+        (categories?.isNotEmpty ?? false) ? categories!.first.trim() : '';
     if (first.isNotEmpty && first != _corruptedLegacyCategory) return first;
     return null;
   }
@@ -231,6 +249,7 @@ class Merchant extends Equatable {
         email,
         phone,
         city,
+        commune,
         address,
         categories,
         description,
@@ -241,6 +260,8 @@ class Merchant extends Equatable {
         displayName,
         logoUrl,
         websiteUrl,
+        organizationId,
+        storeLabel,
         bannerUrl,
         newsImageUrls,
         loyaltyEnabled,
@@ -263,6 +284,7 @@ class Merchant extends Equatable {
         publicFollowersCount,
         storefrontLinks,
         subscriptionPlan,
+        mobilityAccessibility,
       ];
 
   /// Creates a copy of the merchant with updated fields
@@ -273,6 +295,7 @@ class Merchant extends Equatable {
     String? email,
     String? phone,
     String? city,
+    FrenchCommune? commune,
     String? address,
     List<String>? categories,
     String? description,
@@ -283,6 +306,8 @@ class Merchant extends Equatable {
     String? displayName,
     String? logoUrl,
     String? websiteUrl,
+    String? organizationId,
+    String? storeLabel,
     String? bannerUrl,
     List<String>? newsImageUrls,
     bool? loyaltyEnabled,
@@ -305,6 +330,7 @@ class Merchant extends Equatable {
     int? publicFollowersCount,
     List<MerchantStorefrontLink>? storefrontLinks,
     MerchantSubscriptionPlan? subscriptionPlan,
+    MobilityAccessibility? mobilityAccessibility,
   }) {
     return Merchant(
       id: id ?? this.id,
@@ -313,6 +339,7 @@ class Merchant extends Equatable {
       email: email ?? this.email,
       phone: phone ?? this.phone,
       city: city ?? this.city,
+      commune: commune ?? this.commune,
       address: address ?? this.address,
       categories: categories ?? this.categories,
       description: description ?? this.description,
@@ -323,6 +350,8 @@ class Merchant extends Equatable {
       displayName: displayName ?? this.displayName,
       logoUrl: logoUrl ?? this.logoUrl,
       websiteUrl: websiteUrl ?? this.websiteUrl,
+      organizationId: organizationId ?? this.organizationId,
+      storeLabel: storeLabel ?? this.storeLabel,
       bannerUrl: bannerUrl ?? this.bannerUrl,
       newsImageUrls: newsImageUrls ?? this.newsImageUrls,
       loyaltyEnabled: loyaltyEnabled ?? this.loyaltyEnabled,
@@ -339,32 +368,36 @@ class Merchant extends Equatable {
           passageCooldownEnabled ?? this.passageCooldownEnabled,
       rappelsMonthlyConnectedClients:
           rappelsMonthlyConnectedClients ?? this.rappelsMonthlyConnectedClients,
-      rappelsMonthlyValidatedPassages:
-          rappelsMonthlyValidatedPassages ?? this.rappelsMonthlyValidatedPassages,
+      rappelsMonthlyValidatedPassages: rappelsMonthlyValidatedPassages ??
+          this.rappelsMonthlyValidatedPassages,
       weeklyNotifSentCount: weeklyNotifSentCount ?? this.weeklyNotifSentCount,
       weeklyNotifResetAt: weeklyNotifResetAt ?? this.weeklyNotifResetAt,
       merchantType: merchantType ?? this.merchantType,
-      welcomeGiftDescription: welcomeGiftDescription ?? this.welcomeGiftDescription,
+      welcomeGiftDescription:
+          welcomeGiftDescription ?? this.welcomeGiftDescription,
       categoryId: categoryId ?? this.categoryId,
       subcategoryTitle: subcategoryTitle ?? this.subcategoryTitle,
       gratificationConfig: gratificationConfig ?? this.gratificationConfig,
-      publicFollowersCount:
-          publicFollowersCount ?? this.publicFollowersCount,
+      publicFollowersCount: publicFollowersCount ?? this.publicFollowersCount,
       storefrontLinks: storefrontLinks ?? this.storefrontLinks,
       subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
+      mobilityAccessibility:
+          mobilityAccessibility ?? this.mobilityAccessibility,
     );
   }
 
-  /// Validates that required fields are not empty
+  /// Validates that required fields are not empty.
+  ///
+  /// Phone is optional (onboarding « Votre adresse » step and signup, App
+  /// Store 5.1.1): requiring it here left merchants without a phone unable to
+  /// create their shop, with « Impossible de créer votre commerce » forever.
   bool isValid() {
     return id.isNotEmpty &&
         ownerUid.isNotEmpty &&
         name.isNotEmpty &&
         email.isNotEmpty &&
-        phone.isNotEmpty &&
         city.isNotEmpty &&
         !CityInput.isPlaceholder(city) &&
         status.isNotEmpty;
   }
 }
-

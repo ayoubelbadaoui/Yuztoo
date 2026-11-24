@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/infrastructure/firebase_providers.dart';
 import '../domain/entities/storefront.dart';
 import '../domain/entities/business_hours.dart';
+import '../../../core/utils/profile_placeholders.dart';
 import '../../merchant/domain/entities/merchant.dart';
+import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import '../../auth/core/application/providers.dart' as auth_providers;
 import '../../auth/core/application/state/auth_state.dart';
@@ -22,13 +23,9 @@ final storefrontProvider = FutureProvider.autoDispose<Storefront?>((ref) async {
     return null;
   }
 
-  final userId = authState.user.id;
-  final firestore = ref.read(firebaseFirestoreProvider);
   final merchantRepo = ref.read(merchantRepositoryProvider);
-
-  final userDoc = await firestore.collection('users').doc(userId).get();
-  final userData = userDoc.data();
-  final merchantId = (userData?['merchant_id'] as String?)?.trim();
+  final merchantId =
+      await ref.watch(merchant_providers.activeMerchantIdProvider.future);
   if (merchantId == null || merchantId.isEmpty) {
     return null;
   }

@@ -8,8 +8,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/shared/constants/merchant_colors.dart';
 import '../../../core/shared/widgets/back_button.dart';
+import '../../../core/shared/widgets/city_search_sheet.dart';
 import '../../../core/shared/widgets/cupertino_dob_picker.dart';
-import '../../../core/utils/cities.dart';
 import '../../../core/utils/image_crop_utils.dart';
 import '../../auth/core/application/providers.dart'
     show updateAuthUserProfileProvider, updateUserCityProvider;

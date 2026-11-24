@@ -29,31 +29,33 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                     child: promotionsAsync.when(
                       loading: _buildLoading,
                       error: (err, _) => _buildError(err),
-                    data: (promotions) {
+                      data: (promotions) {
                         final now = DateTime.now();
                         final active = promotions
-                            .where((p) =>
-                                p.isOnline && p.dateTo.isAfter(now))
+                            .where((p) => p.isOnline && p.dateTo.isAfter(now))
                             .toList();
                         final others = promotions
-                            .where((p) =>
-                                !p.isOnline || !p.dateTo.isAfter(now))
+                            .where((p) => !p.isOnline || !p.dateTo.isAfter(now))
                             .toList();
                         return YuztooPullRefresh(
                           onRefresh: _onRefresh,
                           child: SingleChildScrollView(
-                            physics:
-                                const AlwaysScrollableScrollPhysics(
+                            physics: const AlwaysScrollableScrollPhysics(
                               parent: BouncingScrollPhysics(),
                             ),
                             padding: EdgeInsets.only(
-                              bottom: MediaQuery.of(context).padding.bottom +
-                                  80,
+                              bottom:
+                                  MediaQuery.of(context).padding.bottom + 80,
                             ),
                             child: Column(
                               children: [
                                 _buildAddPromoSection(),
                                 _buildPartnersSection(context),
+                                AssociationSection(
+                                  merchant: ref
+                                      .watch(currentMerchantForOwnerProvider)
+                                      .valueOrNull,
+                                ),
                                 if (promotions.isEmpty)
                                   _buildEmpty()
                                 else ...[
@@ -84,8 +86,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                         color: MerchantColors.navyCard,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: MerchantColors.gold
-                              .withValues(alpha: 0.3),
+                          color: MerchantColors.gold.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Column(
@@ -125,8 +126,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                         color: MerchantColors.navyCard,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: MerchantColors.gold
-                              .withValues(alpha: 0.3),
+                          color: MerchantColors.gold.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Column(
@@ -163,8 +163,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
   // ── Header with back button ──────────────────────────────────────────────
 
   Widget _buildHeader() {
-    final promotions =
-        ref.watch(merchantPromotionsProvider).valueOrNull ?? [];
+    final promotions = ref.watch(merchantPromotionsProvider).valueOrNull ?? [];
     final activeCount = promotions
         .where((p) => p.isOnline && p.dateTo.isAfter(DateTime.now()))
         .length;
@@ -277,8 +276,8 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
               behavior: HitTestBehavior.opaque,
               onTap: () => ref.invalidate(merchantPromotionsProvider),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [MerchantColors.gold, Color(0xFFD4AF37)],
@@ -315,8 +314,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Container(
         width: double.infinity,
-        padding:
-            const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
         decoration: BoxDecoration(
           color: MerchantColors.navyCard,
           borderRadius: BorderRadius.circular(16),
@@ -381,8 +379,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
           duration: const Duration(milliseconds: 200),
           child: Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               color: MerchantColors.navyCard,
               borderRadius: BorderRadius.circular(12),
@@ -432,8 +429,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
       builder: (_) => PartnerInviteSheet(merchantId: merchantId),
     );
     if (selected == null || !context.mounted) return;
-    final repo =
-        ref.read(partners_providers.merchantPartnerRepositoryProvider);
+    final repo = ref.read(partners_providers.merchantPartnerRepositoryProvider);
     await repo.addPartner(
       merchantId: merchantId,
       partnerMerchantId: selected.partnerMerchantId,
@@ -486,8 +482,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                       Row(
                         children: [
                           const Icon(Icons.star_rounded,
-                              size: 11,
-                              color: MerchantColors.gold),
+                              size: 11, color: MerchantColors.gold),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -511,8 +506,8 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                       : () => _addPartnerFromSheet(merchantId),
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -560,8 +555,8 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                   : () => _addPartnerFromSheet(merchantId),
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                 child: Row(
                   children: [
                     Container(
@@ -571,8 +566,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                         shape: BoxShape.circle,
                         color: MerchantColors.gold.withValues(alpha: 0.07),
                         border: Border.all(
-                          color:
-                              MerchantColors.gold.withValues(alpha: 0.25),
+                          color: MerchantColors.gold.withValues(alpha: 0.25),
                           width: 1.5,
                         ),
                       ),
@@ -640,10 +634,21 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
   Widget _buildActiveSection(List<Promotion> active) {
     if (active.isEmpty) return const SizedBox.shrink();
 
-    final displayed = _showAllActive
-        ? active
-        : active.take(_kPreviewCount).toList();
+    final displayed =
+        _showAllActive ? active : active.take(_kPreviewCount).toList();
     final hidden = active.length - _kPreviewCount;
+    final merchantId = active.first.merchantId;
+    final engagement = ref
+            .watch(
+              promotionEngagementMapProvider(
+                promotionEngagementKey(
+                  merchantId: merchantId,
+                  promotionIds: active.map((p) => p.id).toList(),
+                ),
+              ),
+            )
+            .valueOrNull ??
+        const {};
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
@@ -675,8 +680,8 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                 ),
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 1),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
                   decoration: BoxDecoration(
                     color: const Color(0xFF4ADE80).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -701,10 +706,10 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
               padding: const EdgeInsets.only(bottom: 16),
               child: PromoCard(
                 promo: promo,
+                likesCount: engagement[promo.id]?.likesCount ?? 0,
                 onToggle: (v) => _onToggle(promo, v),
                 onDelete: () => _confirmDelete(promo),
-                onPickImage: () =>
-                    _pickImageForPromo(index, active),
+                onPickImage: () => _pickImageForPromo(index, active),
               ),
             );
           }),
@@ -720,8 +725,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                   color: MerchantColors.navyCard,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: MerchantColors.gold
-                        .withValues(alpha: 0.3),
+                    color: MerchantColors.gold.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -759,9 +763,8 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
   // ── Expired / offline section ─────────────────────────────────────────────
 
   Widget _buildOthersSection(List<Promotion> others) {
-    final displayed = _showAllExpired
-        ? others
-        : others.take(_kPreviewCount).toList();
+    final displayed =
+        _showAllExpired ? others : others.take(_kPreviewCount).toList();
     final hidden = others.length - _kPreviewCount;
 
     return Container(
@@ -771,8 +774,7 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
         children: [
           // Toggle header — collapsed by default
           GestureDetector(
-            onTap: () =>
-                _rebuild(() => _showAllExpired = !_showAllExpired),
+            onTap: () => _rebuild(() => _showAllExpired = !_showAllExpired),
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -798,8 +800,8 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                   ),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 1),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
                     decoration: BoxDecoration(
                       color: MerchantColors.textGrey.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
@@ -836,15 +838,13 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
                   promo: promo,
                   onToggle: (v) => _onToggle(promo, v),
                   onDelete: () => _confirmDelete(promo),
-                  onPickImage: () =>
-                      _pickImageForPromo(index, others),
+                  onPickImage: () => _pickImageForPromo(index, others),
                 ),
               );
             }),
             if (others.length > _kPreviewCount)
               GestureDetector(
-                onTap: () => _rebuild(
-                    () => _showAllExpired = !_showAllExpired),
+                onTap: () => _rebuild(() => _showAllExpired = !_showAllExpired),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -888,7 +888,6 @@ extension _PromotionsManagementScreenUi on _PromotionsManagementScreenState {
       ),
     );
   }
-
 }
 
 // ── Partner row widget ───────────────────────────────────────────────────────
@@ -974,12 +973,11 @@ class _PartnerRow extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: MerchantColors.gold
-                                  .withValues(alpha: 0.1),
+                              color: MerchantColors.gold.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: MerchantColors.gold
-                                    .withValues(alpha: 0.3),
+                                color:
+                                    MerchantColors.gold.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Text(

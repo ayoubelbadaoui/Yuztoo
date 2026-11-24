@@ -13,14 +13,15 @@ import '../../application/active_validation_providers.dart';
 import '../../application/client_loyalty_providers.dart';
 import '../../domain/entities/active_validation_request.dart';
 import '../../domain/failures/passage_cooldown_failure.dart';
+import 'loyalty_celebration_dedupe.dart';
 
 /// Wraps a body widget and listens for the client's session transitioning to
 /// `completed` at any followed merchant. When it does, slides in a gold "✓
 /// Passage validé" overlay and auto-dismisses after ~4 seconds.
 ///
-/// To avoid re-triggering on cold-start when a session completed while the
-/// app was closed, the last-seen completed session id is persisted in
-/// SharedPreferences.
+/// Completed session docs linger in Firestore. To avoid re-showing on every
+/// cold start we (1) wait for SharedPreferences, (2) skip first snapshots of
+/// already-terminal sessions, and (3) persist a capped set of seen keys.
 class LoyaltyCelebrationOverlay extends ConsumerStatefulWidget {
   const LoyaltyCelebrationOverlay({
     super.key,
@@ -41,17 +42,19 @@ class LoyaltyCelebrationOverlay extends ConsumerStatefulWidget {
 class _LoyaltyCelebrationOverlayState
     extends ConsumerState<LoyaltyCelebrationOverlay>
     with SingleTickerProviderStateMixin {
-  static const String _prefsKey = 'loyalty_celebration_last_seen_id';
   late final AnimationController _controller;
   late final Animation<double> _opacity;
   late final Animation<Offset> _slide;
   Timer? _autoDismiss;
   ActiveValidationRequest? _activeCelebration;
   String? _directCelebrationMerchantId;
-  final Set<String> _seenInSession = <String>{};
-  String? _persistedLastSeen;
 
+  bool _prefsReady = false;
+  final Set<String> _seenKeys = <String>{};
   final Set<String> _cancelledNotified = <String>{};
+
+  /// Updates received before prefs finished loading — replayed in order.
+  final List<_PendingSessionUpdate> _pending = <_PendingSessionUpdate>[];
 
   @override
   void initState() {
@@ -65,72 +68,138 @@ class _LoyaltyCelebrationOverlayState
       begin: const Offset(0, -0.4),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-    _loadPersisted();
+    unawaited(_loadPersisted());
   }
 
   Future<void> _loadPersisted() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _persistedLastSeen = prefs.getString(_prefsKey);
+      final parsed = LoyaltyCelebrationDedupe.parsePersistedKeys(
+        jsonList: prefs.getString(LoyaltyCelebrationDedupe.prefsSeenKeys),
+        legacySingle:
+            prefs.getString(LoyaltyCelebrationDedupe.prefsLegacyLastSeen),
+      );
+      _seenKeys.addAll(parsed);
     } catch (_) {
-      // Best-effort — if shared_preferences fails we just risk re-firing.
+      // Best-effort — first-snapshot rule still blocks cold-start re-fires.
+    }
+    if (!mounted) return;
+    _prefsReady = true;
+    final queued = List<_PendingSessionUpdate>.from(_pending);
+    _pending.clear();
+    for (final update in queued) {
+      _onSessionUpdate(
+        previous: update.previous,
+        session: update.session,
+      );
     }
   }
 
-  Future<void> _markSeen(ActiveValidationRequest session) async {
-    final key = _sessionKey(session);
-    _seenInSession.add(key);
+  Future<void> _persistSeenKeys() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_prefsKey, key);
-      _persistedLastSeen = key;
+      await prefs.setString(
+        LoyaltyCelebrationDedupe.prefsSeenKeys,
+        LoyaltyCelebrationDedupe.encodePersistedKeys(_seenKeys),
+      );
+      // Drop legacy single key once migrated.
+      await prefs.remove(LoyaltyCelebrationDedupe.prefsLegacyLastSeen);
     } catch (_) {}
   }
 
-  String _sessionKey(ActiveValidationRequest s) {
-    final ts = s.completedAt?.millisecondsSinceEpoch ?? 0;
-    return '${s.merchantId}__${s.clientUid}__$ts';
+  void _markSeenKey(String key) {
+    if (_seenKeys.contains(key)) return;
+    _seenKeys.add(key);
+    unawaited(_persistSeenKeys());
   }
 
-  void _onSession(ActiveValidationRequest session) {
+  void _onSessionUpdate({
+    required ActiveValidationRequest? previous,
+    required ActiveValidationRequest session,
+  }) {
     if (session.isCancelled) {
-      final k = '${session.merchantId}__${session.clientUid}__cancelled';
-      if (_cancelledNotified.contains(k)) return;
-      _cancelledNotified.add(k);
-      final message = session.cancelReason == 'passage_cooldown'
-          ? const PassageCooldownFailure().message
-          : 'Demande de passage annulée ou refusée.';
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(
-            content: Text(
-              message,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-              ),
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      });
+      _handleCancelled(previous: previous, session: session);
       return;
     }
     if (!session.isCompleted) return;
-    final key = _sessionKey(session);
-    if (_seenInSession.contains(key)) return;
-    if (_persistedLastSeen == key) {
-      _seenInSession.add(key);
-      return;
+    _handleCompleted(previous: previous, session: session);
+  }
+
+  void _handleCompleted({
+    required ActiveValidationRequest? previous,
+    required ActiveValidationRequest session,
+  }) {
+    final decision = LoyaltyCelebrationDedupe.decideCompleted(
+      prefsReady: _prefsReady,
+      previous: previous,
+      session: session,
+      seenKeys: _seenKeys,
+    );
+    switch (decision) {
+      case CelebrationDecision.defer:
+        _pending.add(
+          _PendingSessionUpdate(previous: previous, session: session),
+        );
+        return;
+      case CelebrationDecision.skipAlreadySeen:
+        return;
+      case CelebrationDecision.markSeenOnly:
+        _markSeenKey(LoyaltyCelebrationDedupe.sessionKey(session));
+        return;
+      case CelebrationDecision.celebrate:
+        _markSeenKey(LoyaltyCelebrationDedupe.sessionKey(session));
+        setState(() => _activeCelebration = session);
+        HapticFeedback.heavyImpact();
+        _controller.forward(from: 0);
+        _autoDismiss?.cancel();
+        _autoDismiss = Timer(const Duration(seconds: 4), _dismiss);
     }
-    setState(() => _activeCelebration = session);
-    HapticFeedback.heavyImpact();
-    _controller.forward(from: 0);
-    _autoDismiss?.cancel();
-    _autoDismiss = Timer(const Duration(seconds: 4), _dismiss);
-    _markSeen(session);
+  }
+
+  void _handleCancelled({
+    required ActiveValidationRequest? previous,
+    required ActiveValidationRequest session,
+  }) {
+    final decision = LoyaltyCelebrationDedupe.decideCancelled(
+      prefsReady: _prefsReady,
+      previous: previous,
+      session: session,
+      cancelledNotified: _cancelledNotified,
+    );
+    final snackKey = LoyaltyCelebrationDedupe.cancelledSnackKey(session);
+    switch (decision) {
+      case CelebrationDecision.defer:
+        _pending.add(
+          _PendingSessionUpdate(previous: previous, session: session),
+        );
+        return;
+      case CelebrationDecision.skipAlreadySeen:
+        return;
+      case CelebrationDecision.markSeenOnly:
+        _cancelledNotified.add(snackKey);
+        return;
+      case CelebrationDecision.celebrate:
+        _cancelledNotified.add(snackKey);
+        final message = session.cancelReason == 'passage_cooldown'
+            ? const PassageCooldownFailure().message
+            : 'Demande de passage annulée ou refusée.';
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            SnackBar(
+              content: Text(
+                message,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        });
+    }
   }
 
   /// Direct visit (NFC tag tap, deep link, in-app QR) — the use case
@@ -201,7 +270,7 @@ class _LoyaltyCelebrationOverlayState
           for (final merchantId in widget.followedMerchantIds)
             _SessionListener(
               merchantId: merchantId,
-              onSession: _onSession,
+              onSessionUpdate: _onSessionUpdate,
             ),
         if (showSessionCard)
           Positioned(
@@ -244,11 +313,27 @@ class _LoyaltyCelebrationOverlayState
   }
 }
 
+class _PendingSessionUpdate {
+  const _PendingSessionUpdate({
+    required this.previous,
+    required this.session,
+  });
+
+  final ActiveValidationRequest? previous;
+  final ActiveValidationRequest session;
+}
+
 class _SessionListener extends ConsumerWidget {
-  const _SessionListener({required this.merchantId, required this.onSession});
+  const _SessionListener({
+    required this.merchantId,
+    required this.onSessionUpdate,
+  });
 
   final String merchantId;
-  final ValueChanged<ActiveValidationRequest> onSession;
+  final void Function({
+    required ActiveValidationRequest? previous,
+    required ActiveValidationRequest session,
+  }) onSessionUpdate;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -256,7 +341,11 @@ class _SessionListener extends ConsumerWidget {
       clientActiveValidationSessionProvider(merchantId),
       (prev, next) {
         next.whenData((session) {
-          if (session != null) onSession(session);
+          if (session == null) return;
+          onSessionUpdate(
+            previous: prev?.asData?.value,
+            session: session,
+          );
         });
       },
     );

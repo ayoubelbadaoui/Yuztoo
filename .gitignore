@@ -58,6 +58,9 @@ app.*.map.json
 # Local dev scripts
 send-test-notification.js
 
+# Hosted APK build artifact (large; deployed from public/ but not committed)
+public/downloads/*.apk
+
 # Android release signing (never commit secrets)
 android/key.properties
 **/*.jks

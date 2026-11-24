@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/auth_user.dart';
 import '../domain/entities/user_profile_basics.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/domain/entities/french_commune.dart';
+import '../../../../core/infrastructure/firebase_providers.dart';
 import 'auth_controller.dart';
 import 'state/auth_state.dart';
 import 'use_cases/sign_out.dart';
@@ -13,6 +15,7 @@ import 'use_cases/get_user_city.dart';
 import 'use_cases/get_user_profile_basics.dart';
 import 'use_cases/update_user_city.dart';
 import 'use_cases/get_connected_cities.dart';
+import 'use_cases/get_connected_cities_metadata.dart';
 import 'use_cases/set_connected_cities.dart';
 import 'use_cases/is_merchant_onboarding_completed.dart';
 import 'use_cases/patch_user_document.dart';
@@ -170,7 +173,10 @@ final getConnectedCitiesProvider = Provider<GetConnectedCities>((ref) {
 /// Use case provider for setting connected cities
 final setConnectedCitiesProvider = Provider<SetConnectedCities>((ref) {
   final repository = ref.watch(userRepositoryProvider);
-  return SetConnectedCities(repository);
+  return SetConnectedCities(
+    repository,
+    catalog: ref.watch(cityCatalogRepositoryProvider),
+  );
 });
 
 /// Connected cities for a user (from Firestore). Invalidate to refresh.
@@ -179,6 +185,20 @@ final connectedCitiesProvider =
   final getCities = ref.read(getConnectedCitiesProvider);
   final result = await getCities.call(uid);
   return result.fold((_) => <String>[], (list) => list);
+});
+
+final getConnectedCitiesMetadataProvider =
+    Provider<GetConnectedCitiesMetadata>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return GetConnectedCitiesMetadata(repository);
+});
+
+/// Official commune / EPCI metadata for [uid]'s connected cities.
+final connectedCitiesMetadataProvider =
+    FutureProvider.family<Map<String, FrenchCommune>, String>((ref, uid) async {
+  final getMeta = ref.read(getConnectedCitiesMetadataProvider);
+  final result = await getMeta.call(uid);
+  return result.fold((_) => <String, FrenchCommune>{}, (map) => map);
 });
 
 /// Use case provider for checking merchant onboarding status

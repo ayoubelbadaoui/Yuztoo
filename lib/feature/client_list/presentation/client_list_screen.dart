@@ -17,6 +17,7 @@ import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../rappels/application/providers.dart' as rappels_providers;
 import '../../rappels/presentation/widgets/alertes_section.dart';
 import '../../rappels/presentation/widgets/rappels_clients_section.dart';
+import '../../rappels/presentation/widgets/recent_likes_section.dart';
 import '../../promotions/application/providers.dart'
     show merchantTotalPromoViewsProvider;
 import '../application/providers.dart' as crm_providers;
@@ -122,6 +123,7 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen>
     ref.invalidate(crm_providers.merchantClientsProvider(merchantId));
     ref.invalidate(merchantTotalPromoViewsProvider(merchantId));
     ref.invalidate(rappels_providers.rappelsAlertsProvider(merchantId));
+    ref.invalidate(rappels_providers.unseenLikeAlertsProvider(merchantId));
     ref.invalidate(merchant_providers.currentMerchantForOwnerProvider);
     await ref
         .read(crm_providers.merchantClientsProvider(merchantId).future)

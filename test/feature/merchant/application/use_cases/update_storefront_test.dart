@@ -1,9 +1,11 @@
+import 'package:flutter_yuztoo/core/domain/entities/french_commune.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_yuztoo/core/domain/core/either.dart';
 import 'package:flutter_yuztoo/core/domain/core/result.dart';
 import 'package:flutter_yuztoo/feature/merchant/application/use_cases/update_storefront.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/loyalty_program_config.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant.dart';
+import 'package:flutter_yuztoo/feature/merchant/domain/entities/mobility_accessibility.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/merchant_storefront_link.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/merchant_failure.dart';
 import 'package:flutter_yuztoo/feature/merchant/domain/entities/client_gratification_config.dart';
@@ -49,11 +51,21 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
       const Left(MerchantUnexpectedFailure(message: 'not used'));
 
   @override
+  Future<Result<List<Merchant>>> getMerchantsByOwnerUid(String ownerUid) async {
+    final one = await getMerchantByOwnerUid(ownerUid);
+    return one.fold<Result<List<Merchant>>>(
+      Left.new,
+      (m) => Right(m == null ? <Merchant>[] : <Merchant>[m]),
+    );
+  }
+
+  @override
   Future<Result<Merchant?>> getMerchantByOwnerUid(String ownerUid) async =>
       const Right(null);
 
   @override
-  Future<Result<Merchant?>> getMerchantById(String merchantId) async => const Right(null);
+  Future<Result<Merchant?>> getMerchantById(String merchantId) async =>
+      const Right(null);
 
   @override
   Future<Result<List<Merchant>>> listMerchants({
@@ -65,7 +77,8 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
       const Right([]);
 
   @override
-  Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async => const Right([]);
+  Future<Result<List<Merchant>>> getMerchantsByIds(List<String> ids) async =>
+      const Right([]);
 
   @override
   Future<Result<Unit>> linkExistingMerchantToUser({
@@ -103,7 +116,9 @@ class _FakeMerchantRepositoryForUpdate implements MerchantRepository {
     String? categoryId,
     String? subcategoryTitle,
     bool clearCityField = false,
+    FrenchCommune? commune,
     List<MerchantStorefrontLink>? storefrontLinks,
+    MobilityAccessibility? mobilityAccessibility,
   }) async {
     lastMerchantId = merchantId;
     lastLogoUrl = logoUrl;
@@ -164,11 +179,13 @@ void main() {
 
       expect(result.isRight, true);
       expect(merchantRepo.lastMerchantId, 'm1');
-      expect(merchantRepo.lastLogoUrl, 'https://storage.example.com/merchants/m1/logo.png');
+      expect(merchantRepo.lastLogoUrl,
+          'https://storage.example.com/merchants/m1/logo.png');
       result.fold(
         (_) => fail('Expected success'),
         (merchant) {
-          expect(merchant.logoUrl, 'https://storage.example.com/merchants/m1/logo.png');
+          expect(merchant.logoUrl,
+              'https://storage.example.com/merchants/m1/logo.png');
         },
       );
     });
@@ -204,7 +221,8 @@ void main() {
       );
 
       expect(result.isLeft, true);
-      expect(merchantRepo.lastLogoUrl, isNotNull); // upload succeeded, Firestore failed
+      expect(merchantRepo.lastLogoUrl,
+          isNotNull); // upload succeeded, Firestore failed
     });
   });
 }

@@ -44,6 +44,18 @@ DateTime alignDateTimeToMinuteInterval(DateTime value, int intervalMinutes) {
 /// Compose + quick-send section rendered inside the Rappels screen.
 /// Lets the merchant type a message, pick an audience, and blast it to all
 /// matching followers in one tap. Shows the last [historyLimit] sent messages.
+/// Anchors the Notifications page guide spotlights inside [QuickSendSection].
+class QuickSendGuideKeys {
+  final GlobalKey templates = GlobalKey();
+  final GlobalKey compose = GlobalKey();
+  final GlobalKey audience = GlobalKey();
+  final GlobalKey quota = GlobalKey();
+  final GlobalKey schedule = GlobalKey();
+  final GlobalKey send = GlobalKey();
+  final GlobalKey scheduled = GlobalKey();
+  final GlobalKey history = GlobalKey();
+}
+
 class QuickSendSection extends ConsumerStatefulWidget {
   const QuickSendSection({
     super.key,
@@ -55,7 +67,11 @@ class QuickSendSection extends ConsumerStatefulWidget {
     this.historyLoading = false,
     this.quotaLabel,
     this.quotaExceeded = false,
+    this.guideKeys,
   });
+
+  /// Optional coachmark anchors for the page guide (see [QuickSendGuideKeys]).
+  final QuickSendGuideKeys? guideKeys;
 
   final String merchantId;
   final String merchantName;
@@ -122,8 +138,7 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
         _audienceIndex = 0;
       } else {
         final key = pick.segments.first;
-        final i = _audienceOptions
-            .indexWhere((o) => o.segmentKey == key);
+        final i = _audienceOptions.indexWhere((o) => o.segmentKey == key);
         _audienceIndex = i >= 0 ? i : 0;
       }
     });
@@ -250,8 +265,7 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
       if (scheduled != null) {
         // Scheduling path — does NOT touch widget.onSend; we don't burn
         // weekly quota at scheduling time (the CF will, at fire time).
-        final repo =
-            ref.read(scheduledNotificationRepositoryProvider);
+        final repo = ref.read(scheduledNotificationRepositoryProvider);
         final result = await repo.schedule(
           merchantId: widget.merchantId,
           createdByUid: widget.createdByUid,
@@ -331,6 +345,7 @@ class _QuickSendSectionState extends ConsumerState<QuickSendSection> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) => _buildBody(context);
 }

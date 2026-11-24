@@ -10,16 +10,18 @@ import '../domain/repositories/i_sent_notification_repository.dart';
 import 'dto/sent_notification_dto.dart';
 
 /// Firestore: `merchants/{merchantId}/sent_notifications/{id}`
-class FirestoreSentNotificationRepository implements ISentNotificationRepository {
+class FirestoreSentNotificationRepository
+    implements ISentNotificationRepository {
   FirestoreSentNotificationRepository({required FirebaseFirestore firestore})
       : _firestore = firestore;
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> _col(String merchantId) => _firestore
-      .collection('merchants')
-      .doc(merchantId)
-      .collection('sent_notifications');
+  CollectionReference<Map<String, dynamic>> _col(String merchantId) =>
+      _firestore
+          .collection('merchants')
+          .doc(merchantId)
+          .collection('sent_notifications');
 
   @override
   Future<Result<List<SentNotification>>> list(
@@ -40,17 +42,21 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
     } on FirebaseException catch (e, st) {
       LoggerService.logError('listSentNotifications', error: e, stackTrace: st);
       return Left(UnexpectedFailure(
-          message: 'Impossible de charger l\'historique', cause: e, stackTrace: st));
+          message: 'Impossible de charger l\'historique',
+          cause: e,
+          stackTrace: st));
     } catch (e, st) {
       LoggerService.logError('listSentNotifications', error: e, stackTrace: st);
-      return Left(UnexpectedFailure(message: 'Erreur de chargement', cause: e, stackTrace: st));
+      return Left(UnexpectedFailure(
+          message: 'Erreur de chargement', cause: e, stackTrace: st));
     }
   }
 
   @override
   Future<Result<SentNotification>> create(SentNotification notification) async {
     if (notification.merchantId.isEmpty) {
-      return const Left(UnexpectedFailure(message: 'L\'identifiant du commerce est requis'));
+      return const Left(
+          UnexpectedFailure(message: 'L\'identifiant du commerce est requis'));
     }
     try {
       final dto = SentNotificationDto(
@@ -69,12 +75,17 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
       final created = notification.copyWith(id: ref.id);
       return Right(created);
     } on FirebaseException catch (e, st) {
-      LoggerService.logError('createSentNotification', error: e, stackTrace: st);
+      LoggerService.logError('createSentNotification',
+          error: e, stackTrace: st);
       return Left(UnexpectedFailure(
-          message: 'Impossible d\'enregistrer l\'envoi', cause: e, stackTrace: st));
+          message: 'Impossible d\'enregistrer l\'envoi',
+          cause: e,
+          stackTrace: st));
     } catch (e, st) {
-      LoggerService.logError('createSentNotification', error: e, stackTrace: st);
-      return Left(UnexpectedFailure(message: 'Erreur d\'enregistrement', cause: e, stackTrace: st));
+      LoggerService.logError('createSentNotification',
+          error: e, stackTrace: st);
+      return Left(UnexpectedFailure(
+          message: 'Erreur d\'enregistrement', cause: e, stackTrace: st));
     }
   }
 
@@ -95,7 +106,10 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
         'updateSentCount',
         error: e,
         stackTrace: st,
-        context: {'merchantId': merchantId, 'sentNotificationId': sentNotificationId},
+        context: {
+          'merchantId': merchantId,
+          'sentNotificationId': sentNotificationId
+        },
       );
     }
   }
@@ -113,7 +127,10 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
         'recordOpen',
         error: e,
         stackTrace: st,
-        context: {'merchantId': merchantId, 'sentNotificationId': sentNotificationId},
+        context: {
+          'merchantId': merchantId,
+          'sentNotificationId': sentNotificationId
+        },
       );
     }
   }
@@ -129,8 +146,8 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
       DateTime? lastReset;
       if (resetAt is Timestamp) lastReset = resetAt.toDate();
 
-      final shouldReset = lastReset == null ||
-          DateTime.now().difference(lastReset).inDays >= 7;
+      final shouldReset =
+          lastReset == null || DateTime.now().difference(lastReset).inDays >= 7;
 
       if (shouldReset) {
         await docRef.update({
@@ -143,7 +160,8 @@ class FirestoreSentNotificationRepository implements ISentNotificationRepository
         });
       }
     } catch (e, st) {
-      LoggerService.logError('incrementWeeklyNotifCount', error: e, stackTrace: st);
+      LoggerService.logError('incrementWeeklyNotifCount',
+          error: e, stackTrace: st);
     }
   }
 }

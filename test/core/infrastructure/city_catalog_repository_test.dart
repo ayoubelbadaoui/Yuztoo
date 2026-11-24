@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:flutter_yuztoo/core/domain/entities/french_commune.dart';
 import 'package:flutter_yuztoo/core/infrastructure/city_catalog_repository.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,7 +35,11 @@ void main() {
         // Sanity: query string must contain the user's input verbatim.
         expect(req.url.queryParameters['nom'], 'paris');
         expect(req.url.queryParameters['boost'], 'population');
-        expect(req.url.queryParameters['fields'], 'nom');
+        expect(
+          req.url.queryParameters['fields'],
+          'nom,code,codesPostaux,population,codeDepartement,'
+          'codeRegion,codeEpci,centre',
+        );
         return http.Response(
           jsonEncode([
             {'nom': 'Paris'},
@@ -67,8 +72,7 @@ void main() {
       });
 
       final result = await repo.search('saint');
-      expect(result,
-          ['Châtellerault', 'Saint-Étienne', 'L\'Haÿ-les-Roses']);
+      expect(result, ['Châtellerault', 'Saint-Étienne', 'L\'Haÿ-les-Roses']);
     });
 
     test('dedupes repeated commune names case-insensitively', () async {
@@ -84,6 +88,43 @@ void main() {
       final result = await repo.search('paris');
       // Keep the FIRST occurrence verbatim (canonical casing from API).
       expect(result, ['Paris', 'Parigny']);
+    });
+
+    test('preserves same-name communes with distinct INSEE codes', () async {
+      final repo = repoWith((_) async => http.Response(
+            jsonEncode([
+              {
+                'nom': 'Saint-Denis',
+                'code': '93066',
+                'codesPostaux': ['93200'],
+                'population': 149077,
+                'codeDepartement': '93',
+                'codeRegion': '11',
+                'codeEpci': '200054781',
+                'centre': {
+                  'coordinates': [2.3657, 48.9378],
+                },
+              },
+              {
+                'nom': 'Saint-Denis',
+                'code': '97411',
+                'codesPostaux': ['97400'],
+                'population': 155634,
+                'codeDepartement': '974',
+              },
+            ]),
+            200,
+          ));
+
+      final result = await repo.searchCommunes('Saint-Denis');
+
+      expect(result, hasLength(2));
+      expect(result.map((item) => item.inseeCode), ['93066', '97411']);
+      expect(result.first.postalCodes, ['93200']);
+      expect(result.first.epciCode, '200054781');
+      expect(result.first.longitude, 2.3657);
+      expect(result.first.latitude, 48.9378);
+      expect(result.first.size.label, 'Grande ville');
     });
 
     test('skips entries that lack a usable "nom"', () async {
@@ -104,8 +145,7 @@ void main() {
   });
 
   group('search — empty / no-op queries', () {
-    test('returns empty list for empty string without hitting HTTP',
-        () async {
+    test('returns empty list for empty string without hitting HTTP', () async {
       var called = false;
       final repo = repoWith((_) async {
         called = true;
@@ -163,12 +203,11 @@ void main() {
     });
 
     test('returns empty list on SocketException (offline)', () async {
-      final repo = repoWith(
-          (_) async => throw const SocketException('No network'));
+      final repo =
+          repoWith((_) async => throw const SocketException('No network'));
       final result = await repo.search('paris');
       expect(result, isEmpty,
-          reason:
-              'silent fallback so onboarding never blocks when the user '
+          reason: 'silent fallback so onboarding never blocks when the user '
               'is offline');
     });
 
@@ -196,6 +235,146 @@ void main() {
       final repo = repoWith((_) async => http.Response('[]', 200));
       final result = await repo.searchOrThrow('');
       expect(result, isEmpty);
+    });
+  });
+
+  test('commune size thresholds are derived from official population', () {
+    expect(
+      const FrenchCommune(name: 'A', population: 1999).size,
+      FrenchCommuneSize.village,
+    );
+    expect(
+      const FrenchCommune(name: 'B', population: 2000).size,
+      FrenchCommuneSize.smallTown,
+    );
+    expect(
+      const FrenchCommune(name: 'C', population: 20000).size,
+      FrenchCommuneSize.city,
+    );
+    expect(
+      const FrenchCommune(name: 'D', population: 100000).size,
+      FrenchCommuneSize.largeCity,
+    );
+  });
+
+  test('resolveDetails enriches and caches the official EPCI name', () async {
+    var epciRequests = 0;
+    final repo = repoWith((request) async {
+      expect(request.url.path, '/epcis/200054781');
+      epciRequests++;
+      return http.Response.bytes(
+        utf8.encode(jsonEncode({
+          'nom': 'Métropole du Grand Paris',
+          'code': '200054781',
+        })),
+        200,
+      );
+    });
+    const commune = FrenchCommune(
+      name: 'Saint-Denis',
+      inseeCode: '93066',
+      epciCode: '200054781',
+    );
+
+    final first = await repo.resolveDetails(commune);
+    final second = await repo.resolveDetails(commune);
+
+    expect(first.epciName, 'Métropole du Grand Paris');
+    expect(second.epciName, 'Métropole du Grand Paris');
+    expect(epciRequests, 1);
+  });
+
+  group('resolveByName', () {
+    test('prefers exact match in preferred department', () async {
+      final repo = repoWith((_) async => http.Response(
+            jsonEncode([
+              {
+                'nom': 'Belfort',
+                'code': '90010',
+                'codeDepartement': '90',
+                'codeEpci': '200069052',
+                'population': 46000,
+              },
+              {
+                'nom': 'Belfort-du-Quercy',
+                'code': '46023',
+                'codeDepartement': '46',
+                'codeEpci': '244600532',
+                'population': 500,
+              },
+            ]),
+            200,
+          ));
+
+      final hit = await repo.resolveByName('Belfort', preferDepartment: '90');
+      expect(hit?.inseeCode, '90010');
+      expect(hit?.epciCode, '200069052');
+    });
+
+    test('returns null when API has no matches', () async {
+      final repo = repoWith((_) async => http.Response('[]', 200));
+      expect(await repo.resolveByName('Nowhere'), isNull);
+    });
+  });
+
+  group('communeNamesForEpci', () {
+    test('returns peer names and caches', () async {
+      var calls = 0;
+      final repo = repoWith((req) async {
+        expect(req.url.queryParameters['codeEpci'], '200069052');
+        calls++;
+        return http.Response(
+          jsonEncode([
+            {'nom': 'Belfort'},
+            {'nom': 'Petit-Croix'},
+          ]),
+          200,
+        );
+      });
+
+      final first = await repo.communeNamesForEpci('200069052');
+      final second = await repo.communeNamesForEpci('200069052');
+      expect(first, ['Belfort', 'Petit-Croix']);
+      expect(second, first);
+      expect(calls, 1);
+    });
+  });
+
+  group('communeNamesForDepartment', () {
+    test('Territoire de Belfort (90) is served from the bundle, no network',
+        () async {
+      var calls = 0;
+      final repo = repoWith((req) async {
+        calls++;
+        return http.Response('[]', 200);
+      });
+      final names = await repo.communeNamesForDepartment('90');
+      expect(names.length, 101);
+      expect(names, containsAll(['Belfort', 'Giromagny', 'Delle']));
+      expect(calls, 0);
+    });
+
+    test('returns peer names and caches', () async {
+      var calls = 0;
+      final repo = repoWith((req) async {
+        expect(req.url.path, '/departements/25/communes');
+        calls++;
+        return http.Response(
+          jsonEncode([
+            {'nom': 'Belfort'},
+            {'nom': 'Giromagny'},
+            {'nom': 'Petit-Croix'},
+          ]),
+          200,
+        );
+      });
+
+      // 25: not bundled in full, so the API is used (90 is bundled).
+      final first = await repo.communeNamesForDepartment('25');
+      final second = await repo.communeNamesForDepartment('25');
+      expect(first, ['Belfort', 'Giromagny', 'Petit-Croix']);
+      expect(second, first);
+      expect(calls, 1);
     });
   });
 }

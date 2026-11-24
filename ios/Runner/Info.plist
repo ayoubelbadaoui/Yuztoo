@@ -62,6 +62,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>Yuztoo utilise la caméra pour scanner les QR codes des commerces et pour prendre votre photo de profil ou le logo et la couverture de votre commerce.</string>
 	<key>NFCReaderUsageDescription</key>

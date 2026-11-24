@@ -10,7 +10,8 @@ import '../domain/repositories/auto_notification_repository.dart';
 import 'dto/auto_notification_dto.dart';
 
 /// Firestore: merchants/{merchantId}/auto_notifications/{id}
-class FirestoreAutoNotificationRepository implements AutoNotificationRepository {
+class FirestoreAutoNotificationRepository
+    implements AutoNotificationRepository {
   FirestoreAutoNotificationRepository(this._firestore);
 
   final FirebaseFirestore _firestore;
@@ -28,7 +29,8 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
   }) async {
     if (merchantId.isEmpty) {
       return const Left(
-        RappelsUnexpectedFailure(message: 'L\'identifiant du commerce est requis'),
+        RappelsUnexpectedFailure(
+            message: 'L\'identifiant du commerce est requis'),
       );
     }
     try {
@@ -85,9 +87,8 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
       return const Right(<ActiveNotification>[]);
     }
     try {
-      final snapshot = await _ref(merchantId)
-          .orderBy('created_at', descending: true)
-          .get();
+      final snapshot =
+          await _ref(merchantId).orderBy('created_at', descending: true).get();
 
       final list = snapshot.docs.mapSkippingInvalid(
         (d) => AutoNotificationDto.fromFirestore(d, merchantId).toDomain(),
@@ -125,7 +126,8 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
     if (notification.merchantId.isEmpty || notification.id.isEmpty) {
       return const Left(
         RappelsUnexpectedFailure(
-          message: 'Identifiant du commerce et identifiant de la notification requis',
+          message:
+              'Identifiant du commerce et identifiant de la notification requis',
         ),
       );
     }
@@ -176,7 +178,8 @@ class FirestoreAutoNotificationRepository implements AutoNotificationRepository 
     if (merchantId.isEmpty || notificationId.isEmpty) {
       return const Left(
         RappelsUnexpectedFailure(
-          message: 'Identifiant du commerce et identifiant de la notification requis',
+          message:
+              'Identifiant du commerce et identifiant de la notification requis',
         ),
       );
     }

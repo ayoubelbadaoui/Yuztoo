@@ -11,8 +11,9 @@ import '../../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../../merchant/domain/entities/merchant.dart';
 import '../../../merchant/presentation/merchant_ble_scan_screen.dart';
 import 'passage_validation_section.dart';
+import 'validation_auto_toggles.dart';
 
-/// **Vos clients → Validation** — queue, mode, gratification, BLE.
+/// **Vos clients → Validation** — auto toggles, queue, mode, gratification, BLE.
 class ClientValidationTab extends ConsumerWidget {
   const ClientValidationTab({
     super.key,
@@ -37,16 +38,50 @@ class ClientValidationTab extends ConsumerWidget {
         if (merchant == null) {
           return _message('Connectez-vous avec un compte commerçant.');
         }
+        // Auto toggles always live here (moved off Notifications). Loyalty
+        // content below still requires E-Fidélité.
         if (!merchant.loyaltyEnabled) {
-          return _loyaltyDisabled(context, merchant);
+          return _loyaltyOffBody(context, ref, merchant);
         }
         final config = merchant.loyaltyProgram ??
             LoyaltyProgramConfig.fallbackFromFlags(loyaltyEnabled: true);
         if (!config.programEnabled) {
-          return _loyaltyDisabled(context, merchant);
+          return _loyaltyOffBody(context, ref, merchant);
         }
         return _buildContent(context, ref, merchant, config);
       },
+    );
+  }
+
+  Widget _loyaltyOffBody(
+    BuildContext context,
+    WidgetRef ref,
+    Merchant merchant,
+  ) {
+    return YuztooPullRefresh(
+      onRefresh: () async {
+        ref.invalidate(merchant_providers.currentMerchantForOwnerProvider);
+        await ref
+            .read(merchant_providers.currentMerchantForOwnerProvider.future)
+            .catchError((_) => null);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: EdgeInsets.only(
+          top: 8,
+          bottom: MediaQuery.of(context).padding.bottom + 88,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const ValidationAutoToggles(),
+            const SizedBox(height: 24),
+            _loyaltyDisabled(context, merchant),
+          ],
+        ),
+      ),
     );
   }
 
@@ -129,6 +164,8 @@ class ClientValidationTab extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const ValidationAutoToggles(),
+            const SizedBox(height: 12),
             const PassageValidationSection(),
             const SizedBox(height: 12),
             _HubCard(

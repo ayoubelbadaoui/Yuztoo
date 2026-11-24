@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/infrastructure/firebase_providers.dart';
-import '../../auth/core/application/providers.dart' as auth_providers;
-import '../../auth/core/application/state/auth_state.dart';
+import '../../merchant/application/providers.dart'
+    show activeMerchantIdProvider;
 import '../../merchant/infrastructure/merchant_repository_provider.dart';
 import 'portable_user_data_export.dart';
 import 'use_cases/update_merchant_storefront_links.dart';
@@ -10,7 +10,10 @@ import 'use_cases/update_service_settings.dart';
 
 export '../../auth/core/application/providers.dart' show authControllerProvider;
 export '../../merchant/application/providers.dart'
-    show currentMerchantForOwnerProvider, updateGratificationConfigProvider;
+    show
+        activeMerchantIdProvider,
+        currentMerchantForOwnerProvider,
+        updateGratificationConfigProvider;
 
 final updateServiceSettingsProvider = Provider<UpdateServiceSettings>((ref) {
   final repo = ref.watch(merchantRepositoryProvider);
@@ -29,9 +32,7 @@ final portableUserDataExportProvider = Provider<PortableUserDataExport>((ref) {
   return PortableUserDataExport(firestore);
 });
 
-/// Current logged-in merchant's ID (for writes). Returns null when unauthenticated.
-final currentMerchantIdProvider = Provider<String?>((ref) {
-  final authState = ref.watch(auth_providers.authStateProvider);
-  if (authState is! Authenticated) return null;
-  return authState.user.id;
-});
+/// Active store id (for writes). Null while loading or when no store is linked.
+final currentMerchantIdProvider = Provider<String?>(
+  (ref) => ref.watch(activeMerchantIdProvider).valueOrNull,
+);

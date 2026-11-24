@@ -26,6 +26,11 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
         body: Column(
           children: [
             _buildHeader(notificationsAsync),
+            // Permanent "Actu YuzToo" slot, driven from the Firebase console.
+            // Pinned here rather than inside the list so it survives the
+            // empty / loading / error branches and stays visible on scroll.
+            if (_activeTab == 'alertes')
+              YuztooNewsBanner(onMerchantTap: widget.onMerchantTap),
             Expanded(
               child: YuztooPullRefresh(
                 onRefresh: _onPullRefresh,
@@ -163,6 +168,10 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
 
   Widget _buildCityPromosTab(BuildContext context) {
     final promosAsync = ref.watch(clientCityPromotionsProvider);
+    final cityMerchantsAsync = ref.watch(discoveryCityMerchantsProvider);
+    final merchantsById = _merchantsById(
+      cityMerchantsAsync.valueOrNull ?? const <Merchant>[],
+    );
     return promosAsync.when(
       loading: () => yuztooRefreshableEmpty(_buildShimmer()),
       error: (_, __) => yuztooRefreshableEmpty(
@@ -173,21 +182,36 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
               'Les offres actives des commerces de votre ville apparaîtront ici.',
         ),
       ),
-      data: (promos) => promos.isEmpty
-          ? yuztooRefreshableEmpty(
-              _buildPromoEmpty(
-                context,
-                title: 'Aucune promotion dans votre ville',
-                subtitle:
-                    'Les offres actives des commerces de votre ville apparaîtront ici.',
-              ),
-            )
-          : _buildPromoList(context, promos),
+      data: (promos) {
+        if (promos.isEmpty) {
+          return yuztooRefreshableEmpty(
+            _buildPromoEmpty(
+              context,
+              title: 'Aucune promotion dans votre ville',
+              subtitle:
+                  'Les offres actives des commerces de votre ville apparaîtront ici.',
+            ),
+          );
+        }
+        // Avoid first-frame cards without commerce names while merchants load.
+        if (cityMerchantsAsync.isLoading && merchantsById.isEmpty) {
+          return yuztooRefreshableEmpty(_buildShimmer());
+        }
+        return _buildGroupedPromoList(
+          context,
+          promos,
+          merchantsById: merchantsById,
+        );
+      },
     );
   }
 
   Widget _buildPromosTab(BuildContext context) {
     final promosAsync = ref.watch(clientHomePromotionsProvider);
+    final homeMerchantsAsync = ref.watch(clientHomeMerchantsProvider);
+    final merchantsById = _merchantsById(
+      homeMerchantsAsync.valueOrNull ?? const <Merchant>[],
+    );
     return promosAsync.when(
       loading: () => yuztooRefreshableEmpty(_buildShimmer()),
       error: (_, __) => yuztooRefreshableEmpty(
@@ -198,47 +222,166 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
               'Les promotions des commerces que vous suivez apparaîtront ici.',
         ),
       ),
-      data: (promos) => promos.isEmpty
-          ? yuztooRefreshableEmpty(
-              _buildPromoEmpty(
-                context,
-                title: 'Aucune promotion active',
-                subtitle:
-                    'Les promotions des commerces que vous suivez apparaîtront ici.',
-              ),
-            )
-          : _buildPromoList(context, promos),
+      data: (promos) {
+        if (promos.isEmpty) {
+          return yuztooRefreshableEmpty(
+            _buildPromoEmpty(
+              context,
+              title: 'Aucune promotion active',
+              subtitle:
+                  'Les promotions des commerces que vous suivez apparaîtront ici.',
+            ),
+          );
+        }
+        if (homeMerchantsAsync.isLoading && merchantsById.isEmpty) {
+          return yuztooRefreshableEmpty(_buildShimmer());
+        }
+        return _buildGroupedPromoList(
+          context,
+          promos,
+          merchantsById: merchantsById,
+        );
+      },
     );
   }
 
-  Widget _buildPromoList(BuildContext context, List<Promotion> promos) {
-    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 88;
-    return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(
-        parent: BouncingScrollPhysics(),
-      ),
-      padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding),
-      itemCount: promos.length,
-      itemBuilder: (context, index) {
-        final promo = promos[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _PromoCard(
-            promo: promo,
-            onTap: () {
-              ref.read(recordPromoViewsProvider).call(
-                merchantId: promo.merchantId,
-                promotionIds: [promo.id],
-              );
-              if (widget.onPromotionTap != null) {
-                widget.onPromotionTap!(promo.merchantId, promo.id);
-              } else {
-                widget.onMerchantTap?.call(promo.merchantId);
-              }
-            },
+  Map<String, Merchant> _merchantsById(List<Merchant> merchants) {
+    final map = <String, Merchant>{};
+    for (final m in merchants) {
+      if (m.id.isEmpty) continue;
+      map[m.id] = m;
+    }
+    return map;
+  }
+
+  Widget _buildPromoSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: TextField(
+        controller: _promoSearchController,
+        onChanged: _onPromoSearchChanged,
+        style: GoogleFonts.outfit(
+          fontSize: 14,
+          color: MerchantColors.textWhite,
+        ),
+        cursorColor: MerchantColors.gold,
+        decoration: InputDecoration(
+          hintText: 'Boulangerie, taxi, titre…',
+          hintStyle: GoogleFonts.outfit(
+            fontSize: 14,
+            color: MerchantColors.textLightGrey.withValues(alpha: 0.7),
           ),
-        );
-      },
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: MerchantColors.gold.withValues(alpha: 0.8),
+            size: 22,
+          ),
+          suffixIcon: _promoSearchQuery.trim().isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Effacer',
+                  onPressed: () {
+                    _promoSearchController.clear();
+                    _onPromoSearchChanged('');
+                  },
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: MerchantColors.textLightGrey.withValues(alpha: 0.8),
+                    size: 20,
+                  ),
+                ),
+          filled: true,
+          fillColor: MerchantColors.bgHeader,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: MerchantColors.gold
+                  .withValues(alpha: MerchantColors.goldBorderStronger),
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: MerchantColors.gold
+                  .withValues(alpha: MerchantColors.goldBorderStronger),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: MerchantColors.gold.withValues(alpha: 0.7),
+              width: 1.2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupedPromoList(
+    BuildContext context,
+    List<Promotion> promos, {
+    required Map<String, Merchant> merchantsById,
+  }) {
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom + 88;
+    final groups = filterPromotionEnseigneGroups(
+      groups: groupPromotionsByEnseigne(
+        promotions: promos,
+        merchantsById: merchantsById,
+      ),
+      merchantsById: merchantsById,
+      query: _promoSearchQuery,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildPromoSearchBar(),
+        Expanded(
+          child: groups.isEmpty
+              ? yuztooRefreshableEmpty(
+                  _buildPromoEmpty(
+                    context,
+                    title: 'Aucun résultat',
+                    subtitle:
+                        'Aucune promotion ne correspond à votre recherche.',
+                  ),
+                )
+              : ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
+                  itemCount: groups.length,
+                  itemBuilder: (context, index) {
+                    final group = groups[index];
+                    return Padding(
+                      padding: EdgeInsets.only(top: index == 0 ? 0 : 16),
+                      child: _EnseignePromoSection(
+                        group: group,
+                        merchantsById: merchantsById,
+                        onHeaderTap: () {
+                          widget.onMerchantTap?.call(group.primaryMerchantId);
+                        },
+                        onPromotionTap: (promo) {
+                          ref.read(recordPromoViewsProvider).call(
+                            merchantId: promo.merchantId,
+                            promotionIds: [promo.id],
+                          );
+                          if (widget.onPromotionTap != null) {
+                            widget.onPromotionTap!(promo.merchantId, promo.id);
+                          } else {
+                            widget.onMerchantTap?.call(promo.merchantId);
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -803,12 +946,161 @@ extension _NotificationsScreenUi on _NotificationsScreenState {
   }
 }
 
+// ── Enseigne section (grouped promotions) ─────────────────────────────────────
+
+class _EnseignePromoSection extends StatelessWidget {
+  const _EnseignePromoSection({
+    required this.group,
+    required this.merchantsById,
+    required this.onHeaderTap,
+    required this.onPromotionTap,
+  });
+
+  final PromotionEnseigneGroup group;
+  final Map<String, Merchant> merchantsById;
+  final VoidCallback onHeaderTap;
+  final void Function(Promotion promo) onPromotionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onHeaderTap,
+            borderRadius: BorderRadius.circular(12),
+            splashColor: MerchantColors.gold.withValues(alpha: 0.06),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: MerchantColors.gold.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: MerchantColors.gold.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: group.logoUrl != null && group.logoUrl!.isNotEmpty
+                        ? Image.network(
+                            group.logoUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.storefront_rounded,
+                              size: 18,
+                              color: MerchantColors.gold.withValues(alpha: 0.9),
+                            ),
+                          )
+                        : Icon(
+                            Icons.storefront_rounded,
+                            size: 18,
+                            color: MerchantColors.gold.withValues(alpha: 0.9),
+                          ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          group.title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: MerchantColors.textWhite,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (group.subtitle != null &&
+                            group.subtitle!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            group.subtitle!,
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              color: MerchantColors.textLightGrey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: MerchantColors.gold.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${group.promoCount}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: MerchantColors.gold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: MerchantColors.textLightGrey.withValues(alpha: 0.8),
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...group.promotions.map((promo) {
+          final merchant = merchantsById[promo.merchantId];
+          final merchantName = enseigneTitleForMerchant(
+            merchant,
+            promo.merchantId,
+          );
+          // For multi-PDV groups, prefer storeLabel under the promo when set.
+          final storeLabel = merchant?.storeLabel?.trim() ?? '';
+          final nameLine = storeLabel.isNotEmpty &&
+                  group.merchantIds.length > 1
+              ? storeLabel
+              : merchantName;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _PromoCard(
+              promo: promo,
+              merchantName: nameLine,
+              onTap: () => onPromotionTap(promo),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
 // ── Promo card (Promotions tab) ───────────────────────────────────────────────
 
 class _PromoCard extends StatelessWidget {
-  const _PromoCard({required this.promo, required this.onTap});
+  const _PromoCard({
+    required this.promo,
+    required this.merchantName,
+    required this.onTap,
+  });
 
   final Promotion promo;
+
+  /// Public commerce name — same gold line as alertes cards.
+  final String merchantName;
   final VoidCallback onTap;
 
   @override
@@ -816,6 +1108,7 @@ class _PromoCard extends StatelessWidget {
     final now = DateTime.now();
     final daysLeft = promo.dateTo.difference(now).inDays + 1;
     final validText = daysLeft == 1 ? 'Expire demain' : 'Valide $daysLeft j';
+    final name = merchantName.trim();
 
     return Container(
       decoration: BoxDecoration(
@@ -868,17 +1161,33 @@ class _PromoCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        promo.subtitle,
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          color: MerchantColors.textLightGrey,
-                          height: 1.3,
+                      if (name.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          name,
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: MerchantColors.gold.withValues(alpha: 0.8),
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      ],
+                      if (promo.subtitle.trim().isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          promo.subtitle,
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: MerchantColors.textLightGrey,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(

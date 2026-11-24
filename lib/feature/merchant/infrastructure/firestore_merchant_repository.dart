@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/infrastructure/tolerant_mapping.dart';
 
@@ -5,13 +6,16 @@ import '../domain/entities/merchant_storefront_link.dart';
 import '../domain/entities/client_gratification_config.dart';
 import '../domain/entities/loyalty_program_config.dart';
 import '../domain/entities/merchant.dart';
+import '../domain/entities/mobility_accessibility.dart';
 import '../domain/merchant_failure.dart';
 import '../domain/repositories/merchant_repository.dart';
 import '../../../../core/domain/core/either.dart';
 import '../../../../core/domain/core/result.dart';
+import '../../../../core/domain/entities/french_commune.dart';
 import '../../../../core/infrastructure/firestore_user_rules_patch.dart';
 import '../../../../core/infrastructure/logger_service.dart';
 import '../../../../core/utils/city_input.dart';
+import '../../../core/utils/city_match.dart';
 import 'dto/merchant_dto.dart';
 import 'loyalty_program_firestore_mapper.dart';
 import 'merchant_city_resolution.dart';

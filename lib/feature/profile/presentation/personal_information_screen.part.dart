@@ -572,17 +572,13 @@ extension _PersonalInformationUi on _PersonalInformationScreenState {
   }
 
   Future<void> _pickCity(BuildContext context) async {
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: MerchantColors.navyCard,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _CityPickerSheet(current: _selectedCity),
+    final commune = await showCitySearchSheet(
+      context,
+      title: 'Choisir une ville',
+      selectedCity: _selectedCity,
     );
-    if (picked != null && mounted) {
-      _setCity(picked);
+    if (commune != null && mounted) {
+      _setCity(commune.name);
     }
   }
 
@@ -964,193 +960,32 @@ class _CitiesWidget extends ConsumerStatefulWidget {
 }
 
 class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
-  void _openAddCityPicker(
-      BuildContext context, String uid, List<String> current) {
-    final available = frenchCities
-        .where((c) => !current.any((x) => x.toLowerCase() == c.toLowerCase()))
-        .toList();
+  Future<void> _openAddCityPicker(
+      BuildContext context, String uid, List<String> current) async {
+    final commune = await showCitySearchSheet(
+      context,
+      title: 'Ajouter une ville connectée',
+      excludedCities: current,
+    );
+    if (commune == null || !context.mounted) return;
 
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: MerchantColors.navyCard,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        // `filtered` lives in the outer closure so that StatefulBuilder
-        // reads the updated reference on each setState call.
-        var filtered = available;
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.3,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (_, scrollController) {
-            return StatefulBuilder(
-              builder: (ctx, setSheetState) {
-                return Column(
-                  children: [
-                    // ── Drag handle ─────────────────────────────────────────
-                    Center(
-                      child: Container(
-                        margin: const EdgeInsets.only(top: 12, bottom: 4),
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: MerchantColors.gold.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                      child: Text(
-                        'Ajouter une ville connectée',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    // ── Search field ─────────────────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      child: TextField(
-                        autofocus: true,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher une ville...',
-                          hintStyle: GoogleFonts.outfit(
-                            color: MerchantColors.textGrey,
-                            fontSize: 14,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: MerchantColors.textGrey,
-                            size: 20,
-                          ),
-                          filled: true,
-                          fillColor: MerchantColors.inputFill,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        onChanged: (query) {
-                          setSheetState(() {
-                            filtered = query.trim().isEmpty
-                                ? available
-                                : available
-                                    .where((c) => c
-                                        .toLowerCase()
-                                        .contains(query.toLowerCase().trim()))
-                                    .toList();
-                          });
-                        },
-                      ),
-                    ),
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: MerchantColors.gold.withValues(alpha: 0.15),
-                    ),
-                    // ── City list ─────────────────────────────────────────────
-                    if (filtered.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: Text(
-                          'Aucune ville trouvée',
-                          style: GoogleFonts.outfit(
-                            color: MerchantColors.textGrey,
-                            fontSize: 14,
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.separated(
-                          controller: scrollController,
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) => Divider(
-                            height: 1,
-                            thickness: 1,
-                            indent: 20,
-                            endIndent: 20,
-                            color: MerchantColors.gold.withValues(alpha: 0.08),
-                          ),
-                          itemBuilder: (_, i) {
-                            final city = filtered[i];
-                            return GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () async {
-                                Navigator.of(ctx).pop();
-                                final newList = [...current, city];
-                                final result = await ref
-                                    .read(setConnectedCitiesProvider)
-                                    .call(uid: uid, cities: newList);
-                                if (!context.mounted) return;
-                                result.fold(
-                                  (f) => ScaffoldMessenger.of(context)
-                                      .showSnackBar(
-                                    SnackBar(content: Text(f.message)),
-                                  ),
-                                  (_) =>
-                                      unawaited(refreshUserProfileCacheWidget(
-                                    ref,
-                                    uid: uid,
-                                    cityChanged: true,
-                                  )),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 14),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.location_on_outlined,
-                                      size: 18,
-                                      color: MerchantColors.gold
-                                          .withValues(alpha: 0.7),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      city,
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: MerchantColors.textWhite,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Icon(
-                                      Icons.add_circle_outline_rounded,
-                                      size: 18,
-                                      color: MerchantColors.gold
-                                          .withValues(alpha: 0.5),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                );
-              },
-            );
-          },
+    final result = await ref.read(setConnectedCitiesProvider).call(
+          uid: uid,
+          cities: [...current, commune.name],
+          citiesMetadata: {commune.name: commune},
         );
+    if (!context.mounted) return;
+    result.fold(
+      (f) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(f.message)),
+      ),
+      (_) {
+        ref.invalidate(connectedCitiesMetadataProvider(uid));
+        unawaited(refreshUserProfileCacheWidget(
+          ref,
+          uid: uid,
+          cityChanged: true,
+        ));
       },
     );
   }
@@ -1241,136 +1076,6 @@ class _CitiesWidgetState extends ConsumerState<_CitiesWidget> {
               ),
               child: const Icon(Icons.close_rounded,
                   color: MerchantColors.bgHeader, size: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Searchable city picker sheet — returns the selected city name via Navigator.pop.
-class _CityPickerSheet extends StatefulWidget {
-  const _CityPickerSheet({this.current});
-  final String? current;
-
-  @override
-  State<_CityPickerSheet> createState() => _CityPickerSheetState();
-}
-
-class _CityPickerSheetState extends State<_CityPickerSheet> {
-  var _filtered = frenchCities;
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.3,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (_, scrollController) => Column(
-        children: [
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 4),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: MerchantColors.gold.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-            child: Text(
-              'Choisir une ville',
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: TextField(
-              autofocus: true,
-              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Rechercher une ville...',
-                hintStyle: GoogleFonts.outfit(
-                    color: MerchantColors.textGrey, fontSize: 14),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: MerchantColors.textGrey, size: 20),
-                filled: true,
-                fillColor: MerchantColors.inputFill,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              onChanged: (q) => setState(() {
-                _filtered = q.trim().isEmpty
-                    ? frenchCities
-                    : frenchCities
-                        .where((c) =>
-                            c.toLowerCase().contains(q.toLowerCase().trim()))
-                        .toList();
-              }),
-            ),
-          ),
-          Divider(
-            height: 1,
-            color: MerchantColors.gold.withValues(alpha: 0.15),
-          ),
-          Flexible(
-            child: ListView.separated(
-              controller: scrollController,
-              itemCount: _filtered.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                indent: 20,
-                endIndent: 20,
-                color: MerchantColors.gold.withValues(alpha: 0.08),
-              ),
-              itemBuilder: (_, i) {
-                final city = _filtered[i];
-                final isSelected = city == widget.current;
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.of(context).pop(city),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 14),
-                    child: Row(
-                      children: [
-                        Icon(Icons.location_on_outlined,
-                            size: 18,
-                            color: MerchantColors.gold.withValues(alpha: 0.7)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            city,
-                            style: GoogleFonts.outfit(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: isSelected
-                                  ? MerchantColors.gold
-                                  : MerchantColors.textWhite,
-                            ),
-                          ),
-                        ),
-                        if (isSelected)
-                          const Icon(Icons.check_rounded,
-                              color: MerchantColors.gold, size: 18),
-                      ],
-                    ),
-                  ),
-                );
-              },
             ),
           ),
         ],

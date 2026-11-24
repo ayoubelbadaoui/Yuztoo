@@ -77,8 +77,8 @@ class AudienceSection extends StatelessWidget {
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: isOn
                           ? MerchantColors.gold.withValues(alpha: 0.15)
@@ -104,12 +104,9 @@ class AudienceSection extends StatelessWidget {
                           s.label,
                           style: GoogleFonts.outfit(
                             fontSize: 12,
-                            fontWeight: isOn
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: isOn
-                                ? MerchantColors.gold
-                                : Colors.white,
+                            fontWeight:
+                                isOn ? FontWeight.w600 : FontWeight.w400,
+                            color: isOn ? MerchantColors.gold : Colors.white,
                           ),
                         ),
                       ],

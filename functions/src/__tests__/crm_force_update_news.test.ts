@@ -65,6 +65,7 @@ import {
   clientDisplayName,
   maskEmail,
   maskPhone,
+  nameCandidates,
   phoneCandidates,
 } from "../admin/crm_yuztoo_news_lookup";
 
@@ -222,6 +223,15 @@ describe("Actu test-account lookup helpers", () => {
     ]);
     expect(phoneCandidates("+212 6 12 34 56 78")).toEqual(["+212612345678"]);
     expect(phoneCandidates("hello")).toEqual([]);
+  });
+
+  it("expands a typed name into exact-match variants", () => {
+    const n = nameCandidates("pascal guyomar");
+    expect(n.first).toEqual(["pascal", "Pascal", "PASCAL"]);
+    expect(n.full).toEqual(["pascal guyomar", "Pascal Guyomar"]);
+    expect(n.last).toBe("guyomar");
+    expect(nameCandidates("  ").first).toEqual([]);
+    expect(nameCandidates("Sara").last).toBeNull();
   });
 
   it("builds a display name from mixed fields", () => {

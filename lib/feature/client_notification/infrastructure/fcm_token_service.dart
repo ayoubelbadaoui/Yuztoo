@@ -7,7 +7,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/infrastructure/logger_service.dart';
-import '../../../../core/infrastructure/permission_request_queue.dart';
 
 /// Manages FCM token registration for the current device.
 ///
@@ -35,22 +34,11 @@ class FcmTokenService {
     try {
       final messaging = FirebaseMessaging.instance;
 
-      // A failed prompt must not block token registration: the token is
-      // still valid and permission may already have been granted.
-      try {
-        await PermissionRequestQueue.run(
-          () => messaging.requestPermission(
-            alert: true,
-            badge: true,
-            sound: true,
-          ),
-        );
-      } catch (e) {
-        LoggerService.logInfo(
-          'FCM requestPermission failed — continuing with token fetch',
-          context: {'error': e.toString()},
-        );
-      }
+      // No permission prompt here: it fired on every login / routing pass,
+      // i.e. over signup and onboarding with no context. Permission is asked
+      // through NotificationPermissionPrompt (explanation first); the token
+      // is registered regardless (silent pushes need it, and it starts
+      // delivering visible ones as soon as the user allows them).
 
       // NOTE: setForegroundNotificationPresentationOptions is intentionally
       // NOT called here — main_shell_state._requestRuntimePermissions() already

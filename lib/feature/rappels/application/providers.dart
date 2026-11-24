@@ -10,10 +10,12 @@ import '../../merchant/application/providers.dart' as merchant_providers;
 import '../../merchant/domain/entities/loyalty_program_config.dart';
 import '../../promotions/application/providers.dart' as promo_providers;
 import '../domain/entities/active_notification.dart';
+import '../domain/entities/merchant_like_alert.dart';
 import '../domain/entities/pending_client_row.dart';
 import '../domain/entities/rappel_alert.dart';
 import '../domain/entities/sent_notification.dart';
 import '../infrastructure/auto_notification_repository_provider.dart';
+import '../infrastructure/merchant_like_alerts_repository_provider.dart';
 import '../infrastructure/rappels_pending_client_repository_provider.dart';
 import '../infrastructure/sent_notification_repository_provider.dart';
 import 'use_cases/acknowledge_new_client.dart';
@@ -21,12 +23,14 @@ import 'use_cases/create_auto_notification.dart';
 import 'use_cases/delete_auto_notification.dart';
 import 'use_cases/list_auto_notifications.dart';
 import 'use_cases/list_sent_notifications.dart';
+import 'use_cases/mark_like_alerts_seen.dart';
 import 'use_cases/send_merchant_notification.dart';
 import 'use_cases/update_auto_notification.dart';
 
 // ─── Quick-send notifications ─────────────────────────────────────────────────
 
-final sendMerchantNotificationProvider = Provider<SendMerchantNotification>((ref) {
+final sendMerchantNotificationProvider =
+    Provider<SendMerchantNotification>((ref) {
   return SendMerchantNotification(
     followedRepo: ref.watch(followedMerchantsRepositoryProvider),
     notificationRepo: ref.watch(clientNotificationRepositoryProvider),
@@ -91,7 +95,8 @@ final deleteAutoNotificationProvider = Provider<DeleteAutoNotification>((ref) {
 
 /// Auto-notifications for the current merchant (from storefront). Invalidate to refresh.
 final autoNotificationsProvider =
-    FutureProvider.family<List<ActiveNotification>, String>((ref, merchantId) async {
+    FutureProvider.family<List<ActiveNotification>, String>(
+        (ref, merchantId) async {
   final listUseCase = ref.read(listAutoNotificationsProvider);
   final result = await listUseCase.call(merchantId);
   return result.fold((_) => <ActiveNotification>[], (list) => list);
@@ -116,10 +121,29 @@ final pendingClientsForMerchantProvider =
   },
 );
 
+// ─── Like alerts (Aperçu) ─────────────────────────────────────────────────────
+
+final markLikeAlertsSeenProvider = Provider<MarkLikeAlertsSeen>((ref) {
+  final repo = ref.watch(merchantLikeAlertsRepoInterfaceProvider);
+  return MarkLikeAlertsSeen(repo);
+});
+
+/// Live unseen promo + actualité likes for [merchantId].
+final unseenLikeAlertsProvider =
+    StreamProvider.autoDispose.family<List<MerchantLikeAlert>, String>(
+  (ref, merchantId) {
+    if (merchantId.isEmpty) {
+      return Stream<List<MerchantLikeAlert>>.value(<MerchantLikeAlert>[]);
+    }
+    final repo = ref.watch(merchantLikeAlertsRepoInterfaceProvider);
+    return repo.watchUnseenLikeAlerts(merchantId);
+  },
+);
+
 // ─── Alertes ──────────────────────────────────────────────────────────────────
 
-/// Computes live merchant alerts from promotions, loyalty pending, and
-/// loyalty reward-ready clients. Returns at most one alert per [RappelAlertType].
+/// Computes live merchant alerts from promotions, loyalty, and unseen likes.
+/// Returns at most one alert per [RappelAlertType].
 final rappelsAlertsProvider =
     FutureProvider.autoDispose.family<List<RappelAlert>, String>(
   (ref, merchantId) async {
@@ -152,8 +176,8 @@ final rappelsAlertsProvider =
     );
 
     // ── 2. Clients eligible for their loyalty reward ───────────────────────
-    final merchantAsync =
-        await ref.read(merchant_providers.currentMerchantForOwnerProvider.future);
+    final merchantAsync = await ref
+        .read(merchant_providers.currentMerchantForOwnerProvider.future);
     final loyaltyConfig = merchantAsync?.loyaltyProgram ??
         LoyaltyProgramConfig.fallbackFromFlags(
           loyaltyEnabled: merchantAsync?.loyaltyEnabled ?? false,
@@ -177,6 +201,16 @@ final rappelsAlertsProvider =
           count: rewardReady.length,
         ));
       }
+    }
+
+    // ── 3. Unseen promo / actualité likes ─────────────────────────────────
+    final likesAsync = ref.watch(unseenLikeAlertsProvider(merchantId));
+    final likes = likesAsync.valueOrNull ?? const <MerchantLikeAlert>[];
+    if (likes.isNotEmpty) {
+      alerts.add(RappelAlert(
+        type: RappelAlertType.newLikes,
+        count: likes.length,
+      ));
     }
 
     return alerts;

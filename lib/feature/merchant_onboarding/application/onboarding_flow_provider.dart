@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/domain/entities/french_commune.dart';
 import '../../../core/infrastructure/logger_service.dart';
+import '../../../core/utils/city_match.dart';
 
 /// Collected data during merchant onboarding (before signup).
 /// Used to prefill merchant profile form after signup.
@@ -11,6 +13,7 @@ class MerchantOnboardingData {
     this.ownerDateOfBirth,
     this.fullName,
     this.city,
+    this.commune,
     this.imagePath,
     this.bannerImagePath,
     this.address,
@@ -32,6 +35,7 @@ class MerchantOnboardingData {
 
   final String? fullName;
   final String? city;
+  final FrenchCommune? commune;
   final String? imagePath;
   final String? bannerImagePath;
   final String? address;
@@ -64,6 +68,8 @@ class MerchantOnboardingData {
     DateTime? ownerDateOfBirth,
     String? fullName,
     String? city,
+    FrenchCommune? commune,
+    bool clearCommune = false,
     String? imagePath,
     String? bannerImagePath,
     String? address,
@@ -73,6 +79,7 @@ class MerchantOnboardingData {
     String? categoryId,
     String? categoryTitle,
     String? subcategoryTitle,
+    bool clearSubcategory = false,
     String? description,
     Map<String, dynamic>? hoursJson,
     String? merchantType,
@@ -83,6 +90,7 @@ class MerchantOnboardingData {
       ownerDateOfBirth: ownerDateOfBirth ?? this.ownerDateOfBirth,
       fullName: fullName ?? this.fullName,
       city: city ?? this.city,
+      commune: clearCommune ? null : (commune ?? this.commune),
       imagePath: imagePath ?? this.imagePath,
       bannerImagePath: bannerImagePath ?? this.bannerImagePath,
       address: address ?? this.address,
@@ -91,7 +99,8 @@ class MerchantOnboardingData {
       websiteUrl: websiteUrl ?? this.websiteUrl,
       categoryId: categoryId ?? this.categoryId,
       categoryTitle: categoryTitle ?? this.categoryTitle,
-      subcategoryTitle: subcategoryTitle ?? this.subcategoryTitle,
+      subcategoryTitle:
+          clearSubcategory ? null : (subcategoryTitle ?? this.subcategoryTitle),
       description: description ?? this.description,
       hoursJson: hoursJson ?? this.hoursJson,
       merchantType: merchantType ?? this.merchantType,
@@ -102,8 +111,8 @@ class MerchantOnboardingData {
 class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
   OnboardingFlowNotifier() : super(const MerchantOnboardingData());
 
-  void setOwnerFirstName(String value) => state =
-      state.copyWith(ownerFirstName: value.trim().isEmpty ? null : value.trim());
+  void setOwnerFirstName(String value) => state = state.copyWith(
+      ownerFirstName: value.trim().isEmpty ? null : value.trim());
 
   void setOwnerLastName(String value) => state =
       state.copyWith(ownerLastName: value.trim().isEmpty ? null : value.trim());
@@ -111,19 +120,28 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
   void setOwnerDateOfBirth(DateTime? date) =>
       state = state.copyWith(ownerDateOfBirth: date);
 
-  void setFullName(String value) =>
-      state = state.copyWith(fullName: value.trim().isEmpty ? null : value.trim());
+  void setFullName(String value) => state =
+      state.copyWith(fullName: value.trim().isEmpty ? null : value.trim());
 
-  void setCity(String value) =>
-      state = state.copyWith(city: value.trim().isEmpty ? null : value.trim());
+  void setCity(String value) => state = state.copyWith(
+        city: value.trim().isEmpty ? null : value.trim(),
+        clearCommune: true,
+      );
+
+  /// Details arrive after the city sheet closes: ignored when the merchant
+  /// has picked another city meanwhile.
+  void setCommune(FrenchCommune commune) {
+    if (CityMatch.key(state.city ?? '') != CityMatch.key(commune.name)) return;
+    state = state.copyWith(city: commune.name, commune: commune);
+  }
 
   void setImagePath(String? path) => state = state.copyWith(imagePath: path);
 
   void setBannerImagePath(String? path) =>
       state = state.copyWith(bannerImagePath: path);
 
-  void setAddress(String value) =>
-      state = state.copyWith(address: value.trim().isEmpty ? null : value.trim());
+  void setAddress(String value) => state =
+      state.copyWith(address: value.trim().isEmpty ? null : value.trim());
 
   void setPhoneNumber(String value) => state =
       state.copyWith(phoneNumber: value.trim().isEmpty ? null : value.trim());
@@ -152,7 +170,13 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
         'previousCategoryTitle': state.categoryTitle,
       },
     );
-    state = state.copyWith(categoryId: id, categoryTitle: title);
+    // A new category invalidates the previous specialty (Food → Boulangerie,
+    // then Retail must not save « Boulangerie »).
+    state = state.copyWith(
+      categoryId: id,
+      categoryTitle: title,
+      clearSubcategory: id != state.categoryId,
+    );
   }
 
   void setSubcategoryTitle(String title) {
@@ -169,8 +193,8 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
     state = state.copyWith(subcategoryTitle: title);
   }
 
-  void setDescription(String? value) =>
-      state = state.copyWith(description: value?.trim().isEmpty == true ? null : value?.trim());
+  void setDescription(String? value) => state = state.copyWith(
+      description: value?.trim().isEmpty == true ? null : value?.trim());
 
   void setHours(Map<String, dynamic>? hours) =>
       state = state.copyWith(hoursJson: hours);
@@ -191,6 +215,9 @@ class OnboardingFlowNotifier extends StateNotifier<MerchantOnboardingData> {
   }
 
   void reset() => state = const MerchantOnboardingData();
+
+  /// Resume a saved wizard (see MerchantOnboardingDraftStore).
+  void restore(MerchantOnboardingData data) => state = data;
 }
 
 final onboardingFlowProvider =

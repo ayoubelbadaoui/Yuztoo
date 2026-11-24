@@ -24,102 +24,90 @@ extension _RappelsScreenUi on _RappelsScreenState {
               child: YuztooPullRefresh(
                 onRefresh: _onPullRefresh,
                 child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).padding.bottom +
-                      MediaQuery.of(context).viewInsets.bottom +
-                      80,
-                ),
-                child: Column(
-                  children: [
-                    // ── Quick-send notification composer ────────────────────
-                    merchantAsync.when(
-                      data: (m) {
-                        if (m == null) return const SizedBox.shrink();
-                        final historyAsync = ref.watch(
-                          rappels_providers.sentNotificationsProvider(m.id),
-                        );
-                        return QuickSendSection(
-                          merchantId: m.id,
-                          merchantName: m.name,
-                          createdByUid: m.ownerUid,
-                          onSend: _onQuickSend,
-                          history: historyAsync.valueOrNull ?? [],
-                          historyLoading: historyAsync.isLoading,
-                          quotaLabel: m.weeklyQuotaLabel,
-                          quotaExceeded: !m.canSendNotification,
-                        );
-                      },
-                      // Loading: visible placeholder instead of `SizedBox.shrink()`
-                      // so the merchant doesn't see a flash of empty space while
-                      // their profile resolves. Same intent for error.
-                      loading: () => const _RappelsSectionPlaceholder(height: 220),
-                      error: (_, __) =>
-                          const _RappelsSectionPlaceholder(height: 220, isError: true),
-                    ),
-                    // ── Récompenses à remettre (bons disponibles) ───────────
-                    merchantAsync.when(
-                      data: (Merchant? m) {
-                        if (m == null) return const SizedBox.shrink();
-                        return RewardRedemptionSection(merchant: m);
-                      },
-                      loading: () => const _RappelsSectionPlaceholder(height: 120),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                    // Nouveaux clients section — shown when auto-client-validation is OFF.
-                    storefrontAsync.when(
-                      data: (storefront) => PendingClientsSection(
-                        merchantId: storefront?.id ?? '',
-                        isAutoValidation:
-                            storefront?.rappelsAutoClientValidation ?? true,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom +
+                        MediaQuery.of(context).viewInsets.bottom +
+                        80,
+                  ),
+                  child: Column(
+                    children: [
+                      // ── Quick-send notification composer ────────────────────
+                      merchantAsync.when(
+                        data: (m) {
+                          if (m == null) return const SizedBox.shrink();
+                          final historyAsync = ref.watch(
+                            rappels_providers.sentNotificationsProvider(m.id),
+                          );
+                          return QuickSendSection(
+                            merchantId: m.id,
+                            merchantName: m.name,
+                            createdByUid: m.ownerUid,
+                            onSend: _onQuickSend,
+                            history: historyAsync.valueOrNull ?? [],
+                            historyLoading: historyAsync.isLoading,
+                            quotaLabel: m.weeklyQuotaLabel,
+                            quotaExceeded: !m.canSendNotification,
+                            guideKeys: _quickKeys,
+                          );
+                        },
+                        // Loading: visible placeholder instead of `SizedBox.shrink()`
+                        // so the merchant doesn't see a flash of empty space while
+                        // their profile resolves. Same intent for error.
+                        loading: () =>
+                            const _RappelsSectionPlaceholder(height: 220),
+                        error: (_, __) => const _RappelsSectionPlaceholder(
+                            height: 220, isError: true),
                       ),
-                      loading: () => const _RappelsSectionPlaceholder(height: 120),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                    // RappelsProductSection (the NFC plaque marketing
-                    // block) is hidden while plaque-programming is out
-                    // of scope. Kept in source as a SizedBox.shrink()
-                    // wrapper so the existing widget + its callback
-                    // wiring survive a future re-enable. The new model
-                    // is phone-to-phone NFC handled on the client
-                    // scanner; merchants don't need a plaque flow.
-                    const SizedBox.shrink(),
-                    storefrontAsync.when(
-                      data: (storefront) {
-                        final autoClient =
-                            storefront?.rappelsAutoClientValidation ?? true;
-                        final autoPassage =
-                            storefront?.rappelsAutoPassageValidation ?? true;
-                        final sid = storefront?.id;
-                        return RappelsTogglesSection(
-                          autoClientValidation: autoClient,
-                          autoPassageValidation: autoPassage,
-                          onClientChanged: sid != null
-                              ? (v) => _saveRappels(ref, sid, v, autoPassage)
-                              : (_) {},
-                          onPassageChanged: sid != null
-                              ? (v) => _saveRappels(ref, sid, autoClient, v)
-                              : (_) {},
-                        );
-                      },
-                      loading: () => const _RappelsTogglesSkeleton(),
-                      error: (_, __) => RappelsTogglesSection(
-                        autoClientValidation: true,
-                        autoPassageValidation: true,
-                        onClientChanged: (_) {},
-                        onPassageChanged: (_) {},
+                      // ── Récompenses à remettre (bons disponibles) ───────────
+                      merchantAsync.when(
+                        data: (Merchant? m) {
+                          if (m == null) return const SizedBox.shrink();
+                          return KeyedSubtree(
+                            key: _rewardsKey,
+                            child: RewardRedemptionSection(merchant: m),
+                          );
+                        },
+                        loading: () =>
+                            const _RappelsSectionPlaceholder(height: 120),
+                        error: (_, __) => const SizedBox.shrink(),
                       ),
-                    ),
-                    NotificationsAutoEntry(
-                      onTap: () =>
-                          widget.onNavigate?.call('notifications-auto'),
-                    ),
-                  ],
+                      // Nouveaux clients section — shown when auto-client-validation is OFF.
+                      storefrontAsync.when(
+                        data: (storefront) => KeyedSubtree(
+                          key: _pendingKey,
+                          child: PendingClientsSection(
+                            merchantId: storefront?.id ?? '',
+                            isAutoValidation:
+                                storefront?.rappelsAutoClientValidation ?? true,
+                          ),
+                        ),
+                        loading: () =>
+                            const _RappelsSectionPlaceholder(height: 120),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+                      // RappelsProductSection (the NFC plaque marketing
+                      // block) is hidden while plaque-programming is out
+                      // of scope. Kept in source as a SizedBox.shrink()
+                      // wrapper so the existing widget + its callback
+                      // wiring survive a future re-enable. The new model
+                      // is phone-to-phone NFC handled on the client
+                      // scanner; merchants don't need a plaque flow.
+                      const SizedBox.shrink(),
+                      // Auto-validation toggles moved to Vos clients → Validation.
+                      KeyedSubtree(
+                        key: _autoKey,
+                        child: NotificationsAutoEntry(
+                          onTap: () =>
+                              widget.onNavigate?.call('notifications-auto'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             ),
           ],
         ),
@@ -131,38 +119,15 @@ extension _RappelsScreenUi on _RappelsScreenState {
     return YuztooTabHeader(
       title: YuztooTabHeader.gradientTitle('Notifications'),
       onBack: widget.onBack,
-    );
-  }
-}
-
-// ── Toggle loading skeleton ───────────────────────────────────────────────────
-
-class _RappelsTogglesSkeleton extends StatelessWidget {
-  const _RappelsTogglesSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: List.generate(
-          2,
-          (i) => Padding(
-            padding: EdgeInsets.only(bottom: i == 0 ? 16 : 0),
-            child: Container(
-              height: 54,
-              decoration: BoxDecoration(
-                color: MerchantColors.navyCard.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: MerchantColors.gold
-                      .withValues(alpha: MerchantColors.goldBorderAlpha),
-                ),
-              ),
-            ),
-          ),
+      actions: [
+        IconButton(
+          tooltip: 'Guide de la page',
+          onPressed: _showPageGuide,
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.info_outline_rounded,
+              color: MerchantColors.gold, size: 19),
         ),
-      ),
+      ],
     );
   }
 }
