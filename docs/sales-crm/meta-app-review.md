@@ -108,3 +108,10 @@ Never give a real merchant's account.
 - [ ] `business_management` kept or removed (see table).
 - [ ] Business Verification done.
 - [ ] 4 screencasts uploaded, one per permission group.
+
+---
+
+## 5. After Meta approves (do not do during review)
+
+- [ ] **Rotate the password** of `meta-review@radnatech.io` (it was shared in chat for App Review). Keep the account until the review is closed, then rotate or disable it.
+- [ ] Confirm Advanced Access is live and merchants can connect Pages / IG without being app testers.
