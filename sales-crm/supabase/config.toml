@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.cms-yuztoo-news]
 verify_jwt = true
+
+[functions.meta-data-deletion]
+verify_jwt = false

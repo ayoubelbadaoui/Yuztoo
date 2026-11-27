@@ -77,6 +77,8 @@ async function upsertChannel(input: {
   expiresAt: string | null
   userId: string
   accessToken: string
+  /** App-scoped id of the person who connected (Meta deletion callbacks). */
+  metaUserId: string | null
   followers: number
   pictureUrl: string | null
   subscribed: boolean
@@ -144,6 +146,7 @@ async function upsertChannel(input: {
   await admin.from('meta_channel_credentials').upsert({
     channel_id: channel.id,
     access_token: input.accessToken,
+    meta_user_id: input.metaUserId,
     token_type: 'page',
     scopes: [],
     expires_at: input.expiresAt,
@@ -246,6 +249,11 @@ async function handle(req: Request): Promise<Response> {
         ? new Date(Date.now() + expiresIn * 1000).toISOString()
         : null
 
+    // Meta's deletion / deauthorize callbacks only name this app-scoped id.
+    const metaUserId = await graphGet<{ id?: string }>('/me?fields=id', userToken)
+      .then((me) => me.id ?? null)
+      .catch(() => null)
+
     const pagesPayload = await graphGet<{ data: GraphPage[] }>(
       `/me/accounts?fields=${PAGE_FIELDS}`,
       userToken,
@@ -277,6 +285,7 @@ async function handle(req: Request): Promise<Response> {
         expiresAt,
         userId: stateRow.user_id,
         accessToken: page.access_token,
+        metaUserId,
         followers: page.followers_count ?? page.fan_count ?? 0,
         pictureUrl: page.picture?.data?.url ?? null,
         subscribed,
@@ -295,6 +304,7 @@ async function handle(req: Request): Promise<Response> {
           expiresAt,
           userId: stateRow.user_id,
           accessToken: page.access_token,
+        metaUserId,
           followers: ig.followers_count ?? 0,
           pictureUrl: ig.profile_picture_url ?? null,
           subscribed,

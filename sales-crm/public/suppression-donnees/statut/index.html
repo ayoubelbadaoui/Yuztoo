@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Statut de suppression — Yuztoo CRM</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --muted:#5b5b5b; --line:#e5e5e5; --accent:#0b5cad; --ok:#1d7a3a; --warn:#a15c00; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#ececec; --muted:#a3a3a3; --line:#2a2a2a; --accent:#6aa8ef; --ok:#5fcf85; --warn:#f0b45a; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  main { max-width:640px; margin:0 auto; padding:40px 16px 64px; }
+  h1 { font-size:1.6rem; margin:0 0 4px; } .muted { color:var(--muted); font-size:.9rem; } a { color:var(--accent); }
+  .card { border:1px solid var(--line); border-radius:12px; padding:20px; margin-top:24px; }
+  .status { font-size:1.15rem; font-weight:600; } .ok { color:var(--ok); } .warn { color:var(--warn); }
+  code { font-size:1rem; letter-spacing:.06em; }
+</style>
+</head>
+<body>
+<main>
+<h1>Statut de votre demande de suppression</h1>
+<p class="muted">Yuztoo CRM — application Meta « Yuztoo - msg », éditée par RADNATECH · Deletion request status</p>
+
+<div class="card" id="card">
+  <p>Code de confirmation / Confirmation code : <code id="code">—</code></p>
+  <p class="status" id="status">Chargement… / Loading…</p>
+  <p class="muted" id="dates"></p>
+</div>
+
+<p>Une question ? <a href="mailto:contact@radnatech.io?subject=Suppression%20de%20mes%20donn%C3%A9es">contact@radnatech.io</a> · <a href="/suppression-donnees/">Suppression des données</a> · <a href="/confidentialite/">Confidentialité</a></p>
+</main>
+<script>
+(function () {
+  var ENDPOINT = 'https://zdzzmzcoxdogeqydargo.supabase.co/functions/v1/meta-data-deletion';
+  var LABELS = {
+    completed: ['Vos données ont été supprimées. / Your data has been deleted.', 'ok'],
+    no_data: ['Aucune donnée vous concernant n’était enregistrée. / No data about you was stored.', 'ok'],
+    received: ['Demande reçue, suppression en cours. / Request received, deletion in progress.', 'warn'],
+    failed: ['Demande reçue : nous finalisons la suppression manuellement sous 30 jours. / Received: we are completing the deletion manually within 30 days.', 'warn']
+  };
+  var code = (new URLSearchParams(location.search).get('code') || '').toUpperCase();
+  var el = function (id) { return document.getElementById(id); };
+  var fmt = function (d) { return d ? new Date(d).toLocaleString('fr-FR') : '—'; };
+  el('code').textContent = code || '—';
+  if (!/^[A-Z0-9]{6,16}$/.test(code)) { el('status').textContent = 'Code manquant ou invalide. / Missing or invalid code.'; return; }
+  fetch(ENDPOINT + '?code=' + encodeURIComponent(code))
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (d) {
+      var l = LABELS[d.status] || LABELS.received;
+      el('status').textContent = l[0]; el('status').className = 'status ' + l[1];
+      el('dates').textContent = 'Reçue / Received : ' + fmt(d.created_at) + ' · Terminée / Completed : ' + fmt(d.completed_at);
+    })
+    .catch(function (s) {
+      el('status').textContent = s === 404 ? 'Code introuvable. / Code not found.' : 'Statut indisponible pour le moment. / Status unavailable right now.';
+    });
+})();
+</script>
+</body>
+</html>
