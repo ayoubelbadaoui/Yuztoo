@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowRight, MapPin, Megaphone, Percent, Store } from 'lucide-react'
 import NfcIcon from '../../components/NfcIcon.jsx'
 import SiteAmbient from '../../components/SiteAmbient.jsx'
+import StoreButtons from '../../components/StoreButtons.jsx'
 import { HOME_HERO } from '../homeContent.js'
 import { useNetworkCount } from '../../useNetworkCount.js'
 import { bt } from '../../components/Brand.jsx'
@@ -38,6 +39,11 @@ export default function HomeHero() {
               <ArrowDown size={14} strokeWidth={2.6} aria-hidden="true" />
               {bt(HOME_HERO.secondaryCta.label)}
             </a>
+          </div>
+
+          <div className="yz-hero__stores">
+            <p className="yz-mono">{HOME_HERO.storesLabel}</p>
+            <StoreButtons size="sm" />
           </div>
 
           <div className="yz-pilot">

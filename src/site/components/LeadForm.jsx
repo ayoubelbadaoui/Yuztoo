@@ -104,7 +104,7 @@ export default function LeadForm({ form, path, source }) {
           aria-invalid={Boolean(errors.consent)} aria-describedby={describedBy('consent')}
         />
         <label htmlFor={fieldId('consent')}>
-          {FORM_COPY.consentLead}
+          {bt(FORM_COPY.consentLead)}
           <a href={FORM_COPY.consentLink.href}>{bt(FORM_COPY.consentLink.label)}</a>
         </label>
         {errors.consent ? (

@@ -1181,3 +1181,44 @@ a.yz-store:focus-visible {
   object-fit: cover;
   border: 1px solid var(--border);
 }
+
+/* Hero: the app already exists — store badges right under the CTA. */
+.yz-hero__stores {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 24px;
+}
+
+.yz-hero__stores > .yz-mono {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+@media (max-width: 640px) {
+  .yz-hero__stores > .yz-mono {
+    flex-basis: 100%;
+  }
+
+  .yz-hero__stores .yz-stores {
+    width: 100%;
+  }
+
+  .yz-hero__stores .yz-store {
+    flex: 1 1 0;
+    justify-content: center;
+    padding-inline: 10px;
+  }
+
+  .yz-hero__stores .yz-store__kicker {
+    display: none;
+  }
+
+  .yz-hero__stores .yz-store__name {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+}

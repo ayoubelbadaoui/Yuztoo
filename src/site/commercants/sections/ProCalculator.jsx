@@ -98,7 +98,7 @@ export default function ProCalculator() {
             </p>
 
             <div className="yz-calc__vs">
-              <p className="yz-mono">{PRO_CALC.yuztooKicker}</p>
+              <p className="yz-mono">{bt(PRO_CALC.yuztooKicker)}</p>
               <p className="yz-calc__zero">{PRO_CALC.yuztooValue}</p>
               <p>{PRO_CALC.yuztooNote}</p>
             </div>

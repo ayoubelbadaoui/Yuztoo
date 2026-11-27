@@ -18,6 +18,7 @@ export const HOME_HERO = {
     'Une plaque YuzToo sur votre comptoir. Vos clients la scannent, votre commerce entre dans leur téléphone, et la relation vous appartient. Sans commission, sans publicité.',
   primaryCta: { label: 'Tester gratuitement', href: '#telecharger' },
   secondaryCta: { label: 'Comment ça marche', href: '#fonctionnement' },
+  storesLabel: 'Déjà disponible sur',
   /** Test phase + pioneer offer, right under the call to action. */
   pilot: {
     kicker: 'Phase de test',
@@ -26,7 +27,7 @@ export const HOME_HERO = {
     cities: NETWORK.pilotCities,
     offer: `Gratuit pour les ${NETWORK.pioneers} premiers commerçants`,
     elsewhere: 'Vous souhaitez lancer YuzToo près de chez vous ?',
-    elsewhereCta: { label: 'Contactez-nous', href: '/a-propos#contact' },
+    elsewhereCta: { label: 'Contactez-nous !', href: '/a-propos#contact' },
   },
   proof: [
     { id: 'commission', icon: 'percent', value: '0 %', label: 'Commission' },
@@ -192,7 +193,7 @@ export const HOME_COVERAGE = {
   ],
   elsewhere: {
     text: 'Vous souhaitez lancer YuzToo près de chez vous ?',
-    cta: { label: 'Contactez-nous', href: '/a-propos#contact' },
+    cta: { label: 'Contactez-nous !', href: '/a-propos#contact' },
   },
 }
 
