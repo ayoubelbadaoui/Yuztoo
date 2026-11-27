@@ -11,16 +11,17 @@ import { CONTACT, NETWORK } from '../../siteConfig.js'
 
 export const PRO_HERO = {
   crumb: 'Commerçants',
-  badge: 'Espace commerçants · Gratuit',
+  badge: 'Espace commerçants · Offre pionniers',
   titleLead: 'Vos clients,',
   titleAccent: 'dans votre poche.',
   titleEnd: 'Plus dans celle des plateformes.',
   intro:
-    'Yuztoo connecte vos clients à votre commerce d’un simple geste en boutique. Ensuite, vous les retrouvez, vous les relancez et vous les fidélisez, sans commission ni intermédiaire.',
+    'YuzToo connecte vos clients à votre commerce d’un simple geste en boutique. Ensuite, vous les retrouvez, vous les relancez et vous les fidélisez, sans commission ni intermédiaire.',
   primaryCta: { label: 'Démarrer gratuitement', href: '#demarrer' },
   secondaryCta: { label: 'Voir ce que ça change', href: '#constat' },
-  checks: ['Sans compétence technique', 'Prêt en quelques minutes', 'Vos données restent à vous'],
-  tag: { value: '0 €', label: 'Pour vous et vos clients' },
+  checks: ['Facile à utiliser', 'Prêt en quelques minutes', 'Vos données restent à vous'],
+  tag: { value: 'Gratuit', label: 'Pour vous et vos clients*' },
+  footnote: `*Offre réservée aux ${NETWORK.pioneers} premiers commerçants.`,
 }
 
 export const PRO_PAINS = {
@@ -66,7 +67,7 @@ export const PRO_IMPACT = {
 export const PRO_SETUP = {
   index: '02',
   eyebrow: 'Simple. Gratuit. Unique.',
-  title: 'Commencez en quelques minutes, sans compétence technique.',
+  title: 'Commencez en quelques minutes. C’est facile à utiliser.',
   steps: [
     {
       id: 'vitrine',
@@ -78,7 +79,7 @@ export const PRO_SETUP = {
       id: 'plaque',
       icon: 'nfc',
       title: 'Posez votre plaque',
-      text: 'La plaque Yuztoo sur le comptoir, ou votre QR code affiché en vitrine.',
+      text: 'La plaque YuzToo sur le comptoir, ou votre QR code affiché en vitrine.',
     },
     {
       id: 'scan',
@@ -197,13 +198,13 @@ export const PRO_FAQ = {
   items: [
     {
       id: 'prix',
-      question: 'Combien coûte Yuztoo pour mon commerce ?',
-      answer: 'Rien. Yuztoo est gratuit pour le commerçant comme pour ses clients : pas d’abonnement, pas de commission sur vos ventes, pas de publicité.',
+      question: 'Combien coûte YuzToo pour mon commerce ?',
+      answer: `Aucune commission sur vos ventes, jamais. Pour les ${NETWORK.pioneers} premiers commerçants, l’offre Essentiel est gratuite (au lieu de 29 €/mois) et l’offre Premium passe à 29 €/mois (au lieu de 49 €). L’application reste gratuite pour vos clients.`,
     },
     {
       id: 'technique',
       question: 'Faut-il des compétences techniques ?',
-      answer: 'Non. Vous créez votre vitrine en quelques minutes depuis votre téléphone, puis vous posez la plaque Yuztoo ou affichez votre QR code. Nous vous accompagnons pour l’installation.',
+      answer: 'Non. Vous créez votre vitrine en quelques minutes depuis votre téléphone, puis vous posez la plaque YuzToo ou affichez votre QR code. Nous vous accompagnons pour l’installation.',
     },
     {
       id: 'donnees',
@@ -218,11 +219,11 @@ export const PRO_FAQ = {
     {
       id: 'outils',
       question: 'Puis-je garder mes outils actuels ?',
-      answer: 'Oui. Ajoutez vos liens de réservation, votre site, votre click & collect ou votre fiche Google : vos clients les retrouvent sur votre vitrine Yuztoo.',
+      answer: 'Oui. Ajoutez vos liens de réservation, votre site, votre click & collect ou votre fiche Google : vos clients les retrouvent sur votre vitrine YuzToo.',
     },
     {
       id: 'metiers',
-      question: 'Quels commerces peuvent utiliser Yuztoo ?',
+      question: 'Quels commerces peuvent utiliser YuzToo ?',
       answer: 'Tous les commerces de proximité : métiers de bouche, beauté et bien-être, restaurants et cafés, commerces indépendants, services, artisans, sport et loisirs.',
     },
   ],
@@ -242,7 +243,7 @@ export const PRO_START = {
     submit: 'Être rappelé',
   },
   promise: [
-    { id: 'free', value: '0 €', label: 'Abonnement' },
+    { id: 'free', value: '0 €', label: 'Essentiel, offre pionniers' },
     { id: 'commission', value: '0 %', label: 'Commission' },
     { id: 'install', value: 'Offerte', label: 'Installation' },
   ],
@@ -250,7 +251,7 @@ export const PRO_START = {
 
 export const PRO_CTA = {
   title: 'Prêt à garder le lien avec vos clients ?',
-  text: 'Compte gratuit, plaque installée par notre équipe, sans engagement.',
+  text: `Offre pionniers pour les ${NETWORK.pioneers} premiers commerçants, plaque installée par notre équipe, sans engagement.`,
   label: 'Être rappelé',
   href: '#demarrer',
 }
@@ -267,9 +268,51 @@ export const PRO_CALC = {
   ],
   resultKicker: 'Versé aux plateformes chaque année',
   monthly: 'soit {value} par mois',
-  yuztooKicker: 'Avec Yuztoo',
+  yuztooKicker: 'Commission YuzToo',
   yuztooValue: '0 €',
-  yuztooNote: 'Aucune commission, aucun abonnement.',
+  yuztooNote: 'Aucune commission sur vos ventes, jamais.',
   disclaimer: 'Simulation indicative, hors frais de livraison et de paiement.',
   cta: { label: 'Garder cet argent', href: '#demarrer' },
+}
+
+/**
+ * Pricing. Prices and the pioneer offer come from the owner's brief
+ * (Nov 2026). TODO(owner): fill `features` per plan (left empty on purpose —
+ * a plan card shows no list until it is provided) and add the validity period
+ * of the pioneer prices to `conditions` once decided.
+ */
+export const PRO_PRICING = {
+  index: '06',
+  eyebrow: 'Tarifs',
+  title: `Une offre pionniers pour les ${NETWORK.pioneers} premiers commerçants`,
+  lead: 'Aucune commission sur vos ventes, quelle que soit l’offre. Les premiers commerçants inscrits profitent de tarifs préférentiels.',
+  pioneerLabel: `Offre ${NETWORK.pioneers} premiers commerçants`,
+  plans: [
+    {
+      id: 'essentiel',
+      name: 'Essentiel',
+      normal: '29 €',
+      pioneer: '0 €',
+      period: '/mois',
+      saving: 'Gratuit',
+      features: [],
+      cta: { label: 'Tester gratuitement', href: '#telecharger' },
+    },
+    {
+      id: 'premium',
+      name: 'Premium',
+      normal: '49 €',
+      pioneer: '29 €',
+      period: '/mois',
+      saving: '−20 €/mois',
+      featured: true,
+      features: [],
+      cta: { label: 'Choisir Premium', href: '#demarrer' },
+    },
+  ],
+  conditions: [
+    `Tarifs préférentiels réservés aux ${NETWORK.pioneers} premiers commerçants inscrits, dans la limite des places disponibles.`,
+    'Sans engagement, sans commission sur vos ventes.',
+    'L’application reste gratuite pour vos clients.',
+  ],
 }

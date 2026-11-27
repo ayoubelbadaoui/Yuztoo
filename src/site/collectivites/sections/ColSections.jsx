@@ -3,6 +3,7 @@ import CheckColumns from '../../components/CheckColumns.jsx'
 import IconGrid from '../../components/IconGrid.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { COL_ANSWER, COL_BENEFITS, COL_INVEST, COL_PROBLEM, COL_PROMISE } from '../collectivitesContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const INVEST_ICONS = { shield: ShieldCheck, trending: TrendingUp, building: Building2, eye: Eye }
 
@@ -29,10 +30,10 @@ export function ColProblem() {
             <li key={item.id} className="yz-cell yz-pains__item" data-reveal style={{ '--d': `${i * 0.08}s` }}>
               <span className="yz-pains__kicker yz-mono">
                 <span aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-                {item.kicker}
+                {bt(item.kicker)}
               </span>
-              <h3 className="yz-pains__title">{item.title}</h3>
-              <p className="yz-pains__text">{item.text}</p>
+              <h3 className="yz-pains__title">{bt(item.title)}</h3>
+              <p className="yz-pains__text">{bt(item.text)}</p>
             </li>
           ))}
         </ul>
@@ -66,7 +67,7 @@ export function ColAnswer() {
               </li>
             ))}
           </ol>
-          <p className="yz-strip yz-strip__text yz-setup__quote">{COL_ANSWER.quote}</p>
+          <p className="yz-strip yz-strip__text yz-setup__quote">{bt(COL_ANSWER.quote)}</p>
         </div>
       </div>
     </section>

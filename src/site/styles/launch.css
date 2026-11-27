@@ -1,0 +1,480 @@
+/**
+ * Launch brief (Nov 2026): pilot cities and pioneer offer, store badges and
+ * the download band, pricing, and the « votre ville ? » prompts.
+ * Tokens only — see BRAND_HOLY_BOOK.md.
+ */
+
+/* ═══════════ hero: test phase + pioneer offer ═══════════ */
+
+.yz-pilot {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+}
+
+.yz-pilot__cities {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  font-size: 15px;
+  color: var(--text-mut);
+}
+
+.yz-pilot__cities .yz-mono {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.yz-pilot__cities strong {
+  position: relative;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.yz-pilot__cities strong + strong::before {
+  content: '·';
+  position: absolute;
+  left: -10px;
+  color: var(--text-dim);
+}
+
+/* Belfort first and biggest: the home town. */
+.yz-pilot__cities strong.is-home {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.yz-pilot__offer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.yz-pilot__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  background: var(--gold);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--gold-soft);
+}
+
+.yz-pilot__elsewhere {
+  font-size: 14px;
+  color: var(--text-mut);
+}
+
+.yz-pilot__elsewhere a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ═══════════ coverage: other towns ═══════════ */
+
+.yz-coverage__elsewhere {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+  margin-top: 24px;
+  padding: 20px 24px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  border: 1px dashed var(--border-str);
+}
+
+/* ═══════════ commerçants hero footnote ═══════════ */
+
+.yz-prohero__footnote {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* ═══════════ store badges ═══════════ */
+
+.yz-stores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.yz-store {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 20px 8px 16px;
+  color: var(--white);
+  background: var(--store-ink);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  transition: transform 0.22s var(--ease-out), box-shadow 0.22s ease;
+}
+
+a.yz-store:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -14px rgba(0, 0, 0, 0.6);
+}
+
+a.yz-store:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.yz-store svg {
+  flex-shrink: 0;
+}
+
+.yz-store__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.yz-store__kicker {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.82;
+}
+
+.yz-store__name {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.yz-store--lg {
+  min-height: 64px;
+  padding: 10px 24px 10px 18px;
+}
+
+.yz-store--lg svg {
+  width: 28px;
+  height: 28px;
+}
+
+.yz-store--lg .yz-store__name {
+  font-size: 21px;
+}
+
+.yz-store--sm {
+  min-height: 48px;
+  padding: 6px 16px 6px 12px;
+}
+
+.yz-store--sm svg {
+  width: 20px;
+  height: 20px;
+}
+
+.yz-store--sm .yz-store__name {
+  font-size: 16px;
+}
+
+.yz-store.is-soon {
+  opacity: 0.55;
+}
+
+.yz-footer__storelist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ═══════════ download band ═══════════ */
+
+.yz-dl {
+  overflow: clip;
+}
+
+.yz-dl__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr);
+  gap: 64px;
+  align-items: center;
+}
+
+.yz-dl .yz-head,
+.yz-dl .yz-h2 {
+  margin-bottom: 0;
+}
+
+.yz-dl .yz-lead {
+  max-width: 56ch;
+  margin-top: 18px;
+}
+
+.yz-dl__aud {
+  display: grid;
+  gap: 8px;
+  margin-top: 26px;
+}
+
+.yz-dl__aud li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 15px;
+  color: var(--text-mut);
+}
+
+.yz-dl__aud svg {
+  color: var(--gold-deep);
+}
+
+.yz-dl__aud strong {
+  color: var(--text);
+}
+
+.yz-dl__stores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  margin-top: 32px;
+}
+
+.yz-dl__store {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+}
+
+.yz-dl__qr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+.yz-dl__qr img {
+  width: 88px;
+  height: 88px;
+  padding: 6px;
+  background: var(--white);
+  border: 1px solid var(--border);
+}
+
+.yz-dl__qr figcaption {
+  max-width: 12ch;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.yz-dl__note {
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.yz-dl__visual {
+  display: flex;
+  justify-content: center;
+}
+
+.yz-dl__phone {
+  width: min(280px, 100%);
+  transform: rotate(4deg);
+}
+
+/* ═══════════ pricing ═══════════ */
+
+.yz-pricing__plans {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 920px;
+}
+
+.yz-plan {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 34px 32px 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.yz-plan.is-featured {
+  border-color: var(--gold);
+  box-shadow: inset 0 3px 0 var(--gold);
+}
+
+.yz-plan__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.yz-plan__name {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.yz-plan__saving {
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--navy-deep);
+  background: var(--gold);
+  border-radius: 999px;
+}
+
+.yz-plan__normal {
+  margin-top: 22px;
+  font-size: 17px;
+  color: var(--text-dim);
+}
+
+.yz-plan__normal s {
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--danger-on-dark);
+}
+
+.yz-plan__price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--gold-on-dark);
+}
+
+.yz-plan__price strong {
+  font-size: clamp(52px, 6vw, 72px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.yz-plan__price span {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-mut);
+}
+
+.yz-plan__pioneer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-on-dark);
+}
+
+.yz-plan__features {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.yz-plan__features li {
+  display: flex;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--text-mut);
+}
+
+.yz-plan__features svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--gold-on-dark);
+}
+
+.yz-plan__cta {
+  align-self: stretch;
+  margin-top: auto;
+  transform: translateY(0);
+}
+
+.yz-plan__pioneer + .yz-plan__cta,
+.yz-plan__features + .yz-plan__cta {
+  margin-top: 28px;
+}
+
+.yz-pricing__conditions {
+  display: grid;
+  gap: 8px;
+  max-width: 920px;
+  margin-top: 28px;
+  padding-left: 18px;
+  font-size: 14px;
+  color: var(--text-dim);
+  list-style: disc;
+}
+
+/* ═══════════ responsive ═══════════ */
+
+@media (max-width: 900px) {
+  .yz-dl__grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  .yz-dl__visual {
+    order: -1;
+  }
+
+  .yz-dl__phone {
+    width: min(200px, 52vw);
+  }
+
+  .yz-dl__qr {
+    display: none;
+  }
+
+  .yz-pricing__plans {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .yz-dl__stores,
+  .yz-dl__store,
+  .yz-dl__store .yz-store {
+    width: 100%;
+  }
+
+  .yz-dl__stores {
+    gap: 12px;
+  }
+
+  .yz-dl__store .yz-store {
+    justify-content: center;
+  }
+
+  .yz-plan {
+    padding: 28px 22px 24px;
+  }
+
+  .yz-coverage__elsewhere .yz-btn {
+    width: 100%;
+  }
+}

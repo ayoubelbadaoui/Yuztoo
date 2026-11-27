@@ -3,6 +3,7 @@ import SiteAmbient from '../../components/SiteAmbient.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import SectionStrip from '../../components/SectionStrip.jsx'
 import { HOME_BENEFITS } from '../homeContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const ICONS = { users: Users, graduation: GraduationCap }
 
@@ -27,15 +28,15 @@ export default function HomeBenefits() {
 
         <div className="yz-grid yz-bento">
           <article className="yz-bento__feature" data-reveal>
-            <span className="yz-bento__kicker yz-mono">{featured.kicker}</span>
+            <span className="yz-bento__kicker yz-mono">{bt(featured.kicker)}</span>
             <span className="yz-bento__figure">{featured.figure}</span>
-            <h3 className="yz-bento__label">{featured.label}</h3>
-            <p className="yz-bento__note">{featured.note}</p>
+            <h3 className="yz-bento__label">{bt(featured.label)}</h3>
+            <p className="yz-bento__note">{bt(featured.note)}</p>
             <dl className="yz-bento__facts">
               {featured.facts.map((fact) => (
                 <div key={fact.label}>
-                  <dt className="yz-mono">{fact.label}</dt>
-                  <dd>{fact.value}</dd>
+                  <dt className="yz-mono">{bt(fact.label)}</dt>
+                  <dd>{bt(fact.value)}</dd>
                 </div>
               ))}
             </dl>
@@ -50,7 +51,7 @@ export default function HomeBenefits() {
               loading="lazy"
               decoding="async"
             />
-            <figcaption className="yz-bento__caption yz-mono">{photo.caption}</figcaption>
+            <figcaption className="yz-bento__caption yz-mono">{bt(photo.caption)}</figcaption>
           </figure>
 
           {items.map((item, i) => {
@@ -68,11 +69,11 @@ export default function HomeBenefits() {
                 <span className="yz-tile" aria-hidden="true">
                   <Icon size={21} strokeWidth={2.1} />
                 </span>
-                <h3 className="yz-bento__title">{item.title}</h3>
-                <p className="yz-bento__copy">{item.text}</p>
+                <h3 className="yz-bento__title">{bt(item.title)}</h3>
+                <p className="yz-bento__copy">{bt(item.text)}</p>
                 <span className="yz-bento__metric yz-mono">
                   <ArrowUpRight size={13} strokeWidth={2.6} aria-hidden="true" />
-                  {item.metric}
+                  {bt(item.metric)}
                 </span>
               </article>
             )

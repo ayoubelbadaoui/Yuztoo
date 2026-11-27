@@ -10,6 +10,7 @@ import ProSetup from './sections/ProSetup.jsx'
 import ProClients from './sections/ProClients.jsx'
 import ProLoyalty from './sections/ProLoyalty.jsx'
 import ProTools from './sections/ProTools.jsx'
+import ProPricing from './sections/ProPricing.jsx'
 import CtaStrip from '../components/CtaStrip.jsx'
 import { PRO_CTA, PRO_FAQ, PRO_IMPACT, PRO_START } from './commercantsContent.js'
 
@@ -30,6 +31,7 @@ export default function CommercantsPage() {
         <ProClients />
         <ProLoyalty />
         <ProTools />
+        <ProPricing />
         <FaqSection faq={PRO_FAQ} />
         <ContactBand band={PRO_START} path="/pour-commercants" />
       </main>

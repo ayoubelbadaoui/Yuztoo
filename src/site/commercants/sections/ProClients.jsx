@@ -1,17 +1,18 @@
 import { Send } from 'lucide-react'
 import SectionHead from '../../components/SectionHead.jsx'
 import { PRO_CLIENTS } from '../commercantsContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 function ClientBoard({ board }) {
   return (
     <div className="yz-board" data-reveal>
       <div className="yz-board__bar">
-        <strong>{board.title}</strong>
-        <span className="yz-mono">{board.note}</span>
+        <strong>{bt(board.title)}</strong>
+        <span className="yz-mono">{bt(board.note)}</span>
       </div>
       <table className="yz-board__table">
         <caption className="yz-sr-only">
-          {board.title} — {board.note}
+          {bt(board.title)} — {bt(board.note)}
         </caption>
         <thead>
           <tr>
@@ -29,7 +30,7 @@ function ClientBoard({ board }) {
                 <span className="yz-board__avatar" aria-hidden="true">
                   {row.name.charAt(0)}
                 </span>
-                {row.name}
+                {bt(row.name)}
               </th>
               <td className="yz-board__visits">{row.visits}</td>
               <td>
@@ -66,9 +67,9 @@ export default function ProClients() {
               {PRO_CLIENTS.segments.map((segment) => (
                 <li key={segment.id} className="yz-cell yz-clients__segment">
                   <span className={`yz-board__status yz-board__status--${segment.id}`}>
-                    {segment.label}
+                    {bt(segment.label)}
                   </span>
-                  <p>{segment.text}</p>
+                  <p>{bt(segment.text)}</p>
                 </li>
               ))}
             </ul>
@@ -84,7 +85,7 @@ export default function ProClients() {
               <li key={idea}>« {idea} »</li>
             ))}
           </ul>
-          <p className="yz-clients__punch">{PRO_CLIENTS.punchline}</p>
+          <p className="yz-clients__punch">{bt(PRO_CLIENTS.punchline)}</p>
         </div>
       </div>
     </section>

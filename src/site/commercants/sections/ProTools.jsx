@@ -15,6 +15,7 @@ import {
 import IconGrid from '../../components/IconGrid.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { PRO_TOOLS } from '../commercantsContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const FEATURE_ICONS = {
   message: MessageCircle,
@@ -55,7 +56,7 @@ export default function ProTools() {
               return (
                 <li key={trade.id}>
                   <Icon size={18} strokeWidth={2} aria-hidden="true" />
-                  {trade.label}
+                  {bt(trade.label)}
                 </li>
               )
             })}

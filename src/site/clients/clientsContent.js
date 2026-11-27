@@ -21,7 +21,7 @@ export const CLI_HERO = {
 
 export const CLI_WHY = {
   index: '01',
-  eyebrow: 'Pourquoi Yuztoo',
+  eyebrow: 'Pourquoi YuzToo',
   title: 'Soutenez vos commerces de proximité. Et ce n’est pas tout.',
   items: [
     { id: 'produit', icon: 'shield', title: 'Ne soyez plus le produit', text: 'Pas de plateforme qui revend votre attention ou vos habitudes.' },
@@ -38,18 +38,18 @@ export const CLI_STEPS = {
   eyebrow: 'Simple et immédiat',
   title: 'Tous vos commerces. Au même endroit.',
   steps: [
-    { id: 'scan', icon: 'scan', title: 'Scannez en boutique', text: 'Approchez votre téléphone de la plaque Yuztoo, ou scannez le QR code.' },
-    { id: 'add', icon: 'book', title: 'Ajoutez au carnet', text: 'Le commerce rejoint votre carnet Yuztoo en un geste.' },
+    { id: 'scan', icon: 'scan', title: 'Scannez en boutique', text: 'Approchez votre téléphone de la plaque YuzToo, ou scannez le QR code.' },
+    { id: 'add', icon: 'book', title: 'Ajoutez au carnet', text: 'Le commerce rejoint votre carnet YuzToo en un geste.' },
     { id: 'access', icon: 'info', title: 'Tout en un clic', text: 'Horaires, nouveautés, offres et fidélité : tout est là.' },
   ],
   quote: 'Fini de chercher partout : vos commerces habituels et leurs offres, au même endroit.',
   image: {
     src: '/images/yuztoo/yuztoo-application-mobile.webp',
-    alt: 'L’application Yuztoo ouverte sur un téléphone, avec le carnet des commerces de proximité',
+    alt: 'L’application YuzToo ouverte sur un téléphone, avec le carnet des commerces de proximité',
     width: 900,
     height: 985,
   },
-  imageCaption: 'Application Yuztoo · gratuite',
+  imageCaption: 'Application YuzToo · gratuite',
 }
 
 export const CLI_MESSAGES = {
@@ -123,18 +123,18 @@ export const CLI_FAQ = {
   items: [
     {
       id: 'prix',
-      question: 'Yuztoo est-il gratuit pour les clients ?',
-      answer: 'Oui. L’application est gratuite pour les clients, comme pour les commerçants. Aucun abonnement, aucune publicité.',
+      question: 'YuzToo est-il gratuit pour les clients ?',
+      answer: 'Oui. L’application est gratuite pour les clients : aucun abonnement, aucune publicité.',
     },
     {
       id: 'ajout',
       question: 'Comment ajouter un commerce à mon carnet ?',
-      answer: 'En boutique, approchez votre téléphone de la plaque Yuztoo ou scannez le QR code affiché. Le commerce rejoint votre carnet immédiatement.',
+      answer: 'En boutique, approchez votre téléphone de la plaque YuzToo ou scannez le QR code affiché. Le commerce rejoint votre carnet immédiatement.',
     },
     {
       id: 'donnees',
       question: 'Mes données sont-elles revendues ?',
-      answer: 'Non. Yuztoo ne revend pas vos données et ne vous expose à aucune publicité. Seuls les commerces que vous avez choisis peuvent vous écrire.',
+      answer: 'Non. YuzToo ne revend pas vos données et ne vous expose à aucune publicité. Seuls les commerces que vous avez choisis peuvent vous écrire.',
     },
     {
       id: 'messages',
@@ -143,8 +143,8 @@ export const CLI_FAQ = {
     },
     {
       id: 'absent',
-      question: 'Mon commerçant n’est pas sur Yuztoo, que faire ?',
-      answer: `Parlez-lui de Yuztoo, ou écrivez-nous à ${CONTACT.email} : nous irons le rencontrer. C’est gratuit pour lui aussi.`,
+      question: 'Mon commerçant n’est pas sur YuzToo, que faire ?',
+      answer: `Parlez-lui de YuzToo, ou écrivez-nous à ${CONTACT.email} : nous irons le rencontrer. Les 300 premiers commerçants profitent de l’offre pionniers.`,
     },
   ],
 }
@@ -164,7 +164,7 @@ export const CLI_START = {
 }
 
 export const CLI_CTA = {
-  title: 'Un commerce que vous aimez n’est pas encore sur Yuztoo ?',
+  title: 'Un commerce que vous aimez n’est pas encore sur YuzToo ?',
   text: 'Dites-nous lequel : nous allons le rencontrer, gratuitement pour lui.',
   label: 'Recommander un commerce',
   href: '#recommander',

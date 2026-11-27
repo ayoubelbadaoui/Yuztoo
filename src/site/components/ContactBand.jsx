@@ -2,14 +2,15 @@ import { ArrowRight, Phone } from 'lucide-react'
 import { CONTACT } from '../../siteConfig.js'
 import LeadForm from './LeadForm.jsx'
 import SiteAmbient from './SiteAmbient.jsx'
+import { bt } from './Brand.jsx'
 
 function PromiseList({ items, compact }) {
   return (
     <dl className={`yz-grid yz-start__promise${compact ? ' yz-start__promise--row' : ''}`} data-reveal>
       {items.map((item) => (
         <div key={item.id} className="yz-start__cell">
-          <dt className="yz-mono">{item.label}</dt>
-          <dd>{item.value}</dd>
+          <dt className="yz-mono">{bt(item.label)}</dt>
+          <dd>{bt(item.value)}</dd>
         </div>
       ))}
     </dl>
@@ -25,18 +26,18 @@ export default function ContactBand({ band, path, id = 'demarrer' }) {
       <SiteAmbient variant="grid" />
       <div className={`yz-container yz-start__grid${withForm ? ' yz-start__grid--form' : ''}`}>
         <div className="yz-start__copy">
-          <p className="yz-eyebrow">{band.eyebrow}</p>
+          <p className="yz-eyebrow">{bt(band.eyebrow)}</p>
           <h2 className="yz-closing__title" id={`${id}-title`}>
-            {band.title}
+            {bt(band.title)}
           </h2>
-          <p className="yz-lead">{band.lead}</p>
+          <p className="yz-lead">{bt(band.lead)}</p>
 
           {withForm && band.promise ? <PromiseList items={band.promise} compact /> : null}
 
           <div className="yz-closing__actions">
             {withForm ? null : (
               <a className="yz-btn yz-btn--primary" href={band.mailCta.href}>
-                {band.mailCta.label}
+                {bt(band.mailCta.label)}
                 <ArrowRight size={18} strokeWidth={2.4} aria-hidden="true" />
               </a>
             )}

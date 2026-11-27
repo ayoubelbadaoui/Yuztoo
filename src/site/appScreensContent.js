@@ -1,5 +1,5 @@
 /**
- * Real screenshots of the Yuztoo merchant app (iOS, demo shop « pyuztoo »).
+ * Real screenshots of the YuzToo merchant app (iOS, demo shop « pyuztoo »).
  * Source: Yuztoo-Presentation/shots, exported to WebP at 360 and 720 px wide
  * in public/images/app. To replace a screen, overwrite both files with the
  * same names. No JSX.
@@ -15,7 +15,7 @@ const screen = (id, alt) => ({
 })
 
 export const APP_SCREENS = {
-  vitrine: screen('vitrine', 'Écran « Ma vitrine » de l’application Yuztoo : horaires, adresse et actualité du commerce'),
+  vitrine: screen('vitrine', 'Écran « Ma vitrine » de l’application YuzToo : horaires, adresse et actualité du commerce'),
   badge: screen('badge', 'Écran « Badge NFC » : programmer la plaque que les clients approchent avec leur téléphone'),
   fidelite: screen('fidelite', 'Écran « Fidélité » : carte de 10 passages, 8 tampons validés, un café offert en récompense'),
   promotions: screen('promotions', 'Écran « Promotions » : offre du jour à −20 % sur les viennoiseries, en ligne'),

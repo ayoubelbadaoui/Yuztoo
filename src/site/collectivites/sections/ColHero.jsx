@@ -1,6 +1,7 @@
 import { Landmark, MapPinned, Repeat, Store, Users } from 'lucide-react'
 import PageHero from '../../components/PageHero.jsx'
 import { COL_HERO } from '../collectivitesContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const KPI_ICONS = { store: Store, users: Users, repeat: Repeat, map: MapPinned }
 
@@ -9,7 +10,7 @@ function ReportMock({ report }) {
   return (
     <div className="yz-report" role="img" aria-label={`${report.title} — ${report.period}`}>
       <div className="yz-board__bar" aria-hidden="true">
-        <strong>{report.title}</strong>
+        <strong>{bt(report.title)}</strong>
         <span className="yz-mono">{report.period}</span>
       </div>
       <ul className="yz-report__kpis" aria-hidden="true">
@@ -18,7 +19,7 @@ function ReportMock({ report }) {
           return (
             <li key={kpi.id}>
               <Icon size={16} strokeWidth={2.2} />
-              <span>{kpi.label}</span>
+              <span>{bt(kpi.label)}</span>
               <span className="yz-report__trend" />
             </li>
           )
@@ -44,8 +45,8 @@ export default function ColHero() {
         <ReportMock report={COL_HERO.report} />
       </div>
       <div className="yz-hero__plate yz-prohero__tag">
-        <strong>{COL_HERO.tag.value}</strong>
-        <span className="yz-mono">{COL_HERO.tag.label}</span>
+        <strong>{bt(COL_HERO.tag.value)}</strong>
+        <span className="yz-mono">{bt(COL_HERO.tag.label)}</span>
       </div>
     </PageHero>
   )

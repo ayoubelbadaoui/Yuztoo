@@ -4,6 +4,7 @@ import NfcIcon from '../../components/NfcIcon.jsx'
 import PageHero from '../../components/PageHero.jsx'
 import { APP_SCREENS } from '../../appScreensContent.js'
 import { CLI_HERO } from '../clientsContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 export default function CliHero() {
   return (
@@ -17,8 +18,8 @@ export default function CliHero() {
         </span>
       </div>
       <div className="yz-hero__plate yz-prohero__tag">
-        <strong>{CLI_HERO.tag.value}</strong>
-        <span className="yz-mono">{CLI_HERO.tag.label}</span>
+        <strong>{bt(CLI_HERO.tag.value)}</strong>
+        <span className="yz-mono">{bt(CLI_HERO.tag.label)}</span>
       </div>
     </PageHero>
   )

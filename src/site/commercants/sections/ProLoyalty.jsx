@@ -3,6 +3,7 @@ import CheckColumns from '../../components/CheckColumns.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { APP_SCREENS } from '../../appScreensContent.js'
 import { PRO_LOYALTY } from '../commercantsContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 export default function ProLoyalty() {
   return (
@@ -24,7 +25,7 @@ export default function ProLoyalty() {
         <CheckColumns columns={PRO_LOYALTY.columns} />
 
         <p className="yz-loyalty__punch">
-          <span className="yz-accent">{PRO_LOYALTY.punchline}</span>
+          <span className="yz-accent">{bt(PRO_LOYALTY.punchline)}</span>
         </p>
       </div>
     </section>

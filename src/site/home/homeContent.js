@@ -10,28 +10,36 @@
 import { NETWORK } from '../../siteConfig.js'
 
 export const HOME_HERO = {
-  badge: `Commerce de proximité · ${NETWORK.city}`,
+  badge: `Né à ${NETWORK.city} · Phase de test`,
   titleLead: 'Vos clients reviennent',
   titleAccent: 'pour vous,',
   titleEnd: 'pas pour une plateforme.',
   intro:
-    'Une plaque Yuztoo sur votre comptoir. Vos clients la scannent, votre commerce entre dans leur téléphone, et la relation vous appartient. Sans commission, sans publicité.',
-  primaryCta: { label: 'Tester sur mon commerce', href: '/pour-commercants#demarrer' },
+    'Une plaque YuzToo sur votre comptoir. Vos clients la scannent, votre commerce entre dans leur téléphone, et la relation vous appartient. Sans commission, sans publicité.',
+  primaryCta: { label: 'Tester gratuitement', href: '#telecharger' },
   secondaryCta: { label: 'Comment ça marche', href: '#fonctionnement' },
+  /** Test phase + pioneer offer, right under the call to action. */
+  pilot: {
+    kicker: 'Phase de test',
+    cities: NETWORK.pilotCities,
+    offer: `Gratuit pour les ${NETWORK.pioneers} premiers commerçants`,
+    elsewhere: 'Vous souhaitez lancer YuzToo près de chez vous ?',
+    elsewhereCta: { label: 'Contactez-nous', href: '/a-propos#contact' },
+  },
   proof: [
     { id: 'commission', icon: 'percent', value: '0 %', label: 'Commission' },
     { id: 'pub', icon: 'megaphone', value: '0 €', label: 'Publicité' },
-    { id: 'network', icon: 'store', value: String(NETWORK.partners), label: `Commerces à ${NETWORK.city}` },
+    { id: 'network', icon: 'store', value: String(NETWORK.partners), label: 'Commerces partenaires' },
   ],
   image: {
     src: '/images/yuztoo/yuztoo-mascotte.webp',
-    alt: 'La mascotte Yuztoo, un oiseau bleu et jaune portant le badge Yuztoo',
+    alt: 'La mascotte YuzToo, un oiseau bleu et jaune portant le badge YuzToo',
     width: 768,
     height: 880,
   },
   scanLabel: 'Scan en cours',
   plate: {
-    kicker: 'Plaque Yuztoo',
+    kicker: 'Plaque YuzToo',
     name: 'Votre commerce',
     hint: 'Approchez votre téléphone',
   },
@@ -60,7 +68,7 @@ export const HOME_PIZZA = {
     ],
     total: { label: 'Revenu de l’artisan', amount: '≃ 10 € / h' },
     footer: 'Merci de votre commande',
-    stamp: { top: 'Sur Yuztoo', value: '0 %', bottom: 'de commission' },
+    stamp: { top: 'Sur YuzToo', value: '0 %', bottom: 'de commission' },
   },
 }
 
@@ -71,11 +79,11 @@ export const HOME_STEPS = {
   lead: 'Pas de commission, pas de contrat, pas de formation. Une plaque sur le comptoir suffit.',
   image: {
     src: '/images/yuztoo/yuztoo-application-mobile.webp',
-    alt: 'L’application Yuztoo ouverte sur un téléphone, avec la mascotte à l’écran',
+    alt: 'L’application YuzToo ouverte sur un téléphone, avec la mascotte à l’écran',
     width: 900,
     height: 985,
   },
-  imageCaption: 'Application Yuztoo · gratuite pour vos clients',
+  imageCaption: 'Application YuzToo · gratuite pour vos clients',
   steps: [
     {
       id: 'scan',
@@ -115,12 +123,12 @@ export const HOME_BENEFITS = {
       { label: 'Fréquentation', value: '+10 à 15 %' },
       { label: 'Commission', value: '0 €' },
       { label: 'Communication', value: '0 €' },
-      { label: 'Engagement', value: 'Aucun' },
+      { label: 'Engagement', value: 'Sans engagement' },
     ],
   },
   photo: {
     src: '/images/yuztoo/yuztoo-commercants-boulangerie.webp',
-    alt: 'Un boulanger et sa collègue montrant l’application Yuztoo à un client au comptoir',
+    alt: 'Un boulanger et sa collègue montrant l’application YuzToo à un client au comptoir',
     width: 1200,
     height: 1200,
     caption: 'Au comptoir, à Belfort',
@@ -144,34 +152,38 @@ export const HOME_BENEFITS = {
   strip: {
     text: 'Envie de voir ce que ça donne sur votre commerce ? Nous installons la plaque gratuitement.',
     cta: 'Tester gratuitement',
-    href: '/pour-commercants#demarrer',
+    href: '#telecharger',
   },
 }
 
 export const HOME_COVERAGE = {
   index: '05',
   eyebrow: 'Sur le terrain',
-  title: 'Yuztoo commence à Belfort',
-  lead: 'Nous construisons le réseau commerce par commerce, rue par rue, avant d’ouvrir d’autres villes.',
+  title: 'YuzToo commence à Belfort',
+  lead: `Phase de test à ${NETWORK.pilotCities.join(', ').replace(/, ([^,]*)$/, ' et $1')}. Nous construisons le réseau commerce par commerce, rue par rue.`,
   image: {
     src: '/images/yuztoo/yuztoo-mascotte-belfort.webp',
-    alt: 'La mascotte Yuztoo posée sur le panneau d’entrée de ville de Belfort',
+    alt: 'La mascotte YuzToo posée sur le panneau d’entrée de ville de Belfort',
     width: 1000,
     height: 1500,
   },
   imageBadge: { value: NETWORK.department, label: 'Territoire de Belfort' },
   meter: {
-    kicker: 'Réseau belfortain',
+    kicker: 'Réseau YuzToo',
     current: NETWORK.partners,
     target: NETWORK.target,
-    currentLabel: 'commerces partenaires aujourd’hui',
-    targetLabel: 'visés sur Belfort',
-    segments: 25,
+    currentLabel: 'commerces présents',
+    targetLabel: 'commerces visés',
+    segments: 30,
   },
   points: [
+    { id: 'villes', value: `${NETWORK.pilotCities.length} villes`, label: NETWORK.pilotCities.join(' · ') },
     { id: 'valeur', value: '40 %', label: 'de valeur conservée sur le territoire' },
-    { id: 'methode', value: '1 ville', label: 'à la fois, avant d’ouvrir les suivantes' },
   ],
+  elsewhere: {
+    text: 'Vous souhaitez lancer YuzToo près de chez vous ?',
+    cta: { label: 'Contactez-nous', href: '/a-propos#contact' },
+  },
 }
 
 export const HOME_TESTIMONIALS = {
@@ -210,11 +222,11 @@ export const HOME_FOUNDER = {
   eyebrow: 'Notre ambition',
   quote:
     'Les commerçants paient pour recevoir des commandes, et leurs clients ne leur appartiennent plus. Nous voulons remettre la relation là où elle a toujours eu sa place : dans la boutique.',
-  author: 'L’équipe Yuztoo',
+  author: 'L’équipe YuzToo',
   role: 'Belfort',
   image: {
     src: '/images/yuztoo/yuztoo-fondateur.webp',
-    alt: 'Portrait en noir et blanc de Pascal Guyomar, fondateur de Yuztoo, la mascotte posée sur son épaule',
+    alt: 'Portrait en noir et blanc de Pascal Guyomar, fondateur de YuzToo, la mascotte posée sur son épaule',
     width: 760,
     height: 1140,
   },
@@ -224,7 +236,7 @@ export const HOME_FOUNDER = {
 export const HOME_AUDIENCES = {
   index: '08',
   eyebrow: 'Par où commencer',
-  title: 'Yuztoo, pour qui ?',
+  title: 'YuzToo, pour qui ?',
   cards: [
     {
       id: 'commercants',
@@ -255,10 +267,9 @@ export const HOME_AUDIENCES = {
 
 export const HOME_CLOSING = {
   eyebrow: 'Prochaine étape',
-  title: 'Testez Yuztoo sur votre commerce',
-  lead: 'Gratuit pour vous, gratuit pour vos clients. Nous installons la plaque et nous vous accompagnons.',
+  title: 'Testez YuzToo sur votre commerce',
+  lead: `Gratuit pour les ${NETWORK.pioneers} premiers commerçants, et toujours gratuit pour vos clients. Nous installons la plaque et nous vous accompagnons.`,
   primaryCta: { label: 'Nous contacter', href: '/pour-commercants#demarrer' },
-  downloadCta: 'Télécharger l’application',
   image: {
     src: '/images/yuztoo/yuztoo-mascotte.webp',
     alt: '',
@@ -272,7 +283,7 @@ export const HOME_SHOWCASE = {
   index: '03',
   eyebrow: 'L’application',
   title: 'Tout votre commerce, dans une seule app',
-  lead: 'Ce que vous voyez ici, ce sont les vrais écrans de Yuztoo.',
+  lead: 'Ce que vous voyez ici, ce sont les vrais écrans de YuzToo.',
   chapters: [
     {
       id: 'vitrine',

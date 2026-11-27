@@ -5,6 +5,7 @@ import NfcIcon from '../../components/NfcIcon.jsx'
 import SiteAmbient from '../../components/SiteAmbient.jsx'
 import { APP_SCREENS } from '../../appScreensContent.js'
 import { PRO_HERO } from '../commercantsContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 export default function ProHero() {
   const { tag } = PRO_HERO
@@ -23,20 +24,20 @@ export default function ProHero() {
           </p>
 
           <h1 id="yz-prohero-title" className="yz-hero__title">
-            {PRO_HERO.titleLead} <span className="yz-accent">{PRO_HERO.titleAccent}</span>{' '}
-            <span className="yz-hero__title-end">{PRO_HERO.titleEnd}</span>
+            {bt(PRO_HERO.titleLead)} <span className="yz-accent">{bt(PRO_HERO.titleAccent)}</span>{' '}
+            <span className="yz-hero__title-end">{bt(PRO_HERO.titleEnd)}</span>
           </h1>
 
-          <p className="yz-hero__lead">{PRO_HERO.intro}</p>
+          <p className="yz-hero__lead">{bt(PRO_HERO.intro)}</p>
 
           <div className="yz-hero__actions">
             <a className="yz-btn yz-btn--primary" href={PRO_HERO.primaryCta.href}>
-              {PRO_HERO.primaryCta.label}
+              {bt(PRO_HERO.primaryCta.label)}
               <ArrowRight size={18} strokeWidth={2.4} aria-hidden="true" />
             </a>
             <a className="yz-link" href={PRO_HERO.secondaryCta.href}>
               <ArrowDown size={14} strokeWidth={2.6} aria-hidden="true" />
-              {PRO_HERO.secondaryCta.label}
+              {bt(PRO_HERO.secondaryCta.label)}
             </a>
           </div>
 
@@ -44,10 +45,12 @@ export default function ProHero() {
             {PRO_HERO.checks.map((check) => (
               <li key={check}>
                 <Check size={15} strokeWidth={3} aria-hidden="true" />
-                {check}
+                {bt(check)}
               </li>
             ))}
           </ul>
+
+          <p className="yz-prohero__footnote">{PRO_HERO.footnote}</p>
         </div>
 
         <div className="yz-prohero__visual">
@@ -60,8 +63,8 @@ export default function ProHero() {
             </span>
           </div>
           <div className="yz-hero__plate yz-prohero__tag">
-            <strong>{tag.value}</strong>
-            <span className="yz-mono">{tag.label}</span>
+            <strong>{bt(tag.value)}</strong>
+            <span className="yz-mono">{bt(tag.label)}</span>
           </div>
         </div>
       </div>

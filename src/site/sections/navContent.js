@@ -10,7 +10,7 @@ export const NAV_LINKS = [
   { href: '/a-propos', label: 'À propos' },
 ]
 
-export const NAV_CTA = { href: '/pour-commercants#demarrer', label: 'Tester gratuitement' }
+export const NAV_CTA = { href: '#telecharger', label: 'Tester gratuitement' }
 
 export const THEME = { label: 'Mode sombre' }
 
@@ -28,7 +28,7 @@ export const LOGO = {
 
 export const FOOTER = {
   tagline:
-    'Yuztoo relie les commerces de proximité à leurs clients. Sans publicité, sans commission, sans dépendance.',
+    'YuzToo relie les commerces de proximité à leurs clients. Sans publicité, sans commission, sans dépendance.',
   columns: [
     {
       id: 'produit',
@@ -59,7 +59,7 @@ export const FOOTER = {
       ],
     },
   ],
-  legal: '© 2026 Yuztoo. Tous droits réservés.',
+  legal: '© 2026 YuzToo. Tous droits réservés.',
   madeIn: `Conçu à ${NETWORK.city} · ${NETWORK.department}`,
   status: `Actif à ${NETWORK.city} · ${NETWORK.partners} commerces`,
   soon: 'Bientôt',
@@ -76,5 +76,19 @@ export const FOOTER = {
     ],
   },
   backToTop: 'Haut de page',
-  wordmark: 'Yuztoo',
+  wordmark: 'YuzToo',
+}
+
+/** « Téléchargez YuzToo » band shown above the footer on every page. */
+export const DOWNLOAD = {
+  id: 'telecharger',
+  eyebrow: 'L’application',
+  title: 'Téléchargez YuzToo, c’est gratuit',
+  lead: 'L’application est déjà disponible. Commerçants, créez votre vitrine en quelques minutes. Clients, retrouvez tous vos commerces au même endroit.',
+  audiences: [
+    { id: 'pro', title: 'Commerçants', text: `Gratuit pour les ${NETWORK.pioneers} premiers commerçants*` },
+    { id: 'client', title: 'Clients', text: 'Gratuit, sans publicité' },
+  ],
+  qrHint: 'Scannez avec votre téléphone',
+  footnote: `*Offre pionniers réservée aux ${NETWORK.pioneers} premiers commerçants inscrits.`,
 }

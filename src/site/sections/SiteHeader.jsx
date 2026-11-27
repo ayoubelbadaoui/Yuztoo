@@ -3,6 +3,7 @@ import { ArrowRight, ArrowUpRight, Mail, MapPin, Menu, Phone, X } from 'lucide-r
 import { CONTACT } from '../../siteConfig.js'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 import { LOGO, NAV_CTA, NAV_LINKS, UTILITY } from './navContent.js'
+import { bt } from '../components/Brand.jsx'
 
 // Two thresholds so the bar does not flicker when the page rests near one.
 const CONDENSE_AT = 24
@@ -60,10 +61,10 @@ function useDrawer() {
 
 function Logo() {
   return (
-    <a className="yz-logo" href="/" aria-label="Yuztoo, accueil">
+    <a className="yz-logo" href="/" aria-label="YuzToo, accueil">
       <img src={LOGO.src} width={LOGO.width} height={LOGO.height} alt="" />
       <span className="yz-logo__word" aria-hidden="true">
-        Yuz<span>too</span>
+        Yuz<span>Too</span>
       </span>
     </a>
   )
@@ -123,7 +124,7 @@ export default function SiteHeader({ currentPath = '/' }) {
                   href={link.href}
                   aria-current={active ? 'page' : undefined}
                 >
-                  {link.label}
+                  {bt(link.label)}
                 </a>
               )
             })}
@@ -132,7 +133,7 @@ export default function SiteHeader({ currentPath = '/' }) {
           <div className="yz-actions">
             <ThemeToggle />
             <a className="yz-cta" href={NAV_CTA.href}>
-              {NAV_CTA.label}
+              {bt(NAV_CTA.label)}
               <span className="yz-cta__arrow" aria-hidden="true">
                 <ArrowUpRight size={16} strokeWidth={2.4} />
               </span>
@@ -165,7 +166,7 @@ export default function SiteHeader({ currentPath = '/' }) {
                 >
                   <span>
                     <em className="yz-drawer__idx">{String(i + 1).padStart(2, '0')}</em>
-                    {link.label}
+                    {bt(link.label)}
                   </span>
                   <ArrowRight size={18} aria-hidden="true" />
                 </a>
@@ -183,7 +184,7 @@ export default function SiteHeader({ currentPath = '/' }) {
             </a>
           </div>
           <a className="yz-cta yz-cta--block" href={NAV_CTA.href} onClick={close}>
-            {NAV_CTA.label}
+            {bt(NAV_CTA.label)}
             <span className="yz-cta__arrow" aria-hidden="true">
               <ArrowUpRight size={18} strokeWidth={2.4} />
             </span>

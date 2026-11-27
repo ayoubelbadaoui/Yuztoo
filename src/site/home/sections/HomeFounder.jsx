@@ -1,4 +1,5 @@
 import { HOME_FOUNDER } from '../homeContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 export default function HomeFounder() {
   const { image, imageBadge } = HOME_FOUNDER
@@ -16,26 +17,26 @@ export default function HomeFounder() {
             decoding="async"
           />
           <figcaption className="yz-founder__badge">
-            <strong>{imageBadge.value}</strong>
-            <span className="yz-mono">{imageBadge.label}</span>
+            <strong>{bt(imageBadge.value)}</strong>
+            <span className="yz-mono">{bt(imageBadge.label)}</span>
           </figcaption>
         </figure>
 
         <div className="yz-founder__copy">
           <h2 className="yz-eyebrow" id="yz-founder-title">
             <em className="yz-eyebrow__idx">{HOME_FOUNDER.index}</em>
-            {HOME_FOUNDER.eyebrow}
+            {bt(HOME_FOUNDER.eyebrow)}
           </h2>
           <blockquote className="yz-founder__quote" data-reveal>
             <span className="yz-founder__mark" aria-hidden="true">
               «
             </span>
-            <p>{HOME_FOUNDER.quote}</p>
+            <p>{bt(HOME_FOUNDER.quote)}</p>
           </blockquote>
           <p className="yz-founder__sign">
             <span className="yz-founder__rule" aria-hidden="true" />
-            <strong>{HOME_FOUNDER.author}</strong>
-            <span className="yz-mono">{HOME_FOUNDER.role}</span>
+            <strong>{bt(HOME_FOUNDER.author)}</strong>
+            <span className="yz-mono">{bt(HOME_FOUNDER.role)}</span>
           </p>
         </div>
       </div>

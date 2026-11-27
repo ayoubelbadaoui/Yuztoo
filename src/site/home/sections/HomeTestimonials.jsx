@@ -1,6 +1,7 @@
 import { Coffee, ShoppingBasket, Waves } from 'lucide-react'
 import SectionHead from '../../components/SectionHead.jsx'
 import { HOME_TESTIMONIALS } from '../homeContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const TRADE_ICONS = { coffee: Coffee, waves: Waves, basket: ShoppingBasket }
 
@@ -38,15 +39,15 @@ export default function HomeTestimonials() {
                     </em>
                   </p>
                   <blockquote className="yz-voice__quote">
-                    <p>{item.quote}</p>
+                    <p>{bt(item.quote)}</p>
                   </blockquote>
                   <figcaption className="yz-voice__who">
                     <span className="yz-voice__r" aria-hidden="true">
                       <Icon size={18} strokeWidth={2} />
                     </span>
                     <span>
-                      <strong>{item.author}</strong>
-                      <span className="yz-mono">{item.role}</span>
+                      <strong>{bt(item.author)}</strong>
+                      <span className="yz-mono">{bt(item.role)}</span>
                     </span>
                   </figcaption>
                 </figure>

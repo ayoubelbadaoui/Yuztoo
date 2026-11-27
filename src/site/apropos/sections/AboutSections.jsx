@@ -3,6 +3,7 @@ import IconGrid from '../../components/IconGrid.jsx'
 import PageHero from '../../components/PageHero.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { ABOUT_AMBITION, ABOUT_FOUNDER, ABOUT_HERO, ABOUT_MISSION, ABOUT_VISION } from '../aproposContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const AMBITION_ICONS = { link: Link, database: Database, network: Network, compass: Compass }
 
@@ -14,8 +15,8 @@ export function AboutHero() {
         <img src={image.src} alt={image.alt} width={image.width} height={image.height} fetchpriority="high" decoding="async" />
       </div>
       <div className="yz-hero__plate yz-prohero__tag">
-        <strong>{tag.value}</strong>
-        <span className="yz-mono">{tag.label}</span>
+        <strong>{bt(tag.value)}</strong>
+        <span className="yz-mono">{bt(tag.label)}</span>
       </div>
     </PageHero>
   )
@@ -33,10 +34,10 @@ export function AboutMission() {
         />
         <div className="yz-mission__body">
           {ABOUT_MISSION.paragraphs.map((text) => (
-            <p key={text}>{text}</p>
+            <p key={text}>{bt(text)}</p>
           ))}
           <blockquote className="yz-mission__quote">
-            <p>{ABOUT_MISSION.quote}</p>
+            <p>{bt(ABOUT_MISSION.quote)}</p>
           </blockquote>
         </div>
       </div>
@@ -50,10 +51,10 @@ export function AboutVision() {
       <div className="yz-container">
         <p className="yz-eyebrow">
           <em className="yz-eyebrow__idx">{ABOUT_VISION.index}</em>
-          {ABOUT_VISION.eyebrow}
+          {bt(ABOUT_VISION.eyebrow)}
         </p>
         <h2 className="yz-vision__title" id="yz-vision-title">
-          {ABOUT_VISION.title}
+          {bt(ABOUT_VISION.title)}
           {ABOUT_VISION.words.map((word, i) => (
             <span key={word} className="yz-vision__word" data-reveal style={{ '--d': `${i * 0.12}s` }}>
               {word}
@@ -69,7 +70,7 @@ export function AboutVision() {
                 <span className="yz-mono" aria-hidden="true">
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                {item.title}
+                {bt(item.title)}
               </li>
             ))}
           </ol>
@@ -89,28 +90,28 @@ export function AboutFounder() {
       <div className="yz-container yz-bio__layout">
         <figure className="yz-bio__media yz-frame" data-reveal>
           <img src={image.src} alt={image.alt} width={image.width} height={image.height} loading="lazy" decoding="async" />
-          <figcaption className="yz-steps__caption yz-mono">{ABOUT_FOUNDER.role}</figcaption>
+          <figcaption className="yz-steps__caption yz-mono">{bt(ABOUT_FOUNDER.role)}</figcaption>
         </figure>
 
         <div>
           <p className="yz-eyebrow">
             <em className="yz-eyebrow__idx">{ABOUT_FOUNDER.index}</em>
-            {ABOUT_FOUNDER.eyebrow}
+            {bt(ABOUT_FOUNDER.eyebrow)}
           </p>
           <h2 className="yz-h2" id="yz-bio-title">
-            {ABOUT_FOUNDER.name}
+            {bt(ABOUT_FOUNDER.name)}
           </h2>
           <div className="yz-bio__text">
             {ABOUT_FOUNDER.paragraphs.map((text) => (
-              <p key={text}>{text}</p>
+              <p key={text}>{bt(text)}</p>
             ))}
           </div>
           <p className="yz-strip yz-strip__text yz-setup__quote">{ABOUT_FOUNDER.goal}</p>
           <dl className="yz-bio__facts">
             {ABOUT_FOUNDER.facts.map((fact) => (
               <div key={fact.id}>
-                <dt className="yz-mono">{fact.label}</dt>
-                <dd>{fact.value}</dd>
+                <dt className="yz-mono">{bt(fact.label)}</dt>
+                <dd>{bt(fact.value)}</dd>
               </div>
             ))}
           </dl>

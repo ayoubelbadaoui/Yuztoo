@@ -1,6 +1,7 @@
 import { BellRing, Repeat, SmartphoneNfc } from 'lucide-react'
 import SectionHead from '../../components/SectionHead.jsx'
 import { HOME_STEPS } from '../homeContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const ICONS = { scan: SmartphoneNfc, bell: BellRing, repeat: Repeat }
 
@@ -32,7 +33,7 @@ export default function HomeSteps() {
               loading="lazy"
               decoding="async"
             />
-            <figcaption className="yz-steps__caption yz-mono">{HOME_STEPS.imageCaption}</figcaption>
+            <figcaption className="yz-steps__caption yz-mono">{bt(HOME_STEPS.imageCaption)}</figcaption>
           </figure>
 
           <ol className="yz-grid yz-steps__list">
@@ -49,9 +50,9 @@ export default function HomeSteps() {
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <div className="yz-steps__body">
-                    <h3 className="yz-steps__title">{step.title}</h3>
-                    <p className="yz-steps__text">{step.text}</p>
-                    <span className="yz-steps__tag yz-mono">{step.tag}</span>
+                    <h3 className="yz-steps__title">{bt(step.title)}</h3>
+                    <p className="yz-steps__text">{bt(step.text)}</p>
+                    <span className="yz-steps__tag yz-mono">{bt(step.tag)}</span>
                   </div>
                   <span className="yz-tile" aria-hidden="true">
                     <Icon size={21} strokeWidth={2.1} />

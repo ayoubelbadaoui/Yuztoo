@@ -1,3 +1,4 @@
+import { bt } from './Brand.jsx'
 export default function SectionHead({
   index,
   eyebrow,
@@ -10,12 +11,12 @@ export default function SectionHead({
     <div className={`yz-head yz-head--${align}`}>
       <p className="yz-eyebrow">
         {index ? <em className="yz-eyebrow__idx">{index}</em> : null}
-        {eyebrow}
+        {bt(eyebrow)}
       </p>
       <h2 className="yz-h2" id={titleId}>
-        {title}
+        {bt(title)}
       </h2>
-      {lead ? <p className="yz-lead">{lead}</p> : null}
+      {lead ? <p className="yz-lead">{bt(lead)}</p> : null}
     </div>
   )
 }

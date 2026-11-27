@@ -5,7 +5,7 @@ export const FORM_COPY = {
   email: { label: 'E-mail', autoComplete: 'email' },
   phone: { label: 'Téléphone', hint: 'facultatif', autoComplete: 'tel' },
   optional: 'facultatif',
-  consentLead: 'J’accepte que Yuztoo utilise ces informations pour me recontacter. ',
+  consentLead: 'J’accepte que YuzToo utilise ces informations pour me recontacter. ',
   consentLink: { label: 'Politique de confidentialité', href: '/confidentialite' },
   honeypot: 'Laissez ce champ vide',
   sending: 'Envoi…',

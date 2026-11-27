@@ -1,5 +1,6 @@
 import SectionHead from '../../components/SectionHead.jsx'
 import { PRO_PAINS } from '../commercantsContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 export default function ProPains() {
   return (
@@ -27,10 +28,10 @@ export default function ProPains() {
             >
               <span className="yz-pains__kicker yz-mono">
                 <span aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-                {item.kicker}
+                {bt(item.kicker)}
               </span>
-              <h3 className="yz-pains__title">{item.title}</h3>
-              <p className="yz-pains__text">{item.text}</p>
+              <h3 className="yz-pains__title">{bt(item.title)}</h3>
+              <p className="yz-pains__text">{bt(item.text)}</p>
               <ul className="yz-pains__chips">
                 {item.chips.map((chip) => (
                   <li key={chip} className="yz-mono">

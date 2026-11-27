@@ -4,9 +4,9 @@ import { ABOUT_FOUNDER } from './aproposContent.js'
 
 export const APROPOS_SEO = buildPageSeo({
   path: '/a-propos',
-  title: 'À propos de Yuztoo — Redonner vie au commerce local',
+  title: 'À propos de YuzToo — Redonner vie au commerce local',
   description:
-    'Yuztoo est né à Belfort pour rendre aux commerçants leur relation client. Notre mission, notre vision et notre fondateur, Pascal Guyomar.',
+    'YuzToo est né à Belfort pour rendre aux commerçants leur relation client. Notre mission, notre vision et notre fondateur, Pascal Guyomar.',
   crumb: 'À propos',
   graph: [
     {

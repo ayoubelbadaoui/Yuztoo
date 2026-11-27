@@ -1,4 +1,5 @@
 import SectionHead from './SectionHead.jsx'
+import { bt } from './Brand.jsx'
 
 /**
  * Photo + numbered steps on a dashed rail. `data`: { index, eyebrow, title,
@@ -19,7 +20,7 @@ export default function StepsWithMedia({ data, icons, id, className = 'yz-light'
             loading="lazy"
             decoding="async"
           />
-          <figcaption className="yz-steps__caption yz-mono">{data.imageCaption}</figcaption>
+          <figcaption className="yz-steps__caption yz-mono">{bt(data.imageCaption)}</figcaption>
         </figure>
 
         <div className="yz-setup__copy">
@@ -42,15 +43,15 @@ export default function StepsWithMedia({ data, icons, id, className = 'yz-light'
                     <span className="yz-setup__num yz-mono" aria-hidden="true">
                       Étape {String(i + 1).padStart(2, '0')}
                     </span>
-                    <h3 className="yz-setup__title">{step.title}</h3>
-                    <p className="yz-setup__text">{step.text}</p>
+                    <h3 className="yz-setup__title">{bt(step.title)}</h3>
+                    <p className="yz-setup__text">{bt(step.text)}</p>
                   </div>
                 </li>
               )
             })}
           </ol>
 
-          {data.quote ? <p className="yz-strip yz-strip__text yz-setup__quote">{data.quote}</p> : null}
+          {data.quote ? <p className="yz-strip yz-strip__text yz-setup__quote">{bt(data.quote)}</p> : null}
         </div>
       </div>
     </section>

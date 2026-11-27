@@ -13,7 +13,7 @@ export const COL_HERO = {
   titleAccent: 'au service de votre territoire.',
   titleEnd: '',
   intro:
-    'Yuztoo renforce le lien entre habitants et commerces de proximité, sans dépendance aux plateformes globales. Un outil de politique publique pilotable, mesurable et souverain.',
+    'YuzToo renforce le lien entre habitants et commerces de proximité, sans dépendance aux plateformes globales. Un outil de politique publique pilotable, mesurable et souverain.',
   primaryCta: { label: 'Déployer sur ma commune', href: '#deployer' },
   secondaryCta: { label: 'Le constat', href: '#constat' },
   checks: ['Conforme RGPD', 'Données locales, non revendues', 'Reporting mensuel'],
@@ -47,7 +47,7 @@ export const COL_PROBLEM = {
 }
 
 export const COL_IMPACT = {
-  eyebrow: 'Déployer Yuztoo',
+  eyebrow: 'Déployer YuzToo',
   title: 'Ce que votre commune y gagne.',
   stats: [
     { id: 'value', value: '40 %', label: 'De valeur ajoutée conservée', note: 'Ce qui partait en commissions reste dans l’économie locale.' },
@@ -59,7 +59,7 @@ export const COL_IMPACT = {
 export const COL_ANSWER = {
   index: '02',
   eyebrow: 'Une réponse souveraine',
-  title: 'Yuztoo, un outil de politique publique territoriale.',
+  title: 'YuzToo, un outil de politique publique territoriale.',
   points: [
     'Reconnecter les commerçants et les habitants',
     'Digitaliser sans dépendance aux plateformes globales',
@@ -69,7 +69,7 @@ export const COL_ANSWER = {
   ],
   highlight:
     'Chaque commerçant accède à un niveau de digitalisation équivalent à celui d’une franchise nationale, sans dépendance ni surcoût.',
-  quote: 'Yuztoo ne crée pas de concurrence. Il renforce l’écosystème local existant.',
+  quote: 'YuzToo ne crée pas de concurrence. Il renforce l’écosystème local existant.',
 }
 
 export const COL_PROMISE = {
@@ -135,7 +135,7 @@ export const COL_BENEFITS = {
 }
 
 export const COL_INVEST = {
-  eyebrow: 'Yuztoo n’est pas une dépense',
+  eyebrow: 'YuzToo n’est pas une dépense',
   title: 'C’est une infrastructure numérique locale, humaine et durable.',
   items: [
     { id: 'souverainete', icon: 'shield', title: 'Souveraineté numérique', text: 'Un investissement qui garde le lien et les données sur le territoire.' },
@@ -158,23 +158,23 @@ export const COL_FAQ = {
     {
       id: 'rgpd',
       question: 'Comment sont protégées les données des habitants ?',
-      answer: 'Yuztoo respecte strictement le RGPD. Les données restent locales, ne sont jamais revendues, et aucune publicité n’est diffusée aux habitants.',
+      answer: 'YuzToo respecte strictement le RGPD. Les données restent locales, ne sont jamais revendues, et aucune publicité n’est diffusée aux habitants.',
     },
     {
       id: 'concurrence',
-      question: 'Yuztoo met-il les commerces en concurrence ?',
-      answer: 'Non. Yuztoo ne crée pas de concurrence : il renforce l’écosystème local existant, sans algorithme de mise en concurrence entre commerçants.',
+      question: 'YuzToo met-il les commerces en concurrence ?',
+      answer: 'Non. YuzToo ne crée pas de concurrence : il renforce l’écosystème local existant, sans algorithme de mise en concurrence entre commerçants.',
     },
     {
       id: 'deploiement',
-      question: 'Comment déployer Yuztoo sur notre commune ?',
+      question: 'Comment déployer YuzToo sur notre commune ?',
       answer: `Écrivez-nous ou appelez-nous pour une présentation à vos élus et à vos services. ${NETWORK.city} est notre territoire pilote.`,
     },
   ],
 }
 
 export const COL_START = {
-  eyebrow: 'Déployer Yuztoo',
+  eyebrow: 'Déployer YuzToo',
   title: 'Parlons de votre territoire',
   lead: `${NETWORK.city} est notre territoire pilote. Présentons le dispositif à vos élus et à vos services, et construisons ensemble le réseau de votre commune.`,
   form: {

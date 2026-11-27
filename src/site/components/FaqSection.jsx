@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react'
 import SectionHead from './SectionHead.jsx'
+import { bt } from './Brand.jsx'
 
 export default function FaqSection({ faq, id = 'faq' }) {
   return (
@@ -14,12 +15,12 @@ export default function FaqSection({ faq, id = 'faq' }) {
                 <span className="yz-faq__num yz-mono" aria-hidden="true">
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <h3 className="yz-faq__q">{item.question}</h3>
+                <h3 className="yz-faq__q">{bt(item.question)}</h3>
                 <span className="yz-faq__toggle" aria-hidden="true">
                   <Plus size={18} strokeWidth={2.4} />
                 </span>
               </summary>
-              <p className="yz-faq__a">{item.answer}</p>
+              <p className="yz-faq__a">{bt(item.answer)}</p>
             </details>
           ))}
         </div>

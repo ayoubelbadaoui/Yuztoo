@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import SectionHead from '../../components/SectionHead.jsx'
 import { PRO_CALC } from '../commercantsContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 
@@ -39,7 +40,7 @@ function Slider({ field, value, onChange }) {
   return (
     <div className="yz-calc__field">
       <label htmlFor={`yz-calc-${field.id}`}>
-        <span>{field.label}</span>
+        <span>{bt(field.label)}</span>
         <output htmlFor={`yz-calc-${field.id}`}>
           {value}
           {field.unit ? ` ${field.unit}` : ''}
@@ -103,7 +104,7 @@ export default function ProCalculator() {
             </div>
 
             <a className="yz-btn yz-btn--primary yz-calc__cta" href={PRO_CALC.cta.href}>
-              {PRO_CALC.cta.label}
+              {bt(PRO_CALC.cta.label)}
               <ArrowRight size={18} strokeWidth={2.4} aria-hidden="true" />
             </a>
           </div>

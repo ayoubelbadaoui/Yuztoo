@@ -1,6 +1,7 @@
 import { ArrowRight, ArrowUpRight, Landmark, Smartphone, Store } from 'lucide-react'
 import SectionHead from '../../components/SectionHead.jsx'
 import { HOME_AUDIENCES } from '../homeContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const ICONS = { store: Store, phone: Smartphone, landmark: Landmark }
 
@@ -32,10 +33,10 @@ export default function HomeAudiences() {
                     <ArrowUpRight className="yz-audience__corner" size={20} aria-hidden="true" />
                   </span>
                   <span className="yz-audience__idx yz-mono">{String(i + 1).padStart(2, '0')}</span>
-                  <h3 className="yz-audience__title">{card.title}</h3>
-                  <p className="yz-audience__text">{card.text}</p>
+                  <h3 className="yz-audience__title">{bt(card.title)}</h3>
+                  <p className="yz-audience__text">{bt(card.text)}</p>
                   <span className="yz-audience__cta yz-mono">
-                    {card.cta}
+                    {bt(card.cta)}
                     <ArrowRight size={14} strokeWidth={2.6} aria-hidden="true" />
                   </span>
                 </a>

@@ -1,7 +1,10 @@
-import { ArrowUp, ArrowUpRight, Mail, MapPin, Phone, Smartphone } from 'lucide-react'
+import { ArrowUp, ArrowUpRight, Mail, MapPin, Phone } from 'lucide-react'
 import { ROUTE_META } from '../../routeMeta.js'
-import { APP_STORES, CONTACT } from '../../siteConfig.js'
+import { CONTACT } from '../../siteConfig.js'
 import { FOOTER, LOGO } from './navContent.js'
+import DownloadBand from './DownloadBand.jsx'
+import { StoreButton, STORES } from '../components/StoreButtons.jsx'
+import { bt } from '../components/Brand.jsx'
 
 const LIVE_PATHS = new Set(ROUTE_META.filter((route) => route.indexable).map((route) => route.path))
 
@@ -21,7 +24,7 @@ function ContactCell({ item }) {
     <>
       <span className="yz-footer__cell-label yz-mono">
         <Icon size={13} strokeWidth={2.4} aria-hidden="true" />
-        {item.label}
+        {bt(item.label)}
       </span>
       <span className="yz-footer__cell-value">{value}</span>
       {href ? <ArrowUpRight className="yz-footer__cell-arrow" size={18} aria-hidden="true" /> : null}
@@ -38,20 +41,22 @@ function ContactCell({ item }) {
 
 export default function SiteFooter() {
   return (
+    <>
+    <DownloadBand />
     <footer className="yz-footer">
       <div className="yz-container">
         <div className="yz-footer__top">
           <div className="yz-footer__brandCol">
-            <a className="yz-footer__brand" href="/" aria-label="Yuztoo, accueil">
+            <a className="yz-footer__brand" href="/" aria-label="YuzToo, accueil">
               <img src={LOGO.src} width={LOGO.width} height={LOGO.height} alt="" loading="lazy" />
               <span aria-hidden="true">
-                Yuz<span>too</span>
+                Yuz<span>Too</span>
               </span>
             </a>
-            <p className="yz-footer__tagline">{FOOTER.tagline}</p>
+            <p className="yz-footer__tagline">{bt(FOOTER.tagline)}</p>
             <p className="yz-footer__status yz-mono">
               <span className="yz-footer__pulse" aria-hidden="true" />
-              {FOOTER.status}
+              {bt(FOOTER.status)}
             </p>
           </div>
 
@@ -59,12 +64,12 @@ export default function SiteFooter() {
             <nav key={column.id} className="yz-footer__col" aria-label={column.title}>
               <h2 className="yz-mono">
                 <span aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-                {column.title}
+                {bt(column.title)}
               </h2>
               <ul>
                 {column.links.filter((link) => isLive(link.href)).map((link) => (
                   <li key={link.href}>
-                    <a href={link.href}>{link.label}</a>
+                    <a href={link.href}>{bt(link.label)}</a>
                   </li>
                 ))}
               </ul>
@@ -80,34 +85,18 @@ export default function SiteFooter() {
           </div>
 
           <div className="yz-footer__app">
-            <h2 className="yz-mono">{FOOTER.app.title}</h2>
-            <ul>
-              {FOOTER.app.stores.map((store) => {
-                const href = APP_STORES.available ? APP_STORES[store.id] : null
-                return (
-                  <li key={store.id}>
-                    {href ? (
-                      <a className="yz-footer__store" href={href}>
-                        <Smartphone size={18} aria-hidden="true" />
-                        {store.label}
-                      </a>
-                    ) : (
-                      <span className="yz-footer__store is-soon">
-                        <Smartphone size={18} aria-hidden="true" />
-                        {store.label}
-                        <em className="yz-mono">{FOOTER.soon}</em>
-                      </span>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
+            <h2 className="yz-mono">{bt(FOOTER.app.title)}</h2>
+            <div className="yz-footer__storelist">
+              {STORES.map((store) => (
+                <StoreButton key={store.id} store={store} size="sm" />
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="yz-footer__legal">
-          <span>{FOOTER.legal}</span>
-          <span className="yz-mono">{FOOTER.madeIn}</span>
+          <span>{bt(FOOTER.legal)}</span>
+          <span className="yz-mono">{bt(FOOTER.madeIn)}</span>
           <a className="yz-footer__top-link yz-mono" href="#top">
             {FOOTER.backToTop}
             <ArrowUp size={14} strokeWidth={2.4} aria-hidden="true" />
@@ -120,5 +109,6 @@ export default function SiteFooter() {
         <span>{FOOTER.wordmark.slice(3)}</span>
       </p>
     </footer>
+    </>
   )
 }

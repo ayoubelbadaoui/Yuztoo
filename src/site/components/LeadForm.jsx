@@ -5,6 +5,7 @@ import { leadSourceFor } from '../../data/leadSources.js'
 import { FORM_COPY } from '../forms/formContent.js'
 import { useLeadFormState } from '../forms/useLeadFormState.js'
 import { useLeadSubmit } from '../forms/useLeadSubmit.js'
+import { bt } from './Brand.jsx'
 
 function Field({ id, label, hint, error, children }) {
   return (
@@ -45,7 +46,7 @@ export default function LeadForm({ form, path, source }) {
   return (
     <form className="yz-form" onSubmit={onSubmit} noValidate aria-labelledby={fieldId('title')}>
       <p className="yz-form__title" id={fieldId('title')}>
-        {form.title}
+        {bt(form.title)}
       </p>
 
       <div className="yz-form__row">
@@ -104,7 +105,7 @@ export default function LeadForm({ form, path, source }) {
         />
         <label htmlFor={fieldId('consent')}>
           {FORM_COPY.consentLead}
-          <a href={FORM_COPY.consentLink.href}>{FORM_COPY.consentLink.label}</a>
+          <a href={FORM_COPY.consentLink.href}>{bt(FORM_COPY.consentLink.label)}</a>
         </label>
         {errors.consent ? (
           <p className="yz-field__error" id={`${fieldId('consent')}-error`}>

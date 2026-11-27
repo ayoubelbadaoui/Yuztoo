@@ -14,6 +14,7 @@ import IconGrid from '../../components/IconGrid.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import StepsWithMedia from '../../components/StepsWithMedia.jsx'
 import { CLI_LOCAL, CLI_MESSAGES, CLI_STEPS, CLI_WHY } from '../clientsContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 const WHY_ICONS = {
   shield: ShieldCheck,
@@ -32,7 +33,7 @@ function CheckList({ items }) {
       {items.map((item) => (
         <li key={item}>
           <Check size={15} strokeWidth={3} aria-hidden="true" />
-          {item}
+          {bt(item)}
         </li>
       ))}
     </ul>
@@ -68,7 +69,7 @@ export function CliMessages() {
         <div className="yz-grid yz-duo">
           {CLI_MESSAGES.columns.map((column) => (
             <div key={column.id} className="yz-cell yz-duo__cell">
-              <h3 className="yz-duo__title">{column.title}</h3>
+              <h3 className="yz-duo__title">{bt(column.title)}</h3>
               <CheckList items={column.points} />
               <ul className="yz-duo__notifs">
                 {column.examples.map((example, i) => (
@@ -81,7 +82,7 @@ export function CliMessages() {
                         <strong>{CLI_MESSAGES.shop}</strong>
                       </span>
                       <span className="yz-notif__text">
-                        {example.emoji} {example.text}
+                        {example.emoji} {bt(example.text)}
                       </span>
                     </span>
                   </li>
@@ -104,20 +105,20 @@ export function CliLocal() {
         <SectionHead index={CLI_LOCAL.index} eyebrow={CLI_LOCAL.eyebrow} title={CLI_LOCAL.title} titleId="yz-local-title" />
         <div className="yz-grid yz-duo">
           <div className="yz-cell yz-duo__cell">
-            <h3 className="yz-duo__title">{recommend.title}</h3>
-            <p className="yz-duo__text">{recommend.text}</p>
+            <h3 className="yz-duo__title">{bt(recommend.title)}</h3>
+            <p className="yz-duo__text">{bt(recommend.text)}</p>
             <CheckList items={recommend.points} />
           </div>
           <div className="yz-cell yz-duo__cell">
-            <h3 className="yz-duo__title">{chat.title}</h3>
-            <p className="yz-duo__text">{chat.text}</p>
+            <h3 className="yz-duo__title">{bt(chat.title)}</h3>
+            <p className="yz-duo__text">{bt(chat.text)}</p>
             <div className="yz-chat" role="img" aria-label={chat.label}>
               <span className="yz-chat__label yz-mono" aria-hidden="true">
-                {chat.label}
+                {bt(chat.label)}
               </span>
               {chat.bubbles.map((bubble) => (
                 <p key={bubble.id} className={`yz-chat__bubble yz-chat__bubble--${bubble.from}`} aria-hidden="true">
-                  {bubble.text}
+                  {bt(bubble.text)}
                 </p>
               ))}
             </div>

@@ -135,7 +135,7 @@
 /* Each segment is ten shops: the gap to fill is the point. */
 .yz-meter__bar {
   display: grid;
-  grid-template-columns: repeat(25, 1fr);
+  grid-template-columns: repeat(var(--segments, 25), 1fr);
   gap: 3px;
   height: 22px;
 }

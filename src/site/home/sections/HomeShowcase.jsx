@@ -3,6 +3,7 @@ import AppPhone from '../../components/AppPhone.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { APP_SCREENS } from '../../appScreensContent.js'
 import { HOME_SHOWCASE } from '../homeContent.js'
+import { bt } from '../../components/Brand.jsx'
 
 /**
  * Desktop: a sticky phone whose screen follows the chapter being read.
@@ -76,10 +77,10 @@ export default function HomeShowcase() {
                 <AppPhone screen={APP_SCREENS[chapter.id]} className="yz-show__mini" sizes="62vw" />
                 <p className="yz-show__kicker yz-mono">
                   <em>{String(i + 1).padStart(2, '0')}</em>
-                  {chapter.kicker}
+                  {bt(chapter.kicker)}
                 </p>
-                <h3 className="yz-show__title">{chapter.title}</h3>
-                <p className="yz-show__text">{chapter.text}</p>
+                <h3 className="yz-show__title">{bt(chapter.title)}</h3>
+                <p className="yz-show__text">{bt(chapter.text)}</p>
               </li>
             ))}
           </ol>

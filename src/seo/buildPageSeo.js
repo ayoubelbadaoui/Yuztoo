@@ -10,7 +10,7 @@ const DEFAULT_OG = {
   image: absoluteUrl('/images/og/yuztoo-accueil.jpg'),
   imageWidth: 1200,
   imageHeight: 630,
-  imageAlt: 'Une plaque Yuztoo posée sur le comptoir d’un commerce de proximité',
+  imageAlt: 'Une plaque YuzToo posée sur le comptoir d’un commerce de proximité',
 }
 
 export function buildPageSeo({ path, title, description, crumb, faq, audience, graph = [] }) {

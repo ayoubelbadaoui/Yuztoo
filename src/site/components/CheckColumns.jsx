@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react'
+import { bt } from './Brand.jsx'
 
 /** Numbered hairline columns of checked items. `columns`: { id, title, items[], note? }. */
 export default function CheckColumns({ columns }) {
@@ -10,17 +11,17 @@ export default function CheckColumns({ columns }) {
             <span className="yz-mono" aria-hidden="true">
               {String(i + 1).padStart(2, '0')}
             </span>
-            {column.title}
+            {bt(column.title)}
           </h3>
           <ul>
             {column.items.map((item) => (
               <li key={item}>
                 <Check size={15} strokeWidth={3} aria-hidden="true" />
-                {item}
+                {bt(item)}
               </li>
             ))}
           </ul>
-          {column.note ? <p className="yz-loyalty__note">{column.note}</p> : null}
+          {column.note ? <p className="yz-loyalty__note">{bt(column.note)}</p> : null}
         </div>
       ))}
     </div>

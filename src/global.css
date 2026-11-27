@@ -34,6 +34,15 @@
   --paper-alt: #f7f2e9;
   --white: #ffffff;
 
+  /* The T of « YuzToo » (owner request): the logo amber. On cream it is
+     deepened a step so the letter keeps its shape; it is one letter inside a
+     known word, so it is decoration, not body text. */
+  --brand-t: #c98a0c;
+  --brand-t-on-dark: var(--gold);
+
+  /* Store badges follow the stores' own black badge convention. */
+  --store-ink: #000000;
+
   /* Phone bezel around real app screenshots. */
   --device: #070b14;
 
@@ -687,4 +696,19 @@ html.yz-reveal [data-reveal] {
     transform: none;
     clip-path: none;
   }
+}
+
+/* ---------- brand ---------- */
+
+.yz-brand {
+  white-space: nowrap;
+}
+
+.yz-brand__t {
+  color: var(--brand-t);
+}
+
+.yz-dark .yz-brand__t,
+html[data-theme='dark'] .yz-brand__t {
+  color: var(--brand-t-on-dark);
 }

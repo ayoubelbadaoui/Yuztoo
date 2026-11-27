@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { THEME } from '../sections/navContent.js'
+import { bt } from './Brand.jsx'
 
 const STORAGE_KEY = 'yz-theme'
 
@@ -33,7 +34,7 @@ export default function ThemeToggle({ className = '' }) {
     >
       <Moon className="yz-theme-toggle__moon" size={19} strokeWidth={2.2} aria-hidden="true" />
       <Sun className="yz-theme-toggle__sun" size={19} strokeWidth={2.2} aria-hidden="true" />
-      <span className="yz-sr-only">{THEME.label}</span>
+      <span className="yz-sr-only">{bt(THEME.label)}</span>
     </button>
   )
 }

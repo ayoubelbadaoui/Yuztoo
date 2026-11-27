@@ -9,10 +9,10 @@ import { CONTACT } from '../../siteConfig.js'
 export const PRIVACY_HERO = {
   crumb: 'Confidentialité',
   title: 'Politique de confidentialité',
-  lead: 'Ce que Yuztoo collecte, pourquoi, et comment vous gardez la main sur vos données.',
+  lead: 'Ce que YuzToo collecte, pourquoi, et comment vous gardez la main sur vos données.',
   updated: 'Dernière mise à jour : 14 novembre 2026',
   intro:
-    'La présente politique décrit comment Yuztoo collecte, utilise et protège vos données personnelles, conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés. Notre principe directeur est simple : vos clients vous appartiennent, sans publicité ni revente de données.',
+    'La présente politique décrit comment YuzToo collecte, utilise et protège vos données personnelles, conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés. Notre principe directeur est simple : vos clients vous appartiennent, sans publicité ni revente de données.',
 }
 
 export const PRIVACY_SECTIONS = [
@@ -20,13 +20,13 @@ export const PRIVACY_SECTIONS = [
     id: 'responsable',
     title: '1. Responsable de traitement',
     paragraphs: [
-      `Yuztoo est le responsable du traitement de vos données personnelles. Pour toute question ou demande relative à vos données, vous pouvez nous écrire à ${CONTACT.email}.`,
+      `YuzToo est le responsable du traitement de vos données personnelles. Pour toute question ou demande relative à vos données, vous pouvez nous écrire à ${CONTACT.email}.`,
     ],
   },
   {
     id: 'donnees',
     title: '2. Données collectées par l’application',
-    paragraphs: ['Yuztoo collecte uniquement les données nécessaires au fonctionnement du service :'],
+    paragraphs: ['YuzToo collecte uniquement les données nécessaires au fonctionnement du service :'],
     list: [
       'Données d’authentification : adresse e-mail, numéro de téléphone, mot de passe (stocké haché par Firebase Auth), identifiant Google ou Apple le cas échéant.',
       'Données de profil : pseudonyme, ville déclarée.',
@@ -53,7 +53,7 @@ export const PRIVACY_SECTIONS = [
     id: 'destinataires',
     title: '4. Destinataires',
     paragraphs: [
-      'Vos données sont accessibles aux seules personnes habilitées au sein de Yuztoo. Elles peuvent être transmises à nos sous-traitants techniques :',
+      'Vos données sont accessibles aux seules personnes habilitées au sein de YuzToo. Elles peuvent être transmises à nos sous-traitants techniques :',
     ],
     list: [
       'Google Firebase (Authentication, Firestore, Cloud Functions, Cloud Messaging, Storage) en tant qu’hébergeur et fournisseur d’infrastructure.',
@@ -100,7 +100,7 @@ export const PRIVACY_SECTIONS = [
     id: 'mineurs',
     title: '9. Mineurs',
     paragraphs: [
-      'Yuztoo s’adresse à un public majeur. Si vous avez moins de quinze (15) ans, l’inscription requiert le consentement conjoint d’un titulaire de l’autorité parentale. Tout compte signalé comme appartenant à un mineur de moins de quinze ans sans consentement parental sera supprimé.',
+      'YuzToo s’adresse à un public majeur. Si vous avez moins de quinze (15) ans, l’inscription requiert le consentement conjoint d’un titulaire de l’autorité parentale. Tout compte signalé comme appartenant à un mineur de moins de quinze ans sans consentement parental sera supprimé.',
     ],
   },
   {
@@ -121,7 +121,7 @@ export const PRIVACY_SECTIONS = [
     id: 'cookies',
     title: '11. Cookies et identifiants techniques',
     paragraphs: [
-      'L’application Yuztoo n’utilise pas de cookies au sens du web. Elle s’appuie sur des identifiants techniques strictement nécessaires au fonctionnement (jeton de session Firebase Auth, jeton FCM pour les notifications push). Aucun identifiant publicitaire n’est exploité.',
+      'L’application YuzToo n’utilise pas de cookies au sens du web. Elle s’appuie sur des identifiants techniques strictement nécessaires au fonctionnement (jeton de session Firebase Auth, jeton FCM pour les notifications push). Aucun identifiant publicitaire n’est exploité.',
       'Le site yuztoo.com ne dépose aucun cookie et n’utilise aucun outil de mesure d’audience. Votre choix de thème (clair ou sombre) est enregistré uniquement dans votre navigateur et ne nous est jamais transmis.',
     ],
   },

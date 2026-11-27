@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowRight, Check } from 'lucide-react'
 import Breadcrumb from './Breadcrumb.jsx'
 import SiteAmbient from './SiteAmbient.jsx'
+import { bt } from './Brand.jsx'
 
 /**
  * Inner-page hero. `hero`: { crumb, badge, titleLead, titleAccent, titleEnd,
@@ -21,29 +22,29 @@ export default function PageHero({ hero, BadgeIcon, className = '', children }) 
           </p>
 
           <h1 id="yz-page-title" className="yz-hero__title">
-            {hero.titleLead} <span className="yz-accent">{hero.titleAccent}</span>
+            {bt(hero.titleLead)} <span className="yz-accent">{bt(hero.titleAccent)}</span>
             {hero.titleEnd ? (
               <>
                 {' '}
-                <span className="yz-hero__title-end">{hero.titleEnd}</span>
+                <span className="yz-hero__title-end">{bt(hero.titleEnd)}</span>
               </>
             ) : null}
           </h1>
 
-          <p className="yz-hero__lead">{hero.intro}</p>
+          <p className="yz-hero__lead">{bt(hero.intro)}</p>
 
           {hero.primaryCta || hero.secondaryCta ? (
             <div className="yz-hero__actions">
               {hero.primaryCta ? (
                 <a className="yz-btn yz-btn--primary" href={hero.primaryCta.href}>
-                  {hero.primaryCta.label}
+                  {bt(hero.primaryCta.label)}
                   <ArrowRight size={18} strokeWidth={2.4} aria-hidden="true" />
                 </a>
               ) : null}
               {hero.secondaryCta ? (
                 <a className="yz-link" href={hero.secondaryCta.href}>
                   <ArrowDown size={14} strokeWidth={2.6} aria-hidden="true" />
-                  {hero.secondaryCta.label}
+                  {bt(hero.secondaryCta.label)}
                 </a>
               ) : null}
             </div>
@@ -54,7 +55,7 @@ export default function PageHero({ hero, BadgeIcon, className = '', children }) 
               {hero.checks.map((check) => (
                 <li key={check}>
                   <Check size={15} strokeWidth={3} aria-hidden="true" />
-                  {check}
+                  {bt(check)}
                 </li>
               ))}
             </ul>
