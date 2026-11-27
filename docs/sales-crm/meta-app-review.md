@@ -8,6 +8,15 @@ CRM: `https://yuztoo-msg.radnatech.it` · Operator: RADNATECH · Contact: contac
 
 ---
 
+## Status (2026-11-27)
+
+- **Scope for this review:** only the Yuztoo Facebook Page and `@yuztoo` Instagram. Merchant onboarding stays on hold until Advanced Access is granted.
+- **Instagram DMs:** customer DMs need Advanced Access for `instagram_manage_messages`. The App Review submission is filled and green; paste the reviewer CRM credentials, then Submit.
+- **`@yuztoo`:** keep **Allow access to messages** on under Instagram → Connected tools (otherwise the webhook never delivers inbound DMs).
+- **After approval:** rotate the `meta-review@radnatech.io` password (shared in chat for the reviewer). Keep the account until the review is closed.
+
+---
+
 ## 1. App settings to fill (App Dashboard)
 
 | Field | Value |
