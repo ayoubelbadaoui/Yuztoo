@@ -41,12 +41,14 @@ export default function HomeHero() {
           </div>
 
           <div className="yz-pilot">
+            <p className="yz-pilot__kicker yz-mono">{pilot.kicker}</p>
             <p className="yz-pilot__cities">
-              <span className="yz-mono">{pilot.kicker}</span>
+              {bt(pilot.lead)}{' '}
               {pilot.cities.map((city, i) => (
-                <strong key={city} className={i === 0 ? 'is-home' : undefined}>
-                  {city}
-                </strong>
+                <span key={city}>
+                  <strong className={i === 0 ? 'is-home' : undefined}>{city}</strong>
+                  {i < pilot.cities.length - 2 ? ', ' : i === pilot.cities.length - 2 ? ' et ' : '.'}
+                </span>
               ))}
             </p>
             <p className="yz-pilot__offer">

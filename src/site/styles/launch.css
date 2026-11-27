@@ -16,39 +16,22 @@
   border-left: 3px solid var(--gold);
 }
 
-.yz-pilot__cities {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 14px;
-  font-size: 15px;
-  color: var(--text-mut);
-}
-
-.yz-pilot__cities .yz-mono {
+.yz-pilot__kicker {
   font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
 
+.yz-pilot__cities {
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-mut);
+}
+
 .yz-pilot__cities strong {
-  font-weight: 700;
-  color: var(--text);
-}
-
-/* The dot ends the previous city, so a wrapped line never starts with it. */
-.yz-pilot__cities strong:not(:last-child)::after {
-  content: '·';
-  margin-left: 8px;
-  font-weight: 400;
-  color: var(--text-dim);
-}
-
-/* Belfort first and biggest: the home town. */
-.yz-pilot__cities strong.is-home {
-  font-size: 18px;
   font-weight: 800;
+  color: var(--text);
 }
 
 .yz-pilot__offer {
@@ -456,10 +439,6 @@ a.yz-store:focus-visible {
 }
 
 @media (max-width: 640px) {
-  .yz-pilot__cities .yz-mono {
-    flex-basis: 100%;
-  }
-
   .yz-dl__stores,
   .yz-dl__store,
   .yz-dl__store .yz-store {

@@ -21,6 +21,8 @@ export const HOME_HERO = {
   /** Test phase + pioneer offer, right under the call to action. */
   pilot: {
     kicker: 'Phase de test',
+    /** Owner wording: « YuzToo démarre en phase de test sur Belfort, Héricourt et Montbéliard ». */
+    lead: 'YuzToo démarre en phase de test sur',
     cities: NETWORK.pilotCities,
     offer: `Gratuit pour les ${NETWORK.pioneers} premiers commerçants`,
     elsewhere: 'Vous souhaitez lancer YuzToo près de chez vous ?',
@@ -168,7 +170,7 @@ export const HOME_COVERAGE = {
   index: '05',
   eyebrow: 'Sur le terrain',
   title: 'YuzToo commence à Belfort',
-  lead: `Phase de test à ${NETWORK.pilotCities.join(', ').replace(/, ([^,]*)$/, ' et $1')}. Nous construisons le réseau commerce par commerce, rue par rue.`,
+  lead: `YuzToo démarre en phase de test sur ${NETWORK.pilotCities.join(', ').replace(/, ([^,]*)$/, ' et $1')}. Nous construisons le réseau commerce par commerce, rue par rue.`,
   image: {
     src: '/images/yuztoo/yuztoo-mascotte-belfort.webp',
     alt: 'La mascotte YuzToo posée sur le panneau d’entrée de ville de Belfort',
