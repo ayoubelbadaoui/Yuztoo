@@ -33,15 +33,15 @@
 }
 
 .yz-pilot__cities strong {
-  position: relative;
   font-weight: 700;
   color: var(--text);
 }
 
-.yz-pilot__cities strong + strong::before {
+/* The dot ends the previous city, so a wrapped line never starts with it. */
+.yz-pilot__cities strong:not(:last-child)::after {
   content: '·';
-  position: absolute;
-  left: -10px;
+  margin-left: 8px;
+  font-weight: 400;
   color: var(--text-dim);
 }
 
@@ -456,6 +456,10 @@ a.yz-store:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .yz-pilot__cities .yz-mono {
+    flex-basis: 100%;
+  }
+
   .yz-dl__stores,
   .yz-dl__store,
   .yz-dl__store .yz-store {
@@ -1190,4 +1194,11 @@ a.yz-store:focus-visible {
   .yz-wheel__svg {
     transition: none;
   }
+}
+
+.yz-hero__plaque-photo {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border: 1px solid var(--border);
 }

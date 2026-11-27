@@ -17,7 +17,7 @@ export const THEME = { label: 'Mode sombre' }
 export const UTILITY = {
   location: `${CONTACT.city}, France`,
   promise: 'Sans commission · Sans publicité',
-  network: `${NETWORK.partners} commerces partenaires`,
+  networkLabel: 'commerces partenaires',
 }
 
 export const LOGO = {

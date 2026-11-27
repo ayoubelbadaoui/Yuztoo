@@ -2,12 +2,14 @@ import { ArrowDown, ArrowRight, MapPin, Megaphone, Percent, Store } from 'lucide
 import NfcIcon from '../../components/NfcIcon.jsx'
 import SiteAmbient from '../../components/SiteAmbient.jsx'
 import { HOME_HERO } from '../homeContent.js'
+import { useNetworkCount } from '../../useNetworkCount.js'
 import { bt } from '../../components/Brand.jsx'
 
 const PROOF_ICONS = { percent: Percent, megaphone: Megaphone, store: Store }
 
 export default function HomeHero() {
   const { image, plate, commission, pilot } = HOME_HERO
+  const partners = useNetworkCount()
 
   return (
     <section className="yz-hero" aria-labelledby="yz-hero-title">
@@ -69,7 +71,7 @@ export default function HomeHero() {
                     <Icon size={13} strokeWidth={2.2} aria-hidden="true" />
                     {bt(item.label)}
                   </dt>
-                  <dd className="yz-hero__stat-val">{bt(item.value)}</dd>
+                  <dd className="yz-hero__stat-val">{item.id === 'network' ? partners : bt(item.value)}</dd>
                 </div>
               )
             })}
@@ -101,9 +103,13 @@ export default function HomeHero() {
           </div>
 
           <div className="yz-hero__plate yz-hero__plate--nfc">
-            <span className="yz-hero__nfc" aria-hidden="true">
-              <NfcIcon size={24} strokeWidth={1.9} />
-            </span>
+            {plate.photo ? (
+              <img className="yz-hero__plaque-photo" src={plate.photo} width="80" height="80" alt="La plaque YuzToo" />
+            ) : (
+              <span className="yz-hero__nfc" aria-hidden="true">
+                <NfcIcon size={24} strokeWidth={1.9} />
+              </span>
+            )}
             <span className="yz-hero__plate-text">
               <span className="yz-mono">{bt(plate.kicker)}</span>
               <strong>{bt(plate.name)}</strong>

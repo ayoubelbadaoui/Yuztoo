@@ -38,6 +38,12 @@ export const NETWORK = {
   pilotCities: ['Belfort', 'Héricourt', 'Montbéliard'],
   /** Pioneer offer: preferential pricing for the first N merchants. */
   pioneers: 300,
+  /**
+   * Live counter: when true, the number of active vitrines in the app
+   * (networkCount function) replaces `partners` after page load. Turn on
+   * once the function is deployed and the live number matches reality.
+   */
+  liveCount: false,
 }
 
 /**

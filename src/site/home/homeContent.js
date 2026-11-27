@@ -39,6 +39,9 @@ export const HOME_HERO = {
   },
   scanLabel: 'Scan en cours',
   plate: {
+    /** TODO(owner): real plaque photo, e.g. '/images/yuztoo/yuztoo-plaque.webp'
+        (square, ≥ 160 px). When set, it replaces the NFC icon in the card. */
+    photo: null,
     kicker: 'Plaque YuzToo',
     name: 'Votre commerce',
     hint: 'Approchez votre téléphone',

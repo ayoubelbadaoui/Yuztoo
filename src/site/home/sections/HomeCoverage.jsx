@@ -1,5 +1,6 @@
 import { ArrowRight, MapPin } from 'lucide-react'
 import { HOME_COVERAGE } from '../homeContent.js'
+import { useNetworkCount } from '../../useNetworkCount.js'
 import { bt } from '../../components/Brand.jsx'
 
 function NetworkMeter({ meter }) {
@@ -50,7 +51,8 @@ function NetworkMeter({ meter }) {
 }
 
 export default function HomeCoverage() {
-  const { image, imageBadge, meter, points, elsewhere } = HOME_COVERAGE
+  const { image, imageBadge, points, elsewhere } = HOME_COVERAGE
+  const meter = { ...HOME_COVERAGE.meter, current: useNetworkCount() }
 
   return (
     <section id="belfort" className="yz-section yz-dark yz-coverage" aria-labelledby="yz-coverage-title">

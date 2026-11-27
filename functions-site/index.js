@@ -142,3 +142,50 @@ export const websiteLead = onRequest(
     }
   },
 )
+
+/**
+ * networkCount — public, read-only: how many merchant vitrines are live
+ * (`merchants` where status == 'active', the same filter as the app's
+ * Discover screen). Returns a number only, never merchant data. Cached in
+ * memory and by the browser for 10 minutes so page views never hit
+ * Firestore directly.
+ */
+const COUNT_TTL_MS = 10 * 60 * 1000
+let countCache = { value: null, at: 0 }
+
+export const networkCount = onRequest(
+  { region: 'europe-west1', maxInstances: 3, memory: '256MiB', timeoutSeconds: 10 },
+  async (req, res) => {
+    const origin = req.get('origin') ?? ''
+    if (origin && !ORIGINS.has(origin)) {
+      res.status(403).json({ ok: false })
+      return
+    }
+    if (origin) {
+      res.set('Access-Control-Allow-Origin', origin)
+      res.set('Vary', 'Origin')
+    }
+    if (req.method === 'OPTIONS') {
+      res.set('Access-Control-Allow-Methods', 'GET')
+      res.set('Access-Control-Max-Age', '3600')
+      res.status(204).send('')
+      return
+    }
+    if (req.method !== 'GET') {
+      res.status(405).json({ ok: false })
+      return
+    }
+
+    try {
+      if (countCache.value === null || Date.now() - countCache.at > COUNT_TTL_MS) {
+        const snap = await db.collection('merchants').where('status', '==', 'active').count().get()
+        countCache = { value: snap.data().count, at: Date.now() }
+      }
+      res.set('Cache-Control', 'public, max-age=600')
+      res.status(200).json({ ok: true, partners: countCache.value })
+    } catch (error) {
+      logger.error('networkCount failed', { code: error?.code })
+      res.status(500).json({ ok: false })
+    }
+  },
+)
