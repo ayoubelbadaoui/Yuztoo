@@ -1,4 +1,6 @@
-import { BellRing, Repeat, SmartphoneNfc } from 'lucide-react'
+import { useState } from 'react'
+import { BellRing, Play, Repeat, SmartphoneNfc } from 'lucide-react'
+import VideoDrawer from '../../components/VideoDrawer.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { HOME_STEPS } from '../homeContent.js'
 import { bt } from '../../components/Brand.jsx'
@@ -7,6 +9,7 @@ const ICONS = { scan: SmartphoneNfc, bell: BellRing, repeat: Repeat }
 
 export default function HomeSteps() {
   const { image, steps } = HOME_STEPS
+  const [playing, setPlaying] = useState(null)
 
   return (
     <section
@@ -53,6 +56,13 @@ export default function HomeSteps() {
                     <h3 className="yz-steps__title">{bt(step.title)}</h3>
                     <p className="yz-steps__text">{bt(step.text)}</p>
                     <span className="yz-steps__tag yz-mono">{bt(step.tag)}</span>
+                    <button className="yz-steps__play" type="button" onClick={() => setPlaying(i)}>
+                      <span className="yz-steps__play-icon" aria-hidden="true">
+                        <Play size={14} strokeWidth={2.6} />
+                      </span>
+                      {HOME_STEPS.videoCta}
+                      <span className="yz-sr-only"> : {step.title}</span>
+                    </button>
                   </div>
                   <span className="yz-tile" aria-hidden="true">
                     <Icon size={21} strokeWidth={2.1} />
@@ -63,6 +73,14 @@ export default function HomeSteps() {
           </ol>
         </div>
       </div>
+
+      <VideoDrawer
+        items={steps}
+        index={playing}
+        onChange={setPlaying}
+        onClose={() => setPlaying(null)}
+        kicker={HOME_STEPS.videoKicker}
+      />
     </section>
   )
 }

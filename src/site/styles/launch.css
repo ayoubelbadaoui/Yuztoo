@@ -478,3 +478,215 @@ a.yz-store:focus-visible {
     width: 100%;
   }
 }
+
+/* ═══════════ step videos ═══════════ */
+
+.yz-steps__play {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 4px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.yz-steps__play-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding-left: 2px;
+  color: var(--navy-deep);
+  background: var(--gold);
+  border-radius: 50%;
+  transition: transform 0.22s var(--ease-out), box-shadow 0.22s ease;
+}
+
+.yz-steps__play:hover .yz-steps__play-icon {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 6px var(--gold-soft);
+}
+
+.yz-steps__play:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
+
+/* ═══════════ video drawer ═══════════ */
+
+.yz-vdrawer {
+  position: fixed;
+  inset: 0;
+  /* Above the sticky header (801). */
+  z-index: 900;
+  pointer-events: none;
+}
+
+.yz-vdrawer.is-open {
+  pointer-events: auto;
+}
+
+.yz-vdrawer__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  background: rgba(7, 11, 20, 0.62);
+  border: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.yz-vdrawer.is-open .yz-vdrawer__backdrop {
+  opacity: 1;
+}
+
+.yz-vdrawer__panel {
+
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 100%);
+  padding: 22px 26px calc(22px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  color: rgba(241, 245, 249, 0.78);
+  background: var(--navy-header);
+  border-left: 3px solid var(--gold);
+  transform: translateX(104%);
+  transition: transform 0.42s var(--ease-out);
+}
+
+.yz-vdrawer.is-open .yz-vdrawer__panel {
+  transform: none;
+}
+
+.yz-vdrawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.yz-vdrawer__head .yz-mono {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-on-dark);
+}
+
+.yz-vdrawer__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.yz-vdrawer__close:focus-visible,
+.yz-vdrawer__nav button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.yz-vdrawer__title {
+  margin: 14px 0 16px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--white);
+}
+
+.yz-vdrawer__frame {
+  flex-shrink: 0;
+  overflow: hidden;
+  /* Keep the whole 9:16 video on screen, whatever the window height. */
+  width: min(100%, calc((100vh - 250px) * 0.5625));
+  aspect-ratio: 9 / 16;
+  margin-inline: auto;
+  background: var(--device);
+  border-radius: 18px;
+}
+
+.yz-vdrawer__frame video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yz-vdrawer__label {
+  margin-top: 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.yz-vdrawer__nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.yz-vdrawer__nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--r-ctl);
+  cursor: pointer;
+}
+
+/* Phones: a bottom sheet instead of a side panel. */
+@media (max-width: 640px) {
+  .yz-vdrawer__panel {
+    top: auto;
+    left: 0;
+    width: 100%;
+    max-height: 94vh;
+    padding: 16px 18px calc(16px + env(safe-area-inset-bottom));
+    border-left: 0;
+    border-top: 3px solid var(--gold);
+    border-radius: 18px 18px 0 0;
+    transform: translateY(104%);
+  }
+
+  .yz-vdrawer__title {
+    margin: 8px 0 12px;
+    font-size: 19px;
+  }
+
+  .yz-vdrawer__frame {
+    width: min(100%, calc((94vh - 230px) * 0.5625));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yz-vdrawer__panel,
+  .yz-vdrawer__backdrop {
+    transition: none;
+  }
+}

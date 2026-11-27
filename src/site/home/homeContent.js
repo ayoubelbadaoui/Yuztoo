@@ -76,7 +76,9 @@ export const HOME_STEPS = {
   index: '02',
   eyebrow: 'Comment ça marche',
   title: 'Trois gestes, et le lien est à vous',
-  lead: 'Pas de commission, pas de contrat, pas de formation. Une plaque sur le comptoir suffit.',
+  lead: 'Pas de commission, pas de contrat, pas de formation. Une plaque sur le comptoir suffit. Cliquez sur une étape pour la voir dans l’application.',
+  videoCta: 'Voir la vidéo',
+  videoKicker: 'Étape',
   image: {
     src: '/images/yuztoo/yuztoo-application-mobile.webp',
     alt: 'L’application YuzToo ouverte sur un téléphone, avec la mascotte à l’écran',
@@ -87,6 +89,7 @@ export const HOME_STEPS = {
   steps: [
     {
       id: 'scan',
+      video: { src: '/videos/yuztoo-scan.mp4', poster: '/videos/yuztoo-scan.webp', label: 'Chaque scan de votre plaque ajoute un client à votre liste.' },
       icon: 'scan',
       title: 'Le client scanne',
       text: 'Il approche son téléphone de la plaque posée sur votre comptoir. Votre commerce entre dans son carnet.',
@@ -94,6 +97,7 @@ export const HOME_STEPS = {
     },
     {
       id: 'suit',
+      video: { src: '/videos/yuztoo-notification.mp4', poster: '/videos/yuztoo-notification.webp', label: 'Écrivez un message, il arrive dans la poche de vos clients.' },
       icon: 'bell',
       title: 'Il vous suit',
       text: 'Vous lui parlez directement : nouveautés, horaires, promotions. Sans intermédiaire.',
@@ -101,6 +105,7 @@ export const HOME_STEPS = {
     },
     {
       id: 'revient',
+      video: { src: '/videos/yuztoo-fidelite.mp4', poster: '/videos/yuztoo-fidelite.webp', label: 'Activez la fidélité : chaque passage validé le rapproche de sa récompense.' },
       icon: 'repeat',
       title: 'Il revient pour vous',
       text: 'Votre fidélité vit dans son téléphone. Il revient pour votre commerce, pas pour une plateforme.',
