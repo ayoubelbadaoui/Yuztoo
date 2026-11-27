@@ -23,7 +23,7 @@ export const HOME_HERO = {
     kicker: 'Phase de test',
     cities: NETWORK.pilotCities,
     offer: `Gratuit pour les ${NETWORK.pioneers} premiers commerçants`,
-    elsewhere: 'Vous souhaitez lancer YuzToo près de chez vous ?',
+    elsewhere: 'Vous souhaitez lancer YuzToo près de chez vous ?',
     elsewhereCta: { label: 'Contactez-nous', href: '/a-propos#contact' },
   },
   proof: [
@@ -100,12 +100,12 @@ export const HOME_STEPS = {
       video: { src: '/videos/yuztoo-notification.mp4', poster: '/videos/yuztoo-notification.webp', label: 'Écrivez un message, il arrive dans la poche de vos clients.' },
       icon: 'bell',
       title: 'Il vous suit',
-      text: 'Vous lui parlez directement : nouveautés, horaires, promotions. Sans intermédiaire.',
+      text: 'Vous lui parlez directement : nouveautés, horaires, promotions. Sans intermédiaire.',
       tag: 'En direct',
     },
     {
       id: 'revient',
-      video: { src: '/videos/yuztoo-fidelite.mp4', poster: '/videos/yuztoo-fidelite.webp', label: 'Activez la fidélité : chaque passage validé le rapproche de sa récompense.' },
+      video: { src: '/videos/yuztoo-fidelite.mp4', poster: '/videos/yuztoo-fidelite.webp', label: 'Activez la fidélité : chaque passage validé le rapproche de sa récompense.' },
       icon: 'repeat',
       title: 'Il revient pour vous',
       text: 'Votre fidélité vit dans son téléphone. Il revient pour votre commerce, pas pour une plateforme.',
@@ -155,7 +155,7 @@ export const HOME_BENEFITS = {
     },
   ],
   strip: {
-    text: 'Envie de voir ce que ça donne sur votre commerce ? Nous installons la plaque gratuitement.',
+    text: 'Envie de voir ce que ça donne sur votre commerce ? Nous installons la plaque gratuitement.',
     cta: 'Tester gratuitement',
     href: '#telecharger',
   },
@@ -186,7 +186,7 @@ export const HOME_COVERAGE = {
     { id: 'valeur', value: '40 %', label: 'de valeur conservée sur le territoire' },
   ],
   elsewhere: {
-    text: 'Vous souhaitez lancer YuzToo près de chez vous ?',
+    text: 'Vous souhaitez lancer YuzToo près de chez vous ?',
     cta: { label: 'Contactez-nous', href: '/a-propos#contact' },
   },
 }
@@ -196,7 +196,7 @@ export const HOME_TESTIMONIALS = {
   eyebrow: 'La parole aux commerçants',
   title: 'Ils font vivre nos quartiers',
   lead: 'Chaque jour, ils créent du lien, conseillent, rendent service. Nous leur avons posé une seule question.',
-  question: 'Pourquoi tu fais ça ?',
+  question: 'Pourquoi tu fais ça ?',
   quotes: [
     {
       id: 'salon-de-the',
@@ -226,7 +226,7 @@ export const HOME_FOUNDER = {
   index: '07',
   eyebrow: 'Notre ambition',
   quote:
-    'Les commerçants paient pour recevoir des commandes, et leurs clients ne leur appartiennent plus. Nous voulons remettre la relation là où elle a toujours eu sa place : dans la boutique.',
+    'Les commerçants paient pour recevoir des commandes, et leurs clients ne leur appartiennent plus. Nous voulons remettre la relation là où elle a toujours eu sa place : dans la boutique.',
   author: 'L’équipe YuzToo',
   role: 'Belfort',
   image: {
@@ -241,7 +241,7 @@ export const HOME_FOUNDER = {
 export const HOME_AUDIENCES = {
   index: '08',
   eyebrow: 'Par où commencer',
-  title: 'YuzToo, pour qui ?',
+  title: 'YuzToo, pour qui ?',
   cards: [
     {
       id: 'commercants',
@@ -294,7 +294,7 @@ export const HOME_SHOWCASE = {
       id: 'vitrine',
       kicker: 'Vitrine',
       title: 'Votre commerce, en ligne en quelques minutes',
-      text: 'Horaires, adresse, actualité : tout ce que vos clients cherchent, à jour depuis votre téléphone.',
+      text: 'Horaires, adresse, actualité : tout ce que vos clients cherchent, à jour depuis votre téléphone.',
     },
     {
       id: 'badge',
@@ -312,13 +312,13 @@ export const HOME_SHOWCASE = {
       id: 'promotions',
       kicker: 'Promotions',
       title: 'Vos offres, publiées en un geste',
-      text: 'Une offre du jour, des invendus à écouler, un happy hour programmé : c’est en ligne tout de suite.',
+      text: 'Une offre du jour, des invendus à écouler, un happy hour programmé : c’est en ligne tout de suite.',
     },
     {
       id: 'notification',
       kicker: 'Notifications',
       title: 'Un message, droit dans leur poche',
-      text: 'Pas d’algorithme entre vous et vos clients : ce que vous envoyez, ils le reçoivent.',
+      text: 'Pas d’algorithme entre vous et vos clients : ce que vous envoyez, ils le reçoivent.',
     },
   ],
 }

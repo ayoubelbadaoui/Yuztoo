@@ -25,7 +25,7 @@ const WHY_ICONS = {
   map: MapPin,
 }
 
-const STEP_ICONS = { scan: ScanLine, book: BookOpen, info: Info }
+const STEP_ICONS = { scan: ScanLine, book: BookOpen, info: Info, gift: Gift }
 
 function CheckList({ items }) {
   return (

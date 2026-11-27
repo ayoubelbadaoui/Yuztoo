@@ -38,11 +38,36 @@ export const CLI_STEPS = {
   eyebrow: 'Simple et immédiat',
   title: 'Tous vos commerces. Au même endroit.',
   steps: [
-    { id: 'scan', icon: 'scan', title: 'Scannez en boutique', text: 'Approchez votre téléphone de la plaque YuzToo, ou scannez le QR code.' },
-    { id: 'add', icon: 'book', title: 'Ajoutez au carnet', text: 'Le commerce rejoint votre carnet YuzToo en un geste.' },
-    { id: 'access', icon: 'info', title: 'Tout en un clic', text: 'Horaires, nouveautés, offres et fidélité : tout est là.' },
+    {
+      id: 'scan',
+      icon: 'scan',
+      title: 'Scannez en boutique',
+      text: 'Approchez votre téléphone de la plaque YuzToo ou scannez le QR code.',
+      media: { type: 'image', src: '/images/yuztoo/yuztoo-commercants-boulangerie.webp', alt: 'Un client approche son téléphone de la plaque YuzToo posée sur le comptoir d’une boulangerie', width: 1200, height: 1200 },
+    },
+    {
+      id: 'add',
+      icon: 'book',
+      title: 'Ajoutez le commerce à votre carnet',
+      text: 'Retrouvez facilement vos commerces préférés.',
+      media: { type: 'image', src: '/images/yuztoo/yuztoo-application-mobile.webp', alt: 'L’application YuzToo ouverte sur un téléphone', width: 900, height: 985 },
+    },
+    {
+      id: 'access',
+      icon: 'info',
+      title: 'Tout en un clic',
+      text: 'Accédez aux actualités, promotions et avantages de vos commerçants.',
+      media: { type: 'screen', screen: 'vitrine' },
+    },
+    {
+      id: 'vouchers',
+      icon: 'gift',
+      title: 'Profitez de bons d’achat',
+      text: 'Tentez de gagner des récompenses et bénéficiez de réductions dans le réseau YuzToo.',
+      media: { type: 'screen', screen: 'promotions' },
+    },
   ],
-  quote: 'Fini de chercher partout : vos commerces habituels et leurs offres, au même endroit.',
+  quote: 'Fini de chercher partout : vos commerces habituels et leurs offres, au même endroit.',
   image: {
     src: '/images/yuztoo/yuztoo-application-mobile.webp',
     alt: 'L’application YuzToo ouverte sur un téléphone, avec le carnet des commerces de proximité',
@@ -95,12 +120,12 @@ export const CLI_LOCAL = {
   },
   chat: {
     title: 'Parlez directement à vos commerçants',
-    text: 'Une question, une réservation, une disponibilité : demandez directement.',
+    text: 'Une question, une réservation, une disponibilité : demandez directement.',
     label: 'Exemples de messages',
     bubbles: [
-      { id: 'a', from: 'client', text: 'Il vous reste des éclairs ?' },
-      { id: 'b', from: 'shop', text: 'Oui, encore 4 ! Je vous en mets de côté ?' },
-      { id: 'c', from: 'client', text: 'Je peux passer à 18 h ?' },
+      { id: 'a', from: 'client', text: 'Il vous reste des éclairs ?' },
+      { id: 'b', from: 'shop', text: 'Oui, encore 4 ! Je vous en mets de côté ?' },
+      { id: 'c', from: 'client', text: 'Je peux passer à 18 h ?' },
     ],
     punch: 'Comme en boutique… mais en mieux.',
   },
@@ -123,36 +148,36 @@ export const CLI_FAQ = {
   items: [
     {
       id: 'prix',
-      question: 'YuzToo est-il gratuit pour les clients ?',
-      answer: 'Oui. L’application est gratuite pour les clients : aucun abonnement, aucune publicité.',
+      question: 'YuzToo est-il gratuit pour les clients ?',
+      answer: 'Oui. L’application est gratuite pour les clients : aucun abonnement, aucune publicité.',
     },
     {
       id: 'ajout',
-      question: 'Comment ajouter un commerce à mon carnet ?',
+      question: 'Comment ajouter un commerce à mon carnet ?',
       answer: 'En boutique, approchez votre téléphone de la plaque YuzToo ou scannez le QR code affiché. Le commerce rejoint votre carnet immédiatement.',
     },
     {
       id: 'donnees',
-      question: 'Mes données sont-elles revendues ?',
+      question: 'Mes données sont-elles revendues ?',
       answer: 'Non. YuzToo ne revend pas vos données et ne vous expose à aucune publicité. Seuls les commerces que vous avez choisis peuvent vous écrire.',
     },
     {
       id: 'messages',
-      question: 'Vais-je recevoir beaucoup de notifications ?',
-      answer: 'Vous ne recevez que les messages des commerces de votre carnet : offres, nouveautés, infos importantes. Pas de publicité, pas de contenu suggéré par un algorithme.',
+      question: 'Vais-je recevoir beaucoup de notifications ?',
+      answer: 'Vous ne recevez que les messages des commerces de votre carnet : offres, nouveautés, infos importantes. Pas de publicité, pas de contenu suggéré par un algorithme.',
     },
     {
       id: 'absent',
-      question: 'Mon commerçant n’est pas sur YuzToo, que faire ?',
-      answer: `Parlez-lui de YuzToo, ou écrivez-nous à ${CONTACT.email} : nous irons le rencontrer. Les 300 premiers commerçants profitent de l’offre pionniers.`,
+      question: 'Mon commerçant n’est pas sur YuzToo, que faire ?',
+      answer: `Parlez-lui de YuzToo, ou écrivez-nous à ${CONTACT.email} : nous irons le rencontrer. Les 300 premiers commerçants profitent de l’offre pionniers.`,
     },
   ],
 }
 
 export const CLI_START = {
-  eyebrow: 'Votre commerce préféré n’y est pas ?',
+  eyebrow: 'Votre commerce préféré n’y est pas ?',
   title: 'Recommandez-le-nous',
-  lead: 'Donnez-nous le nom de vos commerces préférés : nous allons les rencontrer et leur installer la plaque gratuitement.',
+  lead: 'Donnez-nous le nom de vos commerces préférés : nous allons les rencontrer et leur installer la plaque gratuitement.',
   form: {
     kind: 'client',
     title: 'Recommander un commerce',
@@ -164,8 +189,27 @@ export const CLI_START = {
 }
 
 export const CLI_CTA = {
-  title: 'Un commerce que vous aimez n’est pas encore sur YuzToo ?',
-  text: 'Dites-nous lequel : nous allons le rencontrer, gratuitement pour lui.',
+  title: 'Un commerce que vous aimez n’est pas encore sur YuzToo ?',
+  text: 'Dites-nous lequel : nous allons le rencontrer, gratuitement pour lui.',
   label: 'Recommander un commerce',
   href: '#recommander',
+}
+
+/**
+ * La roue YuzToo — feature in preparation (owner brief, Nov 2026). The wheel
+ * on the site is a demo: segment labels are examples, nothing is won.
+ * TODO(owner): publish the participation and reward rules before launch.
+ */
+export const CLI_WHEEL = {
+  eyebrow: 'Bientôt dans l’application',
+  title: 'La roue YuzToo : un scan, une chance de gagner',
+  lead: 'À chaque scan de plaque ou de QR code en boutique, tentez votre chance : bons d’achat et réductions chez les commerçants du réseau YuzToo.',
+  steps: ['Scannez la plaque en boutique', 'Tournez la roue YuzToo', 'Profitez de votre récompense chez un commerçant partenaire'],
+  segments: ['−10 %', 'Café offert', 'Bon 5 €', 'Encore !', '−15 %', 'Surprise', 'Bon 10 €', 'Merci !'],
+  spin: 'Essayer la roue',
+  spinning: 'La roue tourne…',
+  resultLead: 'Aperçu :',
+  resultEnd: 'Bientôt pour de vrai, chez vos commerçants.',
+  demo: 'Démo',
+  note: 'Fonctionnalité en préparation. Les règles de participation et d’attribution des récompenses seront publiées avant le lancement.',
 }

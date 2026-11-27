@@ -7,14 +7,20 @@
 export function bt(text) {
   if (typeof text !== 'string' || !text.includes('YuzToo')) return text
   const parts = text.split('YuzToo')
-  return parts.flatMap((part, i) =>
-    i === 0
-      ? [part]
-      : [
-          <span key={i} className="yz-brand">
-            Yuz<span className="yz-brand__t">T</span>oo
-          </span>,
-          part,
-        ],
+  // One wrapping span: in flex rows the pieces must stay a single item, or
+  // the row's gap opens up inside the sentence.
+  return (
+    <span className="yz-bt">
+      {parts.flatMap((part, i) =>
+        i === 0
+          ? [part]
+          : [
+              <span key={i} className="yz-brand">
+                Yuz<span className="yz-brand__t">T</span>oo
+              </span>,
+              part,
+            ],
+      )}
+    </span>
   )
 }

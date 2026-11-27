@@ -41,14 +41,14 @@ export const PRO_PAINS = {
       id: 'rent',
       kicker: 'Abonnements',
       title: 'Vous louez votre propre clientèle',
-      text: 'Réservation, annuaire, caisse, boutique en ligne : chaque outil prend sa part, et aucun ne vous rend vos clients.',
+      text: 'Réservation, annuaire, caisse, boutique en ligne : chaque outil prend sa part, et aucun ne vous rend vos clients.',
       chips: ['Planity', 'Pages Jaunes', 'SumUp', 'Shopify'],
     },
     {
       id: 'blind',
       kicker: 'Mesure',
       title: 'Vous ne savez pas qui revient',
-      text: 'Gagnez-vous de nouveaux clients ? En perdez-vous ? Sans données à vous, impossible de le savoir.',
+      text: 'Gagnez-vous de nouveaux clients ? En perdez-vous ? Sans données à vous, impossible de le savoir.',
       chips: ['Aucune donnée'],
     },
   ],
@@ -73,7 +73,7 @@ export const PRO_SETUP = {
       id: 'vitrine',
       icon: 'store',
       title: 'Créez votre vitrine',
-      text: 'En quelques minutes, votre commerce a sa page : horaires, photos, liens et actualités.',
+      text: 'En quelques minutes, votre commerce a sa page : horaires, photos, liens et actualités.',
     },
     {
       id: 'plaque',
@@ -85,7 +85,7 @@ export const PRO_SETUP = {
       id: 'scan',
       icon: 'scan',
       title: 'Le client scanne',
-      text: 'Il pose son téléphone, et « hop » : il est connecté à votre établissement.',
+      text: 'Il pose son téléphone, et « hop » : il est connecté à votre établissement.',
     },
   ],
   quote: 'Un client connecté est un client que vous pouvez recontacter directement.',
@@ -128,12 +128,12 @@ export const PRO_CLIENTS = {
     'Nouveau produit disponible dès 15 h',
     'Nouvelle carte à déguster',
   ],
-  punchline: 'Ce ne sont plus des posts perdus dans les réseaux. Ce sont des actions mesurables : vous voyez qui ouvre et ce qui fonctionne.',
+  punchline: 'Ce ne sont plus des posts perdus dans les réseaux. Ce sont des actions mesurables : vous voyez qui ouvre et ce qui fonctionne.',
 }
 
 export const PRO_LOYALTY = {
   index: '04',
-  eyebrow: 'Fidélité & réseau local',
+  eyebrow: 'Fidélité',
   title: 'Une fidélité simple, et un quartier qui travaille pour vous.',
 
   columns: [
@@ -169,15 +169,15 @@ export const PRO_LOYALTY = {
 }
 
 export const PRO_TOOLS = {
-  index: '05',
+  index: '06',
   eyebrow: 'Un seul outil',
   title: 'Tout ce dont votre commerce a besoin, depuis votre téléphone.',
   features: [
-    { id: 'talk', icon: 'message', title: 'Communiquez en direct', text: 'Infos, promos, actualités : publiez et mesurez l’impact.' },
+    { id: 'talk', icon: 'message', title: 'Communiquez en direct', text: 'Infos, promos, actualités : publiez et mesurez l’impact.' },
     { id: 'track', icon: 'chart', title: 'Suivez la fréquentation', text: 'Qui vient, à quelle fréquence, et qui ne vient plus.' },
     { id: 'waste', icon: 'leaf', title: 'Écoulez vos invendus', text: 'Prévenez vos clients en fin de journée et limitez le gaspillage.' },
     { id: 'reviews', icon: 'star', title: 'Améliorez vos avis', text: 'Invitez vos clients à laisser un avis Google quand ils ont le temps.' },
-    { id: 'links', icon: 'link', title: 'Gardez vos outils', text: 'Réservation, site, click & collect, fiche Google : ajoutez vos liens.' },
+    { id: 'links', icon: 'link', title: 'Gardez vos outils', text: 'Réservation, site, click & collect, fiche Google : ajoutez vos liens.' },
     { id: 'save', icon: 'wallet', title: 'Moins d’abonnements', text: 'Moins d’outils à payer, une seule application à ouvrir.' },
   ],
   tradesTitle: 'Pensé pour tous les métiers',
@@ -192,39 +192,39 @@ export const PRO_TOOLS = {
 }
 
 export const PRO_FAQ = {
-  index: '06',
+  index: '08',
   eyebrow: 'Questions fréquentes',
   title: 'Ce que les commerçants nous demandent',
   items: [
     {
       id: 'prix',
-      question: 'Combien coûte YuzToo pour mon commerce ?',
+      question: 'Combien coûte YuzToo pour mon commerce ?',
       answer: `Aucune commission sur vos ventes, jamais. Pour les ${NETWORK.pioneers} premiers commerçants, l’offre Essentiel est gratuite (au lieu de 29 €/mois) et l’offre Premium passe à 29 €/mois (au lieu de 49 €). L’application reste gratuite pour vos clients.`,
     },
     {
       id: 'technique',
-      question: 'Faut-il des compétences techniques ?',
+      question: 'Faut-il des compétences techniques ?',
       answer: 'Non. Vous créez votre vitrine en quelques minutes depuis votre téléphone, puis vous posez la plaque YuzToo ou affichez votre QR code. Nous vous accompagnons pour l’installation.',
     },
     {
       id: 'donnees',
-      question: 'À qui appartiennent les données de mes clients ?',
+      question: 'À qui appartiennent les données de mes clients ?',
       answer: 'À vous. Vos clients se connectent à votre commerce, pas à une plateforme qui revendrait l’accès. Vous gardez la relation, même si vous changez d’outil.',
     },
     {
       id: 'fidelite',
-      question: 'Le programme de fidélité est-il obligatoire ?',
+      question: 'Le programme de fidélité est-il obligatoire ?',
       answer: 'Non. La fidélité s’active si vous le souhaitez. Vous choisissez le nombre de passages et la récompense.',
     },
     {
       id: 'outils',
-      question: 'Puis-je garder mes outils actuels ?',
-      answer: 'Oui. Ajoutez vos liens de réservation, votre site, votre click & collect ou votre fiche Google : vos clients les retrouvent sur votre vitrine YuzToo.',
+      question: 'Puis-je garder mes outils actuels ?',
+      answer: 'Oui. Ajoutez vos liens de réservation, votre site, votre click & collect ou votre fiche Google : vos clients les retrouvent sur votre vitrine YuzToo.',
     },
     {
       id: 'metiers',
-      question: 'Quels commerces peuvent utiliser YuzToo ?',
-      answer: 'Tous les commerces de proximité : métiers de bouche, beauté et bien-être, restaurants et cafés, commerces indépendants, services, artisans, sport et loisirs.',
+      question: 'Quels commerces peuvent utiliser YuzToo ?',
+      answer: 'Tous les commerces de proximité : métiers de bouche, beauté et bien-être, restaurants et cafés, commerces indépendants, services, artisans, sport et loisirs.',
     },
   ],
 }
@@ -232,7 +232,7 @@ export const PRO_FAQ = {
 export const PRO_START = {
   eyebrow: 'Démarrer',
   title: 'Démarrez gratuitement',
-  lead: `Laissez vos coordonnées : nous vous rappelons, nous installons la plaque sur votre comptoir à ${NETWORK.city} et nous vous accompagnons pour la prise en main.`,
+  lead: `Laissez vos coordonnées : nous vous rappelons, nous installons la plaque sur votre comptoir à ${NETWORK.city} et nous vous accompagnons pour la prise en main.`,
   form: {
     kind: 'commercant',
     title: 'Être rappelé par l’équipe',
@@ -250,7 +250,7 @@ export const PRO_START = {
 }
 
 export const PRO_CTA = {
-  title: 'Prêt à garder le lien avec vos clients ?',
+  title: 'Prêt à garder le lien avec vos clients ?',
   text: `Offre pionniers pour les ${NETWORK.pioneers} premiers commerçants, plaque installée par notre équipe, sans engagement.`,
   label: 'Être rappelé',
   href: '#demarrer',
@@ -259,7 +259,7 @@ export const PRO_CTA = {
 /** Simulator: every figure comes from the merchant's own inputs. */
 export const PRO_CALC = {
   eyebrow: 'Simulateur',
-  title: 'Combien vous coûtent vraiment les plateformes ?',
+  title: 'Combien vous coûtent vraiment les plateformes ?',
   lead: 'Entrez vos propres chiffres. Le calcul se fait dans votre navigateur, rien n’est envoyé.',
   fields: [
     { id: 'basket', label: 'Panier moyen', unit: '€', min: 5, max: 80, step: 1, value: 18 },
@@ -282,7 +282,7 @@ export const PRO_CALC = {
  * of the pioneer prices to `conditions` once decided.
  */
 export const PRO_PRICING = {
-  index: '06',
+  index: '07',
   eyebrow: 'Tarifs',
   title: `Une offre pionniers pour les ${NETWORK.pioneers} premiers commerçants`,
   lead: 'Aucune commission sur vos ventes, quelle que soit l’offre. Les premiers commerçants inscrits profitent de tarifs préférentiels.',
@@ -315,4 +315,25 @@ export const PRO_PRICING = {
     'Sans engagement, sans commission sur vos ventes.',
     'L’application reste gratuite pour vos clients.',
   ],
+}
+
+/** Réseau local: what makes YuzToo a network, not a single-shop tool. */
+export const PRO_NETWORK = {
+  index: '05',
+  eyebrow: 'Réseau local',
+  title: 'Plus qu’un outil de fidélité : un réseau de commerces qui travaillent ensemble.',
+  lead: 'YuzToo relie les commerces d’un même quartier. Vous vous recommandez, vous vous associez, et vos clients circulent d’une boutique à l’autre.',
+  features: [
+    { id: 'recommend', icon: 'thumbs', title: 'Recommandez vos partenaires', text: 'Mettez en avant les commerçants voisins en qui vous avez confiance.' },
+    { id: 'recommended', icon: 'megaphone', title: 'Soyez recommandé', text: 'Vos partenaires vous font découvrir à leurs propres clients.' },
+    { id: 'association', icon: 'users', title: 'Rejoignez une association de commerçants', text: 'Regroupez les commerces de votre rue, de votre quartier ou de votre ville.' },
+    { id: 'shared', icon: 'gift', title: 'Créez des programmes de fidélité communs', text: 'Une même récompense, gagnée dans plusieurs commerces du réseau.' },
+    { id: 'operations', icon: 'calendar', title: 'Organisez des opérations collectives', text: 'Une promotion commune, un événement de quartier, une semaine commerciale.' },
+  ],
+  videos: [
+    { id: 'partenariat', title: 'Créer un partenariat', video: { src: '/videos/yuztoo-partenariat.mp4', poster: '/videos/yuztoo-partenariat.webp', label: 'Liez votre commerce à un commerçant partenaire en quelques gestes.' } },
+    { id: 'association', title: 'Créer une association', video: { src: '/videos/yuztoo-association.mp4', poster: '/videos/yuztoo-association.webp', label: 'Regroupez les commerces de votre quartier dans une association YuzToo.' } },
+  ],
+  videoKicker: 'Vidéo',
+  punchline: 'YuzToo n’est pas un outil de plus : c’est le réseau de vos commerces de proximité.',
 }

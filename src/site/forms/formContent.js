@@ -18,5 +18,5 @@ export const FORM_COPY = {
     server: 'L’envoi a échoué de notre côté. Réessayez, ou écrivez-nous directement.',
     network: 'Connexion impossible. Vérifiez votre réseau et réessayez.',
   },
-  fallbackLead: 'Vous préférez écrire ? ',
+  fallbackLead: 'Vous préférez écrire ? ',
 }

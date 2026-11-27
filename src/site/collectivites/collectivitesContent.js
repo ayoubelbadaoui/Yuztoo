@@ -114,7 +114,7 @@ export const COL_BENEFITS = {
       id: 'mairie',
       title: 'Mairie',
       items: [
-        'Engagement : commerçants activés et utilisateurs',
+        'Engagement : commerçants activés et utilisateurs',
         'Fréquence de visite et adoption par quartier',
         'Activité commerciale et dynamique du réseau',
         'Vitalité du centre-ville',
@@ -152,22 +152,22 @@ export const COL_FAQ = {
   items: [
     {
       id: 'mesure',
-      question: 'Que mesure le reporting fourni à la mairie ?',
-      answer: 'Un reporting mensuel : nombre de commerçants activés et d’utilisateurs, fréquence de visite et adoption par quartier, activité commerciale et dynamique du réseau, vitalité du centre-ville.',
+      question: 'Que mesure le reporting fourni à la mairie ?',
+      answer: 'Un reporting mensuel : nombre de commerçants activés et d’utilisateurs, fréquence de visite et adoption par quartier, activité commerciale et dynamique du réseau, vitalité du centre-ville.',
     },
     {
       id: 'rgpd',
-      question: 'Comment sont protégées les données des habitants ?',
+      question: 'Comment sont protégées les données des habitants ?',
       answer: 'YuzToo respecte strictement le RGPD. Les données restent locales, ne sont jamais revendues, et aucune publicité n’est diffusée aux habitants.',
     },
     {
       id: 'concurrence',
-      question: 'YuzToo met-il les commerces en concurrence ?',
-      answer: 'Non. YuzToo ne crée pas de concurrence : il renforce l’écosystème local existant, sans algorithme de mise en concurrence entre commerçants.',
+      question: 'YuzToo met-il les commerces en concurrence ?',
+      answer: 'Non. YuzToo ne crée pas de concurrence : il renforce l’écosystème local existant, sans algorithme de mise en concurrence entre commerçants.',
     },
     {
       id: 'deploiement',
-      question: 'Comment déployer YuzToo sur notre commune ?',
+      question: 'Comment déployer YuzToo sur notre commune ?',
       answer: `Écrivez-nous ou appelez-nous pour une présentation à vos élus et à vos services. ${NETWORK.city} est notre territoire pilote.`,
     },
   ],
@@ -194,7 +194,7 @@ export const COL_START = {
 }
 
 export const COL_CTA = {
-  title: 'Votre commune veut garder la valeur sur son territoire ?',
+  title: 'Votre commune veut garder la valeur sur son territoire ?',
   text: 'Une présentation pour vos élus et vos services, sur rendez-vous.',
   label: 'Demander une présentation',
   href: '#deployer',

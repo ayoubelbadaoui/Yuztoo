@@ -4,6 +4,7 @@ import ContactBand from '../components/ContactBand.jsx'
 import FaqSection from '../components/FaqSection.jsx'
 import StatBand from '../components/StatBand.jsx'
 import CliHero from './sections/CliHero.jsx'
+import CliWheel from './sections/CliWheel.jsx'
 import { CliLocal, CliMessages, CliSteps, CliWhy } from './sections/CliSections.jsx'
 import CtaStrip from '../components/CtaStrip.jsx'
 import { CLI_CTA, CLI_DATA, CLI_FAQ, CLI_START } from './clientsContent.js'
@@ -19,6 +20,7 @@ export default function ClientsPage() {
         <CliHero />
         <CliWhy />
         <CliSteps />
+        <CliWheel />
         <CliMessages />
         <CliLocal />
         <CtaStrip cta={CLI_CTA} />

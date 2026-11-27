@@ -10,9 +10,9 @@ export const PRIVACY_HERO = {
   crumb: 'Confidentialité',
   title: 'Politique de confidentialité',
   lead: 'Ce que YuzToo collecte, pourquoi, et comment vous gardez la main sur vos données.',
-  updated: 'Dernière mise à jour : 14 novembre 2026',
+  updated: 'Dernière mise à jour : 14 novembre 2026',
   intro:
-    'La présente politique décrit comment YuzToo collecte, utilise et protège vos données personnelles, conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés. Notre principe directeur est simple : vos clients vous appartiennent, sans publicité ni revente de données.',
+    'La présente politique décrit comment YuzToo collecte, utilise et protège vos données personnelles, conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés. Notre principe directeur est simple : vos clients vous appartiennent, sans publicité ni revente de données.',
 }
 
 export const PRIVACY_SECTIONS = [
@@ -26,13 +26,13 @@ export const PRIVACY_SECTIONS = [
   {
     id: 'donnees',
     title: '2. Données collectées par l’application',
-    paragraphs: ['YuzToo collecte uniquement les données nécessaires au fonctionnement du service :'],
+    paragraphs: ['YuzToo collecte uniquement les données nécessaires au fonctionnement du service :'],
     list: [
-      'Données d’authentification : adresse e-mail, numéro de téléphone, mot de passe (stocké haché par Firebase Auth), identifiant Google ou Apple le cas échéant.',
-      'Données de profil : pseudonyme, ville déclarée.',
-      'Données techniques : jeton de notification (FCM), modèle d’appareil, langue, version de l’application.',
-      'Données d’usage : commerces suivis, niveaux de cœur, commerces bloqués, notifications consultées, passages fidélité validés et historique correspondant.',
-      'Données de signalement : motif et message libre saisis lors du signalement d’un Commerçant ou d’une promotion.',
+      'Données d’authentification : adresse e-mail, numéro de téléphone, mot de passe (stocké haché par Firebase Auth), identifiant Google ou Apple le cas échéant.',
+      'Données de profil : pseudonyme, ville déclarée.',
+      'Données techniques : jeton de notification (FCM), modèle d’appareil, langue, version de l’application.',
+      'Données d’usage : commerces suivis, niveaux de cœur, commerces bloqués, notifications consultées, passages fidélité validés et historique correspondant.',
+      'Données de signalement : motif et message libre saisis lors du signalement d’un Commerçant ou d’une promotion.',
     ],
     after:
       'Nous ne collectons aucune donnée bancaire, aucun contenu de messagerie tierce, aucune liste de contacts, aucun historique de navigation hors de l’application.',
@@ -40,20 +40,20 @@ export const PRIVACY_SECTIONS = [
   {
     id: 'finalites',
     title: '3. Finalités et bases légales',
-    paragraphs: ['Vos données sont traitées pour les finalités suivantes :'],
+    paragraphs: ['Vos données sont traitées pour les finalités suivantes :'],
     list: [
-      'Création et gestion de votre compte : exécution du contrat (article 6.1.b du RGPD).',
-      'Programme de fidélité et notifications des Commerçants que vous suivez : exécution du contrat.',
-      'Sécurité du service, prévention de la fraude et modération des signalements : intérêt légitime (article 6.1.f).',
-      'Statistiques d’usage agrégées et anonymisées : intérêt légitime.',
-      'Respect d’obligations légales (lutte contre la fraude, réquisitions judiciaires) : obligation légale (article 6.1.c).',
+      'Création et gestion de votre compte : exécution du contrat (article 6.1.b du RGPD).',
+      'Programme de fidélité et notifications des Commerçants que vous suivez : exécution du contrat.',
+      'Sécurité du service, prévention de la fraude et modération des signalements : intérêt légitime (article 6.1.f).',
+      'Statistiques d’usage agrégées et anonymisées : intérêt légitime.',
+      'Respect d’obligations légales (lutte contre la fraude, réquisitions judiciaires) : obligation légale (article 6.1.c).',
     ],
   },
   {
     id: 'destinataires',
     title: '4. Destinataires',
     paragraphs: [
-      'Vos données sont accessibles aux seules personnes habilitées au sein de YuzToo. Elles peuvent être transmises à nos sous-traitants techniques :',
+      'Vos données sont accessibles aux seules personnes habilitées au sein de YuzToo. Elles peuvent être transmises à nos sous-traitants techniques :',
     ],
     list: [
       'Google Firebase (Authentication, Firestore, Cloud Functions, Cloud Messaging, Storage) en tant qu’hébergeur et fournisseur d’infrastructure.',
@@ -65,24 +65,24 @@ export const PRIVACY_SECTIONS = [
     id: 'transferts',
     title: '5. Transferts hors Union européenne',
     paragraphs: [
-      'Les serveurs Firebase sont hébergés dans la région « europe-west1 » (Belgique) lorsque cela est techniquement possible. Certains traitements résiduels peuvent impliquer un transfert vers les États-Unis (notamment Firebase Cloud Messaging). Ces transferts sont encadrés par le Data Privacy Framework (DPF) et les clauses contractuelles types adoptées par la Commission européenne.',
+      'Les serveurs Firebase sont hébergés dans la région « europe-west1 » (Belgique) lorsque cela est techniquement possible. Certains traitements résiduels peuvent impliquer un transfert vers les États-Unis (notamment Firebase Cloud Messaging). Ces transferts sont encadrés par le Data Privacy Framework (DPF) et les clauses contractuelles types adoptées par la Commission européenne.',
     ],
   },
   {
     id: 'conservation',
     title: '6. Durée de conservation',
     paragraphs: [
-      'Vos données sont conservées tant que votre compte est actif. Elles sont supprimées automatiquement et de manière irréversible dès la suppression de votre compte (effacement en cascade : profil, jetons, notifications, suivis, blocages, progression fidélité chez chaque Commerçant). Les signalements sont conservés six (6) mois pour les besoins de la modération avant suppression.',
+      'Vos données sont conservées tant que votre compte est actif. Elles sont supprimées automatiquement et de manière irréversible dès la suppression de votre compte (effacement en cascade : profil, jetons, notifications, suivis, blocages, progression fidélité chez chaque Commerçant). Les signalements sont conservés six (6) mois pour les besoins de la modération avant suppression.',
     ],
   },
   {
     id: 'droits',
     title: '7. Vos droits',
-    paragraphs: ['Conformément aux articles 15 à 22 du RGPD, vous disposez des droits suivants :'],
+    paragraphs: ['Conformément aux articles 15 à 22 du RGPD, vous disposez des droits suivants :'],
     list: [
-      'Droit d’accès : connaître les données que nous détenons sur vous.',
-      'Droit de rectification : corriger une donnée inexacte.',
-      'Droit à l’effacement (« droit à l’oubli ») : supprimer votre compte et toutes les données associées. Vous pouvez l’exercer directement depuis l’écran « Sécurité & Confidentialité » de l’application.',
+      'Droit d’accès : connaître les données que nous détenons sur vous.',
+      'Droit de rectification : corriger une donnée inexacte.',
+      'Droit à l’effacement (« droit à l’oubli ») : supprimer votre compte et toutes les données associées. Vous pouvez l’exercer directement depuis l’écran « Sécurité & Confidentialité » de l’application.',
       'Droit à la limitation et à l’opposition au traitement.',
       'Droit à la portabilité de vos données.',
       'Droit de définir des directives post mortem.',
@@ -107,7 +107,7 @@ export const PRIVACY_SECTIONS = [
     id: 'formulaires',
     title: '10. Formulaires du site yuztoo.com',
     paragraphs: [
-      'Les formulaires de contact du site (commerçants, habitants, collectivités, contact) recueillent :',
+      'Les formulaires de contact du site (commerçants, habitants, collectivités, contact) recueillent :',
     ],
     list: [
       'Votre nom, votre adresse e-mail et, si vous les indiquez, votre téléphone, le nom de votre commerce ou de votre commune, et votre message.',
@@ -115,7 +115,7 @@ export const PRIVACY_SECTIONS = [
       'Une empreinte hachée et non réversible de votre adresse IP et de votre e-mail, conservée au plus vingt-quatre (24) heures, uniquement pour limiter les envois abusifs.',
     ],
     after:
-      'Base légale : votre consentement (article 6.1.a du RGPD), que vous donnez en cochant la case du formulaire et que vous pouvez retirer à tout moment. Ces informations servent uniquement à vous répondre et à vous accompagner ; elles sont conservées trois (3) ans après notre dernier échange, puis supprimées.',
+      'Base légale : votre consentement (article 6.1.a du RGPD), que vous donnez en cochant la case du formulaire et que vous pouvez retirer à tout moment. Ces informations servent uniquement à vous répondre et à vous accompagner ; elles sont conservées trois (3) ans après notre dernier échange, puis supprimées.',
   },
   {
     id: 'cookies',
