@@ -1,4 +1,6 @@
-import { Send } from 'lucide-react'
+import { useState } from 'react'
+import { Play, Send } from 'lucide-react'
+import VideoDrawer from '../../components/VideoDrawer.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { PRO_CLIENTS } from '../commercantsContent.js'
 import { bt } from '../../components/Brand.jsx'
@@ -51,6 +53,8 @@ function ClientBoard({ board }) {
 }
 
 export default function ProClients() {
+  const [playing, setPlaying] = useState(null)
+  const { video } = PRO_CLIENTS
   return (
     <section className="yz-section yz-light--alt yz-section--ruled yz-clients" aria-labelledby="yz-clients-title">
       <div className="yz-container">
@@ -75,7 +79,19 @@ export default function ProClients() {
             </ul>
           </div>
 
-          <ClientBoard board={PRO_CLIENTS.board} />
+          <div className="yz-clients__board">
+            <ClientBoard board={PRO_CLIENTS.board} />
+            <button className="yz-network__video yz-clients__video" type="button" onClick={() => setPlaying(0)}>
+              <img src={video.video.poster} width="54" height="96" alt="" loading="lazy" />
+              <span>
+                <span className="yz-mono">Vidéo</span>
+                <strong>{video.cta}</strong>
+              </span>
+              <span className="yz-steps__play-icon" aria-hidden="true">
+                <Play size={14} strokeWidth={2.6} />
+              </span>
+            </button>
+          </div>
         </div>
 
         <div className="yz-clients__ideas">
@@ -88,6 +104,8 @@ export default function ProClients() {
           <p className="yz-clients__punch">{bt(PRO_CLIENTS.punchline)}</p>
         </div>
       </div>
+
+      <VideoDrawer items={[video]} index={playing} onChange={setPlaying} onClose={() => setPlaying(null)} kicker="Vidéo" />
     </section>
   )
 }

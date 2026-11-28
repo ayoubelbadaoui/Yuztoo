@@ -103,6 +103,12 @@ export const PRO_CLIENTS = {
   eyebrow: 'Vos clients',
   title: 'Voyez qui vient, qui ne vient plus, et parlez-leur.',
   lead: 'Chaque passage est enregistré. Vous repérez vos habitués, vos VIP et vos nouveaux clients, puis vous les contactez en un clic.',
+  video: {
+    id: 'vos-clients',
+    title: 'Retrouver vos clients',
+    cta: 'Voir l’écran dans l’application',
+    video: { src: '/videos/yuztoo-vos-clients.mp4', poster: '/videos/yuztoo-vos-clients.webp', label: 'Chaque scan de votre plaque ajoute un client : filtrez par statut et ouvrez sa fiche.' },
+  },
   board: {
     title: 'Vos clients',
     note: 'Aperçu illustratif',

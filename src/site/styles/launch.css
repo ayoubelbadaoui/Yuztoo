@@ -1258,3 +1258,18 @@ a.yz-store:focus-visible {
     width: min(46%, 220px);
   }
 }
+
+.yz-clients__board {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.yz-clients__video {
+  width: 100%;
+}
+
+.yz-light--alt .yz-network__video .yz-mono,
+.yz-light .yz-network__video .yz-mono {
+  color: var(--text-dim);
+}
