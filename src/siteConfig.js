@@ -30,7 +30,7 @@ export const CONTACT = {
  * automatic counter (src/data/networkCount.js) is deployed.
  */
 export const NETWORK = {
-  partners: 50,
+  partners: 46,
   target: 300,
   city: 'Belfort',
   department: '90',
@@ -43,7 +43,7 @@ export const NETWORK = {
    * (networkCount function) replaces `partners` after page load. Turn on
    * once the function is deployed and the live number matches reality.
    */
-  liveCount: false,
+  liveCount: true,
 }
 
 /**

@@ -154,7 +154,7 @@ const COUNT_TTL_MS = 10 * 60 * 1000
 let countCache = { value: null, at: 0 }
 
 export const networkCount = onRequest(
-  { region: 'europe-west1', maxInstances: 3, memory: '256MiB', timeoutSeconds: 10 },
+  { region: 'europe-west1', invoker: 'public', maxInstances: 3, memory: '256MiB', timeoutSeconds: 10 },
   async (req, res) => {
     const origin = req.get('origin') ?? ''
     if (origin && !ORIGINS.has(origin)) {
