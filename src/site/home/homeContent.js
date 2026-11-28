@@ -85,16 +85,10 @@ export const HOME_STEPS = {
   lead: 'Pas de commission, pas de contrat, pas de formation. Une plaque sur le comptoir suffit. Cliquez sur une étape pour la voir dans l’application.',
   videoCta: 'Voir la vidéo',
   videoKicker: 'Étape',
-  image: {
-    src: '/images/yuztoo/yuztoo-application-mobile.webp',
-    alt: 'L’application YuzToo ouverte sur un téléphone, avec la mascotte à l’écran',
-    width: 900,
-    height: 985,
-  },
-  imageCaption: 'Application YuzToo · gratuite pour vos clients',
   steps: [
     {
       id: 'scan',
+      screen: 'vitrine',
       video: { src: '/videos/yuztoo-scan.mp4', poster: '/videos/yuztoo-scan.webp', label: 'Chaque scan de votre plaque ajoute un client à votre liste.' },
       icon: 'scan',
       title: 'Le client scanne',
@@ -103,6 +97,7 @@ export const HOME_STEPS = {
     },
     {
       id: 'suit',
+      screen: 'notification',
       video: { src: '/videos/yuztoo-notification.mp4', poster: '/videos/yuztoo-notification.webp', label: 'Écrivez un message, il arrive dans la poche de vos clients.' },
       icon: 'bell',
       title: 'Il vous suit',
@@ -111,6 +106,7 @@ export const HOME_STEPS = {
     },
     {
       id: 'revient',
+      screen: 'fidelite',
       video: { src: '/videos/yuztoo-fidelite.mp4', poster: '/videos/yuztoo-fidelite.webp', label: 'Activez la fidélité : chaque passage validé le rapproche de sa récompense.' },
       icon: 'repeat',
       title: 'Il revient pour vous',

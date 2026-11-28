@@ -13,9 +13,10 @@ export const CLI_HERO = {
   titleAccent: 'dans votre poche.',
   titleEnd: '',
   intro:
-    'Une seule application pour retrouver vos commerçants du quotidien, recevoir leurs vraies nouvelles et profiter de leur fidélité. Sans publicité, sans algorithme, sans revente de vos données.',
-  primaryCta: { label: 'Comment ça marche', href: '#carnet' },
-  checks: ['Gratuit', 'Sans publicité ni IA', 'Vos données restent à vous'],
+    'Un scan en boutique, et vos commerçants du quotidien sont dans votre poche : leurs vraies nouvelles, leurs promotions, votre fidélité et, bientôt, des bons d’achat à gagner. Sans publicité, sans algorithme, sans revente de vos données.',
+  primaryCta: { label: 'Télécharger l’application', href: '#telecharger' },
+  secondaryCta: { label: 'Découvrir la roue YuzToo', href: '#roue' },
+  checks: ['Gratuit', 'Des avantages dès le scan', 'Sans publicité ni revente de données'],
   tag: { value: '1 appli', label: 'Pour tous vos commerces' },
 }
 
