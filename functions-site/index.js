@@ -27,6 +27,9 @@ const ORIGINS = new Set([
   'http://localhost:3001',
   'http://localhost:5173',
   'http://localhost:5050',
+  'http://localhost:5199',
+  // Hostinger staging copy of the new site.
+  'https://funny-cornflowerblue-ostrich-82.hostingersite.com',
 ])
 
 /** Must match src/data/leadSources.js. */
