@@ -47,6 +47,8 @@
   --device: #070b14;
 
   --danger: #c0392b;
+  /* StorefrontColors.successGreen — the « en direct » dot of live figures. */
+  --live: #22c55e;
   --danger-on-dark: #ff8a7a;
 
   --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI',

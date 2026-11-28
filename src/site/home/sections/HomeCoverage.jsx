@@ -1,6 +1,7 @@
 import { ArrowRight, MapPin } from 'lucide-react'
 import { HOME_COVERAGE } from '../homeContent.js'
 import { useNetworkCount } from '../../useNetworkCount.js'
+import LiveBadge from '../../components/LiveBadge.jsx'
 import { bt } from '../../components/Brand.jsx'
 
 function NetworkMeter({ meter }) {
@@ -10,10 +11,14 @@ function NetworkMeter({ meter }) {
     <div className="yz-meter" data-reveal>
       <div className="yz-meter__head">
         <span className="yz-mono">{bt(meter.kicker)}</span>
-        <span className="yz-meter__live yz-mono">
-          <span aria-hidden="true" />
-          En cours
-        </span>
+        {meter.live ? (
+          <LiveBadge label="En direct de l’app" className="yz-live--meter" />
+        ) : (
+          <span className="yz-meter__live yz-mono">
+            <span aria-hidden="true" />
+            En cours
+          </span>
+        )}
       </div>
 
       <p className="yz-meter__figure">
@@ -52,7 +57,8 @@ function NetworkMeter({ meter }) {
 
 export default function HomeCoverage() {
   const { image, imageBadge, points, elsewhere } = HOME_COVERAGE
-  const meter = { ...HOME_COVERAGE.meter, current: useNetworkCount() }
+  const network = useNetworkCount()
+  const meter = { ...HOME_COVERAGE.meter, current: network.count, live: network.live }
 
   return (
     <section id="belfort" className="yz-section yz-dark yz-coverage" aria-labelledby="yz-coverage-title">

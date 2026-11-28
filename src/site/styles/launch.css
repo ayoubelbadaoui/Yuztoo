@@ -1273,3 +1273,96 @@ a.yz-store:focus-visible {
 .yz-light .yz-network__video .yz-mono {
   color: var(--text-dim);
 }
+
+/* ═══════════ « En direct » — figures read live from the app ═══════════ */
+
+.yz-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-mut);
+}
+
+.yz-live__dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  background: var(--live);
+  border-radius: 50%;
+}
+
+.yz-live__dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--live);
+  border-radius: 50%;
+  animation: yz-live-ping 1.8s ease-out infinite;
+}
+
+@keyframes yz-live-ping {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  80%,
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/* Hero: a small chip right after the number. */
+.yz-live--stat {
+  margin-left: 10px;
+  padding: 3px 8px;
+  vertical-align: middle;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+/* Header strip (navy). */
+.yz-live--strip {
+  margin-left: 6px;
+  padding-left: 10px;
+  color: rgba(241, 245, 249, 0.85);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Coverage meter head (navy band). */
+.yz-live--meter {
+  color: var(--text-mut);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yz-live__dot::after {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .yz-live--stat {
+    display: flex;
+    width: max-content;
+    margin: 6px 0 0;
+    padding: 2px 7px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+}
+
+@media (max-width: 380px) {
+  .yz-live--stat {
+    padding: 2px 0;
+    background: none;
+    border: 0;
+  }
+}

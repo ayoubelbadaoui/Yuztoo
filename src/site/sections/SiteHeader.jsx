@@ -4,6 +4,7 @@ import { CONTACT } from '../../siteConfig.js'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 import { LOGO, NAV_CTA, NAV_LINKS, UTILITY } from './navContent.js'
 import { useNetworkCount } from '../useNetworkCount.js'
+import LiveBadge from '../components/LiveBadge.jsx'
 import { bt } from '../components/Brand.jsx'
 
 // Two thresholds so the bar does not flicker when the page rests near one.
@@ -72,7 +73,7 @@ function Logo() {
 }
 
 function UtilityStrip() {
-  const partners = useNetworkCount()
+  const { count: partners, live } = useNetworkCount()
   return (
     <div className="yz-utility">
       <div className="yz-utility__inner">
@@ -90,6 +91,7 @@ function UtilityStrip() {
         <span className="yz-utility__status">
           <span className="yz-utility__pulse" aria-hidden="true" />
           {partners} {UTILITY.networkLabel}
+          {live ? <LiveBadge className="yz-live--strip" /> : null}
         </span>
       </div>
     </div>
