@@ -4,6 +4,7 @@ import VideoDrawer from '../../components/VideoDrawer.jsx'
 import SectionHead from '../../components/SectionHead.jsx'
 import { PRO_CLIENTS } from '../commercantsContent.js'
 import { bt } from '../../components/Brand.jsx'
+import DevNote from '../../components/DevNote.jsx'
 
 function ClientBoard({ board }) {
   return (
@@ -80,6 +81,7 @@ export default function ProClients() {
           </div>
 
           <div className="yz-clients__board">
+            <DevNote id="clientsBoard" place="inline" />
             <ClientBoard board={PRO_CLIENTS.board} />
             <button className="yz-network__video yz-clients__video" type="button" onClick={() => setPlaying(0)}>
               <img src={video.video.poster} width="54" height="96" alt="" loading="lazy" />

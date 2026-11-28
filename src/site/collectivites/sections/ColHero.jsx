@@ -2,6 +2,7 @@ import { Landmark, MapPinned, Repeat, Store, Users } from 'lucide-react'
 import PageHero from '../../components/PageHero.jsx'
 import { COL_HERO } from '../collectivitesContent.js'
 import { bt } from '../../components/Brand.jsx'
+import DevNote from '../../components/DevNote.jsx'
 
 const KPI_ICONS = { store: Store, users: Users, repeat: Repeat, map: MapPinned }
 
@@ -42,6 +43,7 @@ export default function ColHero() {
     <PageHero hero={COL_HERO} BadgeIcon={Landmark}>
       <div className="yz-prohero__stage yz-prohero__stage--board yz-frame">
         <div className="yz-hero__dots" aria-hidden="true" />
+        <DevNote id="report" />
         <ReportMock report={COL_HERO.report} />
       </div>
       <div className="yz-hero__plate yz-prohero__tag">

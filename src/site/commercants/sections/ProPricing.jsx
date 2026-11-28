@@ -2,6 +2,7 @@ import { ArrowRight, Check, Sparkles } from 'lucide-react'
 import SectionHead from '../../components/SectionHead.jsx'
 import { bt } from '../../components/Brand.jsx'
 import { PRO_PRICING } from '../commercantsContent.js'
+import DevNote from '../../components/DevNote.jsx'
 
 function Plan({ plan }) {
   return (
@@ -60,6 +61,8 @@ export default function ProPricing() {
           lead={PRO_PRICING.lead}
           titleId="yz-pricing-title"
         />
+
+        <DevNote id="pricing" place="inline" />
 
         <div className="yz-pricing__plans">
           {PRO_PRICING.plans.map((plan) => (

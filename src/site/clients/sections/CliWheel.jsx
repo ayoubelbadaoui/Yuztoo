@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Check, RotateCw } from 'lucide-react'
 import { bt } from '../../components/Brand.jsx'
 import { CLI_WHEEL } from '../clientsContent.js'
+import DevNote from '../../components/DevNote.jsx'
 
 const R = 170
 const SEG_TONES = ['navy', 'gold', 'cream', 'gold-deep']
@@ -97,6 +98,7 @@ export default function CliWheel() {
         </div>
 
         <div className="yz-wheel__stage">
+          <DevNote id="wheel" />
           <span className="yz-wheel__badge yz-mono">{CLI_WHEEL.demo}</span>
           <div className={`yz-wheel__dial${spinning ? ' is-spinning' : ''}`}>
             <span className="yz-wheel__pointer" aria-hidden="true" />

@@ -3,6 +3,7 @@ import { HOME_COVERAGE } from '../homeContent.js'
 import { useNetworkCount } from '../../useNetworkCount.js'
 import LiveBadge from '../../components/LiveBadge.jsx'
 import { bt } from '../../components/Brand.jsx'
+import DevNote from '../../components/DevNote.jsx'
 
 function NetworkMeter({ meter }) {
   const lit = Math.max(1, Math.round((meter.current / meter.target) * meter.segments))
@@ -96,6 +97,7 @@ export default function HomeCoverage() {
           </figure>
 
           <div className="yz-coverage__panel">
+            <DevNote id="counter" place="inline" />
             <NetworkMeter meter={meter} />
             <dl className="yz-grid yz-coverage__points">
               {points.map((point, i) => (

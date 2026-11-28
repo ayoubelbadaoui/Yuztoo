@@ -4,6 +4,7 @@ import SectionHead from '../../components/SectionHead.jsx'
 import VideoDrawer from '../../components/VideoDrawer.jsx'
 import { HOME_TESTIMONIALS } from '../homeContent.js'
 import { bt } from '../../components/Brand.jsx'
+import DevNote from '../../components/DevNote.jsx'
 
 const TRADE_ICONS = { coffee: Coffee, waves: Waves, basket: ShoppingBasket }
 
@@ -65,6 +66,8 @@ export default function HomeTestimonials() {
             </button>
           </div>
         </div>
+
+        <DevNote id="carousel" place="inline" />
 
         <ul className="yz-voices__track" ref={trackRef} aria-label="Témoignages de commerçants">
           {quotes.map((item, i) => {

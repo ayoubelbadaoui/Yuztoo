@@ -1366,3 +1366,61 @@ a.yz-store:focus-visible {
     border: 0;
   }
 }
+
+/* ═══════════ dev notes (dev server or ?notes only) ═══════════ */
+
+.yz-devnote {
+  z-index: 50;
+  display: grid;
+  gap: 4px;
+  max-width: 340px;
+  padding: 10px 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-align: left;
+  text-transform: none;
+  color: #1a1a1a;
+  background: #fff4e5;
+  border: 2px dashed #e8590c;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.45);
+}
+
+.yz-devnote strong {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c2410c;
+}
+
+.yz-devnote--info {
+  background: #eef6ff;
+  border-color: #2563eb;
+}
+
+.yz-devnote--info strong {
+  color: #1d4ed8;
+}
+
+.yz-devnote--corner {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+
+.yz-devnote--inline {
+  position: relative;
+  margin: 12px 0;
+}
+
+@media (max-width: 640px) {
+  .yz-devnote--corner {
+    right: 8px;
+    max-width: none;
+  }
+}

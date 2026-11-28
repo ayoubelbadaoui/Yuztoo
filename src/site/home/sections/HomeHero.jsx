@@ -6,6 +6,7 @@ import { HOME_HERO } from '../homeContent.js'
 import { useNetworkCount } from '../../useNetworkCount.js'
 import LiveBadge from '../../components/LiveBadge.jsx'
 import { bt } from '../../components/Brand.jsx'
+import DevNote from '../../components/DevNote.jsx'
 
 const PROOF_ICONS = { percent: Percent, megaphone: Megaphone, store: Store }
 
@@ -91,6 +92,7 @@ export default function HomeHero() {
         </div>
 
         <div className="yz-hero__visual">
+          <DevNote id="plaque" />
           <div className="yz-hero__frame yz-frame">
             <div className="yz-hero__dots" aria-hidden="true" />
             <img
