@@ -1,0 +1,995 @@
+/**
+ * /tutoriels — the « YuzToo en 30 secondes ! » hub and the tutorial pages.
+ * Hard structure (radius 0, hairlines), gold as accent only, surface
+ * variables so dark mode follows. See BRAND_HOLY_BOOK.md.
+ */
+
+/* Accent words from the videos (*word*). Display sizes take the gold ink;
+   body-size text only gets weight, gold text on cream fails AA. */
+.yz-tuto-em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.yz-tuto-hero__title .yz-tuto-em,
+.yz-step__title .yz-tuto-em,
+.yz-tcard__title .yz-tuto-em,
+.yz-tpager__title .yz-tuto-em {
+  color: var(--gold-ink);
+}
+
+/* ═══════════ hub hero: three posters fanned out ═══════════ */
+
+.yz-thero__fan {
+  position: relative;
+  height: clamp(380px, 40vw, 520px);
+}
+
+.yz-thero__poster {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(170px, 17vw, 236px);
+  height: auto;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border: 6px solid var(--device);
+  box-shadow: 0 44px 70px -34px rgba(11, 22, 44, 0.7);
+  transition: transform 0.6s var(--ease-out);
+}
+
+.yz-thero__poster--1 {
+  z-index: 1;
+  transform: translate(-112%, -46%) rotate(-8deg);
+}
+
+.yz-thero__poster--2 {
+  z-index: 3;
+  transform: translate(-50%, -52%);
+}
+
+.yz-thero__poster--3 {
+  z-index: 2;
+  transform: translate(12%, -46%) rotate(8deg);
+}
+
+.yz-thero__fan:hover .yz-thero__poster--1 {
+  transform: translate(-122%, -46%) rotate(-11deg);
+}
+
+.yz-thero__fan:hover .yz-thero__poster--3 {
+  transform: translate(22%, -46%) rotate(11deg);
+}
+
+/* ═══════════ beginner path: numbered rail ═══════════ */
+
+.yz-tpath__rail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-str);
+  background: var(--surface);
+}
+
+.yz-tpath__item + .yz-tpath__item {
+  border-left: 1px solid var(--border);
+}
+
+.yz-tpath__item a {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 26px 22px 48px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.18s ease;
+}
+
+.yz-tpath__item a::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 0;
+  height: 3px;
+  background: var(--gold);
+  transition: width 0.3s var(--ease-out);
+}
+
+.yz-tpath__item a:hover {
+  background: var(--surface-2);
+}
+
+.yz-tpath__item a:hover::before,
+.yz-tpath__item a:focus-visible::before {
+  width: 100%;
+}
+
+.yz-tpath__n {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+/* Position in the path, beside the tuto's own number. */
+.yz-tpath__step {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.yz-tpath__title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.yz-tpath__meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.yz-tpath__q {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-mut);
+}
+
+.yz-tpath__go {
+  position: absolute;
+  right: 22px;
+  bottom: 20px;
+  color: var(--accent-ink);
+  transition: transform 0.2s var(--ease-out);
+}
+
+.yz-tpath__item a:hover .yz-tpath__go {
+  transform: translateX(4px);
+}
+
+/* ═══════════ hub grid + filters ═══════════ */
+
+.yz-tgrid__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: -24px 0 40px;
+}
+
+.yz-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-str);
+  border-radius: var(--r-ctl);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.yz-chip:hover {
+  border-color: var(--text-dim);
+}
+
+/* Selected chip inverts the surface, so it reads in light and dark mode. */
+.yz-chip.is-on {
+  color: var(--bg);
+  background: var(--text);
+  border-color: var(--text);
+}
+
+.yz-chip__count {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.yz-chip.is-on .yz-chip__count {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.yz-tgrid__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 28px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yz-tgrid__empty {
+  padding: 48px 0;
+  color: var(--text-mut);
+}
+
+/* ═══════════ tutorial card ═══════════ */
+
+.yz-tcard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s ease, transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
+}
+
+.yz-tcard:hover {
+  border-color: var(--border-str);
+  transform: translateY(-4px);
+  box-shadow: 0 30px 50px -36px rgba(11, 22, 44, 0.55);
+}
+
+.yz-tcard__media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 9 / 13;
+  background: var(--navy-deep);
+}
+
+.yz-tcard__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 30%;
+  transition: transform 0.6s var(--ease-out);
+}
+
+.yz-tcard:hover .yz-tcard__media img {
+  transform: scale(1.04);
+}
+
+.yz-tcard__play {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--navy-deep);
+  background: var(--gold);
+  border-radius: var(--r-ctl);
+  transition: transform 0.2s var(--ease-out);
+}
+
+.yz-tcard__play svg {
+  margin-left: 2px;
+  fill: currentColor;
+}
+
+.yz-tcard:hover .yz-tcard__play {
+  transform: scale(1.08);
+}
+
+.yz-tcard__dur {
+  position: absolute;
+  right: 12px;
+  bottom: 16px;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--white);
+  background: rgba(7, 11, 20, 0.78);
+}
+
+.yz-tcard__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px 20px;
+  border-top: 3px solid var(--gold);
+}
+
+.yz-tcard__kicker {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.yz-tcard__title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.28;
+}
+
+.yz-tcard__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mut);
+}
+
+.yz-tcard__voice {
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  border: 1px solid var(--border-str);
+}
+
+.yz-tcard__voice.is-silent {
+  color: var(--text-dim);
+  border-style: dashed;
+}
+
+/* ═══════════ tutorial page hero ═══════════ */
+
+.yz-tuto-hero {
+  padding: 56px 0 72px;
+}
+
+.yz-tuto-hero .yz-container {
+  position: relative;
+  z-index: 2;
+}
+
+.yz-tuto-hero__kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 28px;
+  color: var(--text-dim);
+}
+
+.yz-tuto-hero__num {
+  padding: 7px 12px;
+  color: var(--navy-deep);
+  background: var(--gold);
+}
+
+.yz-tuto-hero__title {
+  max-width: 20ch;
+  margin: 22px 0 24px;
+  font-size: clamp(34px, 4.6vw, 62px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  color: var(--text);
+}
+
+.yz-tuto-hero__lead {
+  max-width: 62ch;
+  padding-left: 18px;
+  font-size: clamp(16px, 1.5vw, 18px);
+  line-height: 1.72;
+  color: var(--text-mut);
+  border-left: 2px solid var(--border-str);
+}
+
+.yz-tuto-hero__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 30px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yz-tuto-hero__facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.yz-tuto-hero__facts li + li {
+  border-left: 0;
+}
+
+.yz-tuto-hero__facts svg {
+  color: var(--accent-ink);
+}
+
+.yz-tuto-hero__facts .is-silent,
+.yz-tuto-hero__facts .is-silent svg {
+  color: var(--text-dim);
+}
+
+.yz-tuto-hero .yz-btn--primary svg {
+  fill: currentColor;
+}
+
+/* ═══════════ lesson: sticky video beside the steps ═══════════ */
+
+/* `overflow: hidden` on .yz-section would pin the sticky player to the
+   section instead of the viewport (same fix as .yz-show in app.css). */
+.yz-lesson {
+  overflow: clip;
+  padding-block: 88px 104px;
+}
+
+.yz-lesson__grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 72px;
+  align-items: start;
+}
+
+.yz-lesson__player {
+  position: sticky;
+  top: calc(var(--bar-h) + 24px);
+  scroll-margin-top: calc(var(--bar-h) + 24px);
+}
+
+.yz-lesson__frame {
+  /* Video + chapter list always fit under the header while pinned. */
+  width: min(100%, calc((100vh - var(--bar-h) - 280px) * 0.5625));
+  min-width: 220px;
+  padding: 8px;
+  background: var(--device);
+  border-radius: 28px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 44px 70px -34px rgba(11, 22, 44, 0.7);
+}
+
+.yz-lesson__frame video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  background: var(--navy-deep);
+  border-radius: 21px;
+}
+
+.yz-lesson__chapters {
+  margin-top: 22px;
+}
+
+.yz-lesson__chapters > p {
+  margin-bottom: 10px;
+  color: var(--text-dim);
+}
+
+.yz-lesson__chapters ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.yz-lesson__chapters button {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px 11px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-mut);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.yz-lesson__chapters button .yz-mono {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.yz-lesson__chapters button:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.yz-lesson__chapters button.is-on {
+  color: var(--text);
+  background: var(--surface);
+  border-left-color: var(--gold);
+}
+
+.yz-lesson__note {
+  margin-top: 18px;
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-mut);
+  background: var(--surface-2);
+  border-left: 3px solid var(--border-str);
+}
+
+.yz-lesson__head {
+  max-width: 640px;
+  margin-bottom: 40px;
+}
+
+/* ═══════════ steps ═══════════ */
+
+.yz-steplist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.yz-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px;
+  gap: 40px;
+  align-items: center;
+  padding: 40px 0 40px 28px;
+  border-bottom: 1px solid var(--border);
+  scroll-margin-top: calc(var(--bar-h) + 24px);
+  transition: background 0.3s ease;
+}
+
+.yz-step::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 0;
+  width: 3px;
+  background: var(--border);
+  transition: background 0.3s ease;
+}
+
+.yz-step.is-on {
+  background: var(--surface);
+}
+
+.yz-step.is-on::before {
+  background: var(--gold);
+}
+
+.yz-step__n {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 34px;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.yz-step__n span {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.yz-step__title {
+  margin: 12px 0 14px;
+  font-size: clamp(22px, 2.2vw, 28px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.yz-step__captions {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yz-step__captions li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text-mut);
+}
+
+.yz-step__captions li::before {
+  content: '';
+  position: absolute;
+  top: 0.72em;
+  left: 0;
+  width: 10px;
+  height: 2px;
+  background: var(--gold);
+}
+
+.yz-step__jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+  min-height: 40px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-str);
+  border-radius: var(--r-ctl);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.yz-step__jump svg {
+  color: var(--accent-ink);
+}
+
+.yz-step__jump .yz-mono {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.yz-step__jump:hover {
+  background: var(--surface-2);
+  border-color: var(--text-dim);
+}
+
+.yz-step__shot {
+  width: 200px;
+  justify-self: end;
+}
+
+/* ═══════════ transcript ═══════════ */
+
+.yz-transcript {
+  margin-top: 48px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.yz-transcript summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.yz-transcript summary::-webkit-details-marker {
+  display: none;
+}
+
+.yz-transcript summary::after {
+  content: '+';
+  font-family: var(--font-mono);
+  font-size: 20px;
+  color: var(--accent-ink);
+}
+
+.yz-transcript[open] summary::after {
+  content: '−';
+}
+
+.yz-transcript ol {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 4px 22px 24px 46px;
+  border-top: 1px solid var(--border);
+}
+
+.yz-transcript li {
+  padding-top: 10px;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--text-mut);
+}
+
+/* ═══════════ pager ═══════════ */
+
+.yz-tpager {
+  padding-block: 0;
+}
+
+.yz-tpager__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.yz-tpager__link {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 36px 32px 36px 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.yz-tpager__link .yz-mono {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.yz-tpager__link--next {
+  align-items: flex-end;
+  padding: 36px 0 36px 32px;
+  text-align: right;
+}
+
+.yz-tpager__title {
+  font-size: clamp(17px, 1.8vw, 21px);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.yz-tpager__link:hover .yz-tpager__title {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.yz-tpager__all {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 36px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  text-decoration: none;
+  border-inline: 1px solid var(--border);
+  transition: background 0.18s ease;
+}
+
+.yz-tpager__all svg {
+  color: var(--accent-ink);
+}
+
+.yz-tpager__all:hover {
+  background: var(--surface);
+}
+
+/* ═══════════ responsive (1180 · 1024 · 900 · 767 · 680 · 420) ═══════════ */
+
+@media (max-width: 1180px) {
+  .yz-tpath__rail {
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+
+  .yz-tpath__item {
+    scroll-snap-align: start;
+  }
+
+  .yz-lesson__grid {
+    gap: 48px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .yz-step {
+    grid-template-columns: minmax(0, 1fr) 170px;
+    gap: 28px;
+  }
+
+  .yz-step__shot {
+    width: 170px;
+  }
+}
+
+@media (max-width: 900px) {
+  .yz-thero__fan {
+    height: 360px;
+  }
+
+  .yz-thero__poster {
+    width: 160px;
+  }
+
+  .yz-lesson__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yz-lesson__player {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+  }
+
+  .yz-lesson__chapters {
+    margin-top: 0;
+  }
+
+  .yz-lesson__note {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .yz-tgrid__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 14px;
+  }
+
+  .yz-tcard__title {
+    font-size: 16px;
+  }
+
+  .yz-tcard__body {
+    padding: 14px 14px 16px;
+  }
+
+  .yz-tpager__grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .yz-tpager__all {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-direction: row;
+    padding: 18px;
+    border-inline: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .yz-tpager__link {
+    padding: 28px 16px 28px 0;
+  }
+
+  .yz-tpager__link--next {
+    padding: 28px 0 28px 16px;
+    border-left: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 680px) {
+  /* Small phones: previous / next stack, both read left to right. */
+  .yz-tpager__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yz-tpager__link,
+  .yz-tpager__link--next {
+    align-items: flex-start;
+    padding: 24px 0;
+    text-align: left;
+    border-left: 0;
+  }
+
+  .yz-tpager__link--next {
+    border-top: 1px solid var(--border);
+  }
+
+  .yz-tpager__all {
+    grid-row: auto;
+  }
+
+  .yz-lesson {
+    padding-block: 56px 72px;
+  }
+
+  .yz-lesson__player {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+
+  .yz-lesson__frame {
+    width: min(100%, 320px);
+  }
+
+  .yz-lesson__chapters {
+    width: 100%;
+  }
+
+  .yz-step {
+    grid-template-columns: minmax(0, 1fr) 42%;
+    gap: 18px;
+    padding: 28px 0 28px 18px;
+  }
+
+  .yz-step__shot {
+    width: 100%;
+  }
+
+  .yz-step__n {
+    font-size: 26px;
+  }
+
+  .yz-step__captions li {
+    font-size: 15px;
+  }
+
+  .yz-tuto-hero {
+    padding: 36px 0 52px;
+  }
+
+  .yz-tuto-hero__facts li {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 420px) {
+  .yz-tgrid__list {
+    gap: 14px 10px;
+  }
+
+  .yz-tcard__play {
+    width: 36px;
+    height: 36px;
+    left: 10px;
+    bottom: 10px;
+  }
+
+  .yz-tcard__dur {
+    right: 8px;
+    bottom: 10px;
+  }
+
+  .yz-tcard__meta {
+    font-size: 12px;
+  }
+
+  .yz-step {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yz-step__shot {
+    width: 62%;
+    justify-self: start;
+    grid-row: 2;
+  }
+
+  .yz-thero__poster {
+    width: 130px;
+  }
+
+  .yz-thero__fan {
+    height: 290px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yz-tcard,
+  .yz-tcard__media img,
+  .yz-thero__poster {
+    transition: none;
+  }
+}

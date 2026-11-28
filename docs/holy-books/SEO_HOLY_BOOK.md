@@ -184,6 +184,8 @@ Carried over from the live-site audit ([`docs/website-audit-2026-11.md`](../webs
 | `/pour-collectivites` | Offre collectivités — constat, impact, réponse souveraine, promesse, bénéfices, FAQ (replaces `/espace-collectivites/`) | commerce local collectivité territoire | `src/site/collectivites/collectivitesSeoData.js` (WebPage, BreadcrumbList, FAQPage) | ✅ | ✅ |
 | `/a-propos` | Mission, vision, fondateur, ambition (replaces `/a-propos-de-nous/`) | yuztoo belfort fondateur | `src/site/apropos/aproposSeoData.js` (WebPage, BreadcrumbList, Person) | ✅ | ✅ |
 | `/confidentialite` | Politique de confidentialité (app, migrée de `confidentialite.html`, + formulaires du site) | yuztoo confidentialité rgpd | `src/site/confidentialite/confidentialiteSeoData.js` (WebPage, BreadcrumbList) | ✅ | ✅ |
+| `/tutoriels` | Hub des tutoriels vidéo « YuzToo en 30 secondes ! » — parcours débutant, grille filtrable par thème | tutoriel application commerçant | `src/site/tutoriels/tutorielsSeoData.js` (WebPage, BreadcrumbList, ItemList) | ✅ | ✅ |
+| `/tutoriels/<slug>` (9 pages, tutos avec voix off) | Un tutoriel : vidéo, chapitres cliquables, étapes illustrées (captures en données de démo), texte de la vidéo, précédent/suivant | « <question du tuto> » (ex. créer une promotion commerce) | `tutorielSeo(t)` (WebPage, BreadcrumbList 3 niveaux, VideoObject, HowTo) | ✅ | ✅ |
 | `/merci` | Page de remerciement après formulaire (noindex) | — | `src/site/merci/merciSeoData.js` | ❌ | ✅ |
 | `/404` | Page introuvable (noindex) | — | `src/site/notFoundSeoData.js` | ❌ | ✅ |
 
@@ -198,6 +200,13 @@ Planned first wave, with the live URL each one replaces — see
 The four renamed URLs are the only ones with history. Their 301s ship with the first deploy.
 
 ## 10. Changelog (newest first)
+
+- **2026-11-28** — `/tutoriels` + 9 pages `/tutoriels/<slug>` (the « YuzToo en 30 secondes ! »
+  series; only tutorials with a recorded voice-over are published). Each tutorial page: one `h1` (the question), 3-level breadcrumb (`buildPageSeo` gained
+  `parents`), `VideoObject` + `HowTo` JSON-LD (one `HowToStep` per chapter with its 720 px
+  screenshot), self-hosted MP4 + WebP poster, French `alt` on every step screenshot, full video
+  transcript in the HTML. Hub has an `ItemList`. « Tutoriels » added to the header nav and the
+  footer. Gate passing on 16 indexable pages; 320 → 1440 px checked.
 
 - **2026-11-14** — Lead forms (shared `LeadForm`, §11) in the closing band of `/pour-commercants`,
   `/pour-clients`, `/pour-collectivites` and `/a-propos`, plus a mid-page CTA strip on the three

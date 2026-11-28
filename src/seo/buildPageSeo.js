@@ -1,7 +1,7 @@
 /**
  * Builds the SEO object for an inner page: canonical, Open Graph, and a
  * JSON-LD graph with WebPage + BreadcrumbList (+ FAQPage when `faq` is given).
- * Extra schema.org nodes go in `graph`.
+ * Extra schema.org nodes go in `graph`; `parents` adds breadcrumb levels.
  */
 
 import { SITE, absoluteUrl } from '../siteConfig.js'
@@ -13,7 +13,7 @@ const DEFAULT_OG = {
   imageAlt: 'Une plaque YuzToo posée sur le comptoir d’un commerce de proximité',
 }
 
-export function buildPageSeo({ path, title, description, crumb, faq, audience, graph = [] }) {
+export function buildPageSeo({ path, title, description, crumb, parents = [], faq, audience, graph = [] }) {
   const url = absoluteUrl(path)
 
   const nodes = [
@@ -30,7 +30,9 @@ export function buildPageSeo({ path, title, description, crumb, faq, audience, g
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Accueil', item: absoluteUrl('/') },
-        { '@type': 'ListItem', position: 2, name: crumb, item: url },
+        // `parents`: [{ name, path }] between Accueil and this page.
+        ...parents.map((p, i) => ({ '@type': 'ListItem', position: i + 2, name: p.name, item: absoluteUrl(p.path) })),
+        { '@type': 'ListItem', position: parents.length + 2, name: crumb, item: url },
       ],
     },
     ...graph,

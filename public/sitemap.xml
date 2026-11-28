@@ -31,6 +31,66 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://www.yuztoo.com/tutoriels</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.yuztoo.com/tutoriels/tuto-01-creer-mon-compte-commercant</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.yuztoo.com/tutoriels/tuto-02-retrouver-mes-clients-nfc</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.yuztoo.com/tutoriels/tuto-04b-notifications-automatiques</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.yuztoo.com/tutoriels/tuto-05a-horaires-et-actualite</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.yuztoo.com/tutoriels/tuto-05b-personnaliser-ma-vitrine</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.yuztoo.com/tutoriels/tuto-06-bon-de-bienvenue</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.yuztoo.com/tutoriels/tuto-08-creer-une-promotion</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.yuztoo.com/tutoriels/tuto-09-creer-une-association</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.yuztoo.com/tutoriels/tuto-12-gamification</loc>
+    <lastmod>2026-11-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://www.yuztoo.com/confidentialite</loc>
     <lastmod>2026-11-14</lastmod>
     <changefreq>yearly</changefreq>

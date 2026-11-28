@@ -5,7 +5,7 @@ import { bt } from './Brand.jsx'
 
 /**
  * Inner-page hero. `hero`: { crumb, badge, titleLead, titleAccent, titleEnd,
- * intro, primaryCta?, secondaryCta?, checks? }. The visual is passed as children.
+ * intro, primaryCta?, secondaryCta?, checks?, parents? }. The visual is passed as children.
  */
 export default function PageHero({ hero, BadgeIcon, className = '', children }) {
   return (
@@ -14,7 +14,7 @@ export default function PageHero({ hero, BadgeIcon, className = '', children }) 
 
       <div className="yz-hero__inner">
         <div className="yz-hero__copy">
-          <Breadcrumb current={hero.crumb} />
+          <Breadcrumb current={hero.crumb} parents={hero.parents} />
 
           <p className="yz-badge">
             {BadgeIcon ? <BadgeIcon size={14} strokeWidth={2.4} aria-hidden="true" /> : null}

@@ -7,6 +7,7 @@ export const NAV_LINKS = [
   { href: '/pour-commercants', label: 'Commerçants' },
   { href: '/pour-clients', label: 'Clients' },
   { href: '/pour-collectivites', label: 'Collectivités' },
+  { href: '/tutoriels', label: 'Tutoriels' },
   { href: '/a-propos', label: 'À propos' },
 ]
 
@@ -37,6 +38,7 @@ export const FOOTER = {
         { href: '/pour-commercants', label: 'Pour les commerçants' },
         { href: '/pour-clients', label: 'Pour les clients' },
         { href: '/pour-collectivites', label: 'Pour les collectivités' },
+        { href: '/tutoriels', label: 'Tutoriels vidéo' },
         { href: '/telecharger', label: 'Télécharger l’app' },
       ],
     },

@@ -21,6 +21,10 @@ import ConfidentialitePage from './site/confidentialite/ConfidentialitePage.jsx'
 import { CONFIDENTIALITE_SEO } from './site/confidentialite/confidentialiteSeoData.js'
 import MerciPage from './site/merci/MerciPage.jsx'
 import { MERCI_SEO } from './site/merci/merciSeoData.js'
+import TutorielsPage from './site/tutoriels/TutorielsPage.jsx'
+import { tutorielRoute } from './site/tutoriels/TutorielPage.jsx'
+import { TUTORIALS } from './site/tutoriels/tutorielsContent.js'
+import { TUTORIELS_SEO, tutorielSeo } from './site/tutoriels/tutorielsSeoData.js'
 import NotFoundPage from './site/NotFoundPage.jsx'
 import { NOT_FOUND_SEO } from './site/notFoundSeoData.js'
 
@@ -30,6 +34,10 @@ const PAGES = {
   '/pour-clients': { Component: ClientsPage, seo: CLIENTS_SEO },
   '/pour-collectivites': { Component: CollectivitesPage, seo: COLLECTIVITES_SEO },
   '/a-propos': { Component: AproposPage, seo: APROPOS_SEO },
+  '/tutoriels': { Component: TutorielsPage, seo: TUTORIELS_SEO },
+  ...Object.fromEntries(
+    TUTORIALS.map((t) => [`/tutoriels/${t.slug}`, { Component: tutorielRoute(t), seo: tutorielSeo(t) }]),
+  ),
   '/confidentialite': { Component: ConfidentialitePage, seo: CONFIDENTIALITE_SEO },
   '/merci': { Component: MerciPage, seo: MERCI_SEO },
   '/404': { Component: NotFoundPage, seo: NOT_FOUND_SEO },

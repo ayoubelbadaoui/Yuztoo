@@ -6,6 +6,8 @@
  * adding an entry here; the prerenderer, the sitemap and the SEO gate follow.
  */
 
+import { TUTORIALS } from './site/tutoriels/tutorielsContent.js'
+
 export const ROUTE_META = [
   {
     path: '/',
@@ -42,6 +44,20 @@ export const ROUTE_META = [
     changefreq: 'yearly',
     priority: '0.6',
   },
+  {
+    path: '/tutoriels',
+    indexable: true,
+    lastmod: '2026-11-28',
+    changefreq: 'monthly',
+    priority: '0.8',
+  },
+  ...TUTORIALS.map((t) => ({
+    path: `/tutoriels/${t.slug}`,
+    indexable: true,
+    lastmod: '2026-11-28',
+    changefreq: 'monthly',
+    priority: '0.7',
+  })),
   {
     path: '/confidentialite',
     indexable: true,

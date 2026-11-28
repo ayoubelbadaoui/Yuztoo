@@ -7,6 +7,10 @@ import { useNetworkCount } from '../useNetworkCount.js'
 import LiveBadge from '../components/LiveBadge.jsx'
 import { bt } from '../components/Brand.jsx'
 
+// A section link stays active on its sub-pages (/tutoriels/…).
+const isActive = (href, current) =>
+  href === current || (href !== '/' && current.startsWith(`${href}/`))
+
 // Two thresholds so the bar does not flicker when the page rests near one.
 const CONDENSE_AT = 24
 const RELEASE_AT = 8
@@ -120,7 +124,7 @@ export default function SiteHeader({ currentPath = '/' }) {
 
           <nav className="yz-nav" aria-label="Navigation principale">
             {NAV_LINKS.map((link) => {
-              const active = link.href === currentPath
+              const active = isActive(link.href, currentPath)
               return (
                 <a
                   key={link.href}
@@ -158,7 +162,7 @@ export default function SiteHeader({ currentPath = '/' }) {
         <div className={`yz-drawer${open ? ' is-open' : ''}`} id="yz-drawer">
           <nav className="yz-drawer__nav" aria-label="Navigation mobile">
             {NAV_LINKS.map((link, i) => {
-              const active = link.href === currentPath
+              const active = isActive(link.href, currentPath)
               return (
                 <a
                   key={link.href}
