@@ -1,37 +1,35 @@
-Objet : Site YuzToo — les derniers éléments dont nous avons besoin
+Objet : Site YuzToo — 4 éléments à nous fournir
 
 Bonjour,
 
-Le nouveau site est presque terminé : toutes les modifications de votre liste sont en place. Pour qu'il soit complet à 100 %, il nous manque encore quelques éléments que vous seul pouvez nous fournir. Vous trouverez en pièce jointe une capture pour chacun, avec l'endroit exact où il apparaîtra (cadre orange numéroté).
+Le nouveau site est presque terminé : toutes les modifications de votre liste sont en place. Nous avons repris tout ce qui existait déjà (captures et vidéos de l'application, tutoriels, tarifs du brief, récompenses de l'application). Il ne nous manque plus que les éléments ci-dessous, que vous seul pouvez nous fournir. Chaque capture jointe montre, dans un cadre orange numéroté, l'endroit où l'élément apparaîtra.
 
 **1. Une photo de la vraie plaque NFC YuzToo** (capture 1-plaque-nfc.png)
-Elle remplacera la plaque dessinée, en haut de la page d'accueil.
-- Plaque posée à plat, photographiée de face ou légèrement de biais (30° maximum), logo et QR code bien lisibles.
-- Fond uni et clair (table blanche, comptoir clair) ou, mieux, la plaque sur un vrai comptoir de commerce.
-- Lumière du jour, sans flash ni reflet sur la plaque.
-- La plus haute résolution possible (photo d'origine du téléphone, au moins 2000 px de large), sans filtre.
+Nous n'avons aucune photo de la plaque réelle, seulement le dessin du badge dans l'application. La photo remplacera la plaque dessinée en haut de la page d'accueil.
+- Plaque posée à plat, de face ou légèrement de biais (30° maximum), logo et QR code lisibles.
+- Fond uni et clair, ou mieux, la plaque sur un vrai comptoir de commerce.
+- Lumière du jour, sans flash ni reflet.
+- Photo d'origine du téléphone (au moins 2000 px de large), sans filtre.
 - Si possible, une deuxième photo : un téléphone approché de la plaque.
 
 **2. Les publications et vidéos réalisées pour vos commerçants** (capture 2-carrousel-commercants.png)
-Elles s'afficheront dans le carrousel « La parole aux commerçants ».
-- Pour chaque commerçant : son nom ou son activité, sa ville, et l'accord du commerçant pour être affiché.
-- Images : format portrait 4:5 (par ex. 1080 × 1350 px), JPG ou PNG.
-- Vidéos : format vertical 9:16 (1080 × 1920 px), MP4, 15 à 60 secondes. Nous les compressons pour le web.
-- Une phrase du commerçant si vous en avez une (comme les témoignages actuels).
+Nous avons les tutoriels « YuzToo en 30 secondes », mais aucun contenu réalisé pour un commerçant en particulier. Pour le carrousel « La parole aux commerçants » :
+- Pour chaque commerçant : nom ou activité, ville, et son accord pour être affiché.
+- Images : portrait 4:5 (par ex. 1080 × 1350 px), JPG ou PNG.
+- Vidéos : verticales 9:16 (1080 × 1920 px), MP4, 15 à 60 secondes.
 
-**3. Les tarifs** (capture 3-tarifs.png)
-Les prix sont en place : Essentiel 29 € → 0 € / mois et Premium 49 € → 29 € / mois pour les 300 premiers commerçants. Il nous faut :
-- **Le contenu de chaque offre.** Nous vous joignons une proposition (tarifs-brouillon.md) basée sur les fonctionnalités de l'application : merci de la corriger ou de la valider.
+**3. Deux précisions sur les tarifs** (capture 3-tarifs.png)
+Les prix sont en place (Essentiel 29 € → 0 € / mois, Premium 49 € → 29 € / mois pour les 300 premiers commerçants) et affichés HT, comme dans l'application.
 - **La durée des prix pionniers** : à vie (tant que l'abonnement reste actif), 12 mois, 24 mois… ?
-- **HT ou TTC** : nous proposons d'afficher les prix HT, comme c'est l'usage entre professionnels.
+- **Le contenu de chaque offre** : vous trouverez notre proposition en pièce jointe (tarifs-brouillon.md), construite à partir de ce que l'application prévoit déjà. Merci de la corriger ou de la valider, et de nous dire si le compte gratuit de l'application doit aussi apparaître sur le site.
 
-**4. La roue YuzToo** (capture 4-roue-yuztoo.png)
-Le site la présente comme « Bientôt dans l'application », avec une démo. Avant son lancement, il nous faut votre accord sur :
+**4. Les règles de la roue YuzToo** (capture 4-roue-yuztoo.png)
+Le site la présente comme « Bientôt dans l'application ». Nous proposons d'utiliser les types de récompenses qui existent déjà dans l'application : bon d'achat, remise, produit offert, points. Il nous manque :
 - les règles de participation (une fois par scan ? par jour ? par commerce ?) ;
-- les récompenses possibles et qui les finance (commerçant ou YuzToo) ;
-- le règlement du jeu, à publier sur le site avant l'ouverture.
+- qui finance les récompenses (le commerçant ou YuzToo) ;
+- votre accord sur le règlement du jeu, à publier avant l'ouverture.
 
-**À noter :** le compteur de commerces est maintenant relié à l'application. Il affiche aujourd'hui **46 vitrines actives** (et non 50). Si certains commerçants partenaires n'ont pas encore mis leur vitrine en ligne, c'est pour cela. Dites-nous si vous préférez afficher le chiffre en direct ou garder « 50 ».
+**Une question pour finir :** le compteur de commerces est relié à l'application et affiche aujourd'hui **46 vitrines actives** (et non 50). Préférez-vous afficher ce chiffre en direct, ou garder « 50 » ?
 
 Dès réception, nous intégrons le tout et le site est prêt.
 

@@ -6,12 +6,26 @@
 > (tutoriels « YuzToo en 30 secondes » 01 à 12). La répartition entre les deux
 > offres est une proposition à confirmer.
 
+## Ce que l'application définit déjà (code `develop`)
+
+- Trois niveaux de compte : **gratuit**, **essentiel**, **premium**
+  (`lib/feature/merchant/domain/entities/merchant_subscription_plan.dart`).
+- Visibilité dans « Découvrir » : 90 jours pour le compte gratuit, illimitée
+  pour Essentiel et Premium (`discovery_subscription_visibility.dart`).
+- Notifications manuelles : 5 par semaine sur le compte gratuit, illimitées sur
+  les offres payantes. Quota désactivé pendant le lancement
+  (`notification_quota_policy.dart`).
+- Promotions ciblées : « 5 € HT ou inclus avec abonnement premium »
+  (`client_type_details.part.dart`) : l'application affiche déjà ses prix HT.
+
 ## Offre Essentiel
 
 - Tarif normal : ~~29 € HT / mois~~
 - Offre pionniers : **0 € HT / mois**
 
 Inclus :
+- Visibilité illimitée dans « Découvrir »
+- Notifications manuelles illimitées
 - Votre vitrine YuzToo personnalisée (logo, couverture, horaires, actualités)
 - La plaque NFC et votre QR code, installés par notre équipe
 - La liste de vos clients connectés, avec leurs statuts (nouveau, habitué, VIP, inactif)
@@ -43,7 +57,8 @@ avec abonnement premium » : c'est ce qui justifie de le placer en Premium.
 
 ## À confirmer par le client
 
-1. La répartition des fonctionnalités entre Essentiel et Premium.
+1. La répartition des fonctionnalités entre Essentiel et Premium, et le sort
+   du compte gratuit de l'application (affiché ou non sur le site).
 2. La durée de validité des prix pionniers.
-3. HT (proposé, usage B2B) ou TTC.
+3. HT : retenu, comme dans l'application (sauf avis contraire du client).
 4. « Accompagnement prioritaire » : à garder seulement si le client l'offre réellement.
