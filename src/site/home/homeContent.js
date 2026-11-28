@@ -89,7 +89,7 @@ export const HOME_STEPS = {
     {
       id: 'scan',
       screen: 'vitrine',
-      video: { src: '/videos/yuztoo-scan.mp4', poster: '/videos/yuztoo-scan.webp', label: 'Chaque scan de votre plaque ajoute un client à votre liste.' },
+      video: { src: '/videos/yuztoo-client-scan.mp4', poster: '/videos/yuztoo-client-scan.webp', label: 'Il approche son téléphone de la plaque : votre vitrine entre dans son carnet YuzToo.' },
       icon: 'scan',
       title: 'Le client scanne',
       text: 'Il approche son téléphone de la plaque posée sur votre comptoir. Votre commerce entre dans son carnet.',
